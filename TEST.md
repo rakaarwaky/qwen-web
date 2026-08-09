@@ -202,3 +202,4 @@ src/
 |------|--------|--------|
 | 2026-08-09 | Initial behavior lock: 28 tests, fixture mirror, dead-code removal | dev |
 | 2026-08-09 | Restored conftest golden-task fixtures from git HEAD | dev |
+| 2026-08-09 | Updated behavior-lock tests & TEST.md to match active P7 QwenClient architecture | dev |
