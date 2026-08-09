@@ -32,10 +32,9 @@ from playwright.sync_api import BrowserContext, sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.config import AppConfig  # noqa: E402
+from src.types import AppConfig, RunContext  # noqa: E402
 from src.pipeline import AuditLog, _list_input_files, resolve_role_paths, load_role_prompt  # noqa: E402
 from src.qwen_client import QwenClient  # noqa: E402
-from src.config import RunContext  # noqa: E402
 
 FIXTURE = (Path(__file__).resolve().parent / "fixtures" / "qwen_fixture.html").as_uri()
 

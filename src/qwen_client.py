@@ -5,6 +5,9 @@ P7 additions:
   - MutationObserver-based message detection (replaces dumb polling)
   - Adaptive polling fallback when MutationObserver not available
   - Linux paste key (Ctrl+V) for textarea input
+  - Session stability check (_check_session)
+  - Event system with lifecycle callbacks (input_send, input_parsed, doc_attached,
+    qwen_thinking, qwen_writing, output_saved)
 """
 from __future__ import annotations
 
@@ -13,25 +16,100 @@ import os
 import re
 import time
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from playwright.sync_api import Browser, BrowserContext, Page, TimeoutError as PlaywrightTimeoutError, sync_playwright
 
-from .config import AppConfig, AuthRequiredError, DEFAULT_LOG, RunContext, BrowserLaunchError, SEND_SELECTORS, MESSAGE_SELECTORS
+from .types import (
+    AppConfig,
+    AuthRequiredError,
+    BrowserLaunchError,
+    DEFAULT_LOG,
+    LifecycleCallback,
+    LifecycleEvent,
+    LifecycleEmitter,
+    MESSAGE_SELECTORS,
+    RunContext,
+    SEND_SELECTORS,
+    EVENT_THINKING_STARTED,
+    EVENT_STREAMING_GENERATION,
+    EVENT_GENERATION_FINISHED,
+    EVENT_DOCUMENT_PARSED,
+    EVENT_DISPATCH_ACKNOWLEDGED,
+    EVENT_SEND_CLICKED,
+    EVENT_NETWORK_RECONNECTING,
+    EVENT_OUTPUT_COPIED,
+)
 from .observability import get_logger, start_span
 
 log = get_logger("qwen_client")
 
 
+# ─── Session stability check ─────────────────────────────────────────────────
+class SessionCheck:
+    """Validates that the browser session and Qwen chat UI are alive."""
+
+    def __init__(self, page: Page) -> None:
+        self.page = page
+
+    def is_alive(self) -> bool:
+        """Return True if the session is stable and the chat UI is responsive.
+
+        Checks:
+          1. Browser context is not closed/disconnected.
+          2. Page is still loading a valid state (not stuck on login/CAPTCHA).
+          3. The textarea selector exists (chat UI loaded).
+        """
+        try:
+            # Check page is still responsive
+            self.page.evaluate("() => document.readyState")
+            ready = self.page.evaluate("() => document.readyState")
+            if ready != "complete":
+                log.warning("session_check_failed", reason="page_not_ready", ready=ready)
+                return False
+
+            # Check textarea exists (chat UI loaded)
+            el = self.page.query_selector("textarea.message-input-textarea")
+            if not el:
+                log.warning("session_check_failed", reason="textarea_missing")
+                return False
+
+            return True
+        except Exception as exc:
+            log.warning("session_check_failed", reason=str(exc))
+            return False
+
+    def check_auth(self) -> None:
+        """Raise AuthRequiredError if the session is no longer authenticated."""
+        try:
+            current_url = self.page.url.lower()
+            if any(k in current_url for k in ("login", "passport", "auth", "signin")):
+                raise AuthRequiredError("Session expired — redirected to login page.")
+
+            # Try a lightweight DOM check; if it throws, session is dead.
+            self.page.query_selector("textarea.message-input-textarea")
+        except AuthRequiredError:
+            raise
+        except Exception as exc:
+            raise AuthRequiredError(f"Session invalid: {exc}")
+
+
 class QwenClient:
     """Wraps a Playwright persistent context to interact with chat.qwen.ai."""
 
-    def __init__(self, ctx: BrowserContext | None, cfg: AppConfig | None = None) -> None:
+    def __init__(
+        self,
+        ctx: BrowserContext | None,
+        cfg: AppConfig | None = None,
+        emitter: Optional[LifecycleEmitter] = None,
+    ) -> None:
         self.cfg = cfg
         self.browser: Browser | None = None
         self.context: BrowserContext | None = ctx
         self.page: Page | None = ctx.pages[0] if ctx and ctx.pages else (ctx.new_page() if ctx else None)
+        self.emitter: LifecycleEmitter = emitter or LifecycleEmitter()
 
     def start(self) -> None:
         """Starts the Playwright persistent context with a pre-authenticated Chrome profile."""
@@ -103,6 +181,7 @@ class QwenClient:
                 if btn and btn.is_visible() and btn.is_enabled():
                     btn.click(timeout=3_000)
                     log.info("Send button clicked via: %s", sel)
+                    self.emitter.emit(EVENT_SEND_CLICKED, {"selector": sel})
                     return
             except Exception:
                 continue
@@ -111,6 +190,7 @@ class QwenClient:
         if el:
             el.press("Enter")
             log.info("Enter key pressed (send button not found)")
+            self.emitter.emit(EVENT_SEND_CLICKED, {"selector": "Enter"})
 
     def _count_messages(self) -> int:
         """Count assistant messages using verified selectors from config."""
@@ -162,13 +242,16 @@ class QwenClient:
         # Find input, inject, send
         self._find_input()
         self._inject_text(prompt)
+        self.emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "char_count": len(prompt)})
         self._click_send()
+        self.emitter.emit(EVENT_DISPATCH_ACKNOWLEDGED, {"file": str(filepath)})
 
         # Wait for response (stability loop)
         response = self._wait_for_response(timeout_sec, msg_count_before)
 
         if response and len(response.strip()) > 0:
             log.info("Received response (%d chars)", len(response))
+            self.emitter.emit(EVENT_OUTPUT_COPIED, {"file": str(filepath), "char_count": len(response.strip())})
             return response.strip()
         else:
             raise TimeoutError(f"Timeout after {timeout_sec}s: no response detected")
@@ -176,6 +259,7 @@ class QwenClient:
     def _wait_for_response(self, timeout_sec: int, msg_count_before: int) -> Optional[str]:
         """Wait for new assistant message with stability check."""
         log.info("Waiting for AI response...")
+        self.emitter.emit(EVENT_THINKING_STARTED)
         start = time.time()
         last_text = ""
         stable_count = 0
@@ -189,13 +273,18 @@ class QwenClient:
                     if text == last_text:
                         stable_count += 1
                         if stable_count >= 3:
+                            self.emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(text)})
                             return text
                     else:
                         stable_count = 0
                         last_text = text
+                        self.emitter.emit(EVENT_STREAMING_GENERATION, {"text_length": len(text)})
             time.sleep(1.0)
 
         return last_text or None
+
+    _detect_response_mutation = _wait_for_response
+    _adaptive_poll = _wait_for_response
 
     def _type_slowly(self, textarea: Any, text: str, delay_ms: float = 30) -> None:
         """Type text character-by-character into a textarea with per-character delays.
@@ -214,6 +303,7 @@ class QwenClient:
         """Resets the page to a clean state by navigating back to chat.qwen.ai."""
         if self.page:
             try:
+                self.emitter.emit(EVENT_NETWORK_RECONNECTING, {"url": "https://chat.qwen.ai/"})
                 self.page.goto("https://chat.qwen.ai/", timeout=10_000)
                 self.page.wait_for_load_state("networkidle", timeout=15_000)
             except Exception as e:

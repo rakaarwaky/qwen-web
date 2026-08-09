@@ -21,7 +21,7 @@ if not __package__:
         sys.path.insert(0, str(_parent_dir))
     __package__ = _src_dir.name
 
-from .config import (
+from .types import (
     BASE_DIR,
     CHAT_URL,
     AuthRequiredError,

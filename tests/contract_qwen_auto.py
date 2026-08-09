@@ -2,7 +2,7 @@
 import unittest
 from pathlib import Path
 
-from src.config import AppConfig, AuthRequiredError, PromptInjectionError, RunContext
+from src.types import AppConfig, AuthRequiredError, PromptInjectionError, RunContext
 from src.pipeline import AuditLog
 from src.qwen_client import QwenClient
 

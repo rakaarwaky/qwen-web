@@ -1,12 +1,11 @@
 """Observability stack: structlog + OpenTelemetry + Sentry + global exception hooks.
 
-P8 additions:
-  - ErrorCategory : categorize errors for dashboards/alerting.
-  - MetricsCounter: simple in-memory counter for request/file stats.
-  - StatusFileWriter: moved here from linux.py (status file writer).
+All types are centralized in src/types.py — import directly from there.
+MetricsCounter and StatusFileWriter are behavioral entities defined locally.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
@@ -45,48 +44,14 @@ try:
 except ImportError:  # pragma: no cover
     HAS_OTLP = False
 
-SERVICE_NAME = "qwen-web"
+from .types import (
+    ErrorCategory,
+    AuthRequiredError,
+    SERVICE_NAME,
+)
 
 
-# ─── Error categorization (P8) ───────────────────────────────────────────────
-class ErrorCategory:
-    """Categorize errors for dashboards and alerting.
-
-    Categories:
-      - auth         : authentication / login / captcha issues
-      - network      : connection lost, DNS, timeout
-      - rate_limit   : server throttling (HTTP 429, etc.)
-      - browser      : browser crash, launch failure, DOM error
-      - injection    : prompt injection failed
-      - parsing      : Qwen returned unexpected / empty response
-      - file_io      : disk read/write errors
-      - other        : uncategorized
-    """
-
-    @staticmethod
-    def categorize(exc: BaseException) -> str:
-        """Return the error category string."""
-        exc_type = type(exc).__name__
-        msg = str(exc).lower()
-
-        if any(k in msg or k in exc_type.lower() for k in ("auth", "login", "captcha", "signin")):
-            return "auth"
-        if any(k in msg or k in exc_type.lower() for k in ("network", "connection", "timeout", "dns", "socket")):
-            return "network"
-        if any(k in msg or k in exc_type.lower() for k in ("rate", "limit", "throttl", "429")):
-            return "rate_limit"
-        if any(k in msg or k in exc_type.lower() for k in ("browser", "launch", "dom", "playwright", "chromium")):
-            return "browser"
-        if any(k in msg or k in exc_type.lower() for k in ("injection", "paste", "clipboard", "fill")):
-            return "injection"
-        if any(k in msg or k in exc_type.lower() for k in ("parse", "empty", "no response", "timeout")):
-            return "parsing"
-        if any(k in msg or k in exc_type.lower() for k in ("file", "io", "disk", "read", "write")):
-            return "file_io"
-        return "other"
-
-
-# ─── Metrics counter (P8) ────────────────────────────────────────────────────
+# ─── Metrics counter ─────────────────────────────────────────────────────────
 class MetricsCounter:
     """Simple in-memory metrics collector for request/file stats.
 
@@ -114,7 +79,63 @@ class MetricsCounter:
             return dict(self._counters)
 
 
-# ─── Logger / Tracer accessors ───────────────────────────────────────────────
+# ─── Status file writer ──────────────────────────────────────────────────────
+class StatusFileWriter:
+    """Writes a JSON status file that systemd / monitoring tools can read.
+
+    The status file is updated on every major lifecycle event.
+    """
+
+    def __init__(self, status_path: Path) -> None:
+        self._status_path = status_path
+        self._status_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def write(
+        self,
+        status: str,
+        mode: str,
+        headless: bool,
+        run_id: Optional[str] = None,
+        error: Optional[str] = None,
+        cpu_sec: Optional[float] = None,
+        files_processed: int = 0,
+        files_failed: int = 0,
+    ) -> None:
+        """Atomically write the current status to disk."""
+        rec: dict[str, Any] = {
+            "status": status,
+            "mode": mode,
+            "headless": headless,
+            "run_id": run_id,
+            "files_processed": files_processed,
+            "files_failed": files_failed,
+        }
+        if cpu_sec is not None:
+            rec["cpu_sec"] = round(cpu_sec, 2)
+        if error:
+            rec["error"] = error
+
+        tmp_path = self._status_path.with_suffix(".tmp")
+        try:
+            tmp_path.write_text(
+                json.dumps(rec, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            tmp_path.rename(self._status_path)
+        except Exception:
+            pass
+
+    def read(self) -> Optional[dict[str, Any]]:
+        """Read the last written status file."""
+        try:
+            return json.loads(self._status_path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return None
+        except Exception:
+            return None
+
+
+# ─── Logger / Tracer accessors ────────────────────────────────────────────────
 def get_logger(name: str = "qwen-cli") -> Any:
     """Return a structlog bound logger, falling back to stdlib logging."""
     if HAS_STRUCTLOG:
@@ -124,7 +145,7 @@ def get_logger(name: str = "qwen-cli") -> Any:
 
 def get_tracer(name: str = "qwen-cli") -> Any:
     """Return an OpenTelemetry tracer, or None when tracing is unavailable."""
-    if HAS_OTEL and trace is not None:
+    if trace is not None and HAS_OTEL:
         return trace.get_tracer(name)
     return None
 
@@ -172,7 +193,7 @@ def exit_code_for(exc: BaseException) -> int:
     """Map an unhandled exception to a process exit code."""
     if isinstance(exc, KeyboardInterrupt):
         return 130
-    from .config import AuthRequiredError
+    from .types import AuthRequiredError
     if isinstance(exc, AuthRequiredError):
         return 2
     return 1
@@ -212,87 +233,7 @@ def install_excepthooks() -> None:
     threading.excepthook = _thread_excepthook
 
 
-# ─── Status file writer (P8) ────────────────────────────────────────────────
-class StatusFileWriter:
-    """Writes a JSON status file that systemd / monitoring tools can read.
-
-    The status file is updated on every major lifecycle event.
-    """
-
-    def __init__(self, status_path: Path) -> None:
-        self._status_path = status_path
-        self._status_path.parent.mkdir(parents=True, exist_ok=True)
-
-    def write(
-        self,
-        status: str,
-        mode: str,
-        headless: bool,
-        run_id: Optional[str] = None,
-        error: Optional[str] = None,
-        cpu_sec: Optional[float] = None,
-        files_processed: int = 0,
-        files_failed: int = 0,
-    ) -> None:
-        """Atomically write the current status to disk.
-
-        Parameters
-        ----------
-        status : str
-            One of "running", "completed", "failed", "error".
-        mode : str
-            The active mode: "watcher", "batch", "single".
-        headless : bool
-            Whether the browser is running headlessly.
-        run_id : str, optional
-            Current run identifier.
-        error : str, optional
-            Error message if status is "failed" or "error".
-        cpu_sec : float, optional
-            Elapsed wall-clock seconds.
-        files_processed : int
-            Number of successfully processed files.
-        files_failed : int
-            Number of files that failed processing.
-        """
-        rec: dict[str, Any] = {
-            "status": status,
-            "mode": mode,
-            "headless": headless,
-            "run_id": run_id,
-            "files_processed": files_processed,
-            "files_failed": files_failed,
-        }
-        if cpu_sec is not None:
-            rec["cpu_sec"] = round(cpu_sec, 2)
-        if error:
-            rec["error"] = error
-
-        tmp_path = self._status_path.with_suffix(".tmp")
-        try:
-            import json
-
-            tmp_path.write_text(
-                json.dumps(rec, ensure_ascii=False) + "\n",
-                encoding="utf-8",
-            )
-            tmp_path.rename(self._status_path)
-        except Exception:
-            # Non-fatal — best-effort only
-            pass
-
-    def read(self) -> Optional[dict[str, Any]]:
-        """Read the last written status file."""
-        try:
-            import json
-            return json.loads(self._status_path.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
-        except FileNotFoundError:
-            return None
-        except Exception:
-            return None
-
-
-# ─── Setup ───────────────────────────────────────────────────────────────────
+# ─── Setup ────────────────────────────────────────────────────────────────────
 def setup_observability(log_path: Path) -> None:
     """Full observability bootstrap: Sentry → OpenTelemetry → structlog → hooks.
 

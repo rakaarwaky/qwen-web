@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from typing import Optional
 
-from src.config import AppConfig, RunContext
+from src.types import AppConfig, RunContext
 from src.pipeline import AuditLog, _iter_todo, _process_file
 
 

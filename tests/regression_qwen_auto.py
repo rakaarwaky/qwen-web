@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from src.config import AppConfig
+from src.types import AppConfig
 from src.qwen_client import QwenClient
 from src.pipeline import (
     _list_input_files,

@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from src.config import AppConfig, RunContext
+from src.types import AppConfig, RunContext
 from src.qwen_client import QwenClient
 from src.pipeline import AuditLog, _process_file
 

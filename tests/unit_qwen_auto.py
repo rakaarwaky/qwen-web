@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.config import AppConfig, RunContext
+from src.types import AppConfig, RunContext
 from src.main import _build_config, _parse_args
 from src.pipeline import AuditLog, _write_output
 
@@ -74,6 +74,75 @@ class TestQwenAutoUnit(unittest.TestCase):
             MockArgs.watch = True
             cfg_watch = _build_config(MockArgs())
             self.assertEqual(cfg_watch.mode, "watcher")
+
+    def test_event_constants_and_emitter(self) -> None:
+        from src.types import (
+            LifecycleEmitter,
+            EVENT_THINKING_STARTED,
+            EVENT_STREAMING_GENERATION,
+            EVENT_GENERATION_FINISHED,
+            EVENT_DOCUMENT_PARSED,
+            EVENT_DISPATCH_ACKNOWLEDGED,
+            EVENT_SEND_CLICKED,
+            EVENT_NETWORK_RECONNECTING,
+            EVENT_OUTPUT_COPIED,
+        )
+
+        emitter = LifecycleEmitter()
+        received_events = []
+
+        for evt_name in [
+            EVENT_THINKING_STARTED,
+            EVENT_STREAMING_GENERATION,
+            EVENT_GENERATION_FINISHED,
+            EVENT_DOCUMENT_PARSED,
+            EVENT_DISPATCH_ACKNOWLEDGED,
+            EVENT_SEND_CLICKED,
+            EVENT_NETWORK_RECONNECTING,
+            EVENT_OUTPUT_COPIED,
+        ]:
+            emitter.on(evt_name, lambda e: received_events.append(e.name))
+
+        for evt_name in [
+            EVENT_THINKING_STARTED,
+            EVENT_STREAMING_GENERATION,
+            EVENT_GENERATION_FINISHED,
+            EVENT_DOCUMENT_PARSED,
+            EVENT_DISPATCH_ACKNOWLEDGED,
+            EVENT_SEND_CLICKED,
+            EVENT_NETWORK_RECONNECTING,
+            EVENT_OUTPUT_COPIED,
+        ]:
+            emitter.emit(evt_name, {"test": True})
+
+        self.assertEqual(len(received_events), 8)
+        self.assertEqual(
+            received_events,
+            [
+                "EVENT_THINKING_STARTED",
+                "EVENT_STREAMING_GENERATION",
+                "EVENT_GENERATION_FINISHED",
+                "EVENT_DOCUMENT_PARSED",
+                "EVENT_DISPATCH_ACKNOWLEDGED",
+                "EVENT_SEND_CLICKED",
+                "EVENT_NETWORK_RECONNECTING",
+                "EVENT_OUTPUT_COPIED",
+            ],
+        )
+
+    def test_enum_event_type_and_event_id(self) -> None:
+        from src.types import QwenEventType, LifecycleEmitter
+
+        emitter = LifecycleEmitter()
+        received = []
+        emitter.on(QwenEventType.THINKING_STARTED, lambda evt: received.append(evt))
+
+        evt = emitter.emit(QwenEventType.THINKING_STARTED, {"mode": "realtime"})
+        self.assertEqual(len(received), 1)
+        self.assertEqual(received[0].name, "EVENT_THINKING_STARTED")
+        self.assertIsNotNone(received[0].event_id)
+        self.assertEqual(received[0].details, {"mode": "realtime"})
+
 
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@ from src.pipeline import (
     load_role_prompt,
     resolve_role_paths,
 )
-from src.config import AppConfig, RunContext
+from src.types import AppConfig, RunContext
 
 ROLES = ["role-architect", "role-business-analyst", "role-tech-lead"]
 

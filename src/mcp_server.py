@@ -37,7 +37,7 @@ if not __package__:
     __package__ = _src_dir.name
 
 from .browser import browser_session
-from .config import (
+from .types import (
     AuthRequiredError,
     DEFAULT_DONE,
     DEFAULT_FAILED,

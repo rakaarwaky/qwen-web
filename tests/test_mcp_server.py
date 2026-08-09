@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from src.config import DEFAULT_LOG
+from src.types import DEFAULT_LOG
 from src.mcp_server import (
     mcp,
     qwen_get_audit_log,
@@ -90,7 +90,7 @@ class TestMCPServerTools(unittest.TestCase):
     @patch("src.mcp_server.browser_session")
     def test_qwen_send_prompt_auth_required_error(self, mock_browser_session: MagicMock, mock_qwen_client: MagicMock) -> None:
         """Test qwen_send_prompt returns clear error string when AuthRequiredError is raised."""
-        from src.config import AuthRequiredError
+        from src.types import AuthRequiredError
         mock_ctx = MagicMock()
         mock_browser_session.return_value.__enter__.return_value = mock_ctx
 
