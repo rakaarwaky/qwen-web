@@ -31,6 +31,7 @@ from .config import (
     DEFAULT_PROC,
     DEFAULT_SESSION,
     DEFAULT_TODO,
+    XDG_SKILL_MD,
     AppConfig,
     RunContext,
 )
@@ -71,7 +72,9 @@ def run_init(target_dir: Path | str = ".") -> None:
     skill_md_dest = skills_dir / "SKILL.md"
 
     pkg_skill_md = BASE_DIR / "SKILL.md"
-    if pkg_skill_md.exists():
+    if XDG_SKILL_MD.exists():
+        shutil.copy2(XDG_SKILL_MD, skill_md_dest)
+    elif pkg_skill_md.exists():
         shutil.copy2(pkg_skill_md, skill_md_dest)
     else:
         skill_content = (
@@ -386,9 +389,7 @@ def main() -> int:
         return 0
 
     if args and (getattr(args, "command", None) == "init" or getattr(args, "init", False)):
-        target_dir = Path.cwd()
-        if len(sys.argv) > 2 and not sys.argv[2].startswith("-") and sys.argv[1] == "init":
-            target_dir = Path(sys.argv[2])
+        target_dir = getattr(args, "target_dir", None) or Path.cwd()
         run_init(target_dir)
         return 0
 

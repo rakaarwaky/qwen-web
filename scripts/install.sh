@@ -30,6 +30,11 @@ mkdir -p "${XDG_STATE}/log"
 mkdir -p "${XDG_CACHE}/.processing"
 mkdir -p "${XDG_CONFIG}"
 
+if [ -f "${PROJECT_ROOT}/SKILL.md" ]; then
+    echo "📄 [install] Copying SKILL.md template to XDG data directory (${XDG_DATA}/SKILL.md)..."
+    cp "${PROJECT_ROOT}/SKILL.md" "${XDG_DATA}/SKILL.md"
+fi
+
 # Also keep local repo fallback dirs for local testing
 mkdir -p input/done input/failed input/.processing output log qwen_session
 

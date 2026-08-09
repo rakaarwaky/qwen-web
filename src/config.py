@@ -55,6 +55,7 @@ DEFAULT_FAILED  = XDG_DATA_HOME / "input" / "failed"
 DEFAULT_OUTPUT  = XDG_DATA_HOME / "output"
 DEFAULT_LOG     = XDG_STATE_HOME / "log"
 DEFAULT_SESSION = XDG_DATA_HOME / "qwen_session"
+XDG_SKILL_MD    = XDG_DATA_HOME / "SKILL.md"
 CHAT_URL        = "https://chat.qwen.ai/"
 
 # ─── DOM Selectors ───────────────────────────────────────────────────────────
