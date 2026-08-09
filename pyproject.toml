@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "qwen-web-automation"
+name = "qwen-web-cli"
 version = "4.0.0"
 description = "Production-grade CLI automation and MCP server for chat.qwen.ai"
 readme = "README.md"
@@ -21,7 +21,8 @@ dependencies = [
 ]
 
 [project.scripts]
-qwen-cli = "src.main:main"
+qwen-web-cli = "src.main:main"
+qwc = "src.main:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

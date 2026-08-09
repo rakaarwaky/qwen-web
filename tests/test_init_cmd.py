@@ -1,0 +1,67 @@
+"""Unit tests for qwc init command and workspace initialization logic."""
+import tempfile
+import unittest
+from pathlib import Path
+
+from src.config import DEFAULT_LOG, DEFAULT_OUTPUT, DEFAULT_TODO
+from src.main import run_init, _parse_args
+
+
+class TestQwcInit(unittest.TestCase):
+    """Test suite for qwc init functionality."""
+
+    def test_run_init_creates_structure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            target_path = Path(tmp_dir)
+
+            # Execute run_init
+            run_init(target_path)
+
+            # 1. Verify .agents/skills/qwen-web/SKILL.md
+            skill_md = target_path / ".agents" / "skills" / "qwen-web" / "SKILL.md"
+            self.assertTrue(skill_md.exists())
+            content = skill_md.read_text(encoding="utf-8")
+            self.assertIn("name: qwen-web-automation", content)
+
+            # 2. Verify .qwen-web symlinks
+            dot_qwen = target_path / ".qwen-web"
+            self.assertTrue(dot_qwen.exists())
+
+            log_link = dot_qwen / "log"
+            input_link = dot_qwen / "input"
+            output_link = dot_qwen / "output"
+
+            self.assertTrue(log_link.is_symlink())
+            self.assertTrue(input_link.is_symlink())
+            self.assertTrue(output_link.is_symlink())
+
+            self.assertEqual(log_link.resolve(), DEFAULT_LOG.resolve())
+            self.assertEqual(input_link.resolve(), DEFAULT_TODO.resolve())
+            self.assertEqual(output_link.resolve(), DEFAULT_OUTPUT.resolve())
+
+            # 3. Verify .gitignore
+            gitignore = target_path / ".gitignore"
+            self.assertTrue(gitignore.exists())
+            gi_content = gitignore.read_text(encoding="utf-8")
+            self.assertIn(".qwen-web/", gi_content)
+
+    def test_run_init_idempotent_and_existing_gitignore(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            target_path = Path(tmp_dir)
+            gitignore = target_path / ".gitignore"
+            gitignore.write_text("existing_file.txt\n", encoding="utf-8")
+
+            # First run
+            run_init(target_path)
+            gi_content = gitignore.read_text(encoding="utf-8")
+            self.assertIn("existing_file.txt", gi_content)
+            self.assertIn(".qwen-web/", gi_content)
+
+            # Second run (idempotency check)
+            run_init(target_path)
+            gi_content_2 = gitignore.read_text(encoding="utf-8")
+            self.assertEqual(gi_content_2.count(".qwen-web/"), 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

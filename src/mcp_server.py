@@ -21,7 +21,14 @@ from typing import Any, List, Optional
 try:
     from mcp.server.fastmcp import FastMCP
 except ImportError:
-    FastMCP = None  # type: ignore[misc, assignment]
+    FastMCP = None
+
+if not __package__:
+    _src_dir = Path(__file__).resolve().parent
+    _parent_dir = _src_dir.parent
+    if str(_parent_dir) not in sys.path:
+        sys.path.insert(0, str(_parent_dir))
+    __package__ = _src_dir.name
 
 from .browser import browser_session
 from .config import (
@@ -62,7 +69,7 @@ def _isolate_thread_event_loop() -> None:
     import asyncio
     try:
         if hasattr(asyncio, "_set_running_loop"):
-            asyncio._set_running_loop(None)  # type: ignore[attr-defined]
+            asyncio._set_running_loop(None)
     except Exception:
         pass
     try:
@@ -277,9 +284,9 @@ def run_mcp_server() -> None:
     sys.stdout = sys.stderr
 
     try:
-        from src.observability import setup_observability
+        from .observability import setup_observability
     except ImportError:
-        from observability import setup_observability  # type: ignore[no-redef]
+        pass
 
     setup_observability(DEFAULT_LOG)
     log.info("Starting Qwen Web Automation MCP Server...")

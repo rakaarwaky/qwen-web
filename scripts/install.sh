@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Installation & environment setup script for qwen-web-automation & MCP server.
+# Installation & environment setup script for qwen-web-cli & MCP server.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-echo "🚀 [install] Setting up qwen-web-automation environment..."
+echo "🚀 [install] Setting up qwen-web-cli environment..."
 
 cd "${PROJECT_ROOT}"
 
 # 1. Install python package & dependencies
-echo "📦 [install] Installing Python package in editable mode (qwen-cli)..."
+echo "📦 [install] Installing Python package in editable mode (qwen-web-cli / qwc)..."
 pip install -e .
 
 # 2. Install Playwright Chromium browser
@@ -45,12 +45,12 @@ if [ -f "${BASHRC}" ]; then
     if ! grep -q "\.local/bin" "${BASHRC}"; then
         echo "📝 [install] Adding ~/.local/bin to PATH in ~/.bashrc..."
         echo "" >> "${BASHRC}"
-        echo "# qwen-web-automation global CLI PATH" >> "${BASHRC}"
+        echo "# qwen-web-cli global CLI PATH" >> "${BASHRC}"
         echo "${PATH_LINE}" >> "${BASHRC}"
     fi
 fi
 
 echo "✅ [install] Setup complete!"
-echo "👉 You can now run 'qwen-cli' from anywhere in your terminal!"
-echo "👉 To perform initial session login: qwen-cli --login"
-echo "👉 To start MCP server: qwen-cli --mcp"
+echo "👉 You can now run 'qwc' or 'qwen-web-cli' from anywhere in your terminal!"
+echo "👉 To perform initial session login: qwc --login"
+echo "👉 To start MCP server: qwc --mcp"

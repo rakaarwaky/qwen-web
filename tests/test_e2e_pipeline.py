@@ -67,8 +67,8 @@ class TestE2EPipeline:
 
         try:
             with browser_session(e2e_cfg) as bctx:
-                from qwen_client import QwenClient
-                client = QwenClient(bctx, headless=True)
+                from src.qwen_client import QwenClient
+                client = QwenClient(bctx, e2e_cfg)
 
                 todo_items = list(_iter_todo(e2e_cfg))
                 target = next(
@@ -149,8 +149,8 @@ class TestE2EPipeline:
 
         try:
             with browser_session(e2e_cfg) as bctx:
-                from qwen_client import QwenClient
-                client = QwenClient(bctx, headless=True)
+                from src.qwen_client import QwenClient
+                client = QwenClient(bctx, e2e_cfg)
 
                 monkeypatch.setattr(
                     client, "send_file",

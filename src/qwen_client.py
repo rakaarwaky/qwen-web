@@ -18,16 +18,8 @@ from typing import Any, Optional
 
 from playwright.sync_api import Browser, BrowserContext, Page, TimeoutError as PlaywrightTimeoutError, sync_playwright
 
-try:
-    from src.config import AppConfig, AuthRequiredError, DEFAULT_LOG, RunContext, BrowserLaunchError
-    from src.observability import get_logger, start_span
-except ImportError:
-    try:
-        from .config import AppConfig, AuthRequiredError, DEFAULT_LOG, RunContext, BrowserLaunchError
-        from .observability import get_logger, start_span
-    except ImportError:
-        from config import AppConfig, AuthRequiredError, DEFAULT_LOG, RunContext, BrowserLaunchError  # type: ignore[no-redef]
-        from observability import get_logger, start_span  # type: ignore[no-redef]
+from .config import AppConfig, AuthRequiredError, DEFAULT_LOG, RunContext, BrowserLaunchError
+from .observability import get_logger, start_span
 
 log = get_logger("qwen_client")
 

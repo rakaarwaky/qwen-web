@@ -19,19 +19,9 @@ from typing import Any, Iterator, List, Optional, Tuple
 
 from tenacity import RetryCallState, Retrying, retry_if_exception, stop_after_attempt, wait_exponential
 
-try:
-    from src.config import AppConfig, AuthRequiredError, DEFAULT_LOG, DEFAULT_TODO, RunContext, BrowserLaunchError
-    from src.observability import get_logger, start_span
-    from src.qwen_client import QwenClient
-except ImportError:
-    try:
-        from .config import AppConfig, AuthRequiredError, DEFAULT_LOG, DEFAULT_TODO, RunContext, BrowserLaunchError
-        from .observability import get_logger, start_span
-        from .qwen_client import QwenClient
-    except ImportError:
-        from config import AppConfig, AuthRequiredError, DEFAULT_LOG, DEFAULT_TODO, RunContext, BrowserLaunchError  # type: ignore[no-redef]
-        from observability import get_logger, start_span  # type: ignore[no-redef]
-        from qwen_client import QwenClient  # type: ignore[no-redef]
+from .config import AppConfig, AuthRequiredError, DEFAULT_LOG, DEFAULT_TODO, RunContext, BrowserLaunchError
+from .observability import get_logger, start_span
+from .qwen_client import QwenClient
 
 log = get_logger("pipeline")
 
@@ -174,7 +164,7 @@ class AuditLog:
 
     def log_step(self, ctx: RunContext, step: str, src: str, status: str, details: Optional[dict[str, Any]] = None) -> None:
         """Logs granular step-by-step event execution for end-to-end traceability."""
-        rec = {
+        rec: dict[str, Any] = {
             "run_id": ctx.run_id,
             "timestamp": datetime.now().isoformat(),
             "event": "step_execution",
@@ -484,7 +474,7 @@ def _process_file(client: QwenClient, proc_file: Path, rel_path: Path,
                 span.set_attribute("input_chars", len(prompt))
             for attempt in _retry_policy(client, audit, ctx, rel_path):
                 with attempt:
-                    _attempt()  # type: ignore[misc]
+                    _attempt()
                     break
     except AuthRequiredError:
         raise

@@ -7,25 +7,36 @@ from pathlib import Path
 from typing import Any, Dict, Iterator
 
 from playwright.sync_api import BrowserContext, sync_playwright
-try:
-    from src.config import AppConfig, BrowserLaunchError
-    from src.observability import get_logger, start_span
-except ImportError:
-    try:
-        from .config import AppConfig, BrowserLaunchError
-        from .observability import get_logger, start_span
-    except ImportError:
-        from config import AppConfig, BrowserLaunchError  # type: ignore[no-redef]
-        from observability import get_logger, start_span  # type: ignore[no-redef]
+from tenacity import RetryCallState, Retrying, stop_after_attempt, wait_fixed
+
+from .config import AppConfig, BrowserLaunchError
+from .observability import get_logger, start_span
 
 log = get_logger("browser")
 
 
-def _launch_context(p: Any, kwargs: Dict[str, Any]) -> BrowserContext:
+def _clean_stale_locks(user_data_dir: str) -> None:
+    """Clean up stale Chromium lock files if process crashed or before launch."""
+    session_path = Path(user_data_dir)
+    for fname in ("SingletonLock", "SingletonSocket", "SingletonCookie"):
+        lock_path = session_path / fname
+        try:
+            if lock_path.is_symlink() or lock_path.exists():
+                lock_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+def _launch_context(p: Any, kwargs: Dict[str, Any]) -> Any:
     """Launches the persistent context with tenacity retry for transient crashes."""
+    user_data_dir = kwargs.get("user_data_dir", "")
+    if user_data_dir:
+        _clean_stale_locks(user_data_dir)
 
     def _before_sleep(retry_state: RetryCallState) -> None:
         sleep_val = retry_state.next_action.sleep if retry_state.next_action else 2
+        if user_data_dir:
+            _clean_stale_locks(user_data_dir)
         log.warning(
             "browser_launch_failed_retrying",
             attempt=retry_state.attempt_number,
@@ -40,7 +51,7 @@ def _launch_context(p: Any, kwargs: Dict[str, Any]) -> BrowserContext:
         reraise=True,
     ):
         with attempt:
-            ctx = p.chromium.launch_persistent_context(**kwargs)  # type: ignore[no-any-return]
+            ctx = p.chromium.launch_persistent_context(**kwargs)
             return ctx
 
     raise RuntimeError("browser launch failed after retries")  # pragma: no cover
@@ -99,6 +110,13 @@ def browser_session(cfg: AppConfig) -> Iterator[BrowserContext]:
             span.set_attribute("headless", cfg.headless)
             span.set_attribute("mode", cfg.mode)
             span.set_attribute("session_path", str(cfg.session_path))
+        try:
+            import asyncio
+            if hasattr(asyncio, "_set_running_loop"):
+                asyncio._set_running_loop(None)
+        except Exception:
+            pass
+
         try:
             with sync_playwright() as p:
                 ctx = _launch_context(p, kwargs)

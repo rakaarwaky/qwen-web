@@ -313,7 +313,7 @@ def _configure_sentry() -> None:
     if not dsn:
         return
     try:
-        sentry_sdk.init(  # type: ignore[possibly-undefined]
+        sentry_sdk.init(
             dsn=dsn,
             environment=os.getenv("ENVIRONMENT", "production"),
             traces_sample_rate=1.0,

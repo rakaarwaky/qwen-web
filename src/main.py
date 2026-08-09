@@ -6,11 +6,20 @@ Main execution entrypoint and CLI argument parser.
 from __future__ import annotations
 
 import argparse
+import os
+import shutil
 import signal
 import sys
 import time
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
+
+if not __package__:
+    _src_dir = Path(__file__).resolve().parent
+    _parent_dir = _src_dir.parent
+    if str(_parent_dir) not in sys.path:
+        sys.path.insert(0, str(_parent_dir))
+    __package__ = _src_dir.name
 
 from .config import (
     BASE_DIR,
@@ -46,6 +55,85 @@ from .pipeline import (
 log = get_logger()
 
 
+def run_init(target_dir: Path | str = ".") -> None:
+    """Initialize workspace with .agents/skills/qwen-web/SKILL.md, .qwen-web symlinks to XDG paths, and .gitignore entry."""
+    target_path = Path(target_dir).resolve()
+    print(f"\n🚀 Initializing qwen-web environment in: {target_path}\n")
+
+    # 1. Ensure XDG directories exist
+    DEFAULT_TODO.mkdir(parents=True, exist_ok=True)
+    DEFAULT_OUTPUT.mkdir(parents=True, exist_ok=True)
+    DEFAULT_LOG.mkdir(parents=True, exist_ok=True)
+
+    # 2. Create .agents/skills/qwen-web/SKILL.md
+    skills_dir = target_path / ".agents" / "skills" / "qwen-web"
+    skills_dir.mkdir(parents=True, exist_ok=True)
+    skill_md_dest = skills_dir / "SKILL.md"
+
+    pkg_skill_md = BASE_DIR / "SKILL.md"
+    if pkg_skill_md.exists():
+        shutil.copy2(pkg_skill_md, skill_md_dest)
+    else:
+        skill_content = (
+            "---\n"
+            "name: qwen-web-automation\n"
+            "description: Automate Qwen AI Web (chat.qwen.ai) prompt processing via CLI or MCP tools.\n"
+            "---\n"
+            "# Qwen Web Automation Skill Guide\n"
+        )
+        skill_md_dest.write_text(skill_content, encoding="utf-8")
+
+    try:
+        rel_skill = skill_md_dest.relative_to(target_path)
+    except ValueError:
+        rel_skill = skill_md_dest
+    print(f"  ✅ Created skill definition: {rel_skill}")
+
+    # 3. Create .qwen-web directory with symlinks to XDG paths
+    dot_qwen = target_path / ".qwen-web"
+    dot_qwen.mkdir(parents=True, exist_ok=True)
+
+    links = {
+        "log": DEFAULT_LOG,
+        "input": DEFAULT_TODO,
+        "output": DEFAULT_OUTPUT,
+    }
+
+    for link_name, xdg_target in links.items():
+        link_path = dot_qwen / link_name
+        if link_path.is_symlink() or link_path.exists():
+            if link_path.is_dir() and not link_path.is_symlink():
+                pass
+            else:
+                link_path.unlink(missing_ok=True)
+
+        if not link_path.exists() and not link_path.is_symlink():
+            try:
+                os.symlink(xdg_target, link_path, target_is_directory=True)
+                print(f"  🔗 Symlinked .qwen-web/{link_name} -> {xdg_target}")
+            except Exception as e:
+                print(f"  ⚠️ Could not create symlink .qwen-web/{link_name}: {e}")
+
+    # 4. Add .qwen-web/ to .gitignore
+    git_ignore = target_path / ".gitignore"
+    entry = ".qwen-web/"
+    if git_ignore.exists():
+        content = git_ignore.read_text(encoding="utf-8")
+        if entry not in content and ".qwen-web" not in content:
+            if content and not content.endswith("\n"):
+                content += "\n"
+            content += f"{entry}\n"
+            git_ignore.write_text(content, encoding="utf-8")
+            print(f"  📝 Added {entry} to existing .gitignore")
+        else:
+            print(f"  ℹ️ {entry} already present in .gitignore")
+    else:
+        git_ignore.write_text(f"{entry}\n", encoding="utf-8")
+        print(f"  📝 Created .gitignore with {entry}")
+
+    print("\n✨ Workspace initialization complete!\n")
+
+
 def _run_manual_login(cfg: AppConfig) -> None:
     login_cfg = AppConfig(
         mode="login",
@@ -75,12 +163,17 @@ def _interactive_prompt() -> AppConfig:
     print("│ 2. Batch Mode (folder)                           │")
     print("│ 3. Single File Mode                              │")
     print("│ 4. Manual Login / Session Setup                  │")
-    print("│ 5. Exit                                          │")
+    print("│ 5. Initialize Workspace (.agents/skills & .qwen) │")
+    print("│ 6. Exit                                          │")
     print("╰──────────────────────────────────────────────────╯")
     
-    choice = input("Select [1-5, default=1]: ").strip() or "1"
-    if choice == "5":
+    choice = input("Select [1-6, default=1]: ").strip() or "1"
+    if choice == "6":
         print("Goodbye!")
+        sys.exit(0)
+    
+    if choice == "5":
+        run_init(Path.cwd())
         sys.exit(0)
     
     if choice == "4":
@@ -97,7 +190,7 @@ def _interactive_prompt() -> AppConfig:
         )
     
     headless = input("Run headless? [y/N, default=N]: ").strip().lower() == "y"
-    mode: str = {"1": "watcher", "2": "batch", "3": "single"}.get(choice, "watcher")
+    mode: Literal["watcher", "batch", "single", "login"] = "watcher"
     
     if mode == "single":
         available_files = _list_input_files(DEFAULT_TODO)
@@ -157,6 +250,9 @@ def _interactive_prompt() -> AppConfig:
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(prog="qwen-cli", description="Automate chat.qwen.ai")
+    p.add_argument("command", nargs="?", default=None, help="Subcommand (e.g. init)")
+    p.add_argument("target_dir", nargs="?", default=None, help="Target directory for init subcommand")
+    p.add_argument("--init", action="store_true", help="Initialize workspace with .agents/skills and .qwen-web symlinks")
     p.add_argument("-i", "--input", default=str(DEFAULT_TODO))
     p.add_argument("-o", "--output", default=str(DEFAULT_OUTPUT))
     p.add_argument("-d", "--done-dir", default=str(DEFAULT_DONE))
@@ -185,8 +281,11 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _build_config(args: argparse.Namespace) -> AppConfig:
-    mode_val = "login" if getattr(args, "login", False) else ("watcher" if getattr(args, "watch", False) else None)
-    if mode_val is None:
+    if getattr(args, "login", False):
+        mode_val: str = "login"
+    elif getattr(args, "watch", False):
+        mode_val = "watcher"
+    else:
         input_path = Path(args.input)
         mode_val = "batch" if (input_path.is_dir() or not input_path.suffix) else "single"
     return AppConfig(
@@ -282,14 +381,22 @@ def main() -> int:
     # Check if MCP server mode requested
     args = _parse_args() if len(sys.argv) > 1 else None
     if args and getattr(args, "mcp", False):
-        try:
-            from .mcp_server import run_mcp_server as _run_mcp
-        except ImportError:
-            from mcp_server import run_mcp_server as _run_mcp  # type: ignore[import-not-found]
+        from .mcp_server import run_mcp_server as _run_mcp
         _run_mcp()
         return 0
 
-    cfg = _interactive_prompt() if len(sys.argv) == 1 else _build_config(args)
+    if args and (getattr(args, "command", None) == "init" or getattr(args, "init", False)):
+        target_dir = Path.cwd()
+        if len(sys.argv) > 2 and not sys.argv[2].startswith("-") and sys.argv[1] == "init":
+            target_dir = Path(sys.argv[2])
+        run_init(target_dir)
+        return 0
+
+    cfg: AppConfig
+    if len(sys.argv) == 1 or args is None:
+        cfg = _interactive_prompt()
+    else:
+        cfg = _build_config(args)
 
     # ── Single-instance lock (P1) ──────────────────────────────────────────
     try:

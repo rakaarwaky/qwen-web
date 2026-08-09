@@ -94,7 +94,7 @@ MESSAGE_SELECTORS = (
 
 @dataclass(frozen=True)
 class AppConfig:
-    mode: Literal["watcher", "batch", "single", "login"]
+    mode: str
     input_path: Path
     output_path: Path
     done_path: Path
