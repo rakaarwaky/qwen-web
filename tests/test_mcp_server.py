@@ -86,6 +86,22 @@ class TestMCPServerTools(unittest.TestCase):
         self.assertIn("Browser session saved", res)
         mock_page.goto.assert_called_once()
 
+    @patch("src.mcp_server.QwenClient")
+    @patch("src.mcp_server.browser_session")
+    def test_qwen_send_prompt_auth_required_error(self, mock_browser_session: MagicMock, mock_qwen_client: MagicMock) -> None:
+        """Test qwen_send_prompt returns clear error string when AuthRequiredError is raised."""
+        from src.config import AuthRequiredError
+        mock_ctx = MagicMock()
+        mock_browser_session.return_value.__enter__.return_value = mock_ctx
+
+        client_inst = MagicMock()
+        client_inst.send_file.side_effect = AuthRequiredError("No active login session found")
+        mock_qwen_client.return_value = client_inst
+
+        result = asyncio.run(qwen_send_prompt("Test prompt", timeout_sec=30, headless=True))
+        self.assertIn("ERROR [AUTH_REQUIRED]", result)
+        self.assertIn("No active login session found", result)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -24,6 +24,7 @@ if not __package__:
 from .config import (
     BASE_DIR,
     CHAT_URL,
+    AuthRequiredError,
     DEFAULT_DONE,
     DEFAULT_FAILED,
     DEFAULT_LOG,
@@ -59,7 +60,7 @@ log = get_logger()
 def run_init(target_dir: Path | str = ".") -> None:
     """Initialize workspace with .agents/skills/qwen-web/SKILL.md, .qwen-web symlinks to XDG paths, and .gitignore entry."""
     target_path = Path(target_dir).resolve()
-    print(f"\n🚀 Initializing qwen-web environment in: {target_path}\n")
+    print(f"\n[INIT] Initializing qwen-web environment in: {target_path}\n")
 
     # 1. Ensure XDG directories exist
     DEFAULT_TODO.mkdir(parents=True, exist_ok=True)
@@ -90,7 +91,7 @@ def run_init(target_dir: Path | str = ".") -> None:
         rel_skill = skill_md_dest.relative_to(target_path)
     except ValueError:
         rel_skill = skill_md_dest
-    print(f"  ✅ Created skill definition: {rel_skill}")
+    print(f"  [OK] Created skill definition: {rel_skill}")
 
     # 3. Create .qwen-web directory with symlinks to XDG paths
     dot_qwen = target_path / ".qwen-web"
@@ -113,9 +114,9 @@ def run_init(target_dir: Path | str = ".") -> None:
         if not link_path.exists() and not link_path.is_symlink():
             try:
                 os.symlink(xdg_target, link_path, target_is_directory=True)
-                print(f"  🔗 Symlinked .qwen-web/{link_name} -> {xdg_target}")
+                print(f"  [LINK] Symlinked .qwen-web/{link_name} -> {xdg_target}")
             except Exception as e:
-                print(f"  ⚠️ Could not create symlink .qwen-web/{link_name}: {e}")
+                print(f"  [WARNING] Could not create symlink .qwen-web/{link_name}: {e}")
 
     # 4. Add .qwen-web/ to .gitignore
     git_ignore = target_path / ".gitignore"
@@ -127,14 +128,14 @@ def run_init(target_dir: Path | str = ".") -> None:
                 content += "\n"
             content += f"{entry}\n"
             git_ignore.write_text(content, encoding="utf-8")
-            print(f"  📝 Added {entry} to existing .gitignore")
+            print(f"  [FILE] Added {entry} to existing .gitignore")
         else:
-            print(f"  ℹ️ {entry} already present in .gitignore")
+            print(f"  [INFO] {entry} already present in .gitignore")
     else:
         git_ignore.write_text(f"{entry}\n", encoding="utf-8")
-        print(f"  📝 Created .gitignore with {entry}")
+        print(f"  [FILE] Created .gitignore with {entry}")
 
-    print("\n✨ Workspace initialization complete!\n")
+    print("\n[DONE] Workspace initialization complete!\n")
 
 
 def _run_manual_login(cfg: AppConfig) -> None:
@@ -151,13 +152,13 @@ def _run_manual_login(cfg: AppConfig) -> None:
         timeout=cfg.timeout,
         headless=False,
     )
-    print(f"\n🔑 [Manual Login] Launching visible browser window on {CHAT_URL}...")
+    print(f"\n[LOGIN] Launching visible browser window on {CHAT_URL}...")
     with browser_session(login_cfg) as bctx:
         page = bctx.pages[0] if bctx.pages else bctx.new_page()
         page.goto(CHAT_URL, wait_until="domcontentloaded")
-        print("👉 Please log in or resolve CAPTCHA in the browser window.")
-        input("👉 Press [ENTER] here once you have finished logging in: ")
-        print(f"✅ Session data successfully saved to '{login_cfg.session_path}'. You can now run in headless mode!\n")
+        print("Please log in or resolve CAPTCHA in the browser window.")
+        input("Press [ENTER] here once you have finished logging in: ")
+        print(f"[OK] Session data successfully saved to '{login_cfg.session_path}'. You can now run in headless mode!\n")
 
 
 def _interactive_prompt() -> AppConfig:
@@ -198,7 +199,7 @@ def _interactive_prompt() -> AppConfig:
     if mode == "single":
         available_files = _list_input_files(DEFAULT_TODO)
         if available_files:
-            print("\n📁 Available input files:")
+            print("\n[FILES] Available input files:")
             for idx, (abs_p, rel_p) in enumerate(available_files, 1):
                 print(f"  {idx}. {rel_p}")
             
@@ -404,10 +405,10 @@ def main() -> int:
         with SingleInstanceLock():
             pass
     except Exception as e:
-        print(f"⚠️  {e}")
+        print(f"[WARNING] {e}")
         return 0
 
-    # Observability first: Sentry → OTel → structlog → global exception hooks.
+    # Observability first: Sentry -> OTel -> structlog -> global exception hooks.
     setup_observability(cfg.log_path)
 
     if cfg.mode == "login":
@@ -438,6 +439,10 @@ def main() -> int:
                     # batch / single mode: same loop as before
                     for proc_file, rel_path in _iter_todo(cfg):
                         _process_file(client, proc_file, rel_path, cfg, audit, ctx)
+        except AuthRequiredError as e:
+            print(f"\n[AUTH ERROR] {e}\n", file=sys.stderr)
+            log.error("auth_required", error=str(e))
+            return 1
         except Exception as e:
             log.exception("run_failed", error_type=type(e).__name__, error=str(e))
             return exit_code_for(e)

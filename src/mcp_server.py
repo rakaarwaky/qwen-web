@@ -21,7 +21,13 @@ from typing import Any, List, Optional
 try:
     from mcp.server.fastmcp import FastMCP
 except ImportError:
-    FastMCP = None
+    try:
+        from mcp.server import MCPServer as FastMCP
+    except ImportError:
+        try:
+            from mcp.server.mcpserver import MCPServer as FastMCP
+        except ImportError:
+            FastMCP = None
 
 if not __package__:
     _src_dir = Path(__file__).resolve().parent
@@ -32,6 +38,7 @@ if not __package__:
 
 from .browser import browser_session
 from .config import (
+    AuthRequiredError,
     DEFAULT_DONE,
     DEFAULT_FAILED,
     DEFAULT_LOG,
@@ -117,6 +124,10 @@ async def qwen_send_prompt(
                 client = QwenClient(bctx, cfg)
                 response = client.send_file(filepath=tmp_path, timeout_sec=timeout_sec)
                 return response
+        except AuthRequiredError as e:
+            return f"ERROR [AUTH_REQUIRED]: {e}"
+        except Exception as e:
+            return f"ERROR [{type(e).__name__}]: {e}"
         finally:
             if tmp_path.exists():
                 tmp_path.unlink()
@@ -154,10 +165,15 @@ async def qwen_process_single(
         audit_log = AuditLog(cfg.log_path)
         ctx = RunContext()
 
-        with browser_session(cfg) as bctx:
-            client = QwenClient(bctx, cfg)
-            _process_file(client, in_p, Path(in_p.name), cfg, audit_log, ctx)
-            return f"Successfully processed {in_p.name} -> {out_p}"
+        try:
+            with browser_session(cfg) as bctx:
+                client = QwenClient(bctx, cfg)
+                _process_file(client, in_p, Path(in_p.name), cfg, audit_log, ctx)
+                return f"Successfully processed {in_p.name} -> {out_p}"
+        except AuthRequiredError as e:
+            return f"ERROR [AUTH_REQUIRED]: {e}"
+        except Exception as e:
+            return f"ERROR [{type(e).__name__}]: {e}"
 
     return await asyncio.to_thread(_sync_op)
 
@@ -191,17 +207,22 @@ async def qwen_process_batch(
         processed = 0
         failed = 0
 
-        with browser_session(cfg) as bctx:
-            client = QwenClient(bctx, cfg)
-            for proc_file, rel_path in _iter_todo(cfg):
-                try:
-                    _process_file(client, proc_file, rel_path, cfg, audit_log, ctx)
-                    processed += 1
-                except Exception as e:
-                    failed += 1
-                    log.error("batch_file_failed", file=str(rel_path), error=str(e))
+        try:
+            with browser_session(cfg) as bctx:
+                client = QwenClient(bctx, cfg)
+                for proc_file, rel_path in _iter_todo(cfg):
+                    try:
+                        _process_file(client, proc_file, rel_path, cfg, audit_log, ctx)
+                        processed += 1
+                    except Exception as e:
+                        failed += 1
+                        log.error("batch_file_failed", file=str(rel_path), error=str(e))
 
-        return f"Batch processing complete. Successfully processed: {processed}, Failed: {failed}"
+            return f"Batch processing complete. Successfully processed: {processed}, Failed: {failed}"
+        except AuthRequiredError as e:
+            return f"ERROR [AUTH_REQUIRED]: {e}"
+        except Exception as e:
+            return f"ERROR [{type(e).__name__}]: {e}"
 
     return await asyncio.to_thread(_sync_op)
 
@@ -227,13 +248,18 @@ async def qwen_start_watcher(interval_sec: int = 3, headless: bool = True) -> st
         audit_log = AuditLog(cfg.log_path)
         ctx = RunContext()
 
-        with browser_session(cfg) as bctx:
-            client = QwenClient(bctx, cfg)
-            for proc_file, rel_path in _iter_todo(cfg):
-                _process_file(client, proc_file, rel_path, cfg, audit_log, ctx)
-                _watcher_sleep(cfg.interval)
+        try:
+            with browser_session(cfg) as bctx:
+                client = QwenClient(bctx, cfg)
+                for proc_file, rel_path in _iter_todo(cfg):
+                    _process_file(client, proc_file, rel_path, cfg, audit_log, ctx)
+                    _watcher_sleep(cfg.interval)
 
-        return "Watcher loop completed."
+            return "Watcher loop completed."
+        except AuthRequiredError as e:
+            return f"ERROR [AUTH_REQUIRED]: {e}"
+        except Exception as e:
+            return f"ERROR [{type(e).__name__}]: {e}"
 
     return await asyncio.to_thread(_sync_op)
 

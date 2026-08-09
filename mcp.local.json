@@ -1,14 +1,16 @@
 {
   "mcpServers": {
-    "qwen-web-automation": {
-      "command": "python3",
+    "qwen-web-cli": {
+      "command": "qwc",
       "args": [
-        "qwen-web-automation/src/main.py",
         "--mcp"
-      ],
-      "env": {
-        "PYTHONPATH": "qwen-web-automation"
-      }
+      ]
+    },
+    "qwen-web-automation": {
+      "command": "qwc",
+      "args": [
+        "--mcp"
+      ]
     }
   }
 }

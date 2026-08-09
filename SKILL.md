@@ -61,8 +61,8 @@ When connected via Model Context Protocol (MCP), use the following tools:
 
 If MCP protocol is unavailable, run equivalent commands via terminal:
 
-- **Run MCP Server over stdio**: `python3 src/main.py --mcp`
-- **Single File CLI Mode**: `python3 src/main.py -i prompt.md -o result.md --headless`
-- **Batch Folder CLI Mode**: `python3 src/main.py -i input/ -o output/ --headless`
-- **Watcher Mode**: `python3 src/main.py --watch --headless`
-- **Manual Login**: `python3 src/main.py --login`
+- **Run MCP Server over stdio**: `qwc --mcp`
+- **Single File CLI Mode**: `qwc -i prompt.md -o result.md --headless`
+- **Batch Folder CLI Mode**: `qwc -i input/ -o output/ --headless`
+- **Watcher Mode**: `qwc --watch --headless`
+- **Manual Login**: `qwc --login`

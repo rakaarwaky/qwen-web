@@ -136,18 +136,51 @@ class QwenClient:
         except Exception:
             pass
 
-        # Wait for textarea element to be available
+        # Check if redirected to login / auth page
+        current_url = self.page.url.lower()
+        if any(k in current_url for k in ("login", "passport", "auth", "signin")):
+            raise AuthRequiredError(
+                "No active login session found for chat.qwen.ai. Please run 'qwc --login' (or call MCP tool 'qwen_setup_session') to authenticate."
+            )
+
+        # Check if "Log in" or "Sign up" buttons are visible on page (unauthenticated state)
         try:
-            self.page.wait_for_selector('textarea, [class*="input"], [class*="textarea"]', timeout=15_000)
+            login_btn = self.page.query_selector(
+                'button:has-text("Log in"), button:has-text("Sign up"), a:has-text("Log in"), a:has-text("Sign up")'
+            )
+            if login_btn and login_btn.is_visible():
+                raise AuthRequiredError(
+                    "No active login session found for chat.qwen.ai (Log in button detected). Please run 'qwc --login' (or call MCP tool 'qwen_setup_session') to authenticate."
+                )
+        except AuthRequiredError:
+            raise
+        except Exception:
+            pass
+
+        # Wait for textarea element to be available (fast check first)
+        textarea = None
+        try:
+            textarea = self.page.wait_for_selector('textarea, [class*="input"], [class*="textarea"]', timeout=8_000)
         except Exception:
             pass
 
         # Click the textarea (first input or specific class)
-        textarea = self.page.query_selector('textarea, [class*="input"], [class*="textarea"]')
+        if not textarea:
+            textarea = self.page.query_selector('textarea, [class*="input"], [class*="textarea"]')
         if not textarea:
             textarea = self.page.query_selector("textarea")
         if not textarea:
-            raise RuntimeError("Could not find textarea on chat.qwen.ai page")
+            # Check for login buttons or auth links
+            login_btn = self.page.query_selector(
+                'a[href*="login"], button:has-text("Log in"), button:has-text("Sign in"), button:has-text("Login"), [class*="login"]'
+            )
+            if login_btn or any(k in self.page.url.lower() for k in ("login", "passport", "auth", "signin")):
+                raise AuthRequiredError(
+                    "No active login session found for chat.qwen.ai. Please run 'qwc --login' (or call MCP tool 'qwen_setup_session') to authenticate."
+                )
+            raise AuthRequiredError(
+                "Could not find input textarea on chat.qwen.ai. Session may be expired or unauthenticated. Please run 'qwc --login' (or call MCP tool 'qwen_setup_session') to re-authenticate."
+            )
 
         # Focus and select all text in textarea
         try:
