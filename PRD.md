@@ -70,11 +70,12 @@
 - **Context Reuse**: Reuses existing pages or triggers "New Chat" rather than performing hard browser reloads.
 
 #### 4.3 Prompt Text Injection Engine
-Supports ultra-large prompts (100k+ characters) via a **3-tier injection fallback**:
+Supports ultra-large prompts (100k+ characters) via a **2-tier injection fallback**:
 
-1. **Tier 1 (Direct DOM JS Injection)**: Native prototype setter on `HTMLTextAreaElement.prototype` with synthetic React `input` / `change` event dispatch.
-2. **Tier 2 (Playwright `fill()`)**: Standard automated field filling.
-3. **Tier 3 (Clipboard Paste)**: Writes text to system clipboard and simulates `Ctrl+V`.
+1. **Tier 1 (React value setter + synthetic events)**: Native prototype setter on `HTMLTextAreaElement.prototype` with synthetic React `input` / `change` event dispatch. Most reliable for React-controlled `<textarea.message-input-textarea>`.
+2. **Tier 2 (Clipboard Paste)**: Writes text to system clipboard and simulates `Ctrl/Cmd+V`. Covers contenteditable / edge cases where DOM property assignment is blocked.
+
+Playwright `fill()` and raw `type()` were removed: `fill()` does not trigger React state updates, and `type()` is O(n) slow for 100k+ char prompts. If both tiers fail, `PromptInjectionError` is raised.
 
 #### 4.4 Response Generation & Stability Detection
 - **Element Resiliency**: Fallback selector lists for chat inputs, submit buttons, and assistant message nodes.

@@ -30,7 +30,7 @@ It supports **real-time file watching**, **folder batch processing**, **single f
 - **Interactive Terminal UI**: Run `python3 src/main.py` with no arguments to open an interactive selection menu.
 - **Persistent Session Login**: Retains session cookies in `./qwen_session`. Log in once, then run in `--headless` mode indefinitely.
 - **Smart Response Detection**: Polls AI generation progress dynamically; handles streaming until completion before writing output.
-- **3-Tier Prompt Injection**: Handles large prompts (100k+ chars) via JS injection, Playwright `fill()`, and clipboard paste fallback.
+- **2-Tier Prompt Injection**: Handles large prompts (100k+ chars) via React prototype setter + synthetic events, with clipboard paste fallback.
 - **Structured Observability**: Structured JSON logging via `structlog`, OpenTelemetry tracing, Sentry error reporting, and JSONL audit trail.
 - **Fault Recovery**: Automatic retry up to 3 times with page re-initialization on failure.
 
