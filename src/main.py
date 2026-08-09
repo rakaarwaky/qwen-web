@@ -6,8 +6,11 @@ Main execution entrypoint and CLI argument parser.
 from __future__ import annotations
 
 import argparse
+import signal
 import sys
+import time
 from pathlib import Path
+from typing import Any
 
 try:
     from .config import (
@@ -24,12 +27,14 @@ try:
         RunContext,
     )
     from .browser import browser_session
+    from .linux import SingleInstanceLock, GracefulShutdown, sd_notify_stop
     from .observability import (
         bind_run_context,
         exit_code_for,
         get_logger,
         setup_observability,
         start_span,
+        StatusFileWriter,
     )
     from .qwen_client import QwenClient
     from .pipeline import (
@@ -54,12 +59,14 @@ except ImportError:
         RunContext,
     )
     from browser import browser_session
-    from observability import (
+    from .linux import SingleInstanceLock, GracefulShutdown, sd_notify_stop
+    from .observability import (
         bind_run_context,
         exit_code_for,
         get_logger,
         setup_observability,
         start_span,
+        StatusFileWriter,
     )
     from qwen_client import QwenClient
     from pipeline import (
@@ -195,6 +202,17 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--data-dir", default=str(DEFAULT_SESSION))
     p.add_argument("--timeout", type=int, default=300)
     p.add_argument("--login", action="store_true", help="Open browser to log in manually and save session")
+    # P2: request / polling timeouts
+    p.add_argument("--request-timeout", type=int, default=120, help="Max seconds to wait for Qwen response")
+    p.add_argument("--poll-interval", type=float, default=1.0, help="Seconds between message-poll checks")
+    p.add_argument("--streaming-timeout", type=int, default=180, help="Max seconds for streaming generation")
+    # P2: rate limiting
+    p.add_argument("--rate-limit", type=int, default=60, help="Max requests per minute")
+    # P2: circuit breaker
+    p.add_argument("--cb-threshold", type=int, default=5, help="Consecutive failures to trip circuit breaker")
+    p.add_argument("--cb-window", type=int, default=30, help="Circuit breaker sliding window in seconds")
+    # P6: retry-failed mode
+    p.add_argument("--retry-failed", action="store_true", help="Process files in failed/ directory on next run")
     return p.parse_args()
 
 
@@ -216,16 +234,98 @@ def _build_config(args: argparse.Namespace) -> AppConfig:
         done_path=Path(args.done_dir),
         failed_path=Path(args.failed_dir),
         proc_path=Path(args.proc_dir),
-        session_path=Path(args.data_dir),
+        session_path=Path(getattr(args, "data_dir", str(DEFAULT_SESSION))),
         log_path=Path(getattr(args, "log_dir", str(DEFAULT_LOG))),
         interval=getattr(args, "interval", 3),
         timeout=getattr(args, "timeout", 300),
         headless=getattr(args, "headless", False),
+        request_timeout=getattr(args, "request_timeout", 120),
+        poll_interval=getattr(args, "poll_interval", 1.0),
+        streaming_timeout=getattr(args, "streaming_timeout", 180),
+        rate_limit_per_minute=getattr(args, "rate_limit", 60),
+        circuit_breaker_threshold=getattr(args, "cb_threshold", 5),
+        circuit_breaker_window=getattr(args, "cb_window", 30),
+        retry_failed=getattr(args, "retry_failed", False),
     )
+
+
+def _run_watcher(client: QwenClient, cfg: AppConfig, audit: AuditLog) -> None:
+    """Watcher loop with graceful shutdown support.
+
+    Reads from input/, processes each file via QwenClient, writes output,
+    and moves processed files to done/ or failed/. Exits cleanly on SIGINT/SIGTERM.
+    """
+    ctx = RunContext()
+    bind_run_context(run_id=ctx.run_id, mode=cfg.mode, headless=cfg.headless)
+    status_writer = StatusFileWriter(cfg.status_path)
+    status_writer.write("running", cfg.mode, cfg.headless, ctx.run_id)
+
+    files_processed = 0
+    files_failed = 0
+    t0 = time.time()
+
+    try:
+        for proc_file, rel_path in _iter_todo(cfg):
+            if _shutdown_requested():
+                log.info("watcher_shutdown_requested")
+                break
+
+            try:
+                _process_file(client, proc_file, rel_path, cfg, audit, ctx)
+                files_processed += 1
+            except Exception as e:
+                files_failed += 1
+                log.error("file_failed", file=str(rel_path), error=str(e))
+
+            status_writer.write(
+                "running", cfg.mode, cfg.headless, ctx.run_id,
+                cpu_sec=time.time() - t0,
+                files_processed=files_processed,
+                files_failed=files_failed,
+            )
+    except Exception as e:
+        log.exception("watcher_error", error=str(e))
+        status_writer.write(
+            "error", cfg.mode, cfg.headless, ctx.run_id,
+            error=str(e),
+            cpu_sec=time.time() - t0,
+            files_processed=files_processed,
+            files_failed=files_failed,
+        )
+
+    status_writer.write(
+        "completed", cfg.mode, cfg.headless, ctx.run_id,
+        cpu_sec=time.time() - t0,
+        files_processed=files_processed,
+        files_failed=files_failed,
+    )
+
+
+# ─── Global shutdown flag (for watcher signal handlers) ──────────────────────
+_shutdown_flag: bool = False
+
+
+def _shutdown_requested() -> bool:
+    """Check if shutdown has been requested."""
+    return _shutdown_flag
+
+
+def _signal_handler(signum: int, frame: Any) -> None:
+    """Handle SIGINT/SIGTERM for graceful watcher shutdown."""
+    global _shutdown_flag
+    _shutdown_flag = True
 
 
 def main() -> int:
     cfg = _interactive_prompt() if len(sys.argv) == 1 else _build_config(_parse_args())
+
+    # ── Single-instance lock (P1) ──────────────────────────────────────────
+    try:
+        with SingleInstanceLock():
+            pass
+    except Exception as e:
+        print(f"⚠️  {e}")
+        return 0
 
     # Observability first: Sentry → OTel → structlog → global exception hooks.
     setup_observability(cfg.log_path)
@@ -243,14 +343,37 @@ def main() -> int:
             span.set_attribute("mode", cfg.mode)
             span.set_attribute("run_id", ctx.run_id)
             span.set_attribute("headless", cfg.headless)
+
+        # Install signal handlers for graceful watcher shutdown (P4)
+        original_sigint = signal.signal(signal.SIGINT, _signal_handler)
+        original_sigterm = signal.signal(signal.SIGTERM, _signal_handler)
+
         try:
             with browser_session(cfg) as bctx:
                 client = QwenClient(bctx, cfg.headless)
-                for proc_file, rel_path in _iter_todo(cfg):
-                    _process_file(client, proc_file, rel_path, cfg, audit, ctx)
+
+                if cfg.mode == "watcher":
+                    _run_watcher(client, cfg, audit)
+                else:
+                    # batch / single mode: same loop as before
+                    for proc_file, rel_path in _iter_todo(cfg):
+                        _process_file(client, proc_file, rel_path, cfg, audit, ctx)
         except Exception as e:
             log.exception("run_failed", error_type=type(e).__name__, error=str(e))
             return exit_code_for(e)
+        finally:
+            # Restore original signal handlers
+            try:
+                if original_sigint is not None:
+                    signal.signal(signal.SIGINT, original_sigint)
+                if original_sigterm is not None:
+                    signal.signal(signal.SIGTERM, original_sigterm)
+            except (OSError, ValueError):
+                pass
+
+            # Notify systemd of graceful stop (P1)
+            sd_notify_stop()
+
     return 0
 
 

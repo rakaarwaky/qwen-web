@@ -1,4 +1,10 @@
-"""Observability stack: structlog + OpenTelemetry + Sentry + global exception hooks."""
+"""Observability stack: structlog + OpenTelemetry + Sentry + global exception hooks.
+
+P8 additions:
+  - ErrorCategory : categorize errors for dashboards/alerting.
+  - MetricsCounter: simple in-memory counter for request/file stats.
+  - StatusFileWriter: moved here from linux.py (status file writer).
+"""
 from __future__ import annotations
 
 import logging
@@ -6,8 +12,9 @@ import os
 import sys
 import threading
 from contextlib import nullcontext
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 try:
     import structlog
@@ -41,6 +48,72 @@ except ImportError:  # pragma: no cover
 SERVICE_NAME = "qwen-web-automation"
 
 
+# ─── Error categorization (P8) ───────────────────────────────────────────────
+class ErrorCategory:
+    """Categorize errors for dashboards and alerting.
+
+    Categories:
+      - auth         : authentication / login / captcha issues
+      - network      : connection lost, DNS, timeout
+      - rate_limit   : server throttling (HTTP 429, etc.)
+      - browser      : browser crash, launch failure, DOM error
+      - injection    : prompt injection failed
+      - parsing      : Qwen returned unexpected / empty response
+      - file_io      : disk read/write errors
+      - other        : uncategorized
+    """
+
+    @staticmethod
+    def categorize(exc: BaseException) -> str:
+        """Return the error category string."""
+        exc_type = type(exc).__name__
+        msg = str(exc).lower()
+
+        if any(k in msg or k in exc_type.lower() for k in ("auth", "login", "captcha", "signin")):
+            return "auth"
+        if any(k in msg or k in exc_type.lower() for k in ("network", "connection", "timeout", "dns", "socket")):
+            return "network"
+        if any(k in msg or k in exc_type.lower() for k in ("rate", "limit", "throttl", "429")):
+            return "rate_limit"
+        if any(k in msg or k in exc_type.lower() for k in ("browser", "launch", "dom", "playwright", "chromium")):
+            return "browser"
+        if any(k in msg or k in exc_type.lower() for k in ("injection", "paste", "clipboard", "fill")):
+            return "injection"
+        if any(k in msg or k in exc_type.lower() for k in ("parse", "empty", "no response", "timeout")):
+            return "parsing"
+        if any(k in msg or k in exc_type.lower() for k in ("file", "io", "disk", "read", "write")):
+            return "file_io"
+        return "other"
+
+
+# ─── Metrics counter (P8) ────────────────────────────────────────────────────
+class MetricsCounter:
+    """Simple in-memory metrics collector for request/file stats.
+
+    Thread-safe via threading.Lock.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._counters: dict[str, int] = {}
+        self._start_time = datetime.now()
+
+    def increment(self, key: str, amount: int = 1) -> None:
+        """Increment a counter by amount."""
+        with self._lock:
+            self._counters[key] = self._counters.get(key, 0) + amount
+
+    def get(self, key: str) -> int:
+        """Get current counter value."""
+        with self._lock:
+            return self._counters.get(key, 0)
+
+    def snapshot(self) -> dict[str, Any]:
+        """Return a copy of all counters."""
+        with self._lock:
+            return dict(self._counters)
+
+
 # ─── Logger / Tracer accessors ───────────────────────────────────────────────
 def get_logger(name: str = "qwen-cli") -> Any:
     """Return a structlog bound logger, falling back to stdlib logging."""
@@ -68,7 +141,7 @@ def start_span(name: str) -> Any:
     return tracer.start_as_current_span(name)
 
 
-# ─── structlog processor: log-trace correlation ─────────────────────────────
+# ─── structlog processor: log-trace correlation ──────────────────────────────
 def add_trace_context(_logger: Any, _method: str, event_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Inject the active OTel trace_id/span_id (W3C hex) into every log event."""
     if trace is not None:
@@ -81,7 +154,7 @@ def add_trace_context(_logger: Any, _method: str, event_dict: Dict[str, Any]) ->
     return event_dict
 
 
-# ─── Run-scoped context binding ─────────────────────────────────────────────
+# ─── Run-scoped context binding ──────────────────────────────────────────────
 def bind_run_context(run_id: str, **extra: Any) -> None:
     """Bind run-scoped fields into structlog contextvars (visible on every log line)."""
     if HAS_STRUCTLOG:
@@ -108,7 +181,7 @@ def exit_code_for(exc: BaseException) -> int:
     return 1
 
 
-def _excepthook(exc_type: type, exc_value: BaseException, exc_tb: Any) -> None:
+def _excepthook(exc_type: type[BaseException], exc_value: BaseException, exc_tb: Any) -> None:
     log = get_logger("qwen-cli")
     if issubclass(exc_type, KeyboardInterrupt):
         log.warning("interrupted")
@@ -117,9 +190,10 @@ def _excepthook(exc_type: type, exc_value: BaseException, exc_tb: Any) -> None:
         "unhandled_exception",
         exc_info=(exc_type, exc_value, exc_tb),
         exc_type=exc_type.__name__,
+        category=ErrorCategory.categorize(exc_value),
     )
-    if HAS_SENTRY:
-        sentry_sdk.capture_exception((exc_type, exc_value, exc_tb))
+    if HAS_SENTRY:  # type: ignore[possibly-undefined]
+        sentry_sdk.capture_exception(exc_value)
     sys.exit(1)
 
 
@@ -129,15 +203,97 @@ def _thread_excepthook(args: Any) -> None:
         "unhandled_exception_in_thread",
         exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
         exc_type=args.exc_type.__name__,
+        category=ErrorCategory.categorize(args.exc_value),
     )
     if HAS_SENTRY:
-        sentry_sdk.capture_exception((args.exc_type, args.exc_value, args.exc_traceback))
+        sentry_sdk.capture_exception(args.exc_value)
 
 
 def install_excepthooks() -> None:
     """Install global exception handlers so crashes are logged as structured events."""
     sys.excepthook = _excepthook
     threading.excepthook = _thread_excepthook  # type: ignore[assignment]
+
+
+# ─── Status file writer (P8) ────────────────────────────────────────────────
+class StatusFileWriter:
+    """Writes a JSON status file that systemd / monitoring tools can read.
+
+    The status file is updated on every major lifecycle event.
+    """
+
+    def __init__(self, status_path: Path) -> None:
+        self._status_path = status_path
+        self._status_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def write(
+        self,
+        status: str,
+        mode: str,
+        headless: bool,
+        run_id: Optional[str] = None,
+        error: Optional[str] = None,
+        cpu_sec: Optional[float] = None,
+        files_processed: int = 0,
+        files_failed: int = 0,
+    ) -> None:
+        """Atomically write the current status to disk.
+
+        Parameters
+        ----------
+        status : str
+            One of "running", "completed", "failed", "error".
+        mode : str
+            The active mode: "watcher", "batch", "single".
+        headless : bool
+            Whether the browser is running headlessly.
+        run_id : str, optional
+            Current run identifier.
+        error : str, optional
+            Error message if status is "failed" or "error".
+        cpu_sec : float, optional
+            Elapsed wall-clock seconds.
+        files_processed : int
+            Number of successfully processed files.
+        files_failed : int
+            Number of files that failed processing.
+        """
+        rec: dict[str, Any] = {
+            "status": status,
+            "mode": mode,
+            "headless": headless,
+            "run_id": run_id,
+            "files_processed": files_processed,
+            "files_failed": files_failed,
+        }
+        if cpu_sec is not None:
+            rec["cpu_sec"] = round(cpu_sec, 2)
+        if error:
+            rec["error"] = error
+
+        tmp_path = self._status_path.with_suffix(".tmp")
+        try:
+            import json
+
+            tmp_path.write_text(
+                json.dumps(rec, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            tmp_path.rename(self._status_path)
+        except Exception:
+            # Non-fatal — best-effort only
+            pass
+
+    def read(self) -> Optional[dict[str, Any]]:
+        """Read the last written status file."""
+        try:
+            import json
+
+            return json.loads(self._status_path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return None
+        except Exception:
+            return None
 
 
 # ─── Setup ───────────────────────────────────────────────────────────────────

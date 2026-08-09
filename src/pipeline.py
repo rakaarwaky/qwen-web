@@ -1,25 +1,125 @@
-"""Queue processing pipeline, path resolution, and audit logging."""
+"""Queue processing pipeline, path resolution, and audit logging.
+
+P6 additions:
+  - CircuitBreaker : tracks consecutive failures and trips when threshold exceeded.
+  - RateLimiter    : enforces max requests per minute.
+  - _write_sidecar : writes metadata JSON next to each output file.
+"""
 from __future__ import annotations
 
 import json
+import signal
 import shutil
+import threading
 import time
+from collections import deque
 from datetime import datetime
 from pathlib import Path
-from typing import Iterator, List, Optional, Tuple
+from typing import Any, Iterator, List, Optional, Tuple
 
 from tenacity import RetryCallState, Retrying, retry_if_exception, stop_after_attempt, wait_exponential
 
 try:
-    from .config import AppConfig, AuthRequiredError, DEFAULT_LOG, DEFAULT_TODO, RunContext
-    from .observability import get_logger, start_span
-    from .qwen_client import QwenClient
+    from config import AppConfig, AuthRequiredError, DEFAULT_LOG, DEFAULT_TODO, RunContext, BrowserLaunchError
+    from observability import get_logger, start_span
+    from qwen_client import QwenClient
 except ImportError:
-    from config import AppConfig, AuthRequiredError, DEFAULT_LOG, DEFAULT_TODO, RunContext
+    from config import AppConfig, AuthRequiredError, DEFAULT_LOG, DEFAULT_TODO, RunContext, BrowserLaunchError
     from observability import get_logger, start_span
     from qwen_client import QwenClient
 
 log = get_logger("pipeline")
+
+# ─── Watcher graceful-shutdown state ─────────────────────────────────────────
+_watcher_shutdown: threading.Event = threading.Event()
+_WATCHER_SLEEP_CHUNK_SECS = 1
+
+
+def _install_watcher_signal_handlers() -> None:
+    """Register SIGINT/SIGTERM handlers that request watcher shutdown."""
+
+    def _handle_signal(signum: int, _frame: Any) -> None:
+        log.info("watcher_shutdown_requested", signal=signum)
+        _watcher_shutdown.set()
+
+    try:
+        signal.signal(signal.SIGINT, _handle_signal)
+        signal.signal(signal.SIGTERM, _handle_signal)
+    except (OSError, ValueError):
+        # Windows or unsupported signal environments: graceful shutdown is best-effort.
+        pass
+
+
+def _watcher_sleep(interval: int) -> None:
+    """Sleep in small chunks so shutdown remains responsive."""
+    for _ in range(max(1, interval)):
+        if _watcher_shutdown.is_set():
+            return
+        time.sleep(min(_WATCHER_SLEEP_CHUNK_SECS, interval))
+
+# ─── Circuit breaker (P6) ────────────────────────────────────────────────────
+class CircuitBreaker:
+    """Sliding-window circuit breaker for request-level failure tracking.
+
+    Trips when consecutive failures exceed the threshold within the configured
+    window seconds. Resets on a successful request.
+    """
+
+    def __init__(self, threshold: int = 5, window_sec: int = 30) -> None:
+        self._threshold = threshold
+        self._window_sec = window_sec
+        self._failures: deque[float] = deque()
+        self._trip: bool = False
+
+    def record_success(self) -> None:
+        """Reset the breaker on a successful request."""
+        self._failures.clear()
+        self._trip = False
+
+    def record_failure(self) -> None:
+        """Record a failure and trip if threshold exceeded within window."""
+        now = time.time()
+        self._failures.append(now)
+        # Prune old entries outside the window
+        while self._failures and (now - self._failures[0]) > self._window_sec:
+            self._failures.popleft()
+        if len(self._failures) >= self._threshold:
+            self._trip = True
+
+    @property
+    def is_tripped(self) -> bool:
+        return self._trip
+
+
+# ─── Rate limiter (P6) ───────────────────────────────────────────────────────
+class RateLimiter:
+    """Simple token-bucket rate limiter for request throttling.
+
+    Tracks the last N request timestamps and enforces a minimum interval.
+    """
+
+    def __init__(self, max_per_minute: int = 60) -> None:
+        self._max_per_minute = max_per_minute
+        self._timestamps: deque[float] = deque()
+
+    def acquire(self) -> None:
+        """Wait until a request slot is available."""
+        now = time.time()
+        window_start = now - 60.0  # 1-minute sliding window
+        while True:
+            # Prune old timestamps
+            while self._timestamps and self._timestamps[0] < window_start:
+                self._timestamps.popleft()
+            if len(self._timestamps) < self._max_per_minute:
+                break
+            # Calculate how long to wait
+            oldest = self._timestamps[0]
+            wait_sec = 60.0 - (now - oldest) + 0.1  # +0.1s buffer
+            if wait_sec > 0:
+                time.sleep(wait_sec)
+                now = time.time()
+        self._timestamps.append(time.time())
+
 
 # ─── Retry policy ────────────────────────────────────────────────────────────
 # 3 attempts, exponential backoff (2s, 4s, ... capped at 30s), re-raise the
@@ -101,7 +201,7 @@ class AuditLog:
             err_entry = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [run_id={ctx.run_id}] {src}: {err}\n\n"
             with self._errors.open("a", encoding="utf-8") as f:
                 f.write(err_entry)
-            
+
             err_json_rec = {
                 "run_id": ctx.run_id,
                 "timestamp": datetime.now().isoformat(),
@@ -131,6 +231,22 @@ def _write_output(path: Path, content: str, ctx: RunContext, src: str, dur: floa
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(header + content, encoding="utf-8")
+
+    # P6: Write sidecar metadata JSON next to the output file
+    sidecar_path = path.with_suffix(".meta.json")
+    try:
+        meta = {
+            "run_id": ctx.run_id,
+            "source_file": src,
+            "processed_at": datetime.now().isoformat(),
+            "duration_sec": round(dur, 2),
+            "input_chars": in_c,
+            "output_chars": out_c,
+        }
+        sidecar_path.write_text(json.dumps(meta, ensure_ascii=False) + "\n", encoding="utf-8")
+    except Exception:
+        pass  # Non-fatal
+
     print(f"  📋 [EVENT_OUTPUT_COPIED] Output successfully copied to file {path.name}")
 
 
@@ -198,7 +314,7 @@ def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> Tuple[Path, Path, Path
         if sub_parts and sub_parts[0] == "todo":
             sub_parts = sub_parts[1:]
         sub_path = Path(*sub_parts) if sub_parts else Path(rel_path.name)
-        
+
         out_path = cfg.output_path / role_folder / sub_path
         done_path = DEFAULT_TODO / role_folder / "done" / sub_path
         fail_path = DEFAULT_TODO / role_folder / "failed" / sub_path
@@ -235,6 +351,36 @@ def _list_input_files(src: Path) -> List[Tuple[Path, Path]]:
 
 def _iter_todo(cfg: AppConfig) -> Iterator[Tuple[Path, Path]]:
     """Yield (proc_file, relative_path) tuples for processing queue."""
+    src = cfg.input_path if cfg.input_path.is_dir() else DEFAULT_TODO
+    src.mkdir(parents=True, exist_ok=True)
+    cfg.proc_path.mkdir(parents=True, exist_ok=True)
+
+    skip_dirs = {"done", "failed", ".processing", "proc"}
+
+    def _should_process(f: Path, base_src: Path) -> bool:
+        if not f.is_file():
+            return False
+        if f.name.startswith(".") or f.name.upper() == "PROMPT.MD":
+            return False
+        rel_parts = f.resolve().relative_to(base_src.resolve()).parts
+        if any(p in skip_dirs or p.startswith(".") for p in rel_parts[:-1]):
+            return False
+        return True
+
+    # P6: retry-failed mode — process files from failed/ on next run
+    if cfg.retry_failed:
+        src = cfg.failed_path
+        if not src.exists() or not src.is_dir():
+            log.warning("retry-failed mode: failed/ directory not found")
+            return
+        for f in sorted(f for f in src.rglob("*") if _should_process(f, src)):
+            rel_path = f.resolve().relative_to(src.resolve())
+            _, _, _, proc_dest = resolve_role_paths(rel_path, cfg)
+            proc_dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(f), str(proc_dest))
+            yield proc_dest, rel_path
+        return
+
     if cfg.mode == "single":
         if not cfg.input_path.exists():
             raise FileNotFoundError(cfg.input_path)
@@ -254,24 +400,8 @@ def _iter_todo(cfg: AppConfig) -> Iterator[Tuple[Path, Path]]:
         yield proc_file, rel_path
         return
 
-    src = cfg.input_path if cfg.input_path.is_dir() else DEFAULT_TODO
-    src.mkdir(parents=True, exist_ok=True)
-    cfg.proc_path.mkdir(parents=True, exist_ok=True)
-
-    skip_dirs = {"done", "failed", ".processing", "proc"}
-
-    def _should_process(f: Path) -> bool:
-        if not f.is_file():
-            return False
-        if f.name.startswith(".") or f.name.upper() == "PROMPT.MD":
-            return False
-        rel_parts = f.resolve().relative_to(src.resolve()).parts
-        if any(p in skip_dirs or p.startswith(".") for p in rel_parts[:-1]):
-            return False
-        return True
-
     if cfg.mode == "batch":
-        for f in sorted(f for f in src.rglob("*") if _should_process(f)):
+        for f in sorted(f for f in src.rglob("*") if _should_process(f, src)):
             rel_path = f.resolve().relative_to(src.resolve())
             _, _, _, proc_dest = resolve_role_paths(rel_path, cfg)
             proc_dest.parent.mkdir(parents=True, exist_ok=True)
@@ -280,8 +410,12 @@ def _iter_todo(cfg: AppConfig) -> Iterator[Tuple[Path, Path]]:
         return
 
     log.info("watching %s every %ds", src, cfg.interval)
+    _install_watcher_signal_handlers()
     while True:
-        for f in sorted(f for f in src.rglob("*") if _should_process(f)):
+        for f in sorted(f for f in src.rglob("*") if _should_process(f, src)):
+            if _watcher_shutdown.is_set():
+                log.info("watcher_exiting_on_shutdown")
+                return
             rel_path = f.resolve().relative_to(src.resolve())
             _, _, _, proc_dest = resolve_role_paths(rel_path, cfg)
             proc_dest.parent.mkdir(parents=True, exist_ok=True)
@@ -290,26 +424,43 @@ def _iter_todo(cfg: AppConfig) -> Iterator[Tuple[Path, Path]]:
                 yield proc_dest, rel_path
             except OSError as e:
                 log.debug("skipping %s: %s", f, e)
-        time.sleep(cfg.interval)
+        if _watcher_shutdown.is_set():
+            log.info("watcher_exiting_on_shutdown")
+            return
+        _watcher_sleep(cfg.interval)
 
 
-def _process_file(client: QwenClient, proc_file: Path, rel_path: Path, 
+def _process_file(client: QwenClient, proc_file: Path, rel_path: Path,
                   cfg: AppConfig, audit: AuditLog, ctx: RunContext) -> None:
     """Processes single file through Qwen web client with tenacity retry and quarantine handling."""
     out_path, done_path, fail_path, _ = resolve_role_paths(rel_path, cfg)
-    
+
     prompt = proc_file.read_text(encoding="utf-8").strip()
     print(f"• {rel_path} ({len(prompt):,} chars)")
     t0 = time.time()
     audit.log_step(ctx, "START_PROCESSING", str(rel_path), "STARTED", {"input_chars": len(prompt)})
 
+    # P6: Initialize circuit breaker and rate limiter for this request
+    cb = CircuitBreaker(
+        threshold=cfg.circuit_breaker_threshold,
+        window_sec=cfg.circuit_breaker_window,
+    )
+    rl = RateLimiter(max_per_minute=cfg.rate_limit_per_minute)
+
     def _attempt() -> str:
+        # Acquire rate limiter slot
+        rl.acquire()
+
         text = client.send_file(proc_file, cfg.timeout, custom_prompt_path=cfg.prompt_file, rel_path=rel_path)
         dur = time.time() - t0
+
+        # P6: Record success on circuit breaker
+        cb.record_success()
+
         _write_output(out_path, text, ctx, str(rel_path), dur, len(prompt), len(text))
         audit.log("SUCCESS", ctx, str(rel_path), str(out_path), dur, len(prompt), len(text))
         audit.log_step(ctx, "PROCESS_SUCCESS", str(rel_path), "SUCCESS", {"duration_sec": dur, "output_chars": len(text)})
-        
+
         if out_path.resolve() == done_path.resolve():
             try:
                 proc_file.unlink()
@@ -333,10 +484,14 @@ def _process_file(client: QwenClient, proc_file: Path, rel_path: Path,
         raise
     except Exception as e:
         dur = time.time() - t0
+
+        # P6: Record failure on circuit breaker
+        cb.record_failure()
+
         err_msg = f"{type(e).__name__}: {e}"
         audit.log("FAILED", ctx, str(rel_path), str(out_path), dur, len(prompt), 0, err_msg)
         audit.log_step(ctx, "QUARANTINED", str(rel_path), "FAILED", {"error": err_msg})
-        
+
         client.reset_page()
         if out_path.resolve() != fail_path.resolve():
             fail_path.parent.mkdir(parents=True, exist_ok=True)

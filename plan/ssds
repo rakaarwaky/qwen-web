@@ -15,6 +15,7 @@ Targetnya tetap membuat semua aspek menjadi **10/10**:
 ---
 
 # Plan Final: Native Linux Only, No Docker, Target 10/10
+**⚠️ REVISI: Struktur file/folder TIDAK DIUBAH. Semua penambahan fitur di lokasi yang sudah ada.**
 
 ## Constraint Baru
 
@@ -87,9 +88,32 @@ Diganti dengan:
 
 ---
 
-## 1.2 Jadikan project Python package yang benar
+## 1.2 Pertahankan struktur src/ yang sudah ada
 
-Saat ini import masih memakai fallback:
+**TIDAK MENGUBAH struktur.** `src/` tetap flat, bukan package.
+
+Struktur tetap:
+
+```text
+qwen-web-automation/
+├── src/
+│   ├── browser.py
+│   ├── config.py
+│   ├── main.py
+│   ├── observability.py
+│   ├── pipeline.py
+│   ├── qwen_client.py
+│   └── linux.py          ← file baru
+├── tests/
+├── input/
+├── output/
+├── log/
+├── qwen_session/
+├── pyproject.toml        ← file baru
+└── requirements.txt
+```
+
+Import tetap pakai fallback (sudah benar untuk flat src/):
 
 ```python
 try:
@@ -98,55 +122,23 @@ except ImportError:
     from config import AppConfig
 ```
 
-Ini kurang ideal untuk production dan type safety.
-
-Plan:
-
-- ubah `src/` menjadi package resmi.
-- hapus fallback import.
-- jalankan sebagai module.
-
-Struktur yang disarankan:
-
-```text
-qwen-web-automation/
-├── src/
-│   └── qwen_automation/
-│       ├── __init__.py
-│       ├── main.py
-│       ├── config.py
-│       ├── browser.py
-│       ├── qwen_client.py
-│       ├── pipeline.py
-│       ├── observability.py
-│       ├── linux.py
-│       └── py.typed
-├── tests/
-├── input/
-├── output/
-├── log/
-├── qwen_session/
-├── pyproject.toml
-└── requirements.txt
-```
-
-Cara menjalankan:
+Cara menjalankan tetap sama:
 
 ```bash
-python -m qwen_automation.main --watch --headless
+python src/main.py --watch --headless
 ```
 
 atau lewat systemd:
 
 ```bash
-/opt/qwen-web-automation/.venv/bin/python -m qwen_automation.main --watch --headless
+/opt/qwen-web-automation/.venv/bin/python src/main.py --watch --headless
 ```
 
 Acceptance:
 
-- tidak ada `try/except ImportError` untuk import module internal.
-- `python -m qwen_automation.main --help` berjalan.
-- mypy lebih mudah dibuat strict.
+- struktur file TIDAK berubah.
+- semua file tetap di lokasi yang sama.
+- import tetap berfungsi dengan fallback pattern.
 
 ---
 
@@ -156,7 +148,7 @@ Watcher tidak boleh jalan dua kali karena bisa memindahkan file yang sama dan me
 
 Gunakan `fcntl.flock`.
 
-File baru: `src/qwen_automation/linux.py`
+File baru: `src/linux.py`
 
 Konsep:
 
@@ -277,7 +269,7 @@ User=qwen
 Group=qwen
 WorkingDirectory=/opt/qwen-web-automation
 EnvironmentFile=/etc/qwen-web-automation/qwen.env
-ExecStart=/opt/qwen-web-automation/.venv/bin/python -m qwen_automation.main --watch --headless
+ExecStart=/opt/qwen-web-automation/.venv/bin/python src/main.py --watch --headless
 Restart=on-failure
 RestartSec=10
 TimeoutStopSec=30
@@ -303,7 +295,7 @@ Catatan penting:
 
 Tambahkan fungsi kecil untuk komunikasi dengan systemd.
 
-File: `src/qwen_automation/linux.py`
+File: `src/linux.py`
 
 ```python
 import os
@@ -1013,7 +1005,7 @@ Status:
   "status": "AUTH_REQUIRED",
   "timestamp": "2026-08-09T12:00:00",
   "message": "Session expired. Run manual login on a headed Linux desktop.",
-  "action_required": "python -m qwen_automation.main --login"
+  "action_required": "python src/main.py --login"
 }
 ```
 
@@ -1037,7 +1029,7 @@ Acceptance:
 Tambahkan CLI:
 
 ```bash
-python -m qwen_automation.main --retry-failed
+python src/main.py --retry-failed
 ```
 
 Fungsi:
@@ -1347,7 +1339,7 @@ ignore_missing_imports = true
 Acceptance:
 
 ```bash
-mypy src/qwen_automation --strict
+mypy src --strict
 ```
 
 harus pass.
@@ -1359,13 +1351,13 @@ harus pass.
 Buat file kosong:
 
 ```text
-src/qwen_automation/py.typed
+src/py.typed
 ```
 
 Fungsi:
 
-- menandakan package ini typed.
-- memungkinkan consumer/type checker melihat type information.
+- menandakan src/ directory ini typed.
+- memungkinkan type checker melihat type information.
 
 ---
 
@@ -1583,7 +1575,7 @@ jobs:
 
       - name: Type check
         run: |
-          mypy src/qwen_automation --strict
+          mypy src --strict
 
       - name: Unit + fixture tests
         run: |
@@ -1609,9 +1601,8 @@ Berikut perubahan file yang perlu dilakukan.
 ## File baru
 
 ```text
-src/qwen_automation/__init__.py
-src/qwen_automation/linux.py
-src/qwen_automation/py.typed
+src/linux.py
+src/py.typed
 pyproject.toml
 /etc/systemd/system/qwen-automation.service
 /etc/qwen-web-automation/qwen.env
@@ -1622,7 +1613,7 @@ pyproject.toml
 
 ## File yang diubah
 
-### `src/qwen_automation/config.py`
+### `src/config.py`
 
 Tambahkan:
 
@@ -1634,11 +1625,10 @@ Tambahkan:
 
 ---
 
-### `src/qwen_automation/main.py`
+### `src/main.py`
 
 Tambahkan:
 
-- package import
 - signal handler
 - single-instance lock
 - `sd_notify("READY=1")`
@@ -1648,7 +1638,7 @@ Tambahkan:
 
 ---
 
-### `src/qwen_automation/pipeline.py`
+### `src/pipeline.py`
 
 Tambahkan:
 
@@ -1662,7 +1652,7 @@ Tambahkan:
 
 ---
 
-### `src/qwen_automation/qwen_client.py`
+### `src/qwen_client.py`
 
 Tambahkan:
 
@@ -1678,7 +1668,7 @@ Tambahkan:
 
 ---
 
-### `src/qwen_automation/browser.py`
+### `src/browser.py`
 
 Tambahkan:
 
@@ -1689,7 +1679,7 @@ Tambahkan:
 
 ---
 
-### `src/qwen_automation/observability.py`
+### `src/observability.py`
 
 Tambahkan:
 
@@ -1700,7 +1690,51 @@ Tambahkan:
 
 ---
 
-# 8. Priority Plan
+# 8. Test Updates untuk Full Migration
+
+Karena full migration, test existing perlu di-update untuk menyesuaikan behavior baru.
+
+## Test yang perlu di-update
+
+### 1. `tests/regression_qwen_auto.py`
+
+**`test_regression_max_reconnect_loop_prevention`**
+- Saat ini test `mock_page.reload.call_count == 5`
+- Setelah event-driven response, reconnect logic mungkin berubah
+- Update: pastikan reconnect tetap max 5x, tapi mekanisme deteksi berubah ke MutationObserver
+
+### 2. `tests/contract_qwen_auto.py`
+
+**`test_app_config_contract`**
+- Tambah field baru dengan default value: `rate_limit_delay`, `circuit_breaker_threshold`, `shutdown_timeout`
+- Pastikan test tetap pass tanpa ubah constructor call yang ada
+
+**`test_exceptions_contract`**
+- Tambah test untuk exception hierarchy baru:
+  - `NetworkError(QwenAutomationError)`
+  - `DOMDriftError(QwenAutomationError)`
+  - `ResponseTimeoutError(QwenAutomationError)`
+  - `CircuitBreakerOpenError(QwenAutomationError)`
+
+### 3. `tests/unit_qwen_auto.py`
+
+**`test_build_config_mode_resolution`**
+- Tambah field baru di `MockArgs`: `rate_limit_delay`, `circuit_breaker_threshold`
+- Pastikan `_build_config()` handle field baru dengan default
+
+### 4. `tests/integration_qwen_auto.py`
+
+**Tidak perlu diubah** — pakai `MockQwenClient`, tidak terpengaruh perubahan di `QwenClient` asli.
+
+### 5. `tests/conftest.py`
+
+**Tambah fixtures baru:**
+- `linux_lock` — untuk test single-instance lock
+- `sd_notify_mock` — untuk test systemd notification
+
+---
+
+# 10. Priority Plan
 
 ## P0 — Wajib untuk 10/10
 
@@ -1708,7 +1742,7 @@ Durasi estimasi: 6–8 jam.
 
 | Task | Alasan |
 |---|---|
-| Refactor jadi package | dibutuhkan untuk mypy strict dan deployment |
+| Tambah linux.py | single-instance lock + sd_notify |
 | Single-instance lock | mencegah race watcher |
 | Signal handler | shutdown bersih |
 | systemd service | production native Linux |
@@ -1749,7 +1783,7 @@ Durasi estimasi: 4–6 jam.
 
 ---
 
-# 9. Estimasi Total
+# 11. Estimasi Total
 
 | Kategori | Estimasi |
 |---|---:|
@@ -1765,7 +1799,7 @@ Ini bisa dikerjakan bertahap.
 
 ---
 
-# 10. Definition of Done Global
+# 12. Definition of Done Global
 
 Plan dianggap selesai jika semua checklist ini terpenuhi:
 
