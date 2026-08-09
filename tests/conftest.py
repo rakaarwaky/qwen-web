@@ -135,6 +135,138 @@ def run_ctx() -> RunContext:
 # tests/fixtures/ so the real input/ output/ log/ dirs are never touched.
 # Requires internet + a valid saved session in qwen_session/.
 
+# ── Golden state: exact content of each todo/task_001.md ─────────────────────
+# Stored here so reset_fixture_state can always recreate them, even after
+# a crash, interrupt, or repeated test run.
+_GOLDEN_TASKS: dict[str, str] = {
+    "role-architect": """\
+# Review Request: auth module architecture
+
+Please review the `modules/auth/` directory and identify any layer boundary
+violations, naming issues, or orphaned files.
+
+Focus on:
+- Import direction compliance
+- SRP adherence
+- Testability of each component
+""",
+    "role-business-analyst": """\
+# User Story Gap Analysis: Payment Feature
+
+Analyze the acceptance criteria for the `payment` feature user stories.
+
+Identify:
+- Missing edge cases
+- Ambiguous acceptance criteria
+- Stories without testable outcomes
+""",
+    "role-tech-lead": """\
+# PR Review: LRU Cache Implementation
+
+Review the implementation in `modules/cache/lru.py`.
+
+Check:
+- Code quality and naming conventions
+- Test coverage adequacy
+- Performance implications of the eviction policy
+- Thread safety concerns
+
+Provide a go/no-go recommendation.
+""",
+}
+
+_ROLES = list(_GOLDEN_TASKS.keys())
+_STATE_DIRS = ("done", "failed", ".processing")  # dirs that must be empty in clean state
+
+
+def _reset_to_golden(fixture_root: Path) -> None:
+    """Reset tests/fixtures/ to its clean initial state:
+    - todo/task_001.md   → recreated from golden content
+    - done/ failed/ .processing/ → emptied
+    - output/<role>/     → emptied
+    - log/               → emptied
+
+    Safe to call at any time: before test, after test, after crash/interrupt.
+    """
+    fx_input  = fixture_root / "input"
+    fx_output = fixture_root / "output"
+    fx_log    = fixture_root / "log"
+
+    for role in _ROLES:
+        role_dir = fx_input / role
+
+        # 1. Empty state dirs (done/, failed/, .processing/)
+        for state_dir in _STATE_DIRS:
+            d = role_dir / state_dir
+            d.mkdir(parents=True, exist_ok=True)
+            for f in d.rglob("*"):
+                if f.is_file():
+                    f.unlink(missing_ok=True)
+
+        # 2. Restore todo/task_001.md from golden content
+        todo_file = role_dir / "todo" / "task_001.md"
+        todo_file.parent.mkdir(parents=True, exist_ok=True)
+        todo_file.write_text(_GOLDEN_TASKS[role], encoding="utf-8")
+
+        # 3. Empty output/<role>/
+        out_dir = fx_output / role
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for f in out_dir.rglob("*"):
+            if f.is_file():
+                f.unlink(missing_ok=True)
+
+    # 4. Empty log/ (keep the dir, wipe the files)
+    fx_log.mkdir(parents=True, exist_ok=True)
+    for f in fx_log.rglob("*"):
+        if f.is_file():
+            f.unlink(missing_ok=True)
+
+
+@pytest.fixture(autouse=False)
+def reset_fixture_state(fixture_root: Path) -> None:  # type: ignore[return]
+    """Autouse fixture for E2E tests that ensures tests/fixtures/ is in its
+    golden state BEFORE the test and AFTER the test (teardown always runs,
+    even on crash or KeyboardInterrupt).
+
+    Golden state:
+      input/<role>/todo/task_001.md   ← exists, original content
+      input/<role>/done/              ← empty
+      input/<role>/failed/            ← empty
+      input/<role>/.processing/       ← empty
+      output/<role>/                  ← empty
+      log/                            ← empty
+
+    Use explicitly in E2E tests:
+        def test_foo(self, reset_fixture_state, ...):
+    """
+    _reset_to_golden(fixture_root)   # ── SETUP: clean slate before test
+    yield
+    _reset_to_golden(fixture_root)   # ── TEARDOWN: restore after test
+
+
+@pytest.fixture
+def e2e_cfg(fixture_root: Path) -> AppConfig:
+    """Real AppConfig for E2E tests.
+
+    Identical constructor to production main.py — only paths redirected to
+    tests/fixtures/. Uses the real qwen_session/ for authentication.
+    log_path points to tests/fixtures/log/ (persistent — inspect after run).
+    """
+    fx_input  = fixture_root / "input"
+    fx_output = fixture_root / "output"
+    return AppConfig(
+        mode="batch",
+        input_path=fx_input,
+        output_path=fx_output,
+        done_path=fx_input / "role-architect" / "done",
+        failed_path=fx_input / "role-architect" / "failed",
+        proc_path=fx_input / "role-architect" / ".processing",
+        session_path=ROOT / "qwen_session",   # real saved session
+        log_path=fixture_root / "log",         # persistent — inspect after run
+        headless=True,
+    )
+
+
 @pytest.fixture
 def e2e_cfg(fixture_root: Path) -> AppConfig:
     """Real AppConfig for E2E tests.

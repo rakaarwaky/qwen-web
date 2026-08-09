@@ -181,3 +181,38 @@ class TestResponseStability:
         text = client._wait_for_response_inner(baseline=0, timeout=10)
         assert text == "STABLE REPLY"
 
+
+class TestVerifyAttachment:
+    def test_verify_attachment_in_dom_true(self, client, page):
+        page.evaluate("() => document.getElementById('attachmentCard').classList.add('visible')")
+        assert client._verify_attachment_in_dom("doc.md") is True
+
+    def test_verify_attachment_in_dom_false_when_absent(self, client, page):
+        page.evaluate("() => document.getElementById('attachmentCard').classList.remove('visible')")
+        assert client._verify_attachment_in_dom("doc.md") is False
+
+
+class TestPromptDispatched:
+    def test_is_prompt_dispatched_true_when_message_present(self, client, page):
+        page.evaluate("""() => {
+            const log = document.getElementById('chatLog');
+            const a = document.createElement('div'); a.className='markdown-body';
+            a.textContent='x'; log.appendChild(a);
+        }""")
+        assert client._is_prompt_dispatched(baseline=0) is True
+
+    def test_is_prompt_dispatched_false_when_empty(self, client, page):
+        assert client._is_prompt_dispatched(baseline=0) is False
+
+
+class TestSendFileE2E:
+    def test_send_file_full_pipeline(self, client, page, tmp_path, monkeypatch):
+        # Locks the entire production pipeline against the fixture:
+        # new chat -> attach (mode-select) -> inject -> wait parse -> send -> response.
+        # _ensure_chat_page() hardcodes a goto(CHAT_URL); neutralize it for the local fixture.
+        monkeypatch.setattr(client, "_ensure_chat_page", lambda: None)
+        probe = _probe_file(tmp_path)
+        text = client.send_file(probe, timeout=10)
+        assert "received the attached file" in text.lower()
+        assert len(text) > 0
+
