@@ -115,7 +115,7 @@ class QwenClient:
     def _count_messages(self) -> int:
         """Count assistant messages using verified selectors from config."""
         for sel in MESSAGE_SELECTORS:
-            count = self.page.evaluate(f"""() => document.querySelectorAll('{sel}').length""")
+            count = self.page.evaluate("s => document.querySelectorAll(s).length", sel)
             if count and count > 0:
                 return count
         return 0
@@ -123,10 +123,7 @@ class QwenClient:
     def _latest_message_text(self) -> Optional[str]:
         """Get text of last assistant message using verified selectors from config."""
         for sel in MESSAGE_SELECTORS:
-            text = self.page.evaluate(f"""() => {{
-                const msgs = document.querySelectorAll('{sel}');
-                return msgs.length > 0 ? msgs[msgs.length - 1].textContent.trim() : null;
-            }}""")
+            text = self.page.evaluate("s => { const msgs = document.querySelectorAll(s); return msgs.length > 0 ? msgs[msgs.length - 1].textContent.trim() : null; }", sel)
             if text:
                 return text
         return None

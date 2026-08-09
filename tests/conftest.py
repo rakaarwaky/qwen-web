@@ -98,7 +98,7 @@ def fixture_root() -> Path:
 
 
 @pytest.fixture
-def cfg(fixture_root: Path, tmp_path: Path) -> AppConfig:
+def cfg(fixture_root: Path, tmp_path: Path, reset_fixture_state) -> AppConfig:  # type: ignore[return]
     """Real AppConfig wired to tests/fixtures/ input & output, log redirected
     to tmp_path so each test run is isolated (no log pollution in fixtures/).
     Uses the identical AppConfig constructor as production main.py.
