@@ -1,9 +1,34 @@
+# Python
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
-.pytest_cache/
-log/
-output/
-qwen_session/
+.eggs/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
 .env
+.env.*
+
+# Coverage
+.coverage
+htmlcov/
+
+# Playwright / browser artifacts
+qwen_session/
+tests/artifacts/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific
+log/
+*.log

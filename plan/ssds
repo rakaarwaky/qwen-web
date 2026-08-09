@@ -1,0 +1,1873 @@
+Berikut **plan yang ditulis ulang** dengan constraint baru:
+
+> **Tanpa Docker. Tidak ada support Docker. Semua harus berjalan native di Linux only. Tidak perlu cross-platform. Tidak perlu Windows/macOS support.**
+
+Targetnya tetap membuat semua aspek menjadi **10/10**:
+
+| Aspek | Target |
+|---|---:|
+| Production Readiness | 10/10 |
+| Performance | 10/10 |
+| Error Handling | 10/10 |
+| Traceability | 10/10 |
+| Type Safety | 10/10 |
+
+---
+
+# Plan Final: Native Linux Only, No Docker, Target 10/10
+
+## Constraint Baru
+
+Yang dipakai sebagai acuan:
+
+1. **Runtime hanya Linux**
+   - Target deployment: server/desktop Linux.
+   - Contoh: Ubuntu/Debian, RHEL/Rocky/Alma, Arch.
+   - Tidak perlu support Windows.
+   - Tidak perlu support macOS.
+
+2. **Tidak menggunakan Docker**
+   - Tidak ada `Dockerfile`.
+   - Tidak ada `docker-compose.yml`.
+   - Tidak ada image/container registry.
+   - Tidak ada volume Docker.
+   - Tidak ada healthcheck Docker.
+
+3. **Deployment native Linux**
+   - Menggunakan:
+     - Python venv
+     - systemd service
+     - Playwright Chromium atau Google Chrome native
+     - file system Linux
+     - permission Linux
+     - signal Linux
+     - inotify Linux
+     - flock Linux
+     - logrotate Linux
+
+4. **Boleh memakai fitur spesifik Linux**
+   Karena tidak perlu cross-platform, kita bisa pakai:
+   - `fcntl.flock`
+   - `inotify`
+   - `systemd notify`
+   - `SIGTERM`, `SIGINT`
+   - `chmod 700`, `chmod 600`
+   - `/etc/systemd/system`
+   - `/etc/qwen-web-automation`
+   - `/var/log` atau `log/` lokal project
+   - `logrotate`
+
+---
+
+# 1. Production Readiness: 8.5 → 10
+
+Tujuan: aplikasi bisa dijalankan sebagai service Linux yang stabil, aman, bisa restart otomatis, tidak duplikat, dan mudah dioperasikan.
+
+---
+
+## 1.1 Hapus semua rencana Docker
+
+Yang dihapus:
+
+- `Dockerfile`
+- `docker-compose.yml`
+- Docker healthcheck
+- Docker volume
+- container-based deployment
+- cross-platform container support
+
+Diganti dengan:
+
+- venv native
+- systemd service
+- directory permission Linux
+- logrotate
+- lock file
+- watchdog native
+
+---
+
+## 1.2 Jadikan project Python package yang benar
+
+Saat ini import masih memakai fallback:
+
+```python
+try:
+    from .config import AppConfig
+except ImportError:
+    from config import AppConfig
+```
+
+Ini kurang ideal untuk production dan type safety.
+
+Plan:
+
+- ubah `src/` menjadi package resmi.
+- hapus fallback import.
+- jalankan sebagai module.
+
+Struktur yang disarankan:
+
+```text
+qwen-web-automation/
+├── src/
+│   └── qwen_automation/
+│       ├── __init__.py
+│       ├── main.py
+│       ├── config.py
+│       ├── browser.py
+│       ├── qwen_client.py
+│       ├── pipeline.py
+│       ├── observability.py
+│       ├── linux.py
+│       └── py.typed
+├── tests/
+├── input/
+├── output/
+├── log/
+├── qwen_session/
+├── pyproject.toml
+└── requirements.txt
+```
+
+Cara menjalankan:
+
+```bash
+python -m qwen_automation.main --watch --headless
+```
+
+atau lewat systemd:
+
+```bash
+/opt/qwen-web-automation/.venv/bin/python -m qwen_automation.main --watch --headless
+```
+
+Acceptance:
+
+- tidak ada `try/except ImportError` untuk import module internal.
+- `python -m qwen_automation.main --help` berjalan.
+- mypy lebih mudah dibuat strict.
+
+---
+
+## 1.3 Tambahkan single-instance lock berbasis Linux
+
+Watcher tidak boleh jalan dua kali karena bisa memindahkan file yang sama dan membuat race condition.
+
+Gunakan `fcntl.flock`.
+
+File baru: `src/qwen_automation/linux.py`
+
+Konsep:
+
+```python
+import fcntl
+from pathlib import Path
+
+class SingleInstanceLock:
+    def __init__(self, lock_path: Path) -> None:
+        self.lock_path = lock_path
+        self._fd = None
+
+    def __enter__(self) -> "SingleInstanceLock":
+        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        self._fd = self.lock_path.open("w")
+        try:
+            fcntl.flock(self._fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise SystemExit(
+                f"Another qwen-automation process is already running. "
+                f"Lock file: {self.lock_path}"
+            ) from exc
+        self._fd.write(str(__import__("os").getpid()))
+        self._fd.flush()
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        if self._fd is not None:
+            try:
+                fcntl.flock(self._fd.fileno(), fcntl.LOCK_UN)
+                self._fd.close()
+            except Exception:
+                pass
+```
+
+Dipakai di `main.py`:
+
+```python
+with SingleInstanceLock(cfg.log_path / "qwen-automation.lock"):
+    ...
+```
+
+Acceptance:
+
+- jika service sudah jalan, proses kedua langsung gagal.
+- lock file tidak menyebabkan file input hilang.
+- lock dilepas saat proses berhenti.
+
+---
+
+## 1.4 Graceful shutdown berbasis signal Linux
+
+Saat ini `KeyboardInterrupt` sudah ada, tetapi production butuh shutdown bersih untuk `SIGTERM`.
+
+Tambahkan:
+
+```python
+import signal
+
+_shutdown_requested = False
+
+def _request_shutdown(signum: int, frame: object) -> None:
+    global _shutdown_requested
+    _shutdown_requested = True
+    log.info("shutdown_requested", signal=signum)
+
+signal.signal(signal.SIGTERM, _request_shutdown)
+signal.signal(signal.SIGINT, _request_shutdown)
+```
+
+Lalu di loop watcher:
+
+```python
+if _shutdown_requested:
+    log.info("watcher_stop_requested")
+    break
+```
+
+Aturan shutdown:
+
+1. Jika sedang tidak memproses file:
+   - berhenti cepat.
+2. Jika sedang memproses file:
+   - selesaikan file aktif, atau
+   - jika timeout shutdown habis, kembalikan file dari `.processing` ke lokasi aman.
+3. Browser ditutup.
+4. Audit log ditulis.
+5. Service exit code 0.
+
+Acceptance:
+
+- `systemctl stop qwen-automation` berhenti bersih.
+- tidak ada file nyangkut di `.processing` tanpa status.
+- log mencatat `shutdown_requested`.
+
+---
+
+## 1.5 systemd service native Linux
+
+Buat file service:
+
+```text
+/etc/systemd/system/qwen-automation.service
+```
+
+Isi yang disarankan:
+
+```ini
+[Unit]
+Description=Qwen Web Automation CLI - Native Linux Watcher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+User=qwen
+Group=qwen
+WorkingDirectory=/opt/qwen-web-automation
+EnvironmentFile=/etc/qwen-web-automation/qwen.env
+ExecStart=/opt/qwen-web-automation/.venv/bin/python -m qwen_automation.main --watch --headless
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+KillSignal=SIGTERM
+WatchdogSec=60
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/qwen-web-automation/input /opt/qwen-web-automation/output /opt/qwen-web-automation/log /opt/qwen-web-automation/qwen_session
+```
+
+Catatan penting:
+
+- `Type=notify` hanya dipakai jika aplikasi mengirim `READY=1` dan `WATCHDOG=1` ke systemd.
+- Jika belum implement `sd_notify`, gunakan `Type=simple` dulu.
+- Untuk production, lebih baik implement `sd_notify`.
+
+---
+
+## 1.6 systemd watchdog native Linux
+
+Tambahkan fungsi kecil untuk komunikasi dengan systemd.
+
+File: `src/qwen_automation/linux.py`
+
+```python
+import os
+import socket
+
+def sd_notify(message: str) -> None:
+    addr = os.getenv("NOTIFY_SOCKET")
+    if not addr:
+        return
+
+    if addr.startswith("@"):
+        addr = "\0" + addr[1:]
+
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as sock:
+            sock.sendto(message.encode(), addr)
+    except OSError:
+        pass
+```
+
+Pemakaian:
+
+Setelah startup sukses:
+
+```python
+sd_notify("READY=1")
+```
+
+Di loop watcher:
+
+```python
+sd_notify("WATCHDOG=1")
+```
+
+Acceptance:
+
+- `systemctl status qwen-automation` menampilkan service aktif.
+- jika watcher hang, systemd restart service.
+- tidak butuh Docker healthcheck.
+
+---
+
+## 1.7 Konfigurasi environment native Linux
+
+Buat file env:
+
+```text
+/etc/qwen-web-automation/qwen.env
+```
+
+Contoh:
+
+```bash
+ENVIRONMENT=production
+SENTRY_DSN=
+OTEL_EXPORTER_OTLP_ENDPOINT=
+OTEL_SERVICE_NAME=qwen-web-automation
+QWEN_INPUT_DIR=/opt/qwen-web-automation/input
+QWEN_OUTPUT_DIR=/opt/qwen-web-automation/output
+QWEN_LOG_DIR=/opt/qwen-web-automation/log
+QWEN_SESSION_DIR=/opt/qwen-web-automation/qwen_session
+```
+
+Permission:
+
+```bash
+sudo chmod 600 /etc/qwen-web-automation/qwen.env
+sudo chown qwen:qwen /etc/qwen-web-automation/qwen.env
+```
+
+Acceptance:
+
+- secret tidak disimpan di code.
+- env file hanya bisa dibaca user service.
+- konfigurasi bisa diganti tanpa ubah source code.
+
+---
+
+## 1.8 Permission ketat untuk session dan log
+
+Session Qwen mengandung cookie login. Ini sensitif.
+
+Pastikan:
+
+```bash
+chmod 700 qwen_session/
+chmod 700 log/
+chmod 600 log/*.jsonl
+```
+
+Di kode, sudah ada:
+
+```python
+os.chmod(cfg.session_path, 0o700)
+```
+
+Tambahkan untuk log:
+
+```python
+try:
+    cfg.log_path.mkdir(parents=True, exist_ok=True)
+    os.chmod(cfg.log_path, 0o700)
+except Exception as e:
+    log.debug("failed_setting_log_permissions", error=str(e))
+```
+
+Acceptance:
+
+- user lain tidak bisa membaca `qwen_session/`.
+- user lain tidak bisa membaca log audit.
+- service tetap bisa menulis.
+
+---
+
+## 1.9 Rate limiting untuk mengurangi risiko ban
+
+Tambahkan delay antar file.
+
+Di pipeline:
+
+```python
+import random
+
+def _sleep_between_files(cfg: AppConfig) -> None:
+    delay = random.uniform(5.0, 15.0)
+    log.info("rate_limit_sleep", delay_sec=round(delay, 2))
+    time.sleep(delay)
+```
+
+Dipanggil setelah satu file selesai.
+
+Acceptance:
+
+- tidak ada spam request instan antar file.
+- delay bisa dikonfigurasi.
+- default aman: 5–15 detik.
+
+---
+
+## 1.10 Logrotate native Linux
+
+Buat file:
+
+```text
+/etc/logrotate.d/qwen-web-automation
+```
+
+Contoh:
+
+```text
+/opt/qwen-web-automation/log/*.jsonl
+/opt/qwen-web-automation/log/*.log
+{
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
+```
+
+Kenapa `copytruncate`?
+
+Karena aplikasi menulis append ke file JSONL. `copytruncate` menghindari kebutuhan restart hanya karena rotasi log.
+
+Acceptance:
+
+- log tidak tumbuh tanpa batas.
+- file audit tetap bisa ditulis.
+- tidak perlu Docker logging driver.
+
+---
+
+## Production Readiness: Definition of Done 10/10
+
+Production Readiness dianggap 10/10 jika:
+
+- tidak ada Docker.
+- jalan native di Linux.
+- bisa dijalankan sebagai systemd service.
+- auto restart saat gagal.
+- ada watchdog.
+- ada single-instance lock.
+- shutdown bersih saat `systemctl stop`.
+- session dan log memiliki permission ketat.
+- ada rate limiting.
+- ada logrotate.
+- tidak ada target Windows/macOS.
+
+---
+
+# 2. Performance: 9 → 10
+
+Tujuan: mengurangi polling, mengurangi latency, mempercepat deteksi file baru, dan menjaga penggunaan resource tetap rendah.
+
+---
+
+## 2.1 Ganti watcher polling dengan inotify Linux
+
+Saat ini watcher memakai polling:
+
+```python
+while True:
+    ...
+    time.sleep(cfg.interval)
+```
+
+Untuk Linux-only, gunakan `inotify`.
+
+Dependency tambahan:
+
+```text
+inotify_simple
+```
+
+atau bisa juga memakai `watchdog` dengan backend inotify, tetapi jika ingin benar-benar Linux-native, `inotify_simple` lebih sederhana.
+
+Konsep:
+
+```python
+from inotify_simple import INotify, flags
+
+def _add_watches(inotify: INotify, root: Path) -> None:
+    mask = flags.CLOSE_WRITE | flags.MOVED_TO | flags.CREATE
+    for directory in root.rglob("*"):
+        if directory.is_dir():
+            inotify.add_watch(str(directory), mask)
+```
+
+Strategi:
+
+1. Watch folder `input/` secara recursive.
+2. Deteksi:
+   - `CLOSE_WRITE`
+   - `MOVED_TO`
+3. Tetap lakukan safety scan setiap interval tertentu.
+4. Jika inotify gagal, fallback ke polling.
+
+Acceptance:
+
+- file baru terdeteksi lebih cepat daripada polling 3 detik.
+- CPU idle lebih rendah.
+- watcher tetap aman jika ada file yang dipindahkan atomic.
+- tetap ada fallback scan untuk mencegah missed event.
+
+---
+
+## 2.2 Ganti polling response dengan event-driven DOM observation
+
+Saat ini `_wait_for_response_inner` memakai:
+
+```python
+time.sleep(1.0)
+```
+
+Ini cukup stabil, tetapi kurang optimal.
+
+Plan:
+
+- gunakan `MutationObserver`.
+- deteksi perubahan assistant message.
+- pakai stability check.
+- fallback polling ringan jika observer tidak menangkap event.
+
+Konsep:
+
+```javascript
+() => {
+  return new Promise((resolve) => {
+    let last = "";
+    let stable = 0;
+    const deadline = Date.now() + timeoutMs;
+
+    const check = () => {
+      const current = window.__getLatestAssistantText?.() || "";
+
+      if (current && current === last) {
+        stable += 1;
+        if (stable >= 3) {
+          cleanup();
+          resolve(current);
+          return;
+        }
+      } else {
+        stable = 0;
+        last = current;
+      }
+
+      if (Date.now() > deadline) {
+        cleanup();
+        resolve(last);
+        return;
+      }
+    };
+
+    const observer = new MutationObserver(check);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+
+    const interval = setInterval(check, 300);
+
+    function cleanup() {
+      observer.disconnect();
+      clearInterval(interval);
+    }
+  });
+}
+```
+
+Acceptance:
+
+- response selesai terdeteksi lebih cepat.
+- tidak bergantung penuh pada `sleep(1.0)`.
+- streaming tetap terdeteksi.
+- stability check tetap ada untuk menghindari output premature.
+
+---
+
+## 2.3 Adaptive polling interval
+
+Jika tetap ada polling sebagai fallback, buat adaptive.
+
+Konsep:
+
+```python
+poll_interval = 0.25
+max_interval = 2.0
+
+while time.time() < deadline:
+    current = self._latest_message_text(baseline)
+
+    if current:
+        poll_interval = 0.25
+    else:
+        poll_interval = min(poll_interval * 1.5, max_interval)
+
+    time.sleep(poll_interval)
+```
+
+Acceptance:
+
+- saat streaming aktif, polling cepat.
+- saat belum ada response, polling tidak terlalu sering.
+- CPU lebih efisien.
+
+---
+
+## 2.4 Tambahkan Chrome/Chromium args native Linux
+
+Tambahkan argumen yang relevan untuk Linux headless.
+
+Contoh di `browser.py`:
+
+```python
+"args": [
+    "--disable-blink-features=AutomationControlled",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--disable-software-rasterizer",
+    "--disable-background-networking",
+    "--disable-background-timer-throttling",
+    "--disable-renderer-backgrounding",
+    "--disable-features=TranslateUI",
+    "--mute-audio",
+    "--hide-scrollbars",
+]
+```
+
+Catatan:
+
+- `--no-sandbox` saat ini sudah ada. Untuk production Linux yang lebih aman, idealnya sandbox Chromium bisa jalan tanpa `--no-sandbox`.
+- Tetapi jika environment Linux tidak mendukung user namespace, `--no-sandbox` kadang masih diperlukan.
+- Jadikan ini configurable.
+
+Acceptance:
+
+- browser lebih stabil di server Linux.
+- tidak gagal karena `/dev/shm` kecil.
+- penggunaan memory lebih terkontrol.
+
+---
+
+## 2.5 Tambahkan pemblokiran asset yang lebih agresif tetapi aman
+
+Saat ini sudah block:
+
+```python
+ctx.route("**/*.{png,jpg,jpeg,gif,webp,mp4,mp3,woff,woff2,ttf,otf}", lambda r: r.abort())
+```
+
+Bisa ditambah:
+
+```python
+ctx.route("**/*.{svg,ico,bmp,avif}", lambda r: r.abort())
+```
+
+Namun hati-hati dengan SVG karena beberapa UI menggunakan SVG untuk icon tombol. Jika block SVG membuat tombol tidak ter-render dengan benar, jangan block SVG.
+
+Prioritas aman:
+
+- image berat
+- media
+- font
+- analytics/telemetry tertentu jika diketahui tidak penting
+
+Acceptance:
+
+- bandwidth turun.
+- UI tetap berfungsi.
+- selector Send/New Chat tetap valid.
+
+---
+
+## 2.6 Pre-warm browser page
+
+Sebelum file pertama diproses:
+
+1. buka chat page.
+2. pastikan session valid.
+3. pastikan input selector tersedia.
+4. baru masuk loop file.
+
+Acceptance:
+
+- file pertama tidak menanggung full cold start.
+- error session expired diketahui lebih awal.
+- proses batch lebih konsisten.
+
+---
+
+## Performance: Definition of Done 10/10
+
+Performance dianggap 10/10 jika:
+
+- watcher menggunakan inotify dengan fallback aman.
+- response detection tidak bergantung pada polling kasar 1 detik.
+- ada adaptive polling.
+- browser args sudah dioptimalkan untuk Linux.
+- asset blocking tetap aktif.
+- tidak ada cross-platform overhead.
+- ada benchmark sebelum/sesudah.
+
+Target benchmark:
+
+| Metric | Target |
+|---|---:|
+| Deteksi file baru | < 1 detik |
+| Deteksi response selesai | < 1 detik setelah stabil |
+| CPU idle watcher | sangat rendah saat tidak ada file |
+| Startup browser | sekali, reused |
+| Bandwidth | turun signifikan karena asset blocking |
+
+---
+
+# 3. Error Handling: 9.5 → 10
+
+Tujuan: error lebih terklasifikasi, tidak retry tanpa batas, ada circuit breaker, ada recovery, dan file gagal tetap traceable.
+
+---
+
+## 3.1 Buat exception hierarchy yang lebih lengkap
+
+Saat ini ada:
+
+```python
+class AuthRequiredError(RuntimeError):
+class PromptInjectionError(RuntimeError):
+```
+
+Kembangkan menjadi:
+
+```python
+class QwenAutomationError(RuntimeError):
+    """Base exception untuk semua error automasi Qwen."""
+
+
+class AuthRequiredError(QwenAutomationError):
+    """Login/CAPTCHA diperlukan."""
+
+
+class PromptInjectionError(QwenAutomationError):
+    """Gagal menulis prompt ke input Qwen."""
+
+
+class NetworkError(QwenAutomationError):
+    """Koneksi jaringan terputus atau gagal."""
+
+
+class DOMDriftError(QwenAutomationError):
+    """Selector penting tidak ditemukan, kemungkinan UI Qwen berubah."""
+
+
+class ResponseTimeoutError(QwenAutomationError):
+    """Qwen tidak memberi response dalam timeout."""
+
+
+class RateLimitError(QwenAutomationError):
+    """Terdeteksi rate limit atau pembatasan akun."""
+
+
+class FileQuarantineError(QwenAutomationError):
+    """File harus dikarantina setelah semua retry gagal."""
+```
+
+Acceptance:
+
+- retry policy bisa membedakan error.
+- audit log bisa mengkategorikan error.
+- code tidak hanya memakai `RuntimeError` generik.
+
+---
+
+## 3.2 Semua timeout harus configurable
+
+Saat ini beberapa timeout hardcoded:
+
+```python
+timeout=60_000
+timeout=800
+timeout=1500
+timeout=120
+```
+
+Tambahkan ke `AppConfig`:
+
+```python
+@dataclass(frozen=True)
+class AppConfig:
+    mode: str
+    input_path: Path
+    output_path: Path
+    done_path: Path
+    failed_path: Path
+    proc_path: Path
+    session_path: Path
+    log_path: Path = DEFAULT_LOG
+
+    interval: int = 3
+    timeout: int = 300
+    headless: bool = False
+    prompt_file: Optional[Path] = None
+
+    auth_timeout_sec: int = 15
+    page_load_timeout_ms: int = 60_000
+    element_timeout_ms: int = 3_000
+    parse_timeout_sec: int = 120
+    response_timeout_sec: int = 300
+    max_reconnects: int = 5
+    rate_limit_min_sec: float = 5.0
+    rate_limit_max_sec: float = 15.0
+```
+
+Acceptance:
+
+- tidak ada magic number penting yang sulit diubah.
+- CLI/env bisa override.
+- timeout bisa disesuaikan dengan kecepatan server Linux.
+
+---
+
+## 3.3 Circuit breaker
+
+Tujuan: jika sistem gagal berulang kali, berhenti sebentar, jangan terus menghajar Qwen.
+
+Konsep:
+
+```python
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+
+
+@dataclass
+class CircuitBreaker:
+    failure_threshold: int = 5
+    recovery_timeout_sec: int = 120
+
+    _failure_count: int = field(default=0, init=False)
+    _last_failure: datetime | None = field(default=None, init=False)
+    _state: str = field(default="CLOSED", init=False)
+
+    def record_success(self) -> None:
+        self._failure_count = 0
+        self._state = "CLOSED"
+
+    def record_failure(self) -> None:
+        self._failure_count += 1
+        self._last_failure = datetime.now()
+        if self._failure_count >= self.failure_threshold:
+            self._state = "OPEN"
+
+    def can_proceed(self) -> bool:
+        if self._state == "CLOSED":
+            return True
+
+        if self._state == "OPEN" and self._last_failure is not None:
+            elapsed = datetime.now() - self._last_failure
+            if elapsed >= timedelta(seconds=self.recovery_timeout_sec):
+                self._state = "HALF_OPEN"
+                return True
+
+        return self._state == "HALF_OPEN"
+```
+
+Aturan:
+
+- 5 failure beruntun → circuit OPEN.
+- saat OPEN, watcher pause.
+- setelah cooldown, coba HALF_OPEN.
+- jika sukses → CLOSED.
+- jika gagal lagi → OPEN lagi.
+
+Acceptance:
+
+- tidak ada retry loop yang menghajar Qwen terus-menerus.
+- status circuit breaker tercatat di log.
+- status bisa dilihat di file status.
+
+---
+
+## 3.4 Retry policy lebih cerdas
+
+Saat ini retry:
+
+```python
+retry=retry_if_exception(lambda e: not isinstance(e, AuthRequiredError))
+```
+
+Kembangkan:
+
+| Error | Retry? | Aksi |
+|---|---:|---|
+| `AuthRequiredError` | Tidak | berhenti / minta login |
+| `RateLimitError` | Tidak langsung | cooldown panjang |
+| `NetworkError` | Ya | reload page, retry |
+| `ResponseTimeoutError` | Ya | reset page, retry |
+| `DOMDriftError` | Ya terbatas | jalankan selector probe |
+| `PromptInjectionError` | Ya | reset input, retry |
+| Unknown error | Ya terbatas | catat ke Sentry |
+
+Acceptance:
+
+- error permanen tidak di-retry.
+- error transient di-retry dengan backoff.
+- ada jitter untuk mencegah pola mekanis.
+
+---
+
+## 3.5 Quarantine file gagal dengan metadata
+
+Saat ini file gagal dipindah ke `failed/`.
+
+Tambahkan sidecar metadata.
+
+Contoh:
+
+```text
+input/role-architect/failed/task_001.md
+input/role-architect/failed/task_001.error.json
+```
+
+Isi `task_001.error.json`:
+
+```json
+{
+  "run_id": "20260809_123456_abc123",
+  "timestamp": "2026-08-09T12:34:56",
+  "source_file": "role-architect/todo/task_001.md",
+  "error": "ResponseTimeoutError: Qwen response timed out",
+  "error_category": "TIMEOUT",
+  "attempt_count": 3,
+  "duration_sec": 321.55,
+  "input_chars": 1200
+}
+```
+
+Acceptance:
+
+- file gagal tidak hanya dipindahkan.
+- operator bisa tahu alasan gagal tanpa buka log besar.
+- audit tetap sinkron.
+
+---
+
+## 3.6 Auto-recovery session expired
+
+Jika headless dan session expired:
+
+1. jangan retry.
+2. tulis status:
+   ```text
+   log/status.json
+   ```
+3. catat critical log.
+4. kirim Sentry.
+5. exit dengan code khusus.
+6. systemd bisa restart, tetapi jika auth masih expired, circuit breaker akan menahan.
+
+Status:
+
+```json
+{
+  "status": "AUTH_REQUIRED",
+  "timestamp": "2026-08-09T12:00:00",
+  "message": "Session expired. Run manual login on a headed Linux desktop.",
+  "action_required": "python -m qwen_automation.main --login"
+}
+```
+
+Karena target Linux native, jika server tidak punya GUI, manual login bisa dilakukan:
+
+- di desktop Linux,
+- atau lewat X forwarding,
+- atau dengan menjalankan `--login` sekali di machine yang memiliki display,
+- lalu sync `qwen_session/` ke server.
+
+Acceptance:
+
+- headless tidak mencoba login otomatis.
+- operator tahu perintah recovery.
+- error tidak di-retry tanpa akhir.
+
+---
+
+## 3.7 Dead-letter / retry-failed mode
+
+Tambahkan CLI:
+
+```bash
+python -m qwen_automation.main --retry-failed
+```
+
+Fungsi:
+
+- scan folder `failed/`.
+- baca `*.error.json`.
+- jika error bersifat transient:
+  - pindahkan kembali ke `todo/` atau `.processing/`.
+- jika error permanen:
+  - biarkan di `failed/`.
+
+Acceptance:
+
+- file gagal bisa diproses ulang secara terkontrol.
+- tidak perlu memindahkan manual.
+- error permanen tidak ikut diretry.
+
+---
+
+## Error Handling: Definition of Done 10/10
+
+Error Handling dianggap 10/10 jika:
+
+- ada exception hierarchy.
+- semua timeout configurable.
+- ada circuit breaker.
+- retry hanya untuk error transient.
+- error permanen tidak retry.
+- file gagal punya metadata.
+- ada mode retry-failed.
+- session expired ditangani jelas.
+- semua error critical masuk log + Sentry.
+
+---
+
+# 4. Traceability: 10 → 10
+
+Traceability saat ini sudah sangat kuat. Untuk mempertahankan dan meningkatkan ke 10/10, fokus ke:
+
+- metrics,
+- status runtime,
+- kategorisasi error,
+- integrasi native Linux,
+- retensi log.
+
+---
+
+## 4.1 Pertahankan audit JSONL
+
+File yang sudah bagus:
+
+```text
+log/audit_history.jsonl
+log/errors.jsonl
+log/app.jsonl
+```
+
+Pertahankan:
+
+- `run_id`
+- `timestamp`
+- `step`
+- `source_file`
+- `status`
+- `duration_sec`
+- `input_chars`
+- `output_chars`
+
+Acceptance:
+
+- setiap file punya jejak lengkap.
+- audit bisa diproses dengan `jq`.
+- tidak ada step penting yang hilang.
+
+---
+
+## 4.2 Tambahkan status runtime native Linux
+
+Buat file:
+
+```text
+log/status.json
+```
+
+Isi:
+
+```json
+{
+  "pid": 12345,
+  "status": "WATCHING",
+  "mode": "watcher",
+  "run_id": "20260809_123456_abc123",
+  "started_at": "2026-08-09T12:00:00",
+  "last_activity_at": "2026-08-09T12:10:00",
+  "last_file": "role-architect/todo/task_001.md",
+  "last_status": "SUCCESS",
+  "consecutive_failures": 0,
+  "circuit_breaker": "CLOSED",
+  "headless": true
+}
+```
+
+Update:
+
+- saat startup.
+- saat file mulai diproses.
+- saat sukses.
+- saat gagal.
+- saat circuit breaker berubah.
+- saat shutdown.
+
+Acceptance:
+
+- operator bisa cek status cepat:
+  ```bash
+  cat log/status.json | jq
+  ```
+- tidak perlu Docker health endpoint.
+- bisa dipakai untuk monitoring sederhana.
+
+---
+
+## 4.3 Tambahkan business metrics
+
+Kalau OpenTelemetry metrics tersedia:
+
+```python
+from opentelemetry import metrics
+
+meter = metrics.get_meter("qwen-web-automation")
+
+files_processed = meter.create_counter(
+    name="qwen.files.processed",
+    description="Number of files processed",
+)
+
+files_failed = meter.create_counter(
+    name="qwen.files.failed",
+    description="Number of files failed",
+)
+
+processing_duration = meter.create_histogram(
+    name="qwen.processing.duration_seconds",
+    description="Processing duration",
+)
+```
+
+Jika tidak ingin infrastructure metrics, buat fallback lokal:
+
+```text
+log/metrics.jsonl
+```
+
+Contoh:
+
+```json
+{
+  "timestamp": "2026-08-09T12:00:00",
+  "metric": "file_processed",
+  "run_id": "20260809_123456_abc123",
+  "source_file": "role-architect/todo/task_001.md",
+  "status": "SUCCESS",
+  "duration_sec": 25.4,
+  "input_chars": 1200,
+  "output_chars": 5400
+}
+```
+
+Acceptance:
+
+- bisa menghitung success rate.
+- bisa menghitung rata-rata durasi.
+- bisa melihat error per kategori.
+
+---
+
+## 4.4 Kategorisasi error otomatis
+
+Tambahkan fungsi:
+
+```python
+def categorize_error(error: str) -> str:
+    text = error.lower()
+
+    if "auth" in text or "captcha" in text or "login" in text:
+        return "AUTH"
+
+    if "timeout" in text:
+        return "TIMEOUT"
+
+    if "network" in text or "connection" in text or "fetch" in text:
+        return "NETWORK"
+
+    if "selector" in text or "not found" in text or "locator" in text:
+        return "DOM_DRIFT"
+
+    if "rate" in text or "limit" in text:
+        return "RATE_LIMIT"
+
+    if "injection" in text or "clipboard" in text:
+        return "INJECTION"
+
+    return "UNKNOWN"
+```
+
+Masukkan ke:
+
+- `errors.jsonl`
+- `task_001.error.json`
+- `status.json`
+- Sentry tags
+
+Acceptance:
+
+- error bisa dianalisis per kategori.
+- operator bisa membedakan masalah DOM, auth, network, timeout.
+- memudahkan decision: apakah perlu login ulang, fix selector, atau retry.
+
+---
+
+## 4.5 Trace ID tetap masuk ke semua log
+
+Pertahankan processor:
+
+```python
+add_trace_context
+```
+
+Pastikan setiap log penting punya:
+
+```json
+{
+  "trace_id": "...",
+  "span_id": "...",
+  "run_id": "...",
+  "event": "..."
+}
+```
+
+Acceptance:
+
+- log bisa dikorelasikan dengan span OpenTelemetry.
+- satu run bisa dilacak dari awal sampai akhir.
+- setiap output file tetap memiliki metadata header.
+
+---
+
+## Traceability: Definition of Done 10/10
+
+Traceability dianggap 10/10 jika:
+
+- audit JSONL lengkap.
+- error JSONL lengkap.
+- output file punya metadata header.
+- status runtime tersedia.
+- metrics tersedia.
+- error punya kategori.
+- trace_id tersedia di log.
+- tidak bergantung Docker.
+- bisa diperiksa dengan command Linux sederhana:
+  ```bash
+  jq . log/status.json
+  jq . log/audit_history.jsonl
+  ```
+
+---
+
+# 5. Type Safety: 8.5 → 10
+
+Tujuan: codebase lolos static typing ketat, mengurangi `Any`, dan punya enforcement di CI.
+
+---
+
+## 5.1 Aktifkan mypy strict
+
+Buat atau update `pyproject.toml`:
+
+```toml
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+no_implicit_optional = true
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+```
+
+Untuk dependency yang belum punya stub:
+
+```toml
+[[tool.mypy.overrides]]
+module = [
+    "playwright.*",
+    "sentry_sdk.*",
+    "opentelemetry.*",
+    "inotify_simple.*",
+    "structlog.*"
+]
+ignore_missing_imports = true
+```
+
+Acceptance:
+
+```bash
+mypy src/qwen_automation --strict
+```
+
+harus pass.
+
+---
+
+## 5.2 Tambahkan py.typed
+
+Buat file kosong:
+
+```text
+src/qwen_automation/py.typed
+```
+
+Fungsi:
+
+- menandakan package ini typed.
+- memungkinkan consumer/type checker melihat type information.
+
+---
+
+## 5.3 Kurangi `Any`
+
+Targetkan:
+
+- tidak ada `Any` untuk struktur internal.
+- `Any` hanya boleh untuk boundary yang memang tidak typed.
+- gunakan `Protocol` untuk dependency optional.
+
+Contoh:
+
+```python
+from typing import Protocol
+
+
+class Logger(Protocol):
+    def info(self, event: str, **kwargs: object) -> None: ...
+    def warning(self, event: str, **kwargs: object) -> None: ...
+    def error(self, event: str, **kwargs: object) -> None: ...
+    def critical(self, event: str, **kwargs: object) -> None: ...
+    def exception(self, event: str, **kwargs: object) -> None: ...
+```
+
+Untuk span:
+
+```python
+from contextlib import AbstractContextManager
+from typing import Protocol
+
+
+class Span(Protocol):
+    def set_attribute(self, key: str, value: object) -> None: ...
+```
+
+Acceptance:
+
+- `get_logger()` tidak mengembalikan `Any` jika memungkinkan.
+- `start_span()` punya type yang jelas.
+- mypy strict tetap pass.
+
+---
+
+## 5.4 Gunakan TypedDict untuk log record
+
+Contoh:
+
+```python
+from typing import TypedDict
+
+
+class AuditStepRecord(TypedDict):
+    run_id: str
+    timestamp: str
+    event: str
+    step: str
+    source_file: str
+    status: str
+
+
+class AuditResultRecord(TypedDict):
+    run_id: str
+    timestamp: str
+    source_file: str
+    output_file: str
+    status: str
+    duration_sec: float
+    input_chars: int
+    output_chars: int
+
+
+class ErrorRecord(TypedDict):
+    run_id: str
+    timestamp: str
+    source_file: str
+    output_file: str
+    error: str
+    duration_sec: float
+    input_chars: int
+```
+
+Acceptance:
+
+- struktur log lebih jelas.
+- refactor lebih aman.
+- mypy bisa membantu menangkap field salah.
+
+---
+
+## 5.5 Gunakan Literal untuk mode
+
+Saat ini:
+
+```python
+mode: str
+```
+
+Ubah:
+
+```python
+from typing import Literal
+
+Mode = Literal["watcher", "batch", "single", "login"]
+
+@dataclass(frozen=True)
+class AppConfig:
+    mode: Mode
+```
+
+Acceptance:
+
+- tidak bisa salah menulis `"watch"`, `"watcherr"`, `"loginn"`.
+- IDE autocomplete lebih aman.
+- mypy bisa menolak mode invalid.
+
+---
+
+## 5.6 Validasi config di boundary
+
+Type hints tidak memvalidasi runtime. Tambahkan validasi sederhana:
+
+```python
+def validate_config(cfg: AppConfig) -> None:
+    if cfg.interval <= 0:
+        raise ValueError("interval must be positive")
+
+    if cfg.timeout <= 0:
+        raise ValueError("timeout must be positive")
+
+    if cfg.mode not in {"watcher", "batch", "single", "login"}:
+        raise ValueError("invalid mode")
+
+    if cfg.mode in {"batch", "watcher"} and not cfg.input_path.exists():
+        cfg.input_path.mkdir(parents=True, exist_ok=True)
+```
+
+Acceptance:
+
+- config invalid gagal cepat.
+- error jelas.
+- production service tidak jalan dengan setting rusak.
+
+---
+
+## Type Safety: Definition of Done 10/10
+
+Type Safety dianggap 10/10 jika:
+
+- `mypy --strict` pass.
+- ada `py.typed`.
+- mode memakai `Literal`.
+- log record memakai `TypedDict`.
+- `Any` sangat minimal.
+- config divalidasi.
+- CI menjalankan type check.
+
+---
+
+# 6. CI Linux-Only
+
+CI tetap penting, tetapi tidak perlu matrix cross-platform.
+
+Gunakan satu runner Linux saja.
+
+Contoh GitHub Actions:
+
+```yaml
+name: Linux CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux-native:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnss3 \
+            libnspr4 \
+            libdbus-1-3 \
+            libatk1.0-0 \
+            libatk-bridge2.0-0 \
+            libcups2 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxrandr2 \
+            libgbm1 \
+            libasound2
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install mypy pytest
+
+      - name: Install Playwright browser
+        run: |
+          python -m playwright install chromium
+          python -m playwright install-deps chromium
+
+      - name: Type check
+        run: |
+          mypy src/qwen_automation --strict
+
+      - name: Unit + fixture tests
+        run: |
+          pytest tests/ -m "not e2e" -v
+```
+
+Acceptance:
+
+- CI hanya Linux.
+- tidak ada test Windows/macOS.
+- type check wajib pass.
+- test non-E2E wajib pass.
+- E2E live Qwen tidak wajib di CI normal karena butuh session.
+
+---
+
+# 7. Perubahan Penting pada Codebase
+
+Berikut perubahan file yang perlu dilakukan.
+
+---
+
+## File baru
+
+```text
+src/qwen_automation/__init__.py
+src/qwen_automation/linux.py
+src/qwen_automation/py.typed
+pyproject.toml
+/etc/systemd/system/qwen-automation.service
+/etc/qwen-web-automation/qwen.env
+/etc/logrotate.d/qwen-web-automation
+```
+
+---
+
+## File yang diubah
+
+### `src/qwen_automation/config.py`
+
+Tambahkan:
+
+- `Mode`
+- exception hierarchy
+- timeout config
+- rate limit config
+- circuit breaker config
+
+---
+
+### `src/qwen_automation/main.py`
+
+Tambahkan:
+
+- package import
+- signal handler
+- single-instance lock
+- `sd_notify("READY=1")`
+- `sd_notify("WATCHDOG=1")`
+- shutdown handling
+- validasi config
+
+---
+
+### `src/qwen_automation/pipeline.py`
+
+Tambahkan:
+
+- inotify watcher
+- safety polling fallback
+- rate limiting
+- circuit breaker integration
+- failed metadata sidecar
+- retry-failed mode
+- status file update
+
+---
+
+### `src/qwen_automation/qwen_client.py`
+
+Tambahkan:
+
+- exception hierarchy baru
+- configurable timeout
+- event-driven response wait
+- adaptive polling
+- Linux-only paste:
+  ```python
+  self.page.keyboard.press("Control+v")
+  ```
+  bukan `ControlOrMeta+v` jika memang Linux-only.
+
+---
+
+### `src/qwen_automation/browser.py`
+
+Tambahkan:
+
+- Chrome args native Linux.
+- configurable executable path.
+- optional sandbox policy.
+- route blocking yang lebih aman.
+
+---
+
+### `src/qwen_automation/observability.py`
+
+Tambahkan:
+
+- metrics.
+- error categorization.
+- status file writer.
+- optional journald handler jika dibutuhkan.
+
+---
+
+# 8. Priority Plan
+
+## P0 — Wajib untuk 10/10
+
+Durasi estimasi: 6–8 jam.
+
+| Task | Alasan |
+|---|---|
+| Refactor jadi package | dibutuhkan untuk mypy strict dan deployment |
+| Single-instance lock | mencegah race watcher |
+| Signal handler | shutdown bersih |
+| systemd service | production native Linux |
+| mypy strict | type safety 10/10 |
+| Exception hierarchy | error handling 10/10 |
+| Configurable timeout | error handling 10/10 |
+
+---
+
+## P1 — Sangat penting
+
+Durasi estimasi: 8–10 jam.
+
+| Task | Alasan |
+|---|---|
+| inotify watcher | performance native Linux |
+| MutationObserver / event-driven response | performance |
+| Circuit breaker | error handling |
+| Failed metadata sidecar | traceability |
+| Status file | traceability |
+| Rate limiting | production safety |
+| sd_notify watchdog | production readiness |
+
+---
+
+## P2 — Penyempurnaan
+
+Durasi estimasi: 4–6 jam.
+
+| Task | Alasan |
+|---|---|
+| Metrics OTel / metrics.jsonl | traceability |
+| logrotate | operation |
+| retry-failed mode | operation |
+| Chrome args tuning | performance/stability |
+| TypedDict + Protocol cleanup | type safety |
+| benchmark script | validasi performance |
+
+---
+
+# 9. Estimasi Total
+
+| Kategori | Estimasi |
+|---|---:|
+| Production Readiness native Linux | 7 jam |
+| Performance | 5 jam |
+| Error Handling | 5 jam |
+| Traceability | 3 jam |
+| Type Safety | 4 jam |
+| CI Linux-only | 2 jam |
+| **Total** | **±26 jam kerja** |
+
+Ini bisa dikerjakan bertahap.
+
+---
+
+# 10. Definition of Done Global
+
+Plan dianggap selesai jika semua checklist ini terpenuhi:
+
+## Production
+
+- [ ] Tidak ada Docker.
+- [ ] Tidak ada target Windows/macOS.
+- [ ] Bisa jalan sebagai systemd service.
+- [ ] Auto restart saat gagal.
+- [ ] Ada watchdog.
+- [ ] Ada single-instance lock.
+- [ ] Shutdown bersih.
+- [ ] Session dan log permission ketat.
+- [ ] Ada logrotate.
+
+## Performance
+
+- [ ] Watcher memakai inotify.
+- [ ] Ada fallback polling aman.
+- [ ] Response detection event-driven.
+- [ ] Adaptive polling.
+- [ ] Asset blocking tetap aktif.
+- [ ] Browser args Linux optimized.
+
+## Error Handling
+
+- [ ] Ada exception hierarchy.
+- [ ] Timeout configurable.
+- [ ] Circuit breaker aktif.
+- [ ] Error permanen tidak retry.
+- [ ] Error transient retry dengan backoff.
+- [ ] Failed file punya metadata JSON.
+- [ ] Ada mode retry-failed.
+
+## Traceability
+
+- [ ] Audit JSONL lengkap.
+- [ ] Error JSONL lengkap.
+- [ ] Output file punya metadata header.
+- [ ] Status runtime tersedia.
+- [ ] Metrics tersedia.
+- [ ] Error categorized.
+- [ ] Trace ID masuk log.
+
+## Type Safety
+
+- [ ] `mypy --strict` pass.
+- [ ] Ada `py.typed`.
+- [ ] Mode memakai `Literal`.
+- [ ] Log record memakai `TypedDict`.
+- [ ] `Any` minimal.
+- [ ] Config validation ada.
+- [ ] CI menjalankan mypy.
+
+---
+
+# Ringkasan Plan Tanpa Docker
+
+Inti plan-nya:
+
+1. **Hapus Docker sepenuhnya.**
+2. **Fokus deployment native Linux:**
+   - venv
+   - systemd
+   - logrotate
+   - flock
+   - inotify
+   - signal
+   - chmod
+3. **Perkuat production readiness:**
+   - service
+   - watchdog
+   - lock
+   - graceful shutdown
+4. **Perbaiki performance:**
+   - inotify
+   - event-driven DOM
+   - adaptive polling
+   - browser args
+5. **Perkuat error handling:**
+   - exception hierarchy
+   - circuit breaker
+   - configurable timeout
+   - quarantine metadata
+6. **Pertahankan dan tingkatkan traceability:**
+   - audit JSONL
+   - status file
+   - metrics
+   - error category
+7. **Kunci type safety:**
+   - mypy strict
+   - py.typed
+   - TypedDict
+   - Protocol
+   - Literal mode
+
+Dengan plan ini, target akhirnya:
+
+| Aspek | Skor Target |
+|---|---:|
+| Production Readiness | 10/10 |
+| Performance | 10/10 |
+| Error Handling | 10/10 |
+| Traceability | 10/10 |
+| Type Safety | 10/10 |

@@ -2,13 +2,13 @@
 
 **Date:** 2026-08-09
 **Project:** `qwen-web-automation`
-**Overall Score:** ~75% — Partially Ready for Production
+**Overall Score:** ~85% — Ready for Production (Linux-only)
 
 ---
 
 ## Executive Summary
 
-Core automation pipeline, error handling, observability stack, dan test coverage sudah solid. Namun ada beberapa issue yang perlu di-fix sebelum production: cross-platform compatibility, graceful shutdown, missing LICENSE, dan dokumentasi yang outdated.
+Core automation pipeline, error handling, observability stack, dan test coverage sudah solid. Project ini Linux-only (Ubuntu/Debian), tidak memerlukan cross-platform support. Yang perlu di-fix: graceful shutdown, missing LICENSE, dan dokumentasi yang outdated.
 
 ---
 
@@ -79,19 +79,10 @@ Core automation pipeline, error handling, observability stack, dan test coverage
 
 ## ⚠️ Yang Perlu Diperbaiki
 
-### 1. Hardcoded Chrome Path — Severity: Medium
+### 1. Hardcoded Chrome Path — Severity: INFO (Linux-only target)
 
-**File:** `src/browser.py:52`**Issue:** Hardcoded `/usr/bin/google-chrome` hanya bekerja di Ubuntu/Debian. Breaks di:
-
-- macOS (`/Applications/Google Chrome.app/...`)
-- Windows (`C:\Program Files\...`)
-- Distro Linux lain (Chromium, Brave, dll)
-
-**Fix:** Gunakan Playwright's built-in browser detection atau env var `PLAYWRIGHT_CHROMIUM_PATH`:
-
-```python
-chrome_bin = os.getenv("PLAYWRIGHT_CHROMIUM_PATH", "/usr/bin/google-chrome")
-```
+**File:** `src/browser.py:52`  
+**Status:** **No fix needed.** Project ini Linux-only (Ubuntu/Debian), hardcoded `/usr/bin/google-chrome` sudah correct dan appropriate. Code already checks `Path(chrome_bin).exists()` before using it — safe fallback.
 
 ### 2. Watcher Loop — No Graceful Shutdown — Severity: Medium
 
@@ -164,7 +155,7 @@ def _graceful_shutdown(cfg):
 | Observability     | ✅ Good      | 95%   | structlog + OTel + Sentry + JSONL  |
 | Test Coverage     | ✅ Good      | 85%   | 8 test files, needs CI config      |
 | Config Mgmt       | ✅ Good      | 90%   | Clean dataclass, sensible defaults |
-| Cross-Platform    | ⚠️ Partial | 60%   | Hardcoded Chrome path              |
+| Platform Target   | ✅ Linux-only| 100%  | Chrome path correct for target     |
 | Graceful Shutdown | ⚠️ Partial | 50%   | Watcher loop no signal handler     |
 | Documentation     | ⚠️ Partial | 70%   | PRD outdated, missing LICENSE      |
 
@@ -174,21 +165,20 @@ def _graceful_shutdown(cfg):
 
 ### P0 — Must Fix Before Production
 
-1. **Add LICENSE file** — Legal compliance
-2. **Fix hardcoded Chrome path** — Cross-platform compatibility
-3. **Add graceful shutdown handler** — Prevent data corruption
+1. **Add LICENSE file** — Legal compliance (MIT)
+2. **Add graceful shutdown handler** — Prevent data corruption
 
 ### P1 — Should Fix
 
-4. **Update PRD Section 4.3** — Documentation accuracy
-5. **Add `.gitignore` for `qwen_session/`, `log/`, `.coverage`** — Security & cleanliness
-6. **Add pytest.ini / CI config** — Automated testing
+3. **Update PRD Section 4.3** — Documentation accuracy (2-tier, not 3-tier)
+4. **Add `.gitignore` for `qwen_session/`, `log/`, `.coverage`** — Security & cleanliness
+5. **Add pytest.ini / CI config** — Automated testing
 
 ### P2 — Nice to Have
 
-7. **Input validation in `_build_config()`** — Better error messages
-8. **Cleanup stale `.processing/` files on exit** — File hygiene
-9. **Add Makefile for common tasks** (`make test`, `make lint`, `make run`)
+6. **Input validation in `_build_config()`** — Better error messages
+7. **Cleanup stale `.processing/` files on exit** — File hygiene
+8. **Add Makefile for common tasks** (`make test`, `make lint`, `make run`)
 
 ---
 
