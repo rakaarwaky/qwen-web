@@ -225,7 +225,7 @@ class QwenClient:
             prompt = f"{role_prompt}\n\n{prompt}"
 
         # Navigate to chat
-        self.page.goto("https://chat.qwen.ai/", timeout=30_000)
+        self.page.goto("https://chat.qwen.ai/", wait_until="domcontentloaded", timeout=30_000)
         try:
             self.page.wait_for_load_state("domcontentloaded", timeout=15_000)
         except Exception:
@@ -304,8 +304,8 @@ class QwenClient:
         if self.page:
             try:
                 self.emitter.emit(EVENT_NETWORK_RECONNECTING, {"url": "https://chat.qwen.ai/"})
-                self.page.goto("https://chat.qwen.ai/", timeout=10_000)
-                self.page.wait_for_load_state("networkidle", timeout=15_000)
+                self.page.goto("https://chat.qwen.ai/", wait_until="domcontentloaded", timeout=10_000)
+                self.page.wait_for_load_state("domcontentloaded", timeout=15_000)
             except Exception as e:
                 log.warning("Error resetting page: %s", e)
 
