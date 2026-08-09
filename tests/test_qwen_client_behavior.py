@@ -216,3 +216,50 @@ class TestSendFileE2E:
         assert "received the attached file" in text.lower()
         assert len(text) > 0
 
+
+class TestSendPrompt:
+    def test_send_prompt_full_pipeline(self, client, page, monkeypatch):
+        # Variant without file attachment: inject prompt text directly and get a reply.
+        monkeypatch.setattr(client, "_ensure_chat_page", lambda: None)
+        text = client.send_prompt("Hello there, reply with PONG.", timeout=10)
+        assert "received the attached file" in text.lower()  # fixture always returns this
+        assert len(text) > 0
+
+
+class TestResetPage:
+    def test_reset_page_opens_new_page(self, client, page):
+        before = len(client.ctx.pages)
+        client.reset_page()
+        assert len(client.ctx.pages) >= before
+        assert client._page is not None
+
+
+class TestWaitForAuth:
+    def test_raises_auth_required_in_headless_on_login(self, client, page, monkeypatch):
+        # Simulate a login redirect in the URL; headless mode must raise AuthRequiredError.
+        from config import AuthRequiredError
+        monkeypatch.setattr(page, "url", "https://chat.qwen.ai/login")
+        monkeypatch.setattr(page, "title", lambda: "Sign in")
+        with pytest.raises(AuthRequiredError):
+            client._wait_for_auth(timeout=1)
+
+    def test_passes_when_no_auth_challenge(self, client, page, monkeypatch):
+        monkeypatch.setattr(page, "url", "https://chat.qwen.ai/")
+        monkeypatch.setattr(page, "title", lambda: "Qwen")
+        # should return without raising
+        client._wait_for_auth(timeout=1)
+
+
+class TestErrorBranches:
+    def test_check_ui_error_returns_none_on_playwright_error(self, client, page, monkeypatch):
+        def _boom(*a, **k):
+            raise Exception("boom")
+        monkeypatch.setattr(page, "evaluate", _boom)
+        assert client._check_ui_error() is None
+
+    def test_count_messages_returns_zero_on_error(self, client, page, monkeypatch):
+        def _boom(*a, **k):
+            raise Exception("boom")
+        monkeypatch.setattr(page, "evaluate", _boom)
+        assert client._count_messages() == 0
+

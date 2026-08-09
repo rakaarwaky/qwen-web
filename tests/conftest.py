@@ -175,97 +175,97 @@ Provide a go/no-go recommendation.
 """,
 }
 
-_ROLES = list(_GOLDEN_TASKS.keys())
 _STATE_DIRS = ("done", "failed", ".processing")  # dirs that must be empty in clean state
+_ROLES = list(_GOLDEN_TASKS.keys())
+_LAST_RUN_FILE = FIXTURE_ROOT / ".last_run_ts"   # timestamp written by teardown
+_OUTPUT_TTL_SECS = 60                              # keep output this long after test
 
 
-def _reset_to_golden(fixture_root: Path) -> None:
-    """Reset tests/fixtures/ to its clean initial state:
-    - todo/task_001.md   → recreated from golden content
-    - done/ failed/ .processing/ → emptied
-    - output/<role>/     → emptied
-    - log/               → emptied
-
-    Safe to call at any time: before test, after test, after crash/interrupt.
+def _restore_todo(fixture_root: Path) -> None:
+    """Restore only todo/task_001.md for all roles. Does NOT touch output/ or log/.
+    Used when output should be preserved for inspection.
     """
-    fx_input  = fixture_root / "input"
-    fx_output = fixture_root / "output"
-    fx_log    = fixture_root / "log"
-
+    fx_input = fixture_root / "input"
     for role in _ROLES:
         role_dir = fx_input / role
-
-        # 1. Empty state dirs (done/, failed/, .processing/)
+        # Clear state dirs (done/ failed/ .processing/) — these are never useful to inspect
         for state_dir in _STATE_DIRS:
             d = role_dir / state_dir
             d.mkdir(parents=True, exist_ok=True)
             for f in d.rglob("*"):
                 if f.is_file():
                     f.unlink(missing_ok=True)
-
-        # 2. Restore todo/task_001.md from golden content
+        # Restore the input task file
         todo_file = role_dir / "todo" / "task_001.md"
         todo_file.parent.mkdir(parents=True, exist_ok=True)
         todo_file.write_text(_GOLDEN_TASKS[role], encoding="utf-8")
 
-        # 3. Empty output/<role>/
+
+def _full_reset(fixture_root: Path) -> None:
+    """Full reset: restore todo files AND wipe output/ and log/.
+    Called only when output TTL has expired or on explicit full reset.
+    """
+    _restore_todo(fixture_root)
+    fx_output = fixture_root / "output"
+    fx_log    = fixture_root / "log"
+    for role in _ROLES:
         out_dir = fx_output / role
         out_dir.mkdir(parents=True, exist_ok=True)
         for f in out_dir.rglob("*"):
             if f.is_file():
                 f.unlink(missing_ok=True)
-
-    # 4. Empty log/ (keep the dir, wipe the files)
     fx_log.mkdir(parents=True, exist_ok=True)
     for f in fx_log.rglob("*"):
-        if f.is_file():
+        if f.is_file() and f.name != ".last_run_ts":
             f.unlink(missing_ok=True)
 
 
 @pytest.fixture(autouse=False)
 def reset_fixture_state(fixture_root: Path) -> None:  # type: ignore[return]
-    """Autouse fixture for E2E tests that ensures tests/fixtures/ is in its
-    golden state BEFORE the test and AFTER the test (teardown always runs,
-    even on crash or KeyboardInterrupt).
+    """State manager for E2E tests. Output is cleaned under exactly 2 conditions:
 
-    Golden state:
-      input/<role>/todo/task_001.md   ← exists, original content
+      1. RERUN: a new test run starts and the previous output is >= 60s old.
+      2. TIME:  60 seconds have elapsed since the last test completed.
+
+    After the test finishes, output/ and log/ are kept intact for inspection.
+    Only todo/task_001.md and state dirs (done/failed/.processing) are restored
+    immediately so the next run can start cleanly.
+
+    Golden state (always enforced on SETUP):
+      input/<role>/todo/task_001.md   ← restored from golden content
       input/<role>/done/              ← empty
       input/<role>/failed/            ← empty
       input/<role>/.processing/       ← empty
-      output/<role>/                  ← empty
-      log/                            ← empty
-
-    Use explicitly in E2E tests:
-        def test_foo(self, reset_fixture_state, ...):
+      output/<role>/                  ← kept if <60s old, wiped if >=60s
+      log/                            ← kept if <60s old, wiped if >=60s
     """
-    _reset_to_golden(fixture_root)   # ── SETUP: clean slate before test
-    yield
-    _reset_to_golden(fixture_root)   # ── TEARDOWN: restore after test
+    import time as _time
 
+    # ── SETUP: determine whether to do full reset or light restore ────────────
+    last_run_ts: float = 0.0
+    if _LAST_RUN_FILE.exists():
+        try:
+            last_run_ts = float(_LAST_RUN_FILE.read_text(encoding="utf-8").strip())
+        except (ValueError, OSError):
+            last_run_ts = 0.0
 
-@pytest.fixture
-def e2e_cfg(fixture_root: Path) -> AppConfig:
-    """Real AppConfig for E2E tests.
+    elapsed = _time.time() - last_run_ts
+    if elapsed >= _OUTPUT_TTL_SECS:
+        # Output is stale (>=60s) or this is the first run — full clean
+        _full_reset(fixture_root)
+        print(f"\n🧹 [FIXTURE RESET] Full reset (last run {elapsed:.0f}s ago)")
+    else:
+        # Output is fresh (<60s) — light restore: keep output/log, reset todo only
+        _restore_todo(fixture_root)
+        print(f"\n♻️  [FIXTURE RESET] Light restore (last run {elapsed:.0f}s ago — output preserved)")
 
-    Identical constructor to production main.py — only paths redirected to
-    tests/fixtures/. Uses the real qwen_session/ for authentication.
-    log_path points to tests/fixtures/log/ (persistent — inspect after run).
-    """
-    fx_input  = fixture_root / "input"
-    fx_output = fixture_root / "output"
-    return AppConfig(
-        mode="batch",
-        input_path=fx_input,
-        output_path=fx_output,
-        done_path=fx_input / "role-architect" / "done",
-        failed_path=fx_input / "role-architect" / "failed",
-        proc_path=fx_input / "role-architect" / ".processing",
-        session_path=ROOT / "qwen_session",   # real saved session
-        log_path=fixture_root / "log",         # persistent — inspect after run
-        headless=True,
-    )
+    yield  # ── TEST RUNS ─────────────────────────────────────────────────────
 
+    # ── TEARDOWN: record timestamp, restore todo, keep output for inspection ─
+    _LAST_RUN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _LAST_RUN_FILE.write_text(str(_time.time()), encoding="utf-8")
+    _restore_todo(fixture_root)   # always restore input state
+    # output/ and log/ are intentionally left intact for post-test inspection
 
 @pytest.fixture
 def e2e_cfg(fixture_root: Path) -> AppConfig:
