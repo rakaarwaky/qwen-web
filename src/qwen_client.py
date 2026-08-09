@@ -140,9 +140,14 @@ class QwenClient:
             return ""
 
     def _inject_text(self, target: Locator, text: str) -> None:
+        # Two-tier injection, validated against the live Qwen UI (Qwen3.8-Max):
+        #   Tier 1 — native React value setter + synthetic input/change events
+        #           (most reliable for React-controlled <textarea.message-input-textarea>).
+        #   Tier 2 — clipboard write + Ctrl/Cmd+V paste (covers contenteditable / edge cases).
+        # Playwright fill() and raw type() were removed: fill() does not trigger React
+        # state updates, and type() is O(n) slow for 100k+ char prompts.
         errors: List[str] = []
-        
-        # Strategy 1: Native React injection (supports textarea, input, contenteditable)
+
         try:
             self.page.evaluate("""([el, text]) => {
                 if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
@@ -159,27 +164,12 @@ class QwenClient:
         except Exception as e:
             errors.append(f"ReactInject: {e}")
 
-        # Strategy 2: Playwright Fill
-        try:
-            target.fill(text)
-            return
-        except Exception as e:
-            errors.append(f"PWFill: {e}")
-
-        # Strategy 3: Clipboard
         try:
             self.page.evaluate(f"navigator.clipboard.writeText({json.dumps(text)})")
             self.page.keyboard.press("ControlOrMeta+v")
             return
         except Exception as e:
             errors.append(f"Clipboard: {e}")
-
-        # Strategy 4: Raw Typing
-        try:
-            target.type(text, delay=0)
-            return
-        except Exception as e:
-            errors.append(f"RawType: {e}")
 
         raise PromptInjectionError(f"All injection strategies failed: {' | '.join(errors)}")
 
@@ -476,77 +466,35 @@ class QwenClient:
             return False
 
     def _upload_file_attachment(self, file_path: Path) -> bool:
-        """Uploads file to Qwen chat via multiple fallback strategies."""
-        # Strategy 1: Hidden input#filesUpload — set_input_files works on hidden inputs
-        try:
-            file_input = self.page.locator("#filesUpload").first
-            file_input.set_input_files(str(file_path), timeout=5000)
-            self.page.wait_for_timeout(1500)
-            if self._verify_attachment_in_dom(file_path.name):
-                print("  📎 [EVENT_DOCUMENT_ATTACHED] File successfully attached via hidden input")
-                return True
-        except Exception as e:
-            log.debug("Strategy 1 (hidden input) failed: %s", e)
+        """Uploads a file to Qwen chat via the '+' (mode-select) attachment menu.
 
-        # Strategy 2: Click visible "Upload files" trigger → expect_file_chooser
+        Validated against the live Qwen UI (Qwen3.8-Max): the only working path is
+        clicking `.mode-select-open` and selecting the "Upload attachment" dropdown
+        item, which opens a native file chooser. The legacy `#filesUpload` hidden
+        input and JS DataTransfer strategies are dead against the current UI (they no
+        longer render an attachment card), so they were removed to cut dead code.
+        """
         try:
-            upload_trigger = self.page.locator("[aria-label*='Upload' i], [aria-label*='upload' i]").first
-            if upload_trigger.is_visible(timeout=2000):
-                with self.page.expect_file_chooser(timeout=5000) as fc_info:
-                    upload_trigger.click()
-                fc_info.value.set_files(str(file_path))
-                self.page.wait_for_timeout(1500)
-                if self._verify_attachment_in_dom(file_path.name):
-                    print("  📎 [EVENT_DOCUMENT_ATTACHED] File successfully attached via upload button")
-                    return True
-        except Exception as e:
-            log.debug("Strategy 2 (upload button) failed: %s", e)
-
-        # Strategy 3: Click mode-select-open → "Upload attachment" dropdown item
-        try:
-            self.page.locator(".mode-select-open").first.click(timeout=3000)
-            self.page.wait_for_timeout(300)
-            upload_item = self.page.locator(".mode-select-dropdown-item", has_text="Upload attachment").first
-            if not upload_item.is_visible(timeout=2000):
+            self.page.locator(".mode-select-open").first.click(timeout=5000)
+            self.page.wait_for_timeout(500)
+            upload_item = self.page.locator(
+                ".mode-select-dropdown-item", has_text="Upload attachment"
+            ).first
+            if not upload_item.is_visible(timeout=3000):
                 upload_item = self.page.locator("text='Upload attachment'").first
-            with self.page.expect_file_chooser(timeout=5000) as fc_info:
+            with self.page.expect_file_chooser(timeout=8000) as fc_info:
                 upload_item.click()
             fc_info.value.set_files(str(file_path))
             self.page.wait_for_timeout(1500)
             if self._verify_attachment_in_dom(file_path.name):
-                print("  📎 [EVENT_DOCUMENT_ATTACHED] File successfully attached via mode selector")
+                print("  📎 [EVENT_DOCUMENT_ATTACHED] File attached via mode-select menu")
                 return True
+            log.warning(
+                "mode-select upload set files but no attachment card appeared",
+                file=file_path.name,
+            )
         except Exception as e:
-            log.debug("Strategy 3 (mode selector) failed: %s", e)
-
-        # Strategy 4: Direct JS injection to dispatch file via DataTransfer
-        try:
-            file_bytes = file_path.read_bytes()
-            import base64
-            b64 = base64.b64encode(file_bytes).decode()
-            self.page.evaluate("""([fileName, fileData, mimeType]) => {
-                const byteChars = atob(fileData);
-                const arr = new Uint8Array(byteChars.length);
-                for (let i = 0; i < byteChars.length; i++) arr[i] = byteChars.charCodeAt(i);
-                const blob = new Blob([arr], { type: mimeType });
-                const file = new File([blob], fileName, { type: mimeType });
-                const dt = new DataTransfer();
-                dt.items.add(file);
-                const input = document.querySelector('#filesUpload');
-                if (!input) return false;
-                input.files = dt.files;
-                input.dispatchEvent(new Event('change', { bubbles: true }));
-                input.dispatchEvent(new Event('input', { bubbles: true }));
-                return true;
-            }""", [file_path.name, b64, "text/markdown"])
-            self.page.wait_for_timeout(2000)
-            if self._verify_attachment_in_dom(file_path.name):
-                print("  📎 [EVENT_DOCUMENT_ATTACHED] File successfully attached via JS DataTransfer")
-                return True
-        except Exception as e:
-            log.debug("Strategy 4 (JS DataTransfer) failed: %s", e)
-
-        log.warning("All file attachment strategies failed for %s", file_path.name)
+            log.warning("mode-select upload failed: %s", e)
         return False
 
     def send_file(self, file_path: Path, timeout: int, custom_prompt_path: Optional[Path] = None, rel_path: Optional[Path] = None) -> str:
