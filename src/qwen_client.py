@@ -18,8 +18,16 @@ from typing import Any, Optional
 
 from playwright.sync_api import Browser, BrowserContext, Page, TimeoutError as PlaywrightTimeoutError, sync_playwright
 
-from .config import AppConfig, AuthRequiredError, DEFAULT_LOG, RunContext, BrowserLaunchError
-from .observability import get_logger, start_span
+try:
+    from src.config import AppConfig, AuthRequiredError, DEFAULT_LOG, RunContext, BrowserLaunchError
+    from src.observability import get_logger, start_span
+except ImportError:
+    try:
+        from .config import AppConfig, AuthRequiredError, DEFAULT_LOG, RunContext, BrowserLaunchError
+        from .observability import get_logger, start_span
+    except ImportError:
+        from config import AppConfig, AuthRequiredError, DEFAULT_LOG, RunContext, BrowserLaunchError  # type: ignore[no-redef]
+        from observability import get_logger, start_span  # type: ignore[no-redef]
 
 log = get_logger("qwen_client")
 
@@ -212,7 +220,7 @@ class QwenClient:
 
         try:
             assert self.page is not None
-            result = self.page.evaluate(_MUTATION_OBSERVER_JS)  # type: ignore[arg-type]
+            result = self.page.evaluate(_MUTATION_OBSERVER_JS)
             if result:
                 return str(result)
         except PlaywrightTimeoutError:

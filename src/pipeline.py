@@ -19,9 +19,19 @@ from typing import Any, Iterator, List, Optional, Tuple
 
 from tenacity import RetryCallState, Retrying, retry_if_exception, stop_after_attempt, wait_exponential
 
-from .config import AppConfig, AuthRequiredError, DEFAULT_LOG, DEFAULT_TODO, RunContext, BrowserLaunchError
-from .observability import get_logger, start_span
-from .qwen_client import QwenClient
+try:
+    from src.config import AppConfig, AuthRequiredError, DEFAULT_LOG, DEFAULT_TODO, RunContext, BrowserLaunchError
+    from src.observability import get_logger, start_span
+    from src.qwen_client import QwenClient
+except ImportError:
+    try:
+        from .config import AppConfig, AuthRequiredError, DEFAULT_LOG, DEFAULT_TODO, RunContext, BrowserLaunchError
+        from .observability import get_logger, start_span
+        from .qwen_client import QwenClient
+    except ImportError:
+        from config import AppConfig, AuthRequiredError, DEFAULT_LOG, DEFAULT_TODO, RunContext, BrowserLaunchError  # type: ignore[no-redef]
+        from observability import get_logger, start_span  # type: ignore[no-redef]
+        from qwen_client import QwenClient  # type: ignore[no-redef]
 
 log = get_logger("pipeline")
 

@@ -32,15 +32,29 @@ class BrowserLaunchError(QwenCliError):
     """Raised when the browser context cannot be launched."""
 
 
-# ─── Paths & Defaults ────────────────────────────────────────────────────────
-BASE_DIR        = Path(__file__).resolve().parent.parent
-DEFAULT_TODO    = BASE_DIR / "input"
-DEFAULT_PROC    = BASE_DIR / "input" / ".processing"
-DEFAULT_DONE    = BASE_DIR / "input" / "done"
-DEFAULT_FAILED  = BASE_DIR / "input" / "failed"
-DEFAULT_OUTPUT  = BASE_DIR / "output"
-DEFAULT_LOG     = BASE_DIR / "log"
-DEFAULT_SESSION = BASE_DIR / "qwen_session"
+# ─── Paths & Defaults (XDG Specification) ──────────────────────────────────────
+import os
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+def _get_xdg_dir(env_var: str, default_subpath: str) -> Path:
+    env_val = os.getenv(env_var)
+    if env_val:
+        return Path(env_val) / "qwen-web-automation"
+    return Path.home() / default_subpath / "qwen-web-automation"
+
+XDG_DATA_HOME   = _get_xdg_dir("XDG_DATA_HOME", ".local/share")
+XDG_STATE_HOME  = _get_xdg_dir("XDG_STATE_HOME", ".local/state")
+XDG_CACHE_HOME  = _get_xdg_dir("XDG_CACHE_HOME", ".cache")
+XDG_CONFIG_HOME = _get_xdg_dir("XDG_CONFIG_HOME", ".config")
+
+DEFAULT_TODO    = XDG_DATA_HOME / "input"
+DEFAULT_PROC    = XDG_CACHE_HOME / ".processing"
+DEFAULT_DONE    = XDG_DATA_HOME / "input" / "done"
+DEFAULT_FAILED  = XDG_DATA_HOME / "input" / "failed"
+DEFAULT_OUTPUT  = XDG_DATA_HOME / "output"
+DEFAULT_LOG     = XDG_STATE_HOME / "log"
+DEFAULT_SESSION = XDG_DATA_HOME / "qwen_session"
 CHAT_URL        = "https://chat.qwen.ai/"
 
 # ─── DOM Selectors ───────────────────────────────────────────────────────────

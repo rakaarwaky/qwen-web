@@ -190,7 +190,7 @@ def _excepthook(exc_type: type[BaseException], exc_value: BaseException, exc_tb:
         category=ErrorCategory.categorize(exc_value),
     )
     if HAS_SENTRY:
-        sentry_sdk.capture_exception(exc_value)  # type: ignore[misc]
+        sentry_sdk.capture_exception(exc_value)
     sys.exit(1)
 
 
@@ -203,7 +203,7 @@ def _thread_excepthook(args: Any) -> None:
         category=ErrorCategory.categorize(args.exc_value),
     )
     if HAS_SENTRY:
-        sentry_sdk.capture_exception(args.exc_value)  # type: ignore[misc]
+        sentry_sdk.capture_exception(args.exc_value)
 
 
 def install_excepthooks() -> None:
@@ -285,7 +285,7 @@ class StatusFileWriter:
         """Read the last written status file."""
         try:
             import json
-            return json.loads(self._status_path.read_text(encoding="utf-8"))
+            return json.loads(self._status_path.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
         except FileNotFoundError:
             return None
         except Exception:

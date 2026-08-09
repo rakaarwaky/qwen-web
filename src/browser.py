@@ -7,10 +7,16 @@ from pathlib import Path
 from typing import Any, Dict, Iterator
 
 from playwright.sync_api import BrowserContext, sync_playwright
-from tenacity import RetryCallState, Retrying, stop_after_attempt, wait_fixed
-
-from .config import AppConfig, BrowserLaunchError
-from .observability import get_logger, start_span
+try:
+    from src.config import AppConfig, BrowserLaunchError
+    from src.observability import get_logger, start_span
+except ImportError:
+    try:
+        from .config import AppConfig, BrowserLaunchError
+        from .observability import get_logger, start_span
+    except ImportError:
+        from config import AppConfig, BrowserLaunchError  # type: ignore[no-redef]
+        from observability import get_logger, start_span  # type: ignore[no-redef]
 
 log = get_logger("browser")
 
@@ -34,7 +40,7 @@ def _launch_context(p: Any, kwargs: Dict[str, Any]) -> BrowserContext:
         reraise=True,
     ):
         with attempt:
-            ctx = p.chromium.launch_persistent_context(**kwargs)
+            ctx = p.chromium.launch_persistent_context(**kwargs)  # type: ignore[no-any-return]
             return ctx
 
     raise RuntimeError("browser launch failed after retries")  # pragma: no cover
