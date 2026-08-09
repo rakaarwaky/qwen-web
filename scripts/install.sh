@@ -25,7 +25,11 @@ XDG_STATE="${XDG_STATE_HOME:-${HOME}/.local/state}/qwen-web-automation"
 XDG_CACHE="${XDG_CACHE_HOME:-${HOME}/.cache}/qwen-web-automation"
 XDG_CONFIG="${XDG_CONFIG_HOME:-${HOME}/.config}/qwen-web-automation"
 
-mkdir -p "${XDG_DATA}/input/done" "${XDG_DATA}/input/failed" "${XDG_DATA}/output" "${XDG_DATA}/qwen_session"
+ROLES="role-architect role-business-analyst role-tech-lead role-fullstack-developer role-quality-analysis"
+for role in $ROLES; do
+    mkdir -p "${XDG_DATA}/input/${role}/done" "${XDG_DATA}/input/${role}/failed" "${XDG_DATA}/input/${role}/.processing"
+done
+mkdir -p "${XDG_DATA}/output" "${XDG_DATA}/qwen_session"
 mkdir -p "${XDG_STATE}/log"
 mkdir -p "${XDG_CACHE}/.processing"
 mkdir -p "${XDG_CONFIG}"
@@ -34,9 +38,6 @@ if [ -f "${PROJECT_ROOT}/SKILL.md" ]; then
     echo "📄 [install] Copying SKILL.md template to XDG data directory (${XDG_DATA}/SKILL.md)..."
     cp "${PROJECT_ROOT}/SKILL.md" "${XDG_DATA}/SKILL.md"
 fi
-
-# Also keep local repo fallback dirs for local testing
-mkdir -p input/done input/failed input/.processing output log qwen_session
 
 # 4. Make entrypoints executable
 echo "🔑 [install] Setting executable permissions..."

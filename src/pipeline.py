@@ -358,6 +358,10 @@ def _iter_todo(cfg: AppConfig) -> Iterator[Tuple[Path, Path]]:
         if f.name.startswith(".") or f.name.upper() == "PROMPT.MD":
             return False
         rel_parts = f.resolve().relative_to(base_src.resolve()).parts
+        if len(rel_parts) < 2:
+            return False
+        if not rel_parts[0].startswith("role-"):
+            return False
         if any(p in skip_dirs or p.startswith(".") for p in rel_parts[:-1]):
             return False
         return True

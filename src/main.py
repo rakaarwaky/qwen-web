@@ -194,7 +194,8 @@ def _interactive_prompt() -> AppConfig:
         )
     
     headless = input("Run headless? [y/N, default=N]: ").strip().lower() == "y"
-    mode: Literal["watcher", "batch", "single", "login"] = "watcher"
+    mode_map = {"1": "watcher", "2": "batch", "3": "single"}
+    mode: Literal["watcher", "batch", "single", "login"] = mode_map.get(choice, "watcher")
     
     if mode == "single":
         available_files = _list_input_files(DEFAULT_TODO)
