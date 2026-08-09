@@ -57,16 +57,18 @@ class TestInjectText:
         assert text in val
 
     def test_clipboard_fallback_writes_value(self, client, page, monkeypatch):
-        # Force the React-setter tier to fail so we exercise the clipboard fallback.
+        # Force ONLY the React-setter tier to fail, so we exercise the clipboard fallback.
         target = client._find_input()
+        real_evaluate = page.evaluate
 
-        def _boom(*a, **k):
-            raise RuntimeError("forced React-setter failure")
+        def _selective_boom(script, *a, **k):
+            if "HTMLTextAreaElement.prototype" in script or "value" in script:
+                raise RuntimeError("forced React-setter failure")
+            return real_evaluate(script, *a, **k)
 
-        monkeypatch.setattr(page, "evaluate", _boom)
+        monkeypatch.setattr(page, "evaluate", _selective_boom)
         text = "Fallback via clipboard paste."
         client._inject_text(target, text)
-        # clipboard path uses keyboard.paste; verify the textarea received it
         val = page.evaluate("(el) => (el.value || '').trim()", target.element_handle())
         assert text in val
 
