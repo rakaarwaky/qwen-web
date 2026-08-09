@@ -26,6 +26,9 @@ warn_unreachable = true
 # Refuse unsafe __all__ in __init__.py
 strict_equality = true
 
+# Ignore missing stubs for third-party libs
 [[tool.mypy.overrides]]
-module = ["playwright.*"]
+module = ["playwright.*", "tenacity.*", "structlog.*", "sentry_sdk.*", "mcp.*"]
 ignore_missing_imports = true
+disallow_untyped_defs = false
+check_untyped_defs = false

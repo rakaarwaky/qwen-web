@@ -5,7 +5,7 @@
 
 ### 1. Overview & Vision
 
-`qwen-web-automation` is a production-grade, resilient CLI automation tool that interacts with the Qwen AI web interface (`chat.qwen.ai`) without requiring official API keys. It enables batch prompt processing, real-time file watching, persistent session management, structured observability (structlog + OpenTelemetry + Sentry), and JSONL audit logging via Playwright browser automation.
+`qwen-web-automation` is a production-grade, resilient CLI automation tool and MCP Server that interacts with the Qwen AI web interface (`chat.qwen.ai`) without requiring official API keys. It enables batch prompt processing, real-time file watching, persistent session management, 1:1 MCP Server tool integration for local AI agents, structured observability (structlog + OpenTelemetry + Sentry), and JSONL audit logging via Playwright browser automation.
 
 ---
 
@@ -13,7 +13,8 @@
 
 | Module | Responsibility |
 | :--- | :--- |
-| `src/main.py` | CLI entrypoint, argument parser, interactive TUI menu |
+| `src/main.py` | CLI entrypoint, argument parser, interactive TUI menu, MCP launcher |
+| `src/mcp_server.py` | MCP Server entrypoint exposing 1:1 CLI features as Model Context Protocol tools |
 | `src/config.py` | Constants, path defaults, DOM selectors, `AppConfig` dataclass, custom exceptions |
 | `src/browser.py` | Playwright `launch_persistent_context` lifecycle management |
 | `src/qwen_client.py` | Core automation: prompt injection, response polling, security check interception |
@@ -55,6 +56,9 @@
 
 #### 3.5 Manual Login Mode (`--login`)
 - **Behavior**: Opens a visible browser window on `chat.qwen.ai` and waits for the user to complete login or CAPTCHA resolution before saving the session.
+
+#### 3.6 MCP Server Mode (`--mcp` / `src/mcp_server.py`)
+- **Behavior**: Runs as a Model Context Protocol (MCP) server over stdio, exposing 1:1 capabilities of the CLI as tools (`qwen_send_prompt`, `qwen_process_single`, `qwen_process_batch`, `qwen_start_watcher`, `qwen_setup_session`, `qwen_get_audit_log`) for local AI agents.
 
 ---
 

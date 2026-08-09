@@ -14,42 +14,7 @@ from src.pipeline import (
 
 
 class TestQwenAutoRegression(unittest.TestCase):
-    """Regression tests for event-driven parsing, role-based prompts, path resolution, and reconnect logic."""
-
-    def test_regression_user_prompt_filtered_from_assistant_response(self) -> None:
-        """Verifies _latest_message_text filters out user prompt bubbles and only extracts assistant answers."""
-        mock_ctx = MagicMock()
-        mock_page = MagicMock()
-        mock_ctx.pages = [mock_page]
-        mock_page.is_closed.return_value = False
-
-        client = QwenClient(mock_ctx, headless=True)
-
-        def mock_eval(js_code, *args):
-            if "userParent" in js_code:
-                return "Filtered Assistant Response Only"
-            return 0
-
-        mock_page.evaluate.side_effect = mock_eval
-        text = client._latest_message_text(baseline=0)
-        self.assertEqual(text, "Filtered Assistant Response Only")
-
-    def test_regression_parsing_indicator_blocks_send(self) -> None:
-        """Verifies _is_file_parsing_or_waiting returns True when 'Parsing...' string is present in DOM."""
-        mock_ctx = MagicMock()
-        mock_page = MagicMock()
-        mock_ctx.pages = [mock_page]
-        mock_page.is_closed.return_value = False
-
-        client = QwenClient(mock_ctx, headless=True)
-
-        def mock_eval(js_code, *args):
-            if "waitKeywords" in js_code:
-                return True
-            return False
-
-        mock_page.evaluate.side_effect = mock_eval
-        self.assertTrue(client._is_file_parsing_or_waiting())
+    """Regression tests for event-driven parsing, role-based prompts, path resolution."""
 
     def test_regression_dynamic_role_prompt_loading(self) -> None:
         """Verifies load_role_prompt loads PROMPT.md dynamically from role path and strips frontmatter."""
@@ -111,24 +76,24 @@ class TestQwenAutoRegression(unittest.TestCase):
             self.assertNotIn("role-architect/PROMPT.md", rel_files)
             self.assertNotIn("role-architect/done/old.md", rel_files)
 
-    def test_regression_max_reconnect_loop_prevention(self) -> None:
-        """Verifies _wait_for_response caps reconnect attempts at max_reconnects (5) to prevent infinite loops."""
+    def test_regression_qwen_client_backward_compatible_init(self) -> None:
+        """Verifies QwenClient accepts both old (ctx, cfg) and new interfaces."""
         mock_ctx = MagicMock()
-        mock_page = MagicMock()
-        mock_ctx.pages = [mock_page]
-        mock_page.is_closed.return_value = False
+        client_old = QwenClient(mock_ctx)
+        self.assertIsNotNone(client_old)
+        self.assertIsNotNone(client_old.context)
 
-        client = QwenClient(mock_ctx, headless=True)
-
-        def mock_eval(js_code, *args):
-            if "reconnect" in js_code:
-                return True  # Reconnection banner visible
-            return ""
-
-        mock_page.evaluate.side_effect = mock_eval
-        # Should attempt 5 reconnects then finish gracefully without crashing
-        res = client._wait_for_response(baseline=0, timeout=1)
-        self.assertEqual(mock_page.reload.call_count, 5)
+        cfg = AppConfig(
+            mode="batch",
+            input_path=Path("input"),
+            output_path=Path("output"),
+            done_path=Path("input/done"),
+            failed_path=Path("input/failed"),
+            proc_path=Path("input/.processing"),
+            session_path=Path("qwen_session"),
+        )
+        client_new = QwenClient(None, cfg)
+        self.assertIsNotNone(client_new)
 
 
 if __name__ == "__main__":

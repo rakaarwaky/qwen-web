@@ -1,0 +1,27 @@
+[Unit]
+Description=Qwen Web Automation CLI - Native Linux Watcher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+User=qwen
+Group=qwen
+WorkingDirectory=/opt/qwen-web-automation
+EnvironmentFile=/etc/qwen-web-automation/qwen.env
+ExecStart=/opt/qwen-web-automation/.venv/bin/python src/main.py --watch --headless
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+KillSignal=SIGTERM
+WatchdogSec=60
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/qwen-web-automation/input /opt/qwen-web-automation/output /opt/qwen-web-automation/log /opt/qwen-web-automation/qwen_session
+
+[Install]
+WantedBy=multi-user.target

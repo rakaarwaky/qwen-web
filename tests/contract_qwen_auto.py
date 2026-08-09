@@ -37,20 +37,12 @@ class TestQwenAutoContract(unittest.TestCase):
 
     def test_qwen_client_contract_methods(self) -> None:
         expected_methods = [
-            "start_new_chat",
-            "_find_input",
-            "_count_messages",
-            "_latest_message_text",
-            "_inject_text",
-            "_is_file_parsing_or_waiting",
-            "_wait_for_input_parsed",
-            "_is_prompt_dispatched",
-            "_click_send",
-            "_wait_for_response",
-            "_check_ui_error",
-            "_upload_file_attachment",
+            "start",
             "send_file",
-            "send_prompt",
+            "reset_page",
+            "stop",
+            "_detect_response_mutation",
+            "_adaptive_poll",
         ]
         for m in expected_methods:
             self.assertTrue(

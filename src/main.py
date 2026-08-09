@@ -202,6 +202,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--data-dir", default=str(DEFAULT_SESSION))
     p.add_argument("--timeout", type=int, default=300)
     p.add_argument("--login", action="store_true", help="Open browser to log in manually and save session")
+    p.add_argument("--mcp", action="store_true", help="Run as Model Context Protocol (MCP) server over stdio")
     # P2: request / polling timeouts
     p.add_argument("--request-timeout", type=int, default=120, help="Max seconds to wait for Qwen response")
     p.add_argument("--poll-interval", type=float, default=1.0, help="Seconds between message-poll checks")
@@ -316,8 +317,17 @@ def _signal_handler(signum: int, frame: Any) -> None:
     _shutdown_flag = True
 
 
-def main() -> int:
-    cfg = _interactive_prompt() if len(sys.argv) == 1 else _build_config(_parse_args())
+    # Check if MCP server mode requested
+    args = _parse_args() if len(sys.argv) > 1 else None
+    if args and getattr(args, "mcp", False):
+        try:
+            from .mcp_server import run_mcp_server
+        except ImportError:
+            from mcp_server import run_mcp_server  # type: ignore[no-redef]
+        run_mcp_server()
+        return 0
+
+    cfg = _interactive_prompt() if len(sys.argv) == 1 else _build_config(args)
 
     # ── Single-instance lock (P1) ──────────────────────────────────────────
     try:

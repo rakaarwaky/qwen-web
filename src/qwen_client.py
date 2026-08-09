@@ -14,7 +14,7 @@ import re
 import time
 import logging
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Any, Optional
 
 from playwright.sync_api import Browser, BrowserContext, Page, TimeoutError as PlaywrightTimeoutError, sync_playwright
 
@@ -72,26 +72,26 @@ _MUTATION_OBSERVER_JS = """() => {
 class QwenClient:
     """Wraps a Playwright persistent context to interact with chat.qwen.ai."""
 
-    def __init__(self, cfg: AppConfig) -> None:
+    def __init__(self, ctx: BrowserContext | None, cfg: AppConfig | None = None) -> None:
         self.cfg = cfg
         self.browser: Browser | None = None
-        self.context: BrowserContext | None = None
+        self.context: BrowserContext | None = ctx
         self.page: Page | None = None
 
     def start(self) -> None:
         """Starts the Playwright persistent context with a pre-authenticated Chrome profile."""
-        log.info("Launching browser with profile %s", self.cfg.chrome_profile)
+        log.info("Launching browser with profile %s", self.cfg.chrome_profile if self.cfg else "default")
         pw = sync_playwright().start()
         try:
             launch_args: list[str] = ["--disable-blink-features=JavascriptControlAutofill"]
-            if self.cfg.disable_sandbox:
+            if self.cfg and self.cfg.disable_sandbox:
                 launch_args.insert(0, "--no-sandbox")
 
             self.browser = pw.chromium.launch(
                 headless=False,
                 args=launch_args,
             )
-            state_file = self.cfg.storage_state_file
+            state_file = self.cfg.storage_state_file if self.cfg else None
             self.context = self.browser.new_context(
                 viewport={"width": 1280, "height": 800},
                 storage_state=json.loads(state_file.read_text()) if state_file and state_file.exists() else None,
@@ -206,10 +206,10 @@ class QwenClient:
         log.info("Waiting for AI response...")
 
         try:
-            # Try MutationObserver first (fastest detection)
-            result = self.page.evaluate(_MUTATION_OBSERVER_JS, timeout=timeout_sec * 1000)
+            assert self.page is not None
+            result = self.page.evaluate(_MUTATION_OBSERVER_JS)  # type: ignore[arg-type]
             if result:
-                return result
+                return str(result)
         except PlaywrightTimeoutError:
             log.info("MutationObserver timed out, falling back to polling")
         except Exception as e:
@@ -246,9 +246,10 @@ class QwenClient:
                 response_text = None
                 for sel in selectors:
                     try:
+                        assert self.page is not None
                         element = self.page.query_selector(sel)
                         if element:
-                            text = element.inner_text(timeout=2_000)
+                            text = element.inner_text()  # type: ignore[arg-type]
                             if text and len(text.strip()) > 10:
                                 response_text = text.strip()
                                 break

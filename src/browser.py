@@ -9,12 +9,8 @@ from typing import Any, Dict, Iterator
 from playwright.sync_api import BrowserContext, sync_playwright
 from tenacity import RetryCallState, Retrying, stop_after_attempt, wait_fixed
 
-try:
-    from .config import AppConfig, BrowserLaunchError
-    from .observability import get_logger, start_span
-except ImportError:
-    from config import AppConfig, BrowserLaunchError
-    from observability import get_logger, start_span
+from .config import AppConfig, BrowserLaunchError
+from .observability import get_logger, start_span
 
 log = get_logger("browser")
 
@@ -23,11 +19,12 @@ def _launch_context(p: Any, kwargs: Dict[str, Any]) -> BrowserContext:
     """Launches the persistent context with tenacity retry for transient crashes."""
 
     def _before_sleep(retry_state: RetryCallState) -> None:
+        sleep_val = retry_state.next_action.sleep if retry_state.next_action else 2
         log.warning(
             "browser_launch_failed_retrying",
             attempt=retry_state.attempt_number,
-            next_wait_sec=retry_state.next_action.sleep,
-            error=str(retry_state.outcome.exception()),
+            next_wait_sec=sleep_val,
+            error=str(retry_state.outcome.exception()) if retry_state.outcome else "unknown",
         )
 
     for attempt in Retrying(
@@ -37,7 +34,9 @@ def _launch_context(p: Any, kwargs: Dict[str, Any]) -> BrowserContext:
         reraise=True,
     ):
         with attempt:
-            return p.chromium.launch_persistent_context(**kwargs)
+            ctx = p.chromium.launch_persistent_context(**kwargs)
+            return ctx  # type: ignore[return-value]
+
     raise RuntimeError("browser launch failed after retries")  # pragma: no cover
 
 
@@ -58,7 +57,7 @@ def browser_session(cfg: AppConfig) -> Iterator[BrowserContext]:
         log.debug("failed_setting_session_permissions", error=str(e))
 
     # Chrome binary path (Linux-native, P5)
-    chrome_bin = "/usr/bin/google-chrome"
+    chrome_bin: str | None = "/usr/bin/google-chrome"
     if not Path(chrome_bin).exists():
         chrome_bin = "/usr/bin/chromium-browser"
     if not Path(chrome_bin).exists():

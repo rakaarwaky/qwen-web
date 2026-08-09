@@ -14,7 +14,7 @@ import threading
 from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 try:
     import structlog
@@ -172,10 +172,7 @@ def exit_code_for(exc: BaseException) -> int:
     """Map an unhandled exception to a process exit code."""
     if isinstance(exc, KeyboardInterrupt):
         return 130
-try:
     from .config import AuthRequiredError
-except ImportError:
-    from config import AuthRequiredError
     if isinstance(exc, AuthRequiredError):
         return 2
     return 1
@@ -192,8 +189,8 @@ def _excepthook(exc_type: type[BaseException], exc_value: BaseException, exc_tb:
         exc_type=exc_type.__name__,
         category=ErrorCategory.categorize(exc_value),
     )
-    if HAS_SENTRY:  # type: ignore[possibly-undefined]
-        sentry_sdk.capture_exception(exc_value)
+    if HAS_SENTRY:
+        sentry_sdk.capture_exception(exc_value)  # type: ignore[possibly-undefined]
     sys.exit(1)
 
 
@@ -206,7 +203,7 @@ def _thread_excepthook(args: Any) -> None:
         category=ErrorCategory.categorize(args.exc_value),
     )
     if HAS_SENTRY:
-        sentry_sdk.capture_exception(args.exc_value)
+        sentry_sdk.capture_exception(args.exc_value)  # type: ignore[possibly-undefined]
 
 
 def install_excepthooks() -> None:
@@ -288,7 +285,6 @@ class StatusFileWriter:
         """Read the last written status file."""
         try:
             import json
-
             return json.loads(self._status_path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             return None
@@ -317,7 +313,7 @@ def _configure_sentry() -> None:
     if not dsn:
         return
     try:
-        sentry_sdk.init(
+        sentry_sdk.init(  # type: ignore[possibly-undefined]
             dsn=dsn,
             environment=os.getenv("ENVIRONMENT", "production"),
             traces_sample_rate=1.0,
@@ -345,7 +341,7 @@ def _configure_logging(log_path: Path) -> None:
         logging.basicConfig(level=logging.INFO)
         return
 
-    shared_processors = [
+    shared_processors: List[Any] = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso", utc=True),

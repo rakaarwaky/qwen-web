@@ -130,8 +130,8 @@ MAX_ATTEMPTS = 3
 def _retry_policy(client: QwenClient, audit: AuditLog, ctx: RunContext, rel_path: Path) -> Retrying:
     def _before_sleep(retry_state: RetryCallState) -> None:
         attempt = retry_state.attempt_number
-        exc = retry_state.outcome.exception()
-        wait_sec = retry_state.next_action.sleep
+        exc = retry_state.outcome.exception() if retry_state.outcome else RuntimeError("unknown")
+        wait_sec = retry_state.next_action.sleep if retry_state.next_action else 2
         client.reset_page()
         audit.log_step(
             ctx,
@@ -167,7 +167,7 @@ class AuditLog:
         self._errors = target_dir / "errors.log"
         self._errors_jsonl = target_dir / "errors.jsonl"
 
-    def log_step(self, ctx: RunContext, step: str, src: str, status: str, details: Optional[dict] = None) -> None:
+    def log_step(self, ctx: RunContext, step: str, src: str, status: str, details: Optional[dict[str, Any]] = None) -> None:
         """Logs granular step-by-step event execution for end-to-end traceability."""
         rec = {
             "run_id": ctx.run_id,

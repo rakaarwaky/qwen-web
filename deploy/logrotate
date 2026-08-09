@@ -1,0 +1,11 @@
+/opt/qwen-web-automation/log/*.jsonl
+/opt/qwen-web-automation/log/*.log
+{
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

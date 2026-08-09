@@ -17,14 +17,15 @@
 
 ## Overview
 
-**Qwen AI Web Automation CLI** is a lightweight, production-grade automation pipeline that sends Markdown prompt files (`.md`) to **Qwen AI (`chat.qwen.ai`)**, waits for the AI to complete its response, extracts the output, and saves it locally — no API key required.
+**Qwen AI Web Automation CLI & MCP Server** is a lightweight, production-grade automation pipeline and Model Context Protocol (MCP) server that sends Markdown prompt files (`.md`) or direct strings to **Qwen AI (`chat.qwen.ai`)**, waits for the AI to complete its response, extracts the output, and saves it locally — no API key required.
 
-It supports **real-time file watching**, **folder batch processing**, **single file mode**, and an **interactive CLI menu**.
+It supports **MCP Server integration for local AI agents**, **real-time file watching**, **folder batch processing**, **single file mode**, and an **interactive CLI menu**.
 
 ---
 
 ## Key Features
 
+- **MCP Server Integration (1:1 with CLI)**: Connect local AI agents (Claude Desktop, Continue, Gemini CLI, etc.) directly via MCP tools (`qwen_send_prompt`, `qwen_process_single`, `qwen_process_batch`, `qwen_start_watcher`, `qwen_setup_session`, `qwen_get_audit_log`).
 - **Real-Time File Watcher Mode**: Monitors `input/` for new `.md` files, processes them automatically, saves outputs to `output/`, and moves completed inputs to `input/done/`.
 - **Batch Folder Pipeline**: Processes entire directories of Markdown files sequentially in a single persistent browser session.
 - **Interactive Terminal UI**: Run `python3 src/main.py` with no arguments to open an interactive selection menu.
@@ -42,6 +43,7 @@ It supports **real-time file watching**, **folder batch processing**, **single f
 qwen-web-automation/
 ├── src/
 │   ├── main.py             # CLI entrypoint & argument parser
+│   ├── mcp_server.py       # MCP Server exposing 1:1 CLI features as MCP tools
 │   ├── config.py           # Constants, dataclasses, custom exceptions
 │   ├── browser.py          # Playwright browser session management
 │   ├── qwen_client.py      # Core automation: injection, response detection
