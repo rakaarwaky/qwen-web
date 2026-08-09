@@ -33,7 +33,7 @@ def test_list_input_files_finds_tasks(cfg: AppConfig) -> None:
     rel_paths = [str(rel) for _, rel in files]
 
     for role in ROLES:
-        expected = f"{role}/task_001.md"
+        expected = f"{role}/todo/task_001.md"
         assert any(expected in p for p in rel_paths), (
             f"Expected to find '{expected}' but got: {rel_paths}"
         )
@@ -75,8 +75,11 @@ def test_list_input_files_skips_done_failed_processing(cfg: AppConfig, tmp_path:
 
 @pytest.mark.parametrize("role", ROLES)
 def test_resolve_role_paths_structure(cfg: AppConfig, role: str) -> None:
-    """resolve_role_paths must return paths rooted under the correct role folder."""
-    rel_path = Path(role) / "task_001.md"
+    """resolve_role_paths must return paths rooted under the correct role folder.
+    rel_path includes todo/ as production scanner returns it that way.
+    resolve_role_paths strips todo/ internally (pipeline.py line 198-199).
+    """
+    rel_path = Path(role) / "todo" / "task_001.md"  # exactly what _iter_todo yields
     out_path, done_path, fail_path, proc_file = resolve_role_paths(rel_path, cfg)
 
     # output goes under cfg.output_path/<role>/
@@ -96,8 +99,10 @@ def test_resolve_role_paths_structure(cfg: AppConfig, role: str) -> None:
 
 @pytest.mark.parametrize("role", ROLES)
 def test_load_role_prompt_strips_frontmatter(fixture_root: Path, role: str) -> None:
-    """load_role_prompt must strip YAML frontmatter (---) and return body only."""
-    prompt_file = fixture_root / "input" / role / "task_001.md"
+    """load_role_prompt must strip YAML frontmatter (---) and return body only.
+    Passes the task file path; pipeline auto-discovers PROMPT.md from parent dirs.
+    """
+    prompt_file = fixture_root / "input" / role / "todo" / "task_001.md"
     result = load_role_prompt(prompt_file)
 
     # PROMPT.md is in the parent dir — load_role_prompt will discover it
@@ -195,9 +200,11 @@ def test_iter_todo_batch_moves_file_to_processing(
     role_dir.mkdir(parents=True)
     (sandbox_output / "role-architect").mkdir(parents=True)
 
-    # Copy the real task file into the sandbox
-    src_task = fixture_root / "input" / "role-architect" / "task_001.md"
-    task_copy = role_dir / "task_001.md"
+    # Copy the real task file into the sandbox todo/ dir (1:1 production structure)
+    src_task = fixture_root / "input" / "role-architect" / "todo" / "task_001.md"
+    todo_dir = role_dir / "todo"
+    todo_dir.mkdir(parents=True)
+    task_copy = todo_dir / "task_001.md"
     shutil.copy2(src_task, task_copy)
 
     sandbox_cfg = AppConfig(
@@ -220,4 +227,4 @@ def test_iter_todo_batch_moves_file_to_processing(
     assert proc_file.exists(), "File must exist at .processing path"
     assert not task_copy.exists(), "Original file must be moved (not copied)"
     assert ".processing" in str(proc_file), "Destination must be inside .processing/"
-    assert str(rel_path) == "role-architect/task_001.md"
+    assert str(rel_path) == "role-architect/todo/task_001.md"

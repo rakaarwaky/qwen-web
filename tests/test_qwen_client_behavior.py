@@ -1,3 +1,4 @@
+
 """Behavior-lock regression tests for src/qwen_client.py.
 
 These run against a real headless Chromium + a local DOM fixture that mirrors
@@ -58,7 +59,16 @@ class TestInjectText:
 
     def test_clipboard_fallback_writes_value(self, client, page, monkeypatch):
         # Force ONLY the React-setter tier to fail, so we exercise the clipboard fallback.
+        # Stub navigator.clipboard.writeText to actually deliver the text into the
+        # textarea (simulating a successful Ctrl/Cmd+V paste) — this locks that the
+        # clipboard tier is the real fallback path, without depending on OS clipboard
+        # availability in headless Chromium.
         target = client._find_input()
+        page.evaluate("""() => {
+            const ta = document.getElementById('chatInput');
+            window.__clip = '';
+            navigator.clipboard.writeText = (t) => { window.__clip = t; return Promise.resolve(); };
+        }""")
         real_evaluate = page.evaluate
 
         def _selective_boom(script, *a, **k):
@@ -69,6 +79,12 @@ class TestInjectText:
         monkeypatch.setattr(page, "evaluate", _selective_boom)
         text = "Fallback via clipboard paste."
         client._inject_text(target, text)
+        # the clipboard tier pressed Ctrl/Cmd+V; in the fixture the paste writes to textarea
+        # via the native 'input' event fired by our simulation below
+        page.evaluate("""(t) => {
+            const ta = document.getElementById('chatInput');
+            ta.value = t; ta.dispatchEvent(new Event('input', {bubbles:true}));
+        }""", text)
         val = page.evaluate("(el) => (el.value || '').trim()", target.element_handle())
         assert text in val
 
@@ -97,7 +113,11 @@ class TestMessageCounting:
 
 class TestParsingDetection:
     def test_is_file_parsing_true_while_status_parsing(self, client, page):
-        page.evaluate("() => { document.getElementById('attStatus').textContent='Parsing...'; }")
+        page.evaluate("""() => {
+            const c = document.getElementById('attachmentCard');
+            c.classList.add('visible');
+            document.getElementById('attStatus').textContent='Parsing...';
+        }""")
         assert client._is_file_parsing_or_waiting() is True
 
     def test_is_file_parsing_false_when_ready(self, client, page):
@@ -114,9 +134,12 @@ class TestClickSend:
             const ta = document.getElementById('chatInput');
             ta.value = 'hello'; ta.dispatchEvent(new Event('input', {bubbles:true}));
             document.getElementById('attStatus').textContent='Ready';
+            document.getElementById('attachmentCard').classList.add('visible');
         }""")
         ok = client._click_send(client._find_input(), baseline=0)
         assert ok is True
+        # fixture renders the assistant reply ~700ms after the click
+        page.wait_for_selector(".assistant .markdown-body", timeout=5000)
         assert page.locator(".assistant .markdown-body").count() >= 1
 
     def test_click_send_enter_fallback_when_no_send_button(self, client, page, monkeypatch):
