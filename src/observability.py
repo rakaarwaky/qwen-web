@@ -190,7 +190,7 @@ def _excepthook(exc_type: type[BaseException], exc_value: BaseException, exc_tb:
         category=ErrorCategory.categorize(exc_value),
     )
     if HAS_SENTRY:
-        sentry_sdk.capture_exception(exc_value)  # type: ignore[possibly-undefined]
+        sentry_sdk.capture_exception(exc_value)
     sys.exit(1)
 
 
