@@ -409,7 +409,7 @@ def _full_reset(fixture_root: Path) -> None:
             f.unlink(missing_ok=True)
 
 
-@pytest.fixture(autouse=False)
+@pytest.fixture(autouse=True)
 def reset_fixture_state(fixture_root: Path) -> None:  # type: ignore[return]
     """State manager for E2E tests. Output is cleaned under exactly 2 conditions:
 
