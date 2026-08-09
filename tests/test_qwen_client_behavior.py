@@ -235,19 +235,24 @@ class TestResetPage:
 
 
 class TestWaitForAuth:
+    def _stub_page(self, monkeypatch, url, title):
+        class _Stub:
+            def __init__(self, u, t):
+                self.url = u
+                self.title = lambda: t
+        return _Stub(url, title)
+
     def test_raises_auth_required_in_headless_on_login(self, client, page, monkeypatch):
-        # Simulate a login redirect in the URL; headless mode must raise AuthRequiredError.
         from config import AuthRequiredError
-        monkeypatch.setattr(page, "url", "https://chat.qwen.ai/login")
-        monkeypatch.setattr(page, "title", lambda: "Sign in")
+        stub = self._stub_page(monkeypatch, "https://chat.qwen.ai/login", "Sign in")
+        monkeypatch.setattr(client, "_page", stub)
         with pytest.raises(AuthRequiredError):
             client._wait_for_auth(timeout=1)
 
     def test_passes_when_no_auth_challenge(self, client, page, monkeypatch):
-        monkeypatch.setattr(page, "url", "https://chat.qwen.ai/")
-        monkeypatch.setattr(page, "title", lambda: "Qwen")
-        # should return without raising
-        client._wait_for_auth(timeout=1)
+        stub = self._stub_page(monkeypatch, "https://chat.qwen.ai/", "Qwen")
+        monkeypatch.setattr(client, "_page", stub)
+        client._wait_for_auth(timeout=1)  # must not raise
 
 
 class TestErrorBranches:
