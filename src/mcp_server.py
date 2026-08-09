@@ -72,217 +72,203 @@ def _isolate_thread_event_loop() -> None:
         pass
 
 
-if mcp is not None:
+def _register_tool(fn: Any) -> Any:
+    if mcp is not None:
+        return mcp.tool()(fn)
+    return fn
 
-    @mcp.tool()
-    async def qwen_send_prompt(prompt: str, timeout_sec: int = 120, headless: bool = True) -> str:
-        """Send a direct text prompt to chat.qwen.ai and return the AI response string.
 
-        Args:
-            prompt: Text prompt/instruction to send to Qwen AI.
-            timeout_sec: Maximum seconds to wait for AI response (default: 120).
-            headless: Run browser in headless mode (default: True).
-        """
-        def _sync_op() -> str:
-            _isolate_thread_event_loop()
+@_register_tool
+async def qwen_send_prompt(
+    prompt: str,
+    timeout_sec: int = 120,
+    headless: bool = True,
+) -> str:
+    """Send a direct text prompt string to chat.qwen.ai and return AI answer."""
+    def _sync_op() -> str:
+        _isolate_thread_event_loop()
 
-            cfg = AppConfig(
-                mode="single",
-                input_path=DEFAULT_TODO,
-                output_path=DEFAULT_OUTPUT,
-                done_path=DEFAULT_DONE,
-                failed_path=DEFAULT_FAILED,
-                proc_path=DEFAULT_PROC,
-                session_path=DEFAULT_SESSION,
-                log_path=DEFAULT_LOG,
-                timeout=timeout_sec,
-                headless=headless,
-            )
+        cfg = AppConfig(
+            mode="single",
+            input_path=DEFAULT_TODO,
+            output_path=DEFAULT_OUTPUT,
+            done_path=DEFAULT_DONE,
+            failed_path=DEFAULT_FAILED,
+            proc_path=DEFAULT_PROC,
+            session_path=DEFAULT_SESSION,
+            log_path=DEFAULT_LOG,
+            timeout=timeout_sec,
+            headless=headless,
+        )
 
-            with tempfile.NamedTemporaryFile(mode="w+", suffix=".txt", delete=False, encoding="utf-8") as tmp:
-                tmp.write(prompt)
-                tmp_path = Path(tmp.name)
+        with tempfile.NamedTemporaryFile(mode="w+", suffix=".txt", delete=False, encoding="utf-8") as tmp:
+            tmp.write(prompt)
+            tmp_path = Path(tmp.name)
 
-            try:
-                with browser_session(cfg) as bctx:
-                    client = QwenClient(bctx, cfg)
-                    response = client.send_file(filepath=tmp_path, timeout_sec=timeout_sec)
-                    return response
-            finally:
-                if tmp_path.exists():
-                    tmp_path.unlink()
-
-        return await asyncio.to_thread(_sync_op)
-
-    @mcp.tool()
-    async def qwen_process_single(
-        input_file: str,
-        output_file: Optional[str] = None,
-        headless: bool = True,
-    ) -> str:
-        """Process a single Markdown prompt file (1:1 CLI Single File Mode).
-
-        Args:
-            input_file: Path to the input Markdown prompt file.
-            output_file: Path for the output file (optional, defaults to output/ relative path).
-            headless: Run browser in headless mode (default: True).
-        """
-        def _sync_op() -> str:
-            _isolate_thread_event_loop()
-            in_p = Path(input_file).resolve()
-            if not in_p.exists():
-                raise FileNotFoundError(f"Input file not found: {input_file}")
-
-            out_p = Path(output_file).resolve() if output_file else DEFAULT_OUTPUT / in_p.name
-
-            cfg = AppConfig(
-                mode="single",
-                input_path=in_p,
-                output_path=out_p,
-                done_path=DEFAULT_DONE,
-                failed_path=DEFAULT_FAILED,
-                proc_path=DEFAULT_PROC,
-                session_path=DEFAULT_SESSION,
-                log_path=DEFAULT_LOG,
-                headless=headless,
-            )
-
-            audit_log = AuditLog(cfg.log_path)
-            ctx = RunContext()
-
+        try:
             with browser_session(cfg) as bctx:
                 client = QwenClient(bctx, cfg)
-                _process_file(client, in_p, Path(in_p.name), cfg, audit_log, ctx)
-                return f"Successfully processed {in_p.name} -> {out_p}"
+                response = client.send_file(filepath=tmp_path, timeout_sec=timeout_sec)
+                return response
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
 
-        return await asyncio.to_thread(_sync_op)
+    return await asyncio.to_thread(_sync_op)
 
-    @mcp.tool()
-    async def qwen_process_batch(
-        input_dir: Optional[str] = None,
-        output_dir: Optional[str] = None,
-        headless: bool = True,
-    ) -> str:
-        """Process all prompt files inside an input directory (1:1 CLI Batch Mode).
 
-        Args:
-            input_dir: Input directory path (default: input/).
-            output_dir: Output directory path (default: output/).
-            headless: Run browser in headless mode (default: True).
-        """
-        def _sync_op() -> str:
-            _isolate_thread_event_loop()
-            in_p = Path(input_dir).resolve() if input_dir else DEFAULT_TODO
-            out_p = Path(output_dir).resolve() if output_dir else DEFAULT_OUTPUT
+@_register_tool
+async def qwen_process_single(
+    input_file: str,
+    output_file: Optional[str] = None,
+    headless: bool = True,
+) -> str:
+    """Process a single Markdown prompt file (1:1 CLI Single File Mode)."""
+    def _sync_op() -> str:
+        _isolate_thread_event_loop()
+        in_p = Path(input_file).resolve()
+        if not in_p.exists():
+            raise FileNotFoundError(f"Input file not found: {input_file}")
 
-            cfg = AppConfig(
-                mode="batch",
-                input_path=in_p,
-                output_path=out_p,
-                done_path=DEFAULT_DONE,
-                failed_path=DEFAULT_FAILED,
-                proc_path=DEFAULT_PROC,
-                session_path=DEFAULT_SESSION,
-                log_path=DEFAULT_LOG,
-                headless=headless,
-            )
+        out_p = Path(output_file).resolve() if output_file else DEFAULT_OUTPUT / in_p.name
 
-            audit_log = AuditLog(cfg.log_path)
-            ctx = RunContext()
-            processed = 0
-            failed = 0
+        cfg = AppConfig(
+            mode="single",
+            input_path=in_p,
+            output_path=out_p,
+            done_path=DEFAULT_DONE,
+            failed_path=DEFAULT_FAILED,
+            proc_path=DEFAULT_PROC,
+            session_path=DEFAULT_SESSION,
+            log_path=DEFAULT_LOG,
+            headless=headless,
+        )
 
-            with browser_session(cfg) as bctx:
-                client = QwenClient(bctx, cfg)
-                for proc_file, rel_path in _iter_todo(cfg):
-                    try:
-                        _process_file(client, proc_file, rel_path, cfg, audit_log, ctx)
-                        processed += 1
-                    except Exception as e:
-                        failed += 1
-                        log.error("batch_file_failed", file=str(rel_path), error=str(e))
+        audit_log = AuditLog(cfg.log_path)
+        ctx = RunContext()
 
-            return f"Batch processing complete. Successfully processed: {processed}, Failed: {failed}"
+        with browser_session(cfg) as bctx:
+            client = QwenClient(bctx, cfg)
+            _process_file(client, in_p, Path(in_p.name), cfg, audit_log, ctx)
+            return f"Successfully processed {in_p.name} -> {out_p}"
 
-        return await asyncio.to_thread(_sync_op)
+    return await asyncio.to_thread(_sync_op)
 
-    @mcp.tool()
-    async def qwen_start_watcher(interval_sec: int = 3, headless: bool = True) -> str:
-        """Run folder watcher loop to continuously monitor input/ for new files (1:1 CLI Watcher Mode).
 
-        Args:
-            interval_sec: Polling interval in seconds (default: 3).
-            headless: Run browser in headless mode (default: True).
-        """
-        def _sync_op() -> str:
-            _isolate_thread_event_loop()
-            cfg = AppConfig(
-                mode="watcher",
-                input_path=DEFAULT_TODO,
-                output_path=DEFAULT_OUTPUT,
-                done_path=DEFAULT_DONE,
-                failed_path=DEFAULT_FAILED,
-                proc_path=DEFAULT_PROC,
-                session_path=DEFAULT_SESSION,
-                log_path=DEFAULT_LOG,
-                interval=interval_sec,
-                headless=headless,
-            )
+@_register_tool
+async def qwen_process_batch(
+    input_dir: Optional[str] = None,
+    output_dir: Optional[str] = None,
+    headless: bool = True,
+) -> str:
+    """Process all prompt files inside an input directory (1:1 CLI Batch Mode)."""
+    def _sync_op() -> str:
+        _isolate_thread_event_loop()
+        in_p = Path(input_dir).resolve() if input_dir else DEFAULT_TODO
+        out_p = Path(output_dir).resolve() if output_dir else DEFAULT_OUTPUT
 
-            audit_log = AuditLog(cfg.log_path)
-            ctx = RunContext()
+        cfg = AppConfig(
+            mode="batch",
+            input_path=in_p,
+            output_path=out_p,
+            done_path=DEFAULT_DONE,
+            failed_path=DEFAULT_FAILED,
+            proc_path=DEFAULT_PROC,
+            session_path=DEFAULT_SESSION,
+            log_path=DEFAULT_LOG,
+            headless=headless,
+        )
 
-            with browser_session(cfg) as bctx:
-                client = QwenClient(bctx, cfg)
-                for proc_file, rel_path in _iter_todo(cfg):
+        audit_log = AuditLog(cfg.log_path)
+        ctx = RunContext()
+        processed = 0
+        failed = 0
+
+        with browser_session(cfg) as bctx:
+            client = QwenClient(bctx, cfg)
+            for proc_file, rel_path in _iter_todo(cfg):
+                try:
                     _process_file(client, proc_file, rel_path, cfg, audit_log, ctx)
-                    _watcher_sleep(cfg.interval)
+                    processed += 1
+                except Exception as e:
+                    failed += 1
+                    log.error("batch_file_failed", file=str(rel_path), error=str(e))
 
-            return "Watcher loop completed."
+        return f"Batch processing complete. Successfully processed: {processed}, Failed: {failed}"
 
-        return await asyncio.to_thread(_sync_op)
+    return await asyncio.to_thread(_sync_op)
 
-    @mcp.tool()
-    async def qwen_setup_session() -> str:
-        """Launch visible browser on chat.qwen.ai for manual login / session setup (1:1 CLI Login Mode)."""
-        def _sync_op() -> str:
-            _isolate_thread_event_loop()
-            cfg = AppConfig(
-                mode="login",
-                input_path=DEFAULT_TODO,
-                output_path=DEFAULT_OUTPUT,
-                done_path=DEFAULT_DONE,
-                failed_path=DEFAULT_FAILED,
-                proc_path=DEFAULT_PROC,
-                session_path=DEFAULT_SESSION,
-                log_path=DEFAULT_LOG,
-                headless=False,
-            )
 
-            with browser_session(cfg) as bctx:
-                page = bctx.pages[0] if bctx.pages else bctx.new_page()
-                page.goto(CHAT_URL, wait_until="domcontentloaded")
-                log.info("Manual login browser page opened successfully")
+@_register_tool
+async def qwen_start_watcher(interval_sec: int = 3, headless: bool = True) -> str:
+    """Run folder watcher loop to continuously monitor input/ for new files (1:1 CLI Watcher Mode)."""
+    def _sync_op() -> str:
+        _isolate_thread_event_loop()
+        cfg = AppConfig(
+            mode="watcher",
+            input_path=DEFAULT_TODO,
+            output_path=DEFAULT_OUTPUT,
+            done_path=DEFAULT_DONE,
+            failed_path=DEFAULT_FAILED,
+            proc_path=DEFAULT_PROC,
+            session_path=DEFAULT_SESSION,
+            log_path=DEFAULT_LOG,
+            interval=interval_sec,
+            headless=headless,
+        )
 
-            return f"Browser session saved to '{cfg.session_path}'. You can now run tasks in headless mode."
+        audit_log = AuditLog(cfg.log_path)
+        ctx = RunContext()
 
-        return await asyncio.to_thread(_sync_op)
+        with browser_session(cfg) as bctx:
+            client = QwenClient(bctx, cfg)
+            for proc_file, rel_path in _iter_todo(cfg):
+                _process_file(client, proc_file, rel_path, cfg, audit_log, ctx)
+                _watcher_sleep(cfg.interval)
 
-    @mcp.tool()
-    def qwen_get_audit_log(limit: int = 20) -> str:
-        """Fetch latest entries from the JSONL audit trail log.
+        return "Watcher loop completed."
 
-        Args:
-            limit: Maximum number of recent log records to return (default: 20).
-        """
-        audit_file = DEFAULT_LOG / "audit_history.jsonl"
-        if not audit_file.exists():
-            return "Audit log file does not exist yet."
+    return await asyncio.to_thread(_sync_op)
 
-        lines = audit_file.read_text(encoding="utf-8").strip().splitlines()
-        recent = lines[-limit:]
-        records: List[Any] = [json.loads(line) for line in recent if line.strip()]
-        return json.dumps(records, indent=2)
+
+@_register_tool
+async def qwen_setup_session() -> str:
+    """Launch visible browser on chat.qwen.ai for manual login / session setup (1:1 CLI Login Mode)."""
+    def _sync_op() -> str:
+        _isolate_thread_event_loop()
+        cfg = AppConfig(
+            mode="login",
+            input_path=DEFAULT_TODO,
+            output_path=DEFAULT_OUTPUT,
+            done_path=DEFAULT_DONE,
+            failed_path=DEFAULT_FAILED,
+            proc_path=DEFAULT_PROC,
+            session_path=DEFAULT_SESSION,
+            log_path=DEFAULT_LOG,
+            headless=False,
+        )
+
+        with browser_session(cfg) as bctx:
+            page = bctx.pages[0] if bctx.pages else bctx.new_page()
+            page.goto(CHAT_URL, wait_until="domcontentloaded")
+            log.info("Manual login browser page opened successfully")
+
+        return f"Browser session saved to '{cfg.session_path}'. You can now run tasks in headless mode."
+
+    return await asyncio.to_thread(_sync_op)
+
+
+@_register_tool
+def qwen_get_audit_log(limit: int = 20) -> str:
+    """Fetch latest entries from the JSONL audit trail log."""
+    audit_file = DEFAULT_LOG / "audit_history.jsonl"
+    if not audit_file.exists():
+        return "Audit log file does not exist yet."
+
+    lines = audit_file.read_text(encoding="utf-8").strip().splitlines()
+    recent = lines[-limit:]
+    records: List[Any] = [json.loads(line) for line in recent if line.strip()]
+    return json.dumps(records, indent=2)
 
 
 def run_mcp_server() -> None:
