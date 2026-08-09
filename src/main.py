@@ -79,7 +79,7 @@ def run_init(target_dir: Path | str = ".") -> None:
     else:
         skill_content = (
             "---\n"
-            "name: qwen-web-automation\n"
+            "name: qwen-web\n"
             "description: Automate Qwen AI Web (chat.qwen.ai) prompt processing via CLI or MCP tools.\n"
             "---\n"
             "# Qwen Web Automation Skill Guide\n"

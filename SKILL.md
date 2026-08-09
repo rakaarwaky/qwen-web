@@ -1,5 +1,5 @@
 ---
-name: qwen-web-automation
+name: qwen-web
 description: Automate Qwen AI Web (chat.qwen.ai) prompt processing via CLI or MCP tools without requiring official API keys.
 ---
 # Qwen Web Automation & MCP Server Skill Guide

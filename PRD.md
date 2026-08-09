@@ -60,6 +60,9 @@
 #### 3.6 MCP Server Mode (`--mcp` / `src/mcp_server.py`)
 - **Behavior**: Runs as a Model Context Protocol (MCP) server over stdio, exposing 1:1 capabilities of the CLI as tools (`qwen_send_prompt`, `qwen_process_single`, `qwen_process_batch`, `qwen_start_watcher`, `qwen_setup_session`, `qwen_get_audit_log`) for local AI agents.
 
+#### 3.7 Workspace Initialization Mode (`init` / `--init`)
+- **Behavior**: Sets up local environment by creating `.agents/skills/qwen-web/SKILL.md` skill definition for agent discovery, `.qwen-web/` symlinks (`input`, `output`, `log`) pointing to XDG standard directories, and adding `.qwen-web/` to `.gitignore`.
+
 ---
 
 ### 4. Functional Requirements & Automation Pipeline
@@ -138,20 +141,29 @@ qwen-web/
 
 ### 8. CLI Arguments & Configuration Matrix
 
-| Flag / Option  | Short | Default Value          | Description |
+| Flag / Option | Short | Default Value | Description |
 | :--- | :--- | :--- | :--- |
-| `--input`      | `-i`  | `BASE_DIR/input`           | Input Markdown file or directory |
-| `--output`     | `-o`  | `BASE_DIR/output`          | Output file or directory |
-| `--done-dir`   | `-d`  | `BASE_DIR/input/done`      | Target folder for completed input files |
-| `--failed-dir` | N/A   | `BASE_DIR/input/failed`    | Target folder for failed input files |
-| `--proc-dir`   | N/A   | `BASE_DIR/input/.processing` | Temporary processing directory |
-| `--log-dir`    | N/A   | `BASE_DIR/log`             | Directory for logs and audit trail |
-| `--watch`      | `-w`  | `False`                    | Enable continuous folder watcher mode |
-| `--interval`   | N/A   | `3`                        | Polling interval (seconds) for watcher mode |
-| `--headless`   | N/A   | `False`                    | Run browser in headless background mode |
-| `--data-dir`   | N/A   | `BASE_DIR/qwen_session`    | Browser session data directory |
-| `--timeout`    | N/A   | `300`                      | Maximum response wait time (seconds) |
-| `--login`      | N/A   | `False`                    | Open browser for manual login & session save |
+| `init`, `--init` | N/A | `.` | Initialize workspace (`.agents/skills` & `.qwen-web` symlinks) |
+| `--input` | `-i` | `~/.local/share/qwen-web/input` | Input Markdown file or directory |
+| `--output` | `-o` | `~/.local/share/qwen-web/output` | Output file or directory |
+| `--done-dir` | `-d` | `~/.local/share/qwen-web/input/done` | Target folder for completed input files |
+| `--failed-dir` | N/A | `~/.local/share/qwen-web/input/failed` | Target folder for failed input files |
+| `--proc-dir` | N/A | `~/.cache/qwen-web/.processing` | Temporary atomic processing lock directory |
+| `--log-dir` | N/A | `~/.local/state/qwen-web/log` | Directory for structured logs and audit trail |
+| `--data-dir` | N/A | `~/.local/share/qwen-web/qwen_session` | Browser profile & persistent session storage |
+| `--watch` | `-w` | `False` | Enable continuous folder watcher mode |
+| `--interval` | N/A | `3` | Polling interval (seconds) for watcher mode |
+| `--headless` | N/A | `False` | Run browser in headless background mode |
+| `--login` | N/A | `False` | Open browser for manual login & session save |
+| `--mcp` | N/A | `False` | Run as Model Context Protocol (MCP) server over stdio |
+| `--timeout` | N/A | `300` | Maximum response wait time (seconds) |
+| `--request-timeout` | N/A | `120` | Max seconds to wait for network response |
+| `--poll-interval` | N/A | `1.0` | Seconds between DOM polling checks |
+| `--streaming-timeout` | N/A | `180` | Max streaming duration in seconds |
+| `--rate-limit` | N/A | `60` | Max prompt requests per minute |
+| `--cb-threshold` | N/A | `5` | Consecutive failures before tripping circuit breaker |
+| `--cb-window` | N/A | `30` | Circuit breaker sliding window in seconds |
+| `--retry-failed` | N/A | `False` | Process files in `failed/` directory on next run |
 
 ---
 

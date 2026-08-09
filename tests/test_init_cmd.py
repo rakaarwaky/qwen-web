@@ -21,7 +21,7 @@ class TestQwcInit(unittest.TestCase):
             skill_md = target_path / ".agents" / "skills" / "qwen-web" / "SKILL.md"
             self.assertTrue(skill_md.exists())
             content = skill_md.read_text(encoding="utf-8")
-            self.assertIn("name: qwen-web-automation", content)
+            self.assertIn("name: qwen-web", content)
 
             # 2. Verify .qwen-web symlinks
             dot_qwen = target_path / ".qwen-web"

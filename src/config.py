@@ -40,8 +40,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 def _get_xdg_dir(env_var: str, default_subpath: str) -> Path:
     env_val = os.getenv(env_var)
     if env_val:
-        return Path(env_val) / "qwen-web-automation"
-    return Path.home() / default_subpath / "qwen-web-automation"
+        return Path(env_val) / "qwen-web"
+    return Path.home() / default_subpath / "qwen-web"
 
 XDG_DATA_HOME   = _get_xdg_dir("XDG_DATA_HOME", ".local/share")
 XDG_STATE_HOME  = _get_xdg_dir("XDG_STATE_HOME", ".local/state")

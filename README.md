@@ -114,15 +114,25 @@ Run headless? [y/N, default=N]:
 
 ## Usage Modes
 
-### 1. Real-Time File Watcher Mode (`--watch`)
+### 1. Workspace Initialization (`init` / `--init`)
 
-Monitors `input/` every N seconds. Drop any `.md` file into `input/` while the watcher is running to process it automatically.
+Initializes local environment with `.agents/skills/qwen-web/SKILL.md` skill definition, creates `.qwen-web/` symlinks (`input`, `output`, `log`) to XDG standard paths (`~/.local/share/qwen-web`, `~/.local/state/qwen-web`), and updates `.gitignore`:
+
+```bash
+python3 src/main.py init
+# or
+python3 src/main.py --init
+```
+
+### 2. Real-Time File Watcher Mode (`--watch`)
+
+Monitors input directory every N seconds. Drop any `.md` file into input directory while the watcher is running to process it automatically.
 
 ```bash
 python3 src/main.py --watch --headless
 ```
 
-### 2. Batch Folder Mode
+### 3. Batch Folder Mode
 
 Processes all current files inside `input/` once and exits upon completion:
 
@@ -130,7 +140,7 @@ Processes all current files inside `input/` once and exits upon completion:
 python3 src/main.py -i input -o output --headless
 ```
 
-### 3. Single File Mode
+### 4. Single File Mode
 
 Processes a specific Markdown file directly:
 
@@ -138,7 +148,7 @@ Processes a specific Markdown file directly:
 python3 src/main.py -i my_prompt.md -o output/result.md --headless
 ```
 
-### 4. Manual Login / Session Setup
+### 5. Manual Login / Session Setup
 
 ```bash
 python3 src/main.py --login
@@ -146,24 +156,41 @@ python3 src/main.py --login
 
 > **Note on Initial Setup:** On your very first run, execute without `--headless` (or use `--login`) so you can manually log into your Qwen AI account in the browser window. All future runs can use `--headless`.
 
+### 6. MCP Server Mode (`--mcp`)
+
+Runs as a Model Context Protocol (MCP) server over stdio for local AI agents:
+
+```bash
+python3 src/main.py --mcp
+```
+
 ---
 
 ## CLI Reference
 
-| Flag / Option     | Argument | Description                                              | Default           |
-| :---------------- | :------- | :------------------------------------------------------- | :---------------- |
-| `-w, --watch`     | None     | Enable continuous File Watcher mode                      | disabled          |
-| `--interval`      | `INT`    | Polling interval in seconds for watcher mode             | `3`               |
-| `-i, --input`     | `PATH`   | Input markdown file or directory                         | `input/`          |
-| `-o, --output`    | `PATH`   | Output markdown file or directory                        | `output/`         |
-| `-d, --done-dir`  | `PATH`   | Directory to move completed input files                  | `input/done`      |
-| `--failed-dir`    | `PATH`   | Directory to move failed input files                     | `input/failed`    |
-| `--proc-dir`      | `PATH`   | Temporary directory used during processing               | `input/.processing` |
-| `--log-dir`       | `PATH`   | Directory for structured logs and audit trail            | `log/`            |
-| `--headless`      | None     | Run browser in background without GUI window             | false             |
-| `--data-dir`      | `PATH`   | Directory storing browser profile & cookies              | `./qwen_session`  |
-| `--timeout`       | `INT`    | Max wait time in seconds for AI response                 | `300`             |
-| `--login`         | None     | Open browser to log in manually and save session         | disabled          |
+| Flag / Option          | Argument | Description                                              | Default                     |
+| :--------------------- | :------- | :------------------------------------------------------- | :-------------------------- |
+| `init`, `--init`       | `[DIR]`  | Initialize workspace with `.agents/skills` & `.qwen-web` | Current directory (`.`)     |
+| `-w, --watch`          | None     | Enable continuous File Watcher mode                      | disabled                    |
+| `--interval`           | `INT`    | Polling interval in seconds for watcher mode             | `3`                         |
+| `-i, --input`          | `PATH`   | Input markdown file or directory                         | `~/.local/share/qwen-web/input` |
+| `-o, --output`         | `PATH`   | Output markdown file or directory                        | `~/.local/share/qwen-web/output` |
+| `-d, --done-dir`       | `PATH`   | Directory to move completed input files                  | `~/.local/share/qwen-web/input/done` |
+| `--failed-dir`         | `PATH`   | Directory to move failed input files                     | `~/.local/share/qwen-web/input/failed` |
+| `--proc-dir`           | `PATH`   | Temporary lock directory used during processing           | `~/.cache/qwen-web/.processing` |
+| `--log-dir`            | `PATH`   | Directory for structured logs and audit trail            | `~/.local/state/qwen-web/log` |
+| `--data-dir`           | `PATH`   | Directory storing browser profile & session cookies      | `~/.local/share/qwen-web/qwen_session` |
+| `--headless`           | None     | Run browser in background without GUI window             | false                       |
+| `--login`              | None     | Open browser to log in manually and save session         | disabled                    |
+| `--mcp`                | None     | Run as Model Context Protocol (MCP) server over stdio    | disabled                    |
+| `--timeout`            | `INT`    | Max wait time in seconds for AI response                 | `300`                       |
+| `--request-timeout`    | `INT`    | Max seconds to wait for Qwen network response            | `120`                       |
+| `--poll-interval`      | `FLOAT`  | Seconds between message-poll DOM checks                  | `1.0`                       |
+| `--streaming-timeout`  | `INT`    | Max duration in seconds for streaming response           | `180`                       |
+| `--rate-limit`         | `INT`    | Max prompt requests per minute                           | `60`                        |
+| `--cb-threshold`       | `INT`    | Consecutive failures before tripping circuit breaker     | `5`                         |
+| `--cb-window`          | `INT`    | Circuit breaker sliding window in seconds                | `30`                        |
+| `--retry-failed`       | None     | Re-process files in `failed/` directory on next run      | disabled                    |
 
 ---
 

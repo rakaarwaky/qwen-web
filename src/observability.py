@@ -45,7 +45,7 @@ try:
 except ImportError:  # pragma: no cover
     HAS_OTLP = False
 
-SERVICE_NAME = "qwen-web-automation"
+SERVICE_NAME = "qwen-web"
 
 
 # ─── Error categorization (P8) ───────────────────────────────────────────────

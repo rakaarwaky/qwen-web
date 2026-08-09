@@ -22,7 +22,7 @@ class TestMCPServerTools(unittest.TestCase):
     def test_mcp_instance_registered(self) -> None:
         """Verify FastMCP app instance is initialized."""
         if mcp is not None:
-            self.assertEqual(mcp.name, "Qwen-Web-Automation")
+            self.assertEqual(mcp.name, "Qwen-Web")
 
     def test_qwen_get_audit_log_missing(self) -> None:
         """Test qwen_get_audit_log when log file does not exist."""

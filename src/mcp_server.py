@@ -52,7 +52,7 @@ setup_observability(DEFAULT_LOG)
 log = get_logger("mcp_server")
 
 # Initialize FastMCP application instance
-mcp = FastMCP("Qwen-Web-Automation") if FastMCP is not None else None
+mcp = FastMCP("Qwen-Web") if FastMCP is not None else None
 
 
 def _get_mcp_app() -> Any:
