@@ -160,26 +160,25 @@ class QwenClient:
         # Type the prompt
         try:
             textarea.fill(prompt, timeout=5_000)
-        except PlaywrightTimeoutError:
-            # Fallback: type character by character
+        except Exception:
             self._type_slowly(textarea, prompt)
 
-        # P7: Linux paste key fallback if fill didn't work well
-        if os.name == "posix":
+        # Click the send button or press Enter
+        sent = False
+        try:
+            send_btn = self.page.query_selector('button[type="submit"], [class*="send-button"], [class*="sendButton"], [aria-label*="Send"]')
+            if send_btn and send_btn.is_enabled():
+                send_btn.click(timeout=3_000)
+                sent = True
+        except Exception:
+            pass
+
+        if not sent:
             try:
                 textarea.focus()
-                self.page.keyboard.press("Control+v")
-            except Exception:
-                pass
-
-        # Click the send button
-        try:
-            self.page.get_by_role("button", name=re.compile(r"send|submit|kirim", re.I)).click(timeout=5_000)
-        except Exception:
-            try:
-                self.page.get_by_role("button").first.click(timeout=5_000)
+                self.page.keyboard.press("Enter")
             except Exception as e:
-                log.warning("Could not click send button: %s", e)
+                log.warning("Could not submit prompt: %s", e)
 
         # P7: Adaptive polling with MutationObserver
         response = self._detect_response_mutation(timeout_sec)
@@ -213,7 +212,7 @@ class QwenClient:
 
         try:
             assert self.page is not None
-            result = self.page.evaluate(_MUTATION_OBSERVER_JS)
+            result = self.page.evaluate(_MUTATION_OBSERVER_JS)  # type: ignore[arg-type]
             if result:
                 return str(result)
         except PlaywrightTimeoutError:
@@ -224,15 +223,14 @@ class QwenClient:
         return None
 
     def _adaptive_poll(self, timeout_sec: int) -> Optional[str]:
-        """Adaptive polling strategy that adjusts based on response characteristics.
-
-        Uses a sliding window approach: starts fast, slows down as time passes,
-        and adapts timeout based on observed page behavior.
-        """
+        """Adaptive polling strategy that adjusts based on response characteristics."""
         start = time.time()
         poll_interval = _POLL_INTERVAL
         consecutive_empty = 0
         last_text = ""
+
+        # Phrases that indicate landing page UI, not an AI answer
+        ignored_phrases = ["what do you want to know", "where should we begin", "how can i help", "good afternoon", "good morning"]
 
         while True:
             elapsed = time.time() - start
@@ -241,24 +239,27 @@ class QwenClient:
                 break
 
             try:
-                # Try multiple selectors for robustness
+                # Targeted selectors for assistant message content
                 selectors = [
                     '[data-testid="chat-message-text"]',
+                    '[class*="assistant"] [class*="message"]',
                     '[class*="message-text"]',
                     '[class*="ai-response"]',
-                    'main',
                 ]
 
                 response_text = None
                 for sel in selectors:
                     try:
                         assert self.page is not None
-                        element = self.page.query_selector(sel)
-                        if element:
-                            text = element.inner_text()
-                            if text and len(text.strip()) > 10:
-                                response_text = text.strip()
+                        elements = self.page.query_selector_all(sel)
+                        for element in reversed(elements):
+                            text = element.inner_text().strip()
+                            lower_text = text.lower()
+                            if len(text) > 5 and not any(p in lower_text for p in ignored_phrases):
+                                response_text = text
                                 break
+                        if response_text:
+                            break
                     except Exception:
                         continue
 
