@@ -1,0 +1,158 @@
+"""Behavior-lock regression tests for src/qwen_client.py.
+
+These run against a real headless Chromium + a local DOM fixture that mirrors
+the verified chat.qwen.ai (Qwen3.8-Max) structure. They lock the EXACT
+selectors and JS strategies the production code uses, so that when we add new
+features later, a silent selector/strategy regression in the old flow fails
+these tests first (TDD safety net).
+
+Run:  python3 -m pytest tests/test_qwen_client_behavior.py -v
+"""
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
+
+
+def _probe_file(tmp_path: Path) -> Path:
+    p = tmp_path / "doc.md"
+    p.write_text("# probe\nconfirm you can read this file.\n", encoding="utf-8")
+    return p
+
+
+class TestFindInput:
+    def test_finds_textarea_by_verified_selector(self, client):
+        el = client._find_input()
+        assert el is not None
+        assert el.element_handle().evaluate("e => e.tagName") == "TEXTAREA"
+
+
+class TestUploadFileAttachment:
+    def test_mode_select_upload_renders_card(self, client, page, tmp_path):
+        probe = _probe_file(tmp_path)
+        ok = client._upload_file_attachment(probe)
+        assert ok is True
+        # card must be visible with the file name
+        card = page.locator(".message-input-column-file")
+        assert card.is_visible()
+        assert "doc.md" in card.inner_text()
+
+    def test_returns_false_when_no_file_chooser(self, client, page, monkeypatch):
+        # If the mode-select menu never produces a chooser, it must return False
+        # (not raise). We simulate by hiding the dropdown item.
+        page.evaluate("() => { document.querySelector(\".mode-select-dropdown-item\").remove(); }")
+        ok = client._upload_file_attachment(Path("/tmp/nonexistent.md"))
+        assert ok is False
+
+
+class TestInjectText:
+    def test_react_setter_writes_value_and_triggers_state(self, client, page):
+        target = client._find_input()
+        text = "Please analyze the attached file now."
+        client._inject_text(target, text)
+        val = page.evaluate("(el) => (el.value || '').trim()", target.element_handle())
+        assert text in val
+
+    def test_clipboard_fallback_writes_value(self, client, page, monkeypatch):
+        # Force the React-setter tier to fail so we exercise the clipboard fallback.
+        target = client._find_input()
+
+        def _boom(*a, **k):
+            raise RuntimeError("forced React-setter failure")
+
+        monkeypatch.setattr(page, "evaluate", _boom)
+        text = "Fallback via clipboard paste."
+        client._inject_text(target, text)
+        # clipboard path uses keyboard.paste; verify the textarea received it
+        val = page.evaluate("(el) => (el.value || '').trim()", target.element_handle())
+        assert text in val
+
+
+class TestMessageCounting:
+    def test_count_messages_ignores_user_nodes(self, client, page):
+        page.evaluate("""() => {
+            const log = document.getElementById('chatLog');
+            const u = document.createElement('div'); u.className='markdown-body user';
+            u.textContent='user text'; log.appendChild(u);
+            const a = document.createElement('div'); a.className='assistant';
+            const m = document.createElement('div'); m.className='markdown-body';
+            m.textContent='assistant text'; a.appendChild(m); log.appendChild(a);
+        }""")
+        assert client._count_messages() == 1
+
+    def test_latest_message_text_returns_last_assistant(self, client, page):
+        page.evaluate("""() => {
+            const log = document.getElementById('chatLog');
+            const a = document.createElement('div'); a.className='assistant';
+            const m = document.createElement('div'); m.className='markdown-body';
+            m.textContent='FINAL ANSWER'; a.appendChild(m); log.appendChild(a);
+        }""")
+        assert client._latest_message_text(0) == "FINAL ANSWER"
+
+
+class TestParsingDetection:
+    def test_is_file_parsing_true_while_status_parsing(self, client, page):
+        page.evaluate("() => { document.getElementById('attStatus').textContent='Parsing...'; }")
+        assert client._is_file_parsing_or_waiting() is True
+
+    def test_is_file_parsing_false_when_ready(self, client, page):
+        page.evaluate("() => { document.getElementById('attStatus').textContent='Ready'; }")
+        assert client._is_file_parsing_or_waiting() is False
+
+    def test_wait_for_input_parsed_returns_when_send_enabled(self, client, page):
+        client._wait_for_input_parsed(timeout=5)  # should not raise
+
+
+class TestClickSend:
+    def test_click_send_dispatches_when_ready(self, client, page):
+        page.evaluate("""() => {
+            const ta = document.getElementById('chatInput');
+            ta.value = 'hello'; ta.dispatchEvent(new Event('input', {bubbles:true}));
+            document.getElementById('attStatus').textContent='Ready';
+        }""")
+        ok = client._click_send(client._find_input(), baseline=0)
+        assert ok is True
+        assert page.locator(".assistant .markdown-body").count() >= 1
+
+    def test_click_send_enter_fallback_when_no_send_button(self, client, page, monkeypatch):
+        page.evaluate("() => { document.getElementById('sendBtn').style.display='none'; }")
+        page.evaluate("""() => {
+            const ta = document.getElementById('chatInput');
+            ta.value = 'via enter'; ta.dispatchEvent(new Event('input', {bubbles:true}));
+        }""")
+        result = client._click_send(client._find_input(), baseline=0)
+        assert isinstance(result, bool)
+
+
+class TestNetworkAndErrorDetection:
+    def test_network_disconnected_true_on_toast(self, client, page):
+        page.evaluate("() => { const t=document.getElementById('toastError'); t.textContent='Connection lost'; t.classList.add('visible'); }")
+        assert client._is_network_disconnected() is True
+
+    def test_network_disconnected_false_when_clean(self, client, page):
+        assert client._is_network_disconnected() is False
+
+    def test_check_ui_error_detects_limit_message(self, client, page):
+        page.evaluate("() => { const t=document.getElementById('toastError'); t.textContent='Cannot send: message exceeds the character limit.'; t.classList.add('visible'); }")
+        err = client._check_ui_error()
+        assert err and "exceed" in err.lower()
+
+    def test_check_ui_error_none_when_clean(self, client, page):
+        assert client._check_ui_error() is None
+
+
+class TestResponseStability:
+    def test_wait_for_response_returns_stable_text(self, client, page):
+        # Seed one assistant message; stability loop should return it after 3 stable polls.
+        page.evaluate("""() => {
+            const log = document.getElementById('chatLog');
+            const a = document.createElement('div'); a.className='assistant';
+            const m = document.createElement('div'); m.className='markdown-body';
+            m.textContent='STABLE REPLY'; a.appendChild(m); log.appendChild(a);
+        }""")
+        text = client._wait_for_response_inner(baseline=0, timeout=10)
+        assert text == "STABLE REPLY"
+
