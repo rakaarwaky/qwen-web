@@ -12,69 +12,36 @@ import time
 from pathlib import Path
 from typing import Any
 
-try:
-    from .config import (
-        BASE_DIR,
-        CHAT_URL,
-        DEFAULT_DONE,
-        DEFAULT_FAILED,
-        DEFAULT_LOG,
-        DEFAULT_OUTPUT,
-        DEFAULT_PROC,
-        DEFAULT_SESSION,
-        DEFAULT_TODO,
-        AppConfig,
-        RunContext,
-    )
-    from .browser import browser_session
-    from .linux import SingleInstanceLock, GracefulShutdown, sd_notify_stop
-    from .observability import (
-        bind_run_context,
-        exit_code_for,
-        get_logger,
-        setup_observability,
-        start_span,
-        StatusFileWriter,
-    )
-    from .qwen_client import QwenClient
-    from .pipeline import (
-        AuditLog,
-        _iter_todo,
-        _list_input_files,
-        _process_file,
-    )
-except ImportError:
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from config import (
-        BASE_DIR,
-        CHAT_URL,
-        DEFAULT_DONE,
-        DEFAULT_FAILED,
-        DEFAULT_LOG,
-        DEFAULT_OUTPUT,
-        DEFAULT_PROC,
-        DEFAULT_SESSION,
-        DEFAULT_TODO,
-        AppConfig,
-        RunContext,
-    )
-    from browser import browser_session
-    from linux import SingleInstanceLock, GracefulShutdown, sd_notify_stop
-    from observability import (
-        bind_run_context,
-        exit_code_for,
-        get_logger,
-        setup_observability,
-        start_span,
-        StatusFileWriter,
-    )
-    from qwen_client import QwenClient
-    from pipeline import (
-        AuditLog,
-        _iter_todo,
-        _list_input_files,
-        _process_file,
-    )
+from .config import (
+    BASE_DIR,
+    CHAT_URL,
+    DEFAULT_DONE,
+    DEFAULT_FAILED,
+    DEFAULT_LOG,
+    DEFAULT_OUTPUT,
+    DEFAULT_PROC,
+    DEFAULT_SESSION,
+    DEFAULT_TODO,
+    AppConfig,
+    RunContext,
+)
+from .browser import browser_session
+from .linux import SingleInstanceLock, GracefulShutdown, sd_notify_stop
+from .observability import (
+    bind_run_context,
+    exit_code_for,
+    get_logger,
+    setup_observability,
+    start_span,
+    StatusFileWriter,
+)
+from .qwen_client import QwenClient
+from .pipeline import (
+    AuditLog,
+    _iter_todo,
+    _list_input_files,
+    _process_file,
+)
 
 log = get_logger()
 
@@ -130,7 +97,7 @@ def _interactive_prompt() -> AppConfig:
         )
     
     headless = input("Run headless? [y/N, default=N]: ").strip().lower() == "y"
-    mode = {"1": "watcher", "2": "batch", "3": "single"}.get(choice, "watcher")
+    mode: str = {"1": "watcher", "2": "batch", "3": "single"}.get(choice, "watcher")
     
     if mode == "single":
         available_files = _list_input_files(DEFAULT_TODO)

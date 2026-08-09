@@ -29,7 +29,7 @@ log = get_logger("qwen_client")
 
 # ─── Message detection constants ─────────────────────────────────────────────
 _POLL_INTERVAL: float = 1.0           # seconds between poll checks (adaptive)
-_INITIAL_WAIT: int = 20               # seconds to wait for initial page load
+_INITIAL_WAIT: int = 20_000          # milliseconds to wait for initial page load
 _MAX_POLL_ATTEMPTS: int = 60          # max consecutive polls before giving up
 _ADAPTIVE_TIMEOUT_BASE: int = 90      # base timeout for adaptive polling
 _ADAPTIVE_TIMEOUT_MAX: int = 180      # max timeout cap
@@ -132,9 +132,18 @@ class QwenClient:
 
         log.info("Sending prompt to chat.qwen.ai (%d chars)", len(prompt))
 
-        # Wait for page to load
+        # Wait for page and input element to load
         self.page.goto("https://chat.qwen.ai/", timeout=30_000)
-        self.page.wait_for_load_state("networkidle", timeout=_INITIAL_WAIT)
+        try:
+            self.page.wait_for_load_state("domcontentloaded", timeout=15_000)
+        except Exception:
+            pass
+
+        # Wait for textarea element to be available
+        try:
+            self.page.wait_for_selector('textarea, [class*="input"], [class*="textarea"]', timeout=15_000)
+        except Exception:
+            pass
 
         # Click the textarea (first input or specific class)
         textarea = self.page.query_selector('textarea, [class*="input"], [class*="textarea"]')
