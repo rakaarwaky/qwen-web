@@ -1,0 +1,258 @@
+#!/usr/bin/env python3
+"""
+qwen-cli v4: Production-grade automation for chat.qwen.ai.
+Main execution entrypoint and CLI argument parser.
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+try:
+    from .config import (
+        BASE_DIR,
+        CHAT_URL,
+        DEFAULT_DONE,
+        DEFAULT_FAILED,
+        DEFAULT_LOG,
+        DEFAULT_OUTPUT,
+        DEFAULT_PROC,
+        DEFAULT_SESSION,
+        DEFAULT_TODO,
+        AppConfig,
+        RunContext,
+    )
+    from .browser import browser_session
+    from .observability import (
+        bind_run_context,
+        exit_code_for,
+        get_logger,
+        setup_observability,
+        start_span,
+    )
+    from .qwen_client import QwenClient
+    from .pipeline import (
+        AuditLog,
+        _iter_todo,
+        _list_input_files,
+        _process_file,
+    )
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from config import (
+        BASE_DIR,
+        CHAT_URL,
+        DEFAULT_DONE,
+        DEFAULT_FAILED,
+        DEFAULT_LOG,
+        DEFAULT_OUTPUT,
+        DEFAULT_PROC,
+        DEFAULT_SESSION,
+        DEFAULT_TODO,
+        AppConfig,
+        RunContext,
+    )
+    from browser import browser_session
+    from observability import (
+        bind_run_context,
+        exit_code_for,
+        get_logger,
+        setup_observability,
+        start_span,
+    )
+    from qwen_client import QwenClient
+    from pipeline import (
+        AuditLog,
+        _iter_todo,
+        _list_input_files,
+        _process_file,
+    )
+
+log = get_logger()
+
+
+def _run_manual_login(cfg: AppConfig) -> None:
+    login_cfg = AppConfig(
+        mode="login",
+        input_path=cfg.input_path,
+        output_path=cfg.output_path,
+        done_path=cfg.done_path,
+        failed_path=cfg.failed_path,
+        proc_path=cfg.proc_path,
+        session_path=cfg.session_path,
+        log_path=cfg.log_path,
+        interval=cfg.interval,
+        timeout=cfg.timeout,
+        headless=False,
+    )
+    print(f"\n🔑 [Manual Login] Launching visible browser window on {CHAT_URL}...")
+    with browser_session(login_cfg) as bctx:
+        page = bctx.pages[0] if bctx.pages else bctx.new_page()
+        page.goto(CHAT_URL, wait_until="domcontentloaded")
+        print("👉 Please log in or resolve CAPTCHA in the browser window.")
+        input("👉 Press [ENTER] here once you have finished logging in: ")
+        print(f"✅ Session data successfully saved to '{login_cfg.session_path}'. You can now run in headless mode!\n")
+
+
+def _interactive_prompt() -> AppConfig:
+    print("\n╭─ qwen-cli interactive setup ─────────────────────╮")
+    print("│ 1. Watcher Mode (continuous)                     │")
+    print("│ 2. Batch Mode (folder)                           │")
+    print("│ 3. Single File Mode                              │")
+    print("│ 4. Manual Login / Session Setup                  │")
+    print("│ 5. Exit                                          │")
+    print("╰──────────────────────────────────────────────────╯")
+    
+    choice = input("Select [1-5, default=1]: ").strip() or "1"
+    if choice == "5":
+        print("Goodbye!")
+        sys.exit(0)
+    
+    if choice == "4":
+        return AppConfig(
+            mode="login",
+            input_path=DEFAULT_TODO,
+            output_path=DEFAULT_OUTPUT,
+            done_path=DEFAULT_DONE,
+            failed_path=DEFAULT_FAILED,
+            proc_path=DEFAULT_PROC,
+            session_path=DEFAULT_SESSION,
+            log_path=DEFAULT_LOG,
+            headless=False,
+        )
+    
+    headless = input("Run headless? [y/N, default=N]: ").strip().lower() == "y"
+    mode = {"1": "watcher", "2": "batch", "3": "single"}.get(choice, "watcher")
+    
+    if mode == "single":
+        available_files = _list_input_files(DEFAULT_TODO)
+        if available_files:
+            print("\n📁 Available input files:")
+            for idx, (abs_p, rel_p) in enumerate(available_files, 1):
+                print(f"  {idx}. {rel_p}")
+            
+            file_choice = input(f"Select input file [1-{len(available_files)}, default=1]: ").strip() or "1"
+            try:
+                choice_idx = int(file_choice) - 1
+                if 0 <= choice_idx < len(available_files):
+                    chosen_abs, chosen_rel = available_files[choice_idx]
+                else:
+                    chosen_abs, chosen_rel = available_files[0]
+            except ValueError:
+                chosen_abs, chosen_rel = available_files[0]
+            
+            return AppConfig(
+                mode=mode,
+                input_path=chosen_abs,
+                output_path=DEFAULT_OUTPUT / chosen_rel,
+                done_path=DEFAULT_DONE,
+                failed_path=DEFAULT_FAILED,
+                proc_path=DEFAULT_PROC,
+                session_path=DEFAULT_SESSION,
+                log_path=DEFAULT_LOG,
+                headless=headless,
+            )
+        else:
+            input_file = input("Enter input file path [default: input.md]: ").strip() or "input.md"
+            output_file = input("Enter output file path [default: output.md]: ").strip() or "output.md"
+            return AppConfig(
+                mode=mode,
+                input_path=Path(input_file),
+                output_path=Path(output_file),
+                done_path=DEFAULT_DONE,
+                failed_path=DEFAULT_FAILED,
+                proc_path=DEFAULT_PROC,
+                session_path=DEFAULT_SESSION,
+                log_path=DEFAULT_LOG,
+                headless=headless,
+            )
+    
+    return AppConfig(
+        mode=mode,
+        input_path=DEFAULT_TODO,
+        output_path=DEFAULT_OUTPUT,
+        done_path=DEFAULT_DONE,
+        failed_path=DEFAULT_FAILED,
+        proc_path=DEFAULT_PROC,
+        session_path=DEFAULT_SESSION,
+        log_path=DEFAULT_LOG,
+        headless=headless,
+    )
+
+
+def _parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(prog="qwen-cli", description="Automate chat.qwen.ai")
+    p.add_argument("-i", "--input", default=str(DEFAULT_TODO))
+    p.add_argument("-o", "--output", default=str(DEFAULT_OUTPUT))
+    p.add_argument("-d", "--done-dir", default=str(DEFAULT_DONE))
+    p.add_argument("--failed-dir", default=str(DEFAULT_FAILED))
+    p.add_argument("--proc-dir", default=str(DEFAULT_PROC))
+    p.add_argument("--log-dir", default=str(DEFAULT_LOG))
+    p.add_argument("-w", "--watch", action="store_true")
+    p.add_argument("--interval", type=int, default=3)
+    p.add_argument("--headless", action="store_true", help="Run browser headlessly (default: show window)")
+    p.add_argument("--data-dir", default=str(DEFAULT_SESSION))
+    p.add_argument("--timeout", type=int, default=300)
+    p.add_argument("--login", action="store_true", help="Open browser to log in manually and save session")
+    return p.parse_args()
+
+
+def _build_config(args: argparse.Namespace) -> AppConfig:
+    if getattr(args, "login", False):
+        mode = "login"
+    elif getattr(args, "watch", False):
+        mode = "watcher"
+    else:
+        input_path = Path(args.input)
+        if input_path.is_dir() or not input_path.suffix:
+            mode = "batch"
+        else:
+            mode = "single"
+    return AppConfig(
+        mode=mode,
+        input_path=Path(args.input),
+        output_path=Path(args.output),
+        done_path=Path(args.done_dir),
+        failed_path=Path(args.failed_dir),
+        proc_path=Path(args.proc_dir),
+        session_path=Path(args.data_dir),
+        log_path=Path(getattr(args, "log_dir", str(DEFAULT_LOG))),
+        interval=getattr(args, "interval", 3),
+        timeout=getattr(args, "timeout", 300),
+        headless=getattr(args, "headless", False),
+    )
+
+
+def main() -> int:
+    cfg = _interactive_prompt() if len(sys.argv) == 1 else _build_config(_parse_args())
+
+    # Observability first: Sentry → OTel → structlog → global exception hooks.
+    setup_observability(cfg.log_path)
+
+    if cfg.mode == "login":
+        _run_manual_login(cfg)
+        return 0
+
+    ctx = RunContext()
+    bind_run_context(run_id=ctx.run_id, mode=cfg.mode, headless=cfg.headless)
+    audit = AuditLog(cfg.log_path)
+
+    with start_span("qwen-cli.run") as span:
+        if span is not None:
+            span.set_attribute("mode", cfg.mode)
+            span.set_attribute("run_id", ctx.run_id)
+            span.set_attribute("headless", cfg.headless)
+        try:
+            with browser_session(cfg) as bctx:
+                client = QwenClient(bctx, cfg.headless)
+                for proc_file, rel_path in _iter_todo(cfg):
+                    _process_file(client, proc_file, rel_path, cfg, audit, ctx)
+        except Exception as e:
+            log.exception("run_failed", error_type=type(e).__name__, error=str(e))
+            return exit_code_for(e)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

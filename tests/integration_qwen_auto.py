@@ -3,8 +3,10 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Optional
 
-from src.qwen_auto import AppConfig, AuditLog, RunContext, _iter_todo, _process_file
+from src.config import AppConfig, RunContext
+from src.pipeline import AuditLog, _iter_todo, _process_file
 
 
 class MockQwenClient:

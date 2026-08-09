@@ -1,1 +1,7 @@
-playwright>=1.40.0
+playwright>=1.62.0
+structlog>=26.1.0
+sentry-sdk>=2.66.1
+opentelemetry-api>=1.44.0
+opentelemetry-sdk>=1.44.0
+opentelemetry-exporter-otlp-proto-http>=1.44.0
+tenacity>=9.0.0

@@ -1,14 +1,10 @@
-"""Contract test suite for qwen_auto.py verifying public API contracts."""
+"""Contract test suite verifying public API contracts across feature modules."""
 import unittest
 from pathlib import Path
-from src.qwen_auto import (
-    AppConfig,
-    RunContext,
-    AuditLog,
-    QwenClient,
-    AuthRequiredError,
-    PromptInjectionError,
-)
+
+from src.config import AppConfig, AuthRequiredError, PromptInjectionError, RunContext
+from src.pipeline import AuditLog
+from src.qwen_client import QwenClient
 
 
 class TestQwenAutoContract(unittest.TestCase):

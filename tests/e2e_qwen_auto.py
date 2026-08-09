@@ -4,7 +4,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from src.qwen_auto import AppConfig, AuditLog, QwenClient, RunContext, _process_file
+from src.config import AppConfig, RunContext
+from src.qwen_client import QwenClient
+from src.pipeline import AuditLog, _process_file
 
 
 class TestQwenAutoE2E(unittest.TestCase):
@@ -31,10 +33,17 @@ class TestQwenAutoE2E(unittest.TestCase):
             # Mock locator for input and send button
             mock_locator = MagicMock()
             mock_locator.first = mock_locator
+            mock_locator.all.return_value = [mock_locator]
             mock_locator.is_visible.return_value = True
             mock_locator.is_enabled.return_value = True
             mock_locator.count.return_value = 1
             mock_page.locator.return_value = mock_locator
+
+            mock_fc_info = MagicMock()
+            mock_fc = MagicMock()
+            mock_fc_info.__enter__.return_value = mock_fc
+            mock_fc.value = MagicMock()
+            mock_page.expect_file_chooser.return_value = mock_fc_info
 
             # Mock page evaluate to simulate DOM states:
             # 1. _is_file_parsing_or_waiting -> False
@@ -45,9 +54,11 @@ class TestQwenAutoE2E(unittest.TestCase):
                     return None
                 if "Parsing..." in script or "waitKeywords" in script or "offline-banner" in script:
                     return False
+                if "file-card-list" in script:
+                    return True
                 if "stopBtn" in script or "userMsgs" in script:
                     return True
-                if "assistantNodes" in script:
+                if "assistantNodes" in script or "selectors" in script:
                     return "Generated E2E Response Text from Qwen AI."
                 return True
 

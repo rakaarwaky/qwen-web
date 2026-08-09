@@ -85,8 +85,8 @@ python3 src/qwen_auto.py
 3. 📄 Single File Mode   (Process a specific markdown file)
 4. ❌ Exit
 ==================================================
-Pilih menu [1-4] (default: 1): 
-Jalankan di latar belakang (Headless)? [Y/n] (default: Y): 
+Select menu [1-4] (default: 1): 
+Run in background (Headless)? [Y/n] (default: Y): 
 ```
 
 ---

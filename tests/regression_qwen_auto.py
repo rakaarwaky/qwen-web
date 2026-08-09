@@ -4,12 +4,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from src.qwen_auto import (
-    AppConfig,
-    QwenClient,
+from src.config import AppConfig
+from src.qwen_client import QwenClient
+from src.pipeline import (
+    _list_input_files,
     load_role_prompt,
     resolve_role_paths,
-    _list_input_files,
 )
 
 

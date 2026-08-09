@@ -4,14 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.qwen_auto import (
-    AppConfig,
-    AuditLog,
-    RunContext,
-    _build_config,
-    _parse_args,
-    _write_output,
-)
+from src.config import AppConfig, RunContext
+from src.main import _build_config, _parse_args
+from src.pipeline import AuditLog, _write_output
 
 
 class TestQwenAutoUnit(unittest.TestCase):
