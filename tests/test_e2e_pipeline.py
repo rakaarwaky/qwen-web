@@ -35,9 +35,9 @@ from pathlib import Path
 
 import pytest
 
-from browser import browser_session
-from config import AppConfig, AuthRequiredError, RunContext
-from pipeline import AuditLog, _iter_todo, _process_file, resolve_role_paths
+from src.browser import browser_session
+from src.config import AppConfig, AuthRequiredError, RunContext
+from src.pipeline import AuditLog, _iter_todo, _process_file, resolve_role_paths
 
 
 pytestmark = pytest.mark.e2e

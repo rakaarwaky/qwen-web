@@ -9,8 +9,12 @@ from typing import Any, Dict, Iterator
 from playwright.sync_api import BrowserContext, sync_playwright
 from tenacity import RetryCallState, Retrying, stop_after_attempt, wait_fixed
 
-from .config import AppConfig, BrowserLaunchError
-from .observability import get_logger, start_span
+try:
+    from .config import AppConfig, BrowserLaunchError
+    from .observability import get_logger, start_span
+except ImportError:
+    from config import AppConfig, BrowserLaunchError
+    from observability import get_logger, start_span
 
 log = get_logger("browser")
 

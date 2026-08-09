@@ -76,7 +76,7 @@ class QwenClient:
         self.cfg = cfg
         self.browser: Browser | None = None
         self.context: BrowserContext | None = ctx
-        self.page: Page | None = None
+        self.page: Page | None = ctx.pages[0] if ctx and ctx.pages else (ctx.new_page() if ctx else None)
 
     def start(self) -> None:
         """Starts the Playwright persistent context with a pre-authenticated Chrome profile."""

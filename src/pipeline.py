@@ -19,14 +19,9 @@ from typing import Any, Iterator, List, Optional, Tuple
 
 from tenacity import RetryCallState, Retrying, retry_if_exception, stop_after_attempt, wait_exponential
 
-try:
-    from .config import AppConfig, AuthRequiredError, DEFAULT_LOG, DEFAULT_TODO, RunContext, BrowserLaunchError
-    from .observability import get_logger, start_span
-    from .qwen_client import QwenClient
-except ImportError:
-    from config import AppConfig, AuthRequiredError, DEFAULT_LOG, DEFAULT_TODO, RunContext, BrowserLaunchError
-    from observability import get_logger, start_span
-    from qwen_client import QwenClient
+from .config import AppConfig, AuthRequiredError, DEFAULT_LOG, DEFAULT_TODO, RunContext, BrowserLaunchError
+from .observability import get_logger, start_span
+from .qwen_client import QwenClient
 
 log = get_logger("pipeline")
 
@@ -247,7 +242,7 @@ def _write_output(path: Path, content: str, ctx: RunContext, src: str, dur: floa
     except Exception:
         pass  # Non-fatal
 
-    print(f"  📋 [EVENT_OUTPUT_COPIED] Output successfully copied to file {path.name}")
+    log.info("output_file_copied", filename=path.name)
 
 
 def load_role_prompt(file_path: Path, custom_prompt_path: Optional[Path] = None, rel_path: Optional[Path] = None) -> str:
@@ -436,7 +431,7 @@ def _process_file(client: QwenClient, proc_file: Path, rel_path: Path,
     out_path, done_path, fail_path, _ = resolve_role_paths(rel_path, cfg)
 
     prompt = proc_file.read_text(encoding="utf-8").strip()
-    print(f"• {rel_path} ({len(prompt):,} chars)")
+    log.info("processing_file", file=str(rel_path), chars=len(prompt))
     t0 = time.time()
     audit.log_step(ctx, "START_PROCESSING", str(rel_path), "STARTED", {"input_chars": len(prompt)})
 
@@ -469,7 +464,7 @@ def _process_file(client: QwenClient, proc_file: Path, rel_path: Path,
         else:
             done_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(proc_file), str(done_path))
-        print(f"  -> {out_path} ({dur:.1f}s)")
+        log.info("processed_file_success", out_path=str(out_path), duration_sec=round(dur, 1))
         return text
 
     try:
@@ -501,4 +496,4 @@ def _process_file(client: QwenClient, proc_file: Path, rel_path: Path,
                 proc_file.unlink()
             except Exception:
                 pass
-        print(f"  x QUARANTINED to {fail_path}: {e}")
+        log.error("file_quarantined", fail_path=str(fail_path), error=str(e))

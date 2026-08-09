@@ -1,4 +1,5 @@
 """Unit test suite for src/mcp_server.py tools and MCP server configuration."""
+import asyncio
 import json
 import tempfile
 import unittest
@@ -54,7 +55,7 @@ class TestMCPServerTools(unittest.TestCase):
         client_inst.send_file.return_value = "Mocked AI Response"
         mock_qwen_client.return_value = client_inst
 
-        result = qwen_send_prompt("Hello Qwen", timeout_sec=30, headless=True)
+        result = asyncio.run(qwen_send_prompt("Hello Qwen", timeout_sec=30, headless=True))
         self.assertEqual(result, "Mocked AI Response")
         client_inst.send_file.assert_called_once()
 
@@ -68,7 +69,7 @@ class TestMCPServerTools(unittest.TestCase):
             out_file = Path(tmp_dir) / "output.md"
             in_file.write_text("Test prompt text", encoding="utf-8")
 
-            res = qwen_process_single(str(in_file), str(out_file))
+            res = asyncio.run(qwen_process_single(str(in_file), str(out_file)))
             self.assertIn("Successfully processed", res)
             mock_process_file.assert_called_once()
 
@@ -80,7 +81,7 @@ class TestMCPServerTools(unittest.TestCase):
         mock_bctx.pages = [mock_page]
         mock_browser_session.return_value.__enter__.return_value = mock_bctx
 
-        res = qwen_setup_session()
+        res = asyncio.run(qwen_setup_session())
         self.assertIn("Browser session saved", res)
         mock_page.goto.assert_called_once()
 

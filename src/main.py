@@ -59,8 +59,8 @@ except ImportError:
         RunContext,
     )
     from browser import browser_session
-    from .linux import SingleInstanceLock, GracefulShutdown, sd_notify_stop
-    from .observability import (
+    from linux import SingleInstanceLock, GracefulShutdown, sd_notify_stop
+    from observability import (
         bind_run_context,
         exit_code_for,
         get_logger,
@@ -317,6 +317,7 @@ def _signal_handler(signum: int, frame: Any) -> None:
     _shutdown_flag = True
 
 
+def main() -> int:
     # Check if MCP server mode requested
     args = _parse_args() if len(sys.argv) > 1 else None
     if args and getattr(args, "mcp", False):

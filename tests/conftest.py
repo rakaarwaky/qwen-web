@@ -77,7 +77,7 @@ def client(browser_ctx: BrowserContext, page) -> QwenClient:
         proc_path=ROOT / "input" / ".processing", session_path=ROOT / "qwen_session",
         headless=True,
     )
-    c = QwenClient(browser_ctx, headless=True)
+    c = QwenClient(browser_ctx, cfg)
     # ensure the client uses our fixture page, not a fresh one
     c._page = page
     return c
