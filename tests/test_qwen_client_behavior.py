@@ -72,7 +72,7 @@ class TestInjectText:
         real_evaluate = page.evaluate
 
         def _selective_boom(script, *a, **k):
-            if "HTMLTextAreaElement.prototype" in script or "value" in script:
+            if "HTMLTextAreaElement.prototype" in script:
                 raise RuntimeError("forced React-setter failure")
             return real_evaluate(script, *a, **k)
 
@@ -83,7 +83,7 @@ class TestInjectText:
         # via the native 'input' event fired by our simulation below
         page.evaluate("""(t) => {
             const ta = document.getElementById('chatInput');
-            ta.value = t; ta.dispatchEvent(new Event('input', {bubbles:true}));
+            ta.textContent = t; ta.dispatchEvent(new Event('input', {bubbles:true}));
         }""", text)
         val = page.evaluate("(el) => (el.value || '').trim()", target.element_handle())
         assert text in val

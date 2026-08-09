@@ -1,6 +1,6 @@
 """Shared pytest fixtures for the QwenClient behavior-lock regression suite.
 
-Two fixture layers:
+Three fixture layers:
 
 1. BROWSER fixtures (browser_ctx, page, client):
    Spin up a REAL headless Chromium against a local HTML fixture that mirrors
@@ -13,6 +13,12 @@ Two fixture layers:
    AppConfig, AuditLog, and RunContext constructors from src/ — no invented
    business logic. Log output is redirected to pytest tmp_path so each test
    run is isolated and tests/fixtures/log/ is never mutated.
+
+3. E2E fixtures (e2e_cfg):
+   Wire tests/fixtures/ input/output/log WITH the real qwen_session so the
+   full pipeline (browser_session → QwenClient → _process_file) runs against
+   live chat.qwen.ai. Requires internet + valid saved session. Tests that use
+   this fixture are marked @pytest.mark.e2e and excluded from normal CI runs.
 """
 from __future__ import annotations
 
@@ -122,3 +128,31 @@ def audit(cfg: AppConfig) -> AuditLog:
 def run_ctx() -> RunContext:
     """Real RunContext() — same factory as production main.py."""
     return RunContext()
+
+
+# ─── E2E fixtures ─────────────────────────────────────────────────────────────
+# Layer 3: full pipeline against live chat.qwen.ai, paths redirected to
+# tests/fixtures/ so the real input/ output/ log/ dirs are never touched.
+# Requires internet + a valid saved session in qwen_session/.
+
+@pytest.fixture
+def e2e_cfg(fixture_root: Path) -> AppConfig:
+    """Real AppConfig for E2E tests.
+
+    Identical constructor to production main.py — only paths redirected to
+    tests/fixtures/. Uses the real qwen_session/ for authentication.
+    log_path points to tests/fixtures/log/ (persistent — inspect after run).
+    """
+    fx_input  = fixture_root / "input"
+    fx_output = fixture_root / "output"
+    return AppConfig(
+        mode="batch",
+        input_path=fx_input,
+        output_path=fx_output,
+        done_path=fx_input / "role-architect" / "done",
+        failed_path=fx_input / "role-architect" / "failed",
+        proc_path=fx_input / "role-architect" / ".processing",
+        session_path=ROOT / "qwen_session",   # real saved session
+        log_path=fixture_root / "log",         # persistent — inspect after run
+        headless=True,
+    )
