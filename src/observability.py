@@ -172,10 +172,10 @@ def exit_code_for(exc: BaseException) -> int:
     """Map an unhandled exception to a process exit code."""
     if isinstance(exc, KeyboardInterrupt):
         return 130
-    try:
-        from .config import AuthRequiredError
-    except ImportError:
-        from config import AuthRequiredError
+try:
+    from .config import AuthRequiredError
+except ImportError:
+    from config import AuthRequiredError
     if isinstance(exc, AuthRequiredError):
         return 2
     return 1
