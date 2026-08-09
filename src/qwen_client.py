@@ -18,52 +18,10 @@ from typing import Any, Optional
 
 from playwright.sync_api import Browser, BrowserContext, Page, TimeoutError as PlaywrightTimeoutError, sync_playwright
 
-from .config import AppConfig, AuthRequiredError, DEFAULT_LOG, RunContext, BrowserLaunchError
+from .config import AppConfig, AuthRequiredError, DEFAULT_LOG, RunContext, BrowserLaunchError, SEND_SELECTORS, MESSAGE_SELECTORS
 from .observability import get_logger, start_span
 
 log = get_logger("qwen_client")
-
-# ─── Message detection constants ─────────────────────────────────────────────
-_POLL_INTERVAL: float = 1.0           # seconds between poll checks (adaptive)
-_INITIAL_WAIT: int = 20_000          # milliseconds to wait for initial page load
-_MAX_POLL_ATTEMPTS: int = 60          # max consecutive polls before giving up
-_ADAPTIVE_TIMEOUT_BASE: int = 90      # base timeout for adaptive polling
-_ADAPTIVE_TIMEOUT_MAX: int = 180      # max timeout cap
-_ADAPTIVE_TIMEOUT_MIN: int = 30       # min timeout floor
-
-# ─── Mutation observer script (injected into page) ───────────────────────────
-_MUTATION_OBSERVER_JS = """() => {
-    return new Promise((resolve) => {
-        const target = document.querySelector('[data-testid="chat-message-text"]') ||
-                       document.querySelector('[class*="message-text"]') ||
-                       document.querySelector('[class*="ai-response"]') ||
-                       document.querySelector('main') ||
-                       document.body;
-        if (!target) { resolve(null); return; }
-
-        const observer = new MutationObserver((mutations) => {
-            for (const m of mutations) {
-                if (m.addedNodes.length > 0) {
-                    for (const node of m.addedNodes) {
-                        const txt = (node.textContent || '').trim();
-                        if (txt.length > 10 && !txt.includes('What do you want to know') && !txt.includes('Auto')) {
-                            observer.disconnect();
-                            resolve(txt);
-                            return;
-                        }
-                    }
-                }
-            }
-        });
-        observer.observe(target, { childList: true, subtree: true, characterData: true });
-
-        // Timeout fallback
-        setTimeout(() => {
-            observer.disconnect();
-            resolve(null);
-        }, 180000);
-    });
-}"""
 
 
 class QwenClient:
@@ -101,21 +59,86 @@ class QwenClient:
             pw.stop()
             raise BrowserLaunchError(f"Failed to start browser: {e}") from e
 
-    def send_file(self, filepath: Path, timeout_sec: int, custom_prompt_path: Optional[Path] = None, rel_path: Optional[Path] = None) -> str:
-        """Sends a prompt file to chat.qwen.ai and returns the full AI response as text.
+    def _find_input(self):
+        """Find textarea.input — proven selector from live test."""
+        el = self.page.wait_for_selector('textarea.message-input-textarea', timeout=10_000)
+        if not el:
+            raise AuthRequiredError(
+                "Could not find textarea on chat.qwen.ai. Please run 'qwc --login' to re-authenticate."
+            )
+        return el
 
-        Args:
-            filepath: Path to the .txt prompt file to send.
-            timeout_sec: Maximum seconds to wait for a response.
-            custom_prompt_path: Optional path to an additional PROMPT.md to prepend.
-            rel_path: Relative path for logging context.
-        """
+    def _inject_text(self, text: str) -> None:
+        """Inject text via React value-setter (fill() doesn't trigger React state)."""
+        el = self.page.query_selector('textarea.message-input-textarea') or self.page.query_selector('textarea')
+        if not el:
+            raise AuthRequiredError("Textarea not found for injection.")
+        el.focus()
+        try:
+            self.page.evaluate("""(text) => {
+                const el = document.querySelector('textarea.message-input-textarea') || document.querySelector('textarea');
+                if (!el) throw new Error('textarea not found');
+                const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+                setter.call(el, text);
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            }""", text)
+        except Exception:
+            # Fallback: use clipboard write + Ctrl+V (works in headless Chromium)
+            self.page.evaluate("""(text) => {
+                const el = document.querySelector('textarea.message-input-textarea') || document.querySelector('textarea');
+                if (!el) throw new Error('textarea not found');
+                navigator.clipboard.writeText(text);
+                el.focus();
+                el.setSelectionRange(0, 0);
+                document.execCommand('paste');
+            }""", text)
+        log.info("Prompt injected via React value-setter (%d chars)", len(text))
+
+    def _click_send(self) -> None:
+        """Click send button — tries all verified selectors from config."""
+        for sel in SEND_SELECTORS:
+            try:
+                btn = self.page.query_selector(sel)
+                if btn and btn.is_visible() and btn.is_enabled():
+                    btn.click(timeout=3_000)
+                    log.info("Send button clicked via: %s", sel)
+                    return
+            except Exception:
+                continue
+        # Fallback: Enter key
+        el = self.page.query_selector('textarea.message-input-textarea')
+        if el:
+            el.press("Enter")
+            log.info("Enter key pressed (send button not found)")
+
+    def _count_messages(self) -> int:
+        """Count assistant messages using verified selectors from config."""
+        for sel in MESSAGE_SELECTORS:
+            count = self.page.evaluate(f"""() => document.querySelectorAll('{sel}').length""")
+            if count and count > 0:
+                return count
+        return 0
+
+    def _latest_message_text(self) -> Optional[str]:
+        """Get text of last assistant message using verified selectors from config."""
+        for sel in MESSAGE_SELECTORS:
+            text = self.page.evaluate(f"""() => {{
+                const msgs = document.querySelectorAll('{sel}');
+                return msgs.length > 0 ? msgs[msgs.length - 1].textContent.trim() : null;
+            }}""")
+            if text:
+                return text
+        return None
+
+    def send_file(self, filepath: Path, timeout_sec: int, custom_prompt_path: Optional[Path] = None, rel_path: Optional[Path] = None) -> str:
+        """Sends a prompt file to chat.qwen.ai and returns the full AI response as text."""
         if not self.page:
             raise RuntimeError("Browser not started. Call start() first.")
 
         prompt = filepath.read_text(encoding="utf-8").strip()
 
-        # P5: Prepend role prompt from custom_prompt_path if provided
+        # Prepend role prompt if provided
         if custom_prompt_path and custom_prompt_path.exists():
             role_prompt = custom_prompt_path.read_text(encoding="utf-8").strip()
             if role_prompt.startswith("---"):
@@ -124,100 +147,28 @@ class QwenClient:
                     role_prompt = parts[2].strip()
             prompt = f"{role_prompt}\n\n{prompt}"
 
-        # Reset page to ensure clean state
-        self.reset_page()
-
-        log.info("Sending prompt to chat.qwen.ai (%d chars)", len(prompt))
-
-        # Wait for page and input element to load
+        # Navigate to chat
         self.page.goto("https://chat.qwen.ai/", timeout=30_000)
         try:
             self.page.wait_for_load_state("domcontentloaded", timeout=15_000)
         except Exception:
             pass
 
-        # Check if redirected to login / auth page
+        # Auth check
         current_url = self.page.url.lower()
         if any(k in current_url for k in ("login", "passport", "auth", "signin")):
-            raise AuthRequiredError(
-                "No active login session found for chat.qwen.ai. Please run 'qwc --login' (or call MCP tool 'qwen_setup_session') to authenticate."
-            )
+            raise AuthRequiredError("No active login session. Run 'qwc --login' to authenticate.")
 
-        # Check if "Log in" or "Sign up" buttons are visible on page (unauthenticated state)
-        try:
-            login_btn = self.page.query_selector(
-                'button:has-text("Log in"), button:has-text("Sign up"), a:has-text("Log in"), a:has-text("Sign up")'
-            )
-            if login_btn and login_btn.is_visible():
-                raise AuthRequiredError(
-                    "No active login session found for chat.qwen.ai (Log in button detected). Please run 'qwc --login' (or call MCP tool 'qwen_setup_session') to authenticate."
-                )
-        except AuthRequiredError:
-            raise
-        except Exception:
-            pass
+        log.info("Sending prompt to chat.qwen.ai (%d chars)", len(prompt))
+        msg_count_before = self._count_messages()
 
-        # Wait for textarea element to be available (fast check first)
-        textarea = None
-        try:
-            textarea = self.page.wait_for_selector('textarea, [class*="input"], [class*="textarea"]', timeout=8_000)
-        except Exception:
-            pass
+        # Find input, inject, send
+        self._find_input()
+        self._inject_text(prompt)
+        self._click_send()
 
-        # Click the textarea (first input or specific class)
-        if not textarea:
-            textarea = self.page.query_selector('textarea, [class*="input"], [class*="textarea"]')
-        if not textarea:
-            textarea = self.page.query_selector("textarea")
-        if not textarea:
-            # Check for login buttons or auth links
-            login_btn = self.page.query_selector(
-                'a[href*="login"], button:has-text("Log in"), button:has-text("Sign in"), button:has-text("Login"), [class*="login"]'
-            )
-            if login_btn or any(k in self.page.url.lower() for k in ("login", "passport", "auth", "signin")):
-                raise AuthRequiredError(
-                    "No active login session found for chat.qwen.ai. Please run 'qwc --login' (or call MCP tool 'qwen_setup_session') to authenticate."
-                )
-            raise AuthRequiredError(
-                "Could not find input textarea on chat.qwen.ai. Session may be expired or unauthenticated. Please run 'qwc --login' (or call MCP tool 'qwen_setup_session') to re-authenticate."
-            )
-
-        # Focus and select all text in textarea
-        try:
-            textarea.focus()
-            self.page.keyboard.press("Control+a" if os.name == "nt" else "Meta+a")
-            self.page.keyboard.press("Delete")
-        except Exception as e:
-            log.warning("Failed to focus textarea: %s", e)
-
-        # Type the prompt
-        try:
-            textarea.fill(prompt, timeout=5_000)
-        except Exception:
-            self._type_slowly(textarea, prompt)
-
-        # Click the send button or press Enter
-        sent = False
-        try:
-            send_btn = self.page.query_selector('button[type="submit"], [class*="send-button"], [class*="sendButton"], [aria-label*="Send"]')
-            if send_btn and send_btn.is_enabled():
-                send_btn.click(timeout=3_000)
-                sent = True
-        except Exception:
-            pass
-
-        if not sent:
-            try:
-                textarea.focus()
-                self.page.keyboard.press("Enter")
-            except Exception as e:
-                log.warning("Could not submit prompt: %s", e)
-
-        # P7: Adaptive polling with MutationObserver
-        response = self._detect_response_mutation(timeout_sec)
-        if response is None:
-            # Fallback to adaptive polling
-            response = self._adaptive_poll(timeout_sec)
+        # Wait for response (stability loop)
+        response = self._wait_for_response(timeout_sec, msg_count_before)
 
         if response and len(response.strip()) > 0:
             log.info("Received response (%d chars)", len(response))
@@ -225,111 +176,49 @@ class QwenClient:
         else:
             raise TimeoutError(f"Timeout after {timeout_sec}s: no response detected")
 
-    def _type_slowly(self, textarea: Any, text: str) -> None:
-        """Types text character by character as a fallback for fill()."""
-        textarea.focus()
-        textarea.press("Control+a" if os.name == "nt" else "Meta+a")
-        textarea.press("Delete")
-        for char in text:
-            try:
-                textarea.press(char)
-            except Exception:
-                pass
-
-    def _detect_response_mutation(self, timeout_sec: int) -> Optional[str]:
-        """Uses MutationObserver to detect new content mutations on the page.
-
-        Returns the observed text or None if timeout occurs.
-        """
+    def _wait_for_response(self, timeout_sec: int, msg_count_before: int) -> Optional[str]:
+        """Wait for new assistant message with stability check."""
         log.info("Waiting for AI response...")
-
-        try:
-            assert self.page is not None
-            result = self.page.evaluate(_MUTATION_OBSERVER_JS)
-            if result:
-                return str(result)
-        except PlaywrightTimeoutError:
-            log.info("MutationObserver timed out, falling back to polling")
-        except Exception as e:
-            log.warning("MutationObserver failed (%s), falling back", type(e).__name__)
-
-        return None
-
-    def _adaptive_poll(self, timeout_sec: int) -> Optional[str]:
-        """Adaptive polling strategy that adjusts based on response characteristics."""
         start = time.time()
-        poll_interval = _POLL_INTERVAL
-        consecutive_empty = 0
         last_text = ""
+        stable_count = 0
 
-        # Phrases that indicate landing page UI, not an AI answer
-        ignored_phrases = ["what do you want to know", "where should we begin", "how can i help", "good afternoon", "good morning"]
+        while time.time() - start < timeout_sec:
+            # Check for new messages
+            count = self._count_messages()
+            if count > msg_count_before:
+                text = self._latest_message_text()
+                if text and len(text) > 10:
+                    if text == last_text:
+                        stable_count += 1
+                        if stable_count >= 3:
+                            return text
+                    else:
+                        stable_count = 0
+                        last_text = text
+            time.sleep(1.0)
 
-        while True:
-            elapsed = time.time() - start
-            if elapsed > timeout_sec:
-                log.warning("Adaptive poll timed out after %ds", timeout_sec)
-                break
+        return last_text or None
 
-            try:
-                # Targeted selectors for assistant message content
-                selectors = [
-                    '[data-testid="chat-message-text"]',
-                    '[class*="assistant"] [class*="message"]',
-                    '[class*="message-text"]',
-                    '[class*="ai-response"]',
-                ]
+    def _type_slowly(self, textarea: Any, text: str, delay_ms: float = 30) -> None:
+        """Type text character-by-character into a textarea with per-character delays.
 
-                response_text = None
-                for sel in selectors:
-                    try:
-                        assert self.page is not None
-                        elements = self.page.query_selector_all(sel)
-                        for element in reversed(elements):
-                            text = element.inner_text().strip()
-                            lower_text = text.lower()
-                            if len(text) > 5 and not any(p in lower_text for p in ignored_phrases):
-                                response_text = text
-                                break
-                        if response_text:
-                            break
-                    except Exception:
-                        continue
-
-                if response_text:
-                    # Verify it's new content (not the same as last poll)
-                    if response_text != last_text:
-                        log.info("Poll detected new response (%d chars)", len(response_text))
-                        return response_text
-                    consecutive_empty += 1
-                    last_text = response_text
-                else:
-                    consecutive_empty += 1
-
-                # Adaptive interval: slow down as we wait longer
-                if consecutive_empty > 10:
-                    poll_interval = min(poll_interval * 1.5, 5.0)
-                elif consecutive_empty < 3:
-                    poll_interval = max(poll_interval * 0.7, 0.5)
-
-                time.sleep(poll_interval)
-
-            except PlaywrightTimeoutError:
-                consecutive_empty += 1
-                time.sleep(poll_interval)
-            except Exception as e:
-                log.warning("Poll error: %s", e)
-                consecutive_empty += 1
-                time.sleep(poll_interval)
-
-        return None
+        Args:
+            textarea: Playwright ElementHandle for the target textarea.
+            text: The text to type.
+            delay_ms: Milliseconds to wait between each character (default 30).
+        """
+        assert self.page is not None
+        for char in text:
+            textarea.press(char)
+            time.sleep(delay_ms / 1000)
 
     def reset_page(self) -> None:
         """Resets the page to a clean state by navigating back to chat.qwen.ai."""
         if self.page:
             try:
                 self.page.goto("https://chat.qwen.ai/", timeout=10_000)
-                self.page.wait_for_load_state("networkidle", timeout=15)
+                self.page.wait_for_load_state("networkidle", timeout=15_000)
             except Exception as e:
                 log.warning("Error resetting page: %s", e)
 
