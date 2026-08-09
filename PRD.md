@@ -1,11 +1,11 @@
 # Product Requirements Document (PRD)
-## Qwen AI Web Automation CLI (`qwen-web-automation`)
+## Qwen AI Web Automation CLI (`qwen-web`)
 
 ---
 
 ### 1. Overview & Vision
 
-`qwen-web-automation` is a production-grade, resilient CLI automation tool and MCP Server that interacts with the Qwen AI web interface (`chat.qwen.ai`) without requiring official API keys. It enables batch prompt processing, real-time file watching, persistent session management, 1:1 MCP Server tool integration for local AI agents, structured observability (structlog + OpenTelemetry + Sentry), and JSONL audit logging via Playwright browser automation.
+`qwen-web` is a production-grade, resilient CLI automation tool and MCP Server that interacts with the Qwen AI web interface (`chat.qwen.ai`) without requiring official API keys. It enables batch prompt processing, real-time file watching, persistent session management, 1:1 MCP Server tool integration for local AI agents, structured observability (structlog + OpenTelemetry + Sentry), and JSONL audit logging via Playwright browser automation.
 
 ---
 
@@ -123,7 +123,7 @@ Every generated output file begins with an HTML comment block:
 ### 7. Directory Layout
 
 ```text
-qwen-web-automation/
+qwen-web/
 ├── input/
 │   ├── (root)          # Drop .md files here (todo source)
 │   ├── done/           # Completed input files

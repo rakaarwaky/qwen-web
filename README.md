@@ -40,7 +40,7 @@ It supports **MCP Server integration for local AI agents**, **real-time file wat
 ## Repository Structure
 
 ```text
-qwen-web-automation/
+qwen-web/
 ├── src/
 │   ├── main.py             # CLI entrypoint & argument parser
 │   ├── mcp_server.py       # MCP Server exposing 1:1 CLI features as MCP tools
@@ -75,8 +75,8 @@ qwen-web-automation/
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/rakaarwaky/qwen-web-automation.git
-cd qwen-web-automation
+git clone https://github.com/rakaarwaky/qwen-web.git
+cd qwen-web
 ```
 
 ### 2. Install Dependencies
