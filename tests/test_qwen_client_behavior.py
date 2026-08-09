@@ -240,6 +240,8 @@ class TestWaitForAuth:
             def __init__(self, u, t):
                 self.url = u
                 self.title = lambda: t
+            def is_closed(self):
+                return False
         return _Stub(url, title)
 
     def test_raises_auth_required_in_headless_on_login(self, client, page, monkeypatch):
