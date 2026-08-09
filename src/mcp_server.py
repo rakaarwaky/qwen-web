@@ -23,40 +23,22 @@ try:
 except ImportError:
     FastMCP = None  # type: ignore[misc, assignment]
 
-try:
-    from src.browser import browser_session
-    from src.config import (
-        DEFAULT_DONE,
-        DEFAULT_FAILED,
-        DEFAULT_LOG,
-        DEFAULT_OUTPUT,
-        DEFAULT_PROC,
-        DEFAULT_SESSION,
-        DEFAULT_TODO,
-        AppConfig,
-        CHAT_URL,
-        RunContext,
-    )
-    from src.observability import get_logger, setup_observability
-    from src.pipeline import AuditLog, _iter_todo, _process_file, _watcher_sleep
-    from src.qwen_client import QwenClient
-except ImportError:
-    from browser import browser_session  # type: ignore[no-redef]
-    from config import (  # type: ignore[no-redef]
-        DEFAULT_DONE,
-        DEFAULT_FAILED,
-        DEFAULT_LOG,
-        DEFAULT_OUTPUT,
-        DEFAULT_PROC,
-        DEFAULT_SESSION,
-        DEFAULT_TODO,
-        AppConfig,
-        CHAT_URL,
-        RunContext,
-    )
-    from observability import get_logger, setup_observability  # type: ignore[no-redef]
-    from pipeline import AuditLog, _iter_todo, _process_file, _watcher_sleep  # type: ignore[no-redef]
-    from qwen_client import QwenClient  # type: ignore[no-redef]
+from .browser import browser_session
+from .config import (
+    DEFAULT_DONE,
+    DEFAULT_FAILED,
+    DEFAULT_LOG,
+    DEFAULT_OUTPUT,
+    DEFAULT_PROC,
+    DEFAULT_SESSION,
+    DEFAULT_TODO,
+    AppConfig,
+    CHAT_URL,
+    RunContext,
+)
+from .observability import get_logger, setup_observability
+from .pipeline import AuditLog, _iter_todo, _process_file, _watcher_sleep
+from .qwen_client import QwenClient
 
 # Initialize observability stack with stderr logging
 setup_observability(DEFAULT_LOG)
