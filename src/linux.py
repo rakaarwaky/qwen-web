@@ -25,16 +25,17 @@ class SingleInstanceLock:
 
     Usage::
 
-        with SingleInstanceLock("/tmp/qwen-cli.lock"):
-            # only one process can acquire this at a time
+        with SingleInstanceLock():
+            # default lock file in system temp dir
             main()
 
     The lock file is automatically removed when the context exits, even on crash.
     """
 
     def __init__(self, lock_path: Optional[Path] = None) -> None:
+        import tempfile
         self._lock_path = (
-            lock_path or Path("/tmp") / "qwen-cli.lock"
+            lock_path or Path(tempfile.gettempdir()) / "qwen-cli.lock"
         )
 
     def __enter__(self) -> SingleInstanceLock:

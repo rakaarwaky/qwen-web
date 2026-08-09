@@ -73,12 +73,14 @@ def browser_session(cfg: AppConfig) -> Iterator[BrowserContext]:
     except Exception as e:
         log.debug("failed_setting_session_permissions", error=str(e))
 
-    # Chrome binary path (Linux-native, P5)
-    chrome_bin = "/usr/bin/google-chrome"
-    if not Path(chrome_bin).exists():
-        chrome_bin = "/usr/bin/chromium-browser"
-    if not Path(chrome_bin).exists():
-        chrome_bin = ""
+    # Chrome binary path (Linux-native, dynamic discovery)
+    chrome_bin = (
+        shutil.which("google-chrome")
+        or shutil.which("google-chrome-stable")
+        or shutil.which("chromium")
+        or shutil.which("chromium-browser")
+        or ""
+    )
 
     # Linux-specific Chrome args (P5)
     chrome_args = [

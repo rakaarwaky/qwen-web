@@ -26,7 +26,8 @@ class TestMCPServerTools(unittest.TestCase):
 
     def test_qwen_get_audit_log_missing(self) -> None:
         """Test qwen_get_audit_log when log file does not exist."""
-        with patch("src.mcp_server.DEFAULT_LOG", Path("/tmp/non_existent_log_dir_12345")):
+        dummy_log = Path(tempfile.gettempdir()) / "non_existent_log_dir_12345"
+        with patch("src.mcp_server.DEFAULT_LOG", dummy_log):
             res = qwen_get_audit_log()
             self.assertEqual(res, "Audit log file does not exist yet.")
 
