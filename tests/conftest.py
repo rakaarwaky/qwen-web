@@ -30,12 +30,12 @@ from playwright.sync_api import BrowserContext, sync_playwright
 
 # make src importable
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT))
 
-from config import AppConfig  # noqa: E402
-from pipeline import AuditLog, _list_input_files, resolve_role_paths, load_role_prompt  # noqa: E402
-from qwen_client import QwenClient  # noqa: E402
-from config import RunContext  # noqa: E402
+from src.config import AppConfig  # noqa: E402
+from src.pipeline import AuditLog, _list_input_files, resolve_role_paths, load_role_prompt  # noqa: E402
+from src.qwen_client import QwenClient  # noqa: E402
+from src.config import RunContext  # noqa: E402
 
 FIXTURE = (Path(__file__).resolve().parent / "fixtures" / "qwen_fixture.html").as_uri()
 
@@ -79,7 +79,7 @@ def client(browser_ctx: BrowserContext, page) -> QwenClient:
     )
     c = QwenClient(browser_ctx, cfg)
     # ensure the client uses our fixture page, not a fresh one
-    c._page = page
+    c.page = page
     return c
 
 

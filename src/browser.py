@@ -35,7 +35,7 @@ def _launch_context(p: Any, kwargs: Dict[str, Any]) -> BrowserContext:
     ):
         with attempt:
             ctx = p.chromium.launch_persistent_context(**kwargs)
-            return ctx  # type: ignore[return-value]
+            return ctx
 
     raise RuntimeError("browser launch failed after retries")  # pragma: no cover
 
@@ -57,11 +57,11 @@ def browser_session(cfg: AppConfig) -> Iterator[BrowserContext]:
         log.debug("failed_setting_session_permissions", error=str(e))
 
     # Chrome binary path (Linux-native, P5)
-    chrome_bin: str | None = "/usr/bin/google-chrome"
+    chrome_bin = "/usr/bin/google-chrome"
     if not Path(chrome_bin).exists():
         chrome_bin = "/usr/bin/chromium-browser"
     if not Path(chrome_bin).exists():
-        chrome_bin = None
+        chrome_bin = ""
 
     # Linux-specific Chrome args (P5)
     chrome_args = [

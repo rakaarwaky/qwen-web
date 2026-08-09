@@ -13,14 +13,14 @@ from pathlib import Path
 import pytest
 
 # These imports come from src/ via conftest.py sys.path injection
-from pipeline import (
+from src.pipeline import (
     AuditLog,
     _list_input_files,
     _write_output,
     load_role_prompt,
     resolve_role_paths,
 )
-from config import AppConfig, RunContext
+from src.config import AppConfig, RunContext
 
 ROLES = ["role-architect", "role-business-analyst", "role-tech-lead"]
 
@@ -191,7 +191,7 @@ def test_iter_todo_batch_moves_file_to_processing(
     fixture_root: Path, tmp_path: Path
 ) -> None:
     """_iter_todo in batch mode must physically move the file to .processing/."""
-    from pipeline import _iter_todo
+    from src.pipeline import _iter_todo
 
     # Use tmp_path as a fully isolated sandbox — copy fixture structure there
     sandbox_input  = tmp_path / "input"

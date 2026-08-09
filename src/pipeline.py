@@ -172,7 +172,7 @@ class AuditLog:
             "source_file": src,
             "status": status,
         }
-        if details:
+        if details is not None:
             rec["details"] = details
         with self._audit.open("a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
@@ -474,7 +474,8 @@ def _process_file(client: QwenClient, proc_file: Path, rel_path: Path,
                 span.set_attribute("input_chars", len(prompt))
             for attempt in _retry_policy(client, audit, ctx, rel_path):
                 with attempt:
-                    return _attempt()
+                    _attempt()  # type: ignore[misc]
+                    break
     except AuthRequiredError:
         raise
     except Exception as e:

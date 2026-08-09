@@ -105,7 +105,7 @@ if mcp is not None:
 
             try:
                 with browser_session(cfg) as bctx:
-                    client = QwenClient(bctx, cfg.headless)
+                    client = QwenClient(bctx, cfg)
                     response = client.send_file(filepath=tmp_path, timeout_sec=timeout_sec)
                     return response
             finally:
@@ -151,7 +151,7 @@ if mcp is not None:
             ctx = RunContext()
 
             with browser_session(cfg) as bctx:
-                client = QwenClient(bctx, cfg.headless)
+                client = QwenClient(bctx, cfg)
                 _process_file(client, in_p, Path(in_p.name), cfg, audit_log, ctx)
                 return f"Successfully processed {in_p.name} -> {out_p}"
 
@@ -193,7 +193,7 @@ if mcp is not None:
             failed = 0
 
             with browser_session(cfg) as bctx:
-                client = QwenClient(bctx, cfg.headless)
+                client = QwenClient(bctx, cfg)
                 for proc_file, rel_path in _iter_todo(cfg):
                     try:
                         _process_file(client, proc_file, rel_path, cfg, audit_log, ctx)
@@ -233,7 +233,7 @@ if mcp is not None:
             ctx = RunContext()
 
             with browser_session(cfg) as bctx:
-                client = QwenClient(bctx, cfg.headless)
+                client = QwenClient(bctx, cfg)
                 for proc_file, rel_path in _iter_todo(cfg):
                     _process_file(client, proc_file, rel_path, cfg, audit_log, ctx)
                     _watcher_sleep(cfg.interval)

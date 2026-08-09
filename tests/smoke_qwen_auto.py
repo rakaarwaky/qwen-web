@@ -11,7 +11,7 @@ class TestQwenAutoSmoke(unittest.TestCase):
     def test_cli_help_flag_smoke(self) -> None:
         t0 = time.time()
         res = subprocess.run(
-            [sys.executable, "src/main.py", "--help"],
+            [sys.executable, "-m", "src.main", "--help"],
             capture_output=True,
             text=True,
             timeout=5,

@@ -190,7 +190,7 @@ def _excepthook(exc_type: type[BaseException], exc_value: BaseException, exc_tb:
         category=ErrorCategory.categorize(exc_value),
     )
     if HAS_SENTRY:
-        sentry_sdk.capture_exception(exc_value)
+        sentry_sdk.capture_exception(exc_value)  # type: ignore[misc, no-any-return]
     sys.exit(1)
 
 
@@ -203,13 +203,13 @@ def _thread_excepthook(args: Any) -> None:
         category=ErrorCategory.categorize(args.exc_value),
     )
     if HAS_SENTRY:
-        sentry_sdk.capture_exception(args.exc_value)  # type: ignore[possibly-undefined]
+        sentry_sdk.capture_exception(args.exc_value)  # type: ignore[misc, no-any-return]
 
 
 def install_excepthooks() -> None:
     """Install global exception handlers so crashes are logged as structured events."""
     sys.excepthook = _excepthook
-    threading.excepthook = _thread_excepthook  # type: ignore[assignment]
+    threading.excepthook = _thread_excepthook
 
 
 # ─── Status file writer (P8) ────────────────────────────────────────────────

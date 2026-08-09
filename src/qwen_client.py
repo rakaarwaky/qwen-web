@@ -45,9 +45,10 @@ _MUTATION_OBSERVER_JS = """() => {
             for (const m of mutations) {
                 if (m.addedNodes.length > 0) {
                     for (const node of m.addedNodes) {
-                        if (node.textContent && node.textContent.trim().length > 10) {
+                        const txt = (node.textContent || '').trim();
+                        if (txt.length > 10 && !txt.includes('What do you want to know') && !txt.includes('Auto')) {
                             observer.disconnect();
-                            resolve(node.textContent.trim());
+                            resolve(txt);
                             return;
                         }
                     }
@@ -56,7 +57,7 @@ _MUTATION_OBSERVER_JS = """() => {
         });
         observer.observe(target, { childList: true, subtree: true, characterData: true });
 
-        // Timeout fallback: stop observing after 3 minutes
+        // Timeout fallback
         setTimeout(() => {
             observer.disconnect();
             resolve(null);
@@ -212,7 +213,7 @@ class QwenClient:
 
         try:
             assert self.page is not None
-            result = self.page.evaluate(_MUTATION_OBSERVER_JS)  # type: ignore[arg-type]
+            result = self.page.evaluate(_MUTATION_OBSERVER_JS)
             if result:
                 return str(result)
         except PlaywrightTimeoutError:
@@ -254,7 +255,7 @@ class QwenClient:
                         assert self.page is not None
                         element = self.page.query_selector(sel)
                         if element:
-                            text = element.inner_text()  # type: ignore[arg-type]
+                            text = element.inner_text()
                             if text and len(text.strip()) > 10:
                                 response_text = text.strip()
                                 break

@@ -185,18 +185,12 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _build_config(args: argparse.Namespace) -> AppConfig:
-    if getattr(args, "login", False):
-        mode = "login"
-    elif getattr(args, "watch", False):
-        mode = "watcher"
-    else:
+    mode_val = "login" if getattr(args, "login", False) else ("watcher" if getattr(args, "watch", False) else None)
+    if mode_val is None:
         input_path = Path(args.input)
-        if input_path.is_dir() or not input_path.suffix:
-            mode = "batch"
-        else:
-            mode = "single"
+        mode_val = "batch" if (input_path.is_dir() or not input_path.suffix) else "single"
     return AppConfig(
-        mode=mode,
+        mode=mode_val,
         input_path=Path(args.input),
         output_path=Path(args.output),
         done_path=Path(args.done_dir),
@@ -206,14 +200,14 @@ def _build_config(args: argparse.Namespace) -> AppConfig:
         log_path=Path(getattr(args, "log_dir", str(DEFAULT_LOG))),
         interval=getattr(args, "interval", 3),
         timeout=getattr(args, "timeout", 300),
-        headless=getattr(args, "headless", False),
+        headless=bool(getattr(args, "headless", False)),
         request_timeout=getattr(args, "request_timeout", 120),
-        poll_interval=getattr(args, "poll_interval", 1.0),
+        poll_interval=float(getattr(args, "poll_interval", 1.0)),
         streaming_timeout=getattr(args, "streaming_timeout", 180),
         rate_limit_per_minute=getattr(args, "rate_limit", 60),
         circuit_breaker_threshold=getattr(args, "cb_threshold", 5),
         circuit_breaker_window=getattr(args, "cb_window", 30),
-        retry_failed=getattr(args, "retry_failed", False),
+        retry_failed=bool(getattr(args, "retry_failed", False)),
     )
 
 
@@ -289,10 +283,10 @@ def main() -> int:
     args = _parse_args() if len(sys.argv) > 1 else None
     if args and getattr(args, "mcp", False):
         try:
-            from .mcp_server import run_mcp_server
+            from .mcp_server import run_mcp_server as _run_mcp
         except ImportError:
-            from mcp_server import run_mcp_server  # type: ignore[no-redef]
-        run_mcp_server()
+            from mcp_server import run_mcp_server as _run_mcp  # type: ignore[import-not-found]
+        _run_mcp()
         return 0
 
     cfg = _interactive_prompt() if len(sys.argv) == 1 else _build_config(args)
@@ -328,7 +322,7 @@ def main() -> int:
 
         try:
             with browser_session(cfg) as bctx:
-                client = QwenClient(bctx, cfg.headless)
+                client = QwenClient(bctx, cfg)
 
                 if cfg.mode == "watcher":
                     _run_watcher(client, cfg, audit)
