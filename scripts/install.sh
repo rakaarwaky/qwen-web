@@ -38,7 +38,7 @@ XDG_CONFIG="${XDG_CONFIG_HOME:-${HOME}/.config}/qwen-web-automation"
 
 ROLES="role-architect role-business-analyst role-tech-lead"
 for role in $ROLES; do
-    mkdir -p "${XDG_DATA}/input/${role}/done" "${XDG_DATA}/input/${role}/failed" "${XDG_DATA}/input/${role}/.processing"
+    mkdir -p "${XDG_DATA}/input/${role}/done" "${XDG_DATA}/input/${role}/failed"
 done
 mkdir -p "${XDG_DATA}/output" "${XDG_DATA}/qwen_session"
 mkdir -p "${XDG_STATE}/log"

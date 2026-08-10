@@ -247,27 +247,32 @@ def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> tuple[Path, Path, Path
     Returns (out_path, done_path, fail_path, proc_file).
     """
     parts = rel_path.parts
-    base = cfg.input_path.parent if cfg.input_path.is_file() else cfg.input_path
+    is_single_file_input = cfg.mode == "single" or bool(cfg.input_path.suffix) or cfg.input_path.is_file()
+    base = DEFAULT_TODO if is_single_file_input else cfg.input_path
 
     if parts and parts[0].startswith("role-"):
         role_folder = parts[0]
         sub_parts = parts[1:]
-        if sub_parts and sub_parts[0] == "todo":
-            sub_parts = sub_parts[1:]
-        sub_path = Path(*sub_parts) if sub_parts else Path(rel_path.name)
-
-        out_path = cfg.output_path / role_folder / sub_path
-        done_path = base / role_folder / "done" / sub_path
-        fail_path = base / role_folder / "failed" / sub_path
-        proc_file = base / role_folder / ".processing" / sub_path
-    else:
-        sub_parts = parts
-        if sub_parts and sub_parts[0] == "todo":
+        if sub_parts and sub_parts[0] in ("todo", "done", "failed", ".processing", "proc"):
             sub_parts = sub_parts[1:]
         sub_path = Path(*sub_parts) if sub_parts else Path(rel_path.name)
 
         out_path = (
-            cfg.output_path / sub_path
+            cfg.output_path / sub_path.name
+            if not (cfg.mode == "single" and cfg.output_path.suffix)
+            else cfg.output_path
+        )
+        done_path = base / role_folder / "done" / sub_path
+        fail_path = base / role_folder / "failed" / sub_path
+        proc_file = cfg.proc_path / role_folder / sub_path
+    else:
+        sub_parts = parts
+        if sub_parts and sub_parts[0] in ("todo", "done", "failed", ".processing", "proc"):
+            sub_parts = sub_parts[1:]
+        sub_path = Path(*sub_parts) if sub_parts else Path(rel_path.name)
+
+        out_path = (
+            cfg.output_path / sub_path.name
             if not (cfg.mode == "single" and cfg.output_path.suffix)
             else cfg.output_path
         )
@@ -331,7 +336,7 @@ def _iter_todo_single(cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
 
     _, _, _, proc_file = resolve_role_paths(rel_path, cfg)
     proc_file.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(cfg.input_path, proc_file)
+    shutil.move(str(cfg.input_path), str(proc_file))
     yield proc_file, rel_path
 
 
@@ -422,8 +427,24 @@ def _execute_single_attempt(
         done_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(proc_file), str(done_path))
 
+    _cleanup_empty_dirs(proc_file.parent, cfg.proc_path)
     log.info("processed_file_success", out_path=str(out_path), duration_sec=round(dur, 1))
     return text
+
+
+def _cleanup_empty_dirs(dir_path: Path, root_limit: Path) -> None:
+    """Removes empty parent directories up to root_limit."""
+    try:
+        curr = dir_path
+        root_res = root_limit.resolve()
+        while curr.exists() and curr.resolve() != root_res and root_res in curr.resolve().parents:
+            if not any(curr.iterdir()):
+                curr.rmdir()
+                curr = curr.parent
+            else:
+                break
+    except Exception:
+        pass
 
 
 def _handle_processing_failure(
@@ -438,6 +459,7 @@ def _handle_processing_failure(
     out_path: Path,
     fail_path: Path,
     exc: Exception,
+    cfg: AppConfig | None = None,
 ) -> None:
     """Record failure metrics, update circuit breaker, and quarantine file."""
     dur = time.time() - t0
@@ -456,6 +478,9 @@ def _handle_processing_failure(
             proc_file.unlink()
         except Exception:
             pass
+
+    if cfg:
+        _cleanup_empty_dirs(proc_file.parent, cfg.proc_path)
     log.error("file_quarantined", fail_path=str(fail_path), error=str(exc))
 
 

@@ -70,12 +70,12 @@ SEND_SELECTORS: tuple[str, ...] = (
 MESSAGE_SELECTORS: tuple[str, ...] = (
     ".chat-message-assistant .markdown-body",
     "[class*='assistant'] .markdown-body",
+    "[class*='assistant'] [class*='markdown']",
     "[data-role='assistant']",
     ".qwen-markdown",
-    ".markdown-body",
-    "[class*='message-content']",
-    "[class*='message-body']",
-    "[class*='response']",
+    ".chat-message-assistant",
+    "div.assistant",
+    ".assistant",
 )
 
 # ─── Constants: Pipeline Defaults ────────────────────────────────────────────

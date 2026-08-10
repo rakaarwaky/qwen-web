@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import time
 from pathlib import Path
 
 import pytest
@@ -57,17 +58,48 @@ def test_resolve_role_paths_structure(cfg: AppConfig, role: str) -> None:
     rel_path = Path(role) / "todo" / "task_001.md"  # exactly what _iter_todo yields
     out_path, done_path, fail_path, proc_file = resolve_role_paths(rel_path, cfg)
 
-    # output goes under cfg.output_path/<role>/
-    assert str(out_path).startswith(str(cfg.output_path / role)), (
-        f"out_path {out_path} must be under output/{role}/"
+    # output goes flat under cfg.output_path
+    assert out_path == cfg.output_path / "task_001.md", (
+        f"out_path {out_path} must be flat under output/"
     )
-    # done/failed/.processing stay inside input/<role>/
+    # done/failed stay inside input/<role>/, .processing inside cfg.proc_path
     assert role in str(done_path), f"done_path {done_path} must contain role folder"
     assert role in str(fail_path), f"fail_path {fail_path} must contain role folder"
     assert role in str(proc_file), f"proc_file {proc_file} must contain role folder"
     assert "done" in str(done_path)
     assert "failed" in str(fail_path)
     assert ".processing" in str(proc_file)
+
+
+def test_resolve_role_paths_strips_done_and_failed(cfg: AppConfig) -> None:
+    """resolve_role_paths must strip 'done' or 'failed' from relative sub-paths."""
+    rel_path_done = Path("role-architect/done/task_001.md")
+    out_p, done_p, fail_p, proc_p = resolve_role_paths(rel_path_done, cfg)
+
+    assert out_p == cfg.output_path / "task_001.md"
+    assert done_p == cfg.input_path / "role-architect" / "done" / "task_001.md"
+    assert fail_p == cfg.input_path / "role-architect" / "failed" / "task_001.md"
+    assert proc_p == cfg.proc_path / "role-architect" / "task_001.md"
+
+
+def test_resolve_role_paths_single_mode_no_duplicate(tmp_path: Path) -> None:
+    """resolve_role_paths must not duplicate role paths in single mode when input_path is a file."""
+    input_file = tmp_path / "input" / "role-architect" / "done" / "task_001.md"
+    cfg = AppConfig(
+        mode="single",
+        input_path=input_file,
+        output_path=tmp_path / "output",
+        done_path=tmp_path / "input" / "done",
+        failed_path=tmp_path / "input" / "failed",
+        proc_path=tmp_path / "input" / ".processing",
+        session_path=tmp_path / "session",
+    )
+    rel_path = Path("role-architect/done/task_001.md")
+    out_p, done_p, fail_p, proc_p = resolve_role_paths(rel_path, cfg)
+
+    assert out_p == tmp_path / "output" / "task_001.md"
+    assert "role-architect/done/task_001.md/role-architect" not in str(out_p)
+    assert "done/role-architect" not in str(proc_p)
 
 
 # ─── load_role_prompt ────────────────────────────────────────────────────────
@@ -203,3 +235,86 @@ def test_iter_todo_batch_moves_file_to_processing(
     assert not task_copy.exists(), "Original file must be moved (not copied)"
     assert ".processing" in str(proc_file), "Destination must be inside .processing/"
     assert str(rel_path) == "role-architect/todo/task_001.md"
+
+
+def test_file_moves_to_done_on_success(tmp_path: Path, mocker: Any) -> None:
+    """When processing succeeds, file moves from .processing to role-architect/done/task_001.md."""
+    from src.pipeline import _execute_single_attempt, resolve_role_paths
+    from src.types import AppConfig, CircuitBreaker, RateLimiter
+
+    input_dir = tmp_path / "input"
+    out_dir = tmp_path / "output"
+    proc_dir = tmp_path / ".processing"
+    
+    cfg = AppConfig(
+        mode="batch",
+        input_path=input_dir,
+        output_path=out_dir,
+        proc_path=proc_dir,
+        done_path=input_dir / "done",
+        failed_path=input_dir / "failed",
+        session_path=tmp_path / "session",
+    )
+
+    rel_path = Path("role-architect/todo/task_001.md")
+    out_path, done_path, fail_path, proc_file = resolve_role_paths(rel_path, cfg)
+
+    proc_file.parent.mkdir(parents=True, exist_ok=True)
+    proc_file.write_text("Test prompt content")
+
+    mock_client = mocker.MagicMock()
+    mock_client.send_file.return_value = "Response text"
+    mock_audit = mocker.MagicMock()
+    ctx = mocker.MagicMock()
+    cb = CircuitBreaker()
+    rl = RateLimiter()
+
+    _execute_single_attempt(
+        mock_client, proc_file, rel_path, cfg, mock_audit, ctx,
+        cb, rl, time.time(), "Test prompt content", out_path, done_path
+    )
+
+    assert done_path.exists(), f"File must be moved to {done_path}"
+    assert not proc_file.exists(), "Proc file must no longer exist in .processing"
+    assert done_path == input_dir / "role-architect" / "done" / "task_001.md"
+
+
+def test_file_moves_to_failed_on_failure(tmp_path: Path, mocker: Any) -> None:
+    """When processing fails, file moves from .processing to role-architect/failed/task_001.md."""
+    from src.pipeline import _handle_processing_failure, resolve_role_paths
+    from src.types import AppConfig, CircuitBreaker
+
+    input_dir = tmp_path / "input"
+    out_dir = tmp_path / "output"
+    proc_dir = tmp_path / ".processing"
+    
+    cfg = AppConfig(
+        mode="batch",
+        input_path=input_dir,
+        output_path=out_dir,
+        proc_path=proc_dir,
+        done_path=input_dir / "done",
+        failed_path=input_dir / "failed",
+        session_path=tmp_path / "session",
+    )
+
+    rel_path = Path("role-architect/todo/task_001.md")
+    out_path, done_path, fail_path, proc_file = resolve_role_paths(rel_path, cfg)
+
+    proc_file.parent.mkdir(parents=True, exist_ok=True)
+    proc_file.write_text("Test prompt content")
+
+    mock_client = mocker.MagicMock()
+    mock_audit = mocker.MagicMock()
+    ctx = mocker.MagicMock()
+    cb = CircuitBreaker()
+
+    _handle_processing_failure(
+        mock_client, proc_file, rel_path, mock_audit, ctx,
+        cb, time.time(), "Test prompt content", out_path, fail_path,
+        Exception("Test error"), cfg
+    )
+
+    assert fail_path.exists(), f"File must be quarantined at {fail_path}"
+    assert not proc_file.exists(), "Proc file must no longer exist in .processing"
+    assert fail_path == input_dir / "role-architect" / "failed" / "task_001.md"

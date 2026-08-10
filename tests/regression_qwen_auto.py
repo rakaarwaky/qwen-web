@@ -50,10 +50,10 @@ class TestQwenAutoRegression(unittest.TestCase):
         rel = Path("role-architect/todo/gateway_v1.7.0.md")
         out_p, done_p, fail_p, proc_p = resolve_role_paths(rel, cfg)
 
-        self.assertTrue(str(out_p).endswith("output/role-architect/gateway_v1.7.0.md"))
+        self.assertTrue(str(out_p).endswith("output/gateway_v1.7.0.md"))
         self.assertTrue(str(done_p).endswith("role-architect/done/gateway_v1.7.0.md"))
         self.assertTrue(str(fail_p).endswith("role-architect/failed/gateway_v1.7.0.md"))
-        self.assertTrue(str(proc_p).endswith("role-architect/.processing/gateway_v1.7.0.md"))
+        self.assertTrue(str(proc_p).endswith(".processing/role-architect/gateway_v1.7.0.md"))
 
     def test_regression_prompt_md_excluded_from_queue(self) -> None:
         """Verifies PROMPT.md and internal folders (.processing, done, failed) are excluded from file queue."""

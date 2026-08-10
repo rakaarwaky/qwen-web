@@ -33,6 +33,7 @@ from .observability import (
 from .pipeline import (
     AuditLog,
     _iter_todo,
+    _list_input_files,
     _process_file,
     is_watcher_shutdown_set,
 )
@@ -208,11 +209,7 @@ def _interactive_prompt() -> AppConfig | None:
     mode: Literal["watcher", "batch", "single", "login"] = mode_map.get(choice, "watcher")
     
     if mode == "single":
-        available_files = [
-            (f, f.relative_to(DEFAULT_TODO))
-            for f in sorted(DEFAULT_TODO.rglob("*"))
-            if f.is_file() and not f.name.startswith(".") and f.name.upper() != "PROMPT.MD"
-        ]
+        available_files = _list_input_files(DEFAULT_TODO)
         if available_files:
             print("\n[FILES] Available input files:")
             for idx, (abs_p, rel_p) in enumerate(available_files, 1):
@@ -231,7 +228,7 @@ def _interactive_prompt() -> AppConfig | None:
             return AppConfig(
                 mode=mode,
                 input_path=chosen_abs,
-                output_path=DEFAULT_OUTPUT / chosen_rel,
+                output_path=DEFAULT_OUTPUT,
                 **{k: v for k, v in DEFAULT_PATHS.items() if k not in ("input_path", "output_path")},
                 headless=headless,
             )

@@ -34,7 +34,16 @@ log = get_logger("browser")
 
 CHAT_URL = "https://chat.qwen.ai/"
 TEXTAREA_SELECTOR = "textarea.message-input-textarea"
-AUTH_KEYWORDS = ("login", "passport", "auth", "signin")
+AUTH_KEYWORDS = ("login", "passport", "auth", "signin", "account", "sso")
+LOGIN_FORM_SELECTORS = (
+    "input[type='password']",
+    "input[name='password']",
+    "button:has-text('Log in')",
+    "button:has-text('Sign in')",
+    ".login-form",
+    "[class*='login']",
+    "[class*='passport']",
+)
 
 
 # ─── Session stability check ─────────────────────────────────────────────────
@@ -67,12 +76,7 @@ class SessionCheck:
     def check_auth(self) -> None:
         """Raise AuthRequiredError if the session is no longer authenticated or UI is missing."""
         try:
-            current_url = self.page.url.lower()
-            if any(k in current_url for k in AUTH_KEYWORDS):
-                raise AuthRequiredError("Session expired — redirected to login page.")
-
-            if not self.page.query_selector(TEXTAREA_SELECTOR):
-                raise AuthRequiredError("Session invalid: Chat textarea not found.")
+            _assert_on_chat_page(self.page)
         except AuthRequiredError:
             raise
         except PlaywrightError as exc:
@@ -89,21 +93,55 @@ def reset_page(page: Page, emitter: LifecycleEmitter) -> None:
         log.warning("Failed to reset page: %s", e)
 
 
+def _assert_on_chat_page(page: Page) -> None:
+    """Raise AuthRequiredError if the page is a login/auth page (URL + DOM triple-check).
+
+    Checks:
+      1. URL contains auth-related keywords.
+      2. Chat textarea is missing.
+      3. Login form elements are present.
+    """
+    current_url = page.url.lower()
+
+    # Layer 1: URL keyword check
+    if any(k in current_url for k in AUTH_KEYWORDS):
+        raise AuthRequiredError(
+            f"Not authenticated — browser is on login page ({page.url}). "
+            "Run 'python3 src/main.py --login' to save your session first."
+        )
+
+    # Layer 2: Chat textarea must exist
+    if not page.query_selector(TEXTAREA_SELECTOR):
+        # Layer 3: Confirm it's actually a login page (not a transient load)
+        for sel in LOGIN_FORM_SELECTORS:
+            try:
+                if page.locator(sel).count() > 0:
+                    raise AuthRequiredError(
+                        f"Not authenticated — login form detected ({sel}). "
+                        "Run 'python3 src/main.py --login' to save your session first."
+                    )
+            except AuthRequiredError:
+                raise
+            except PlaywrightError:
+                continue
+        # Textarea missing but no login form either — treat as transient
+        log.warning("chat_textarea_missing_but_no_login_form_detected", url=page.url)
+
+
 def navigate_to_chat(page: Page, emitter: LifecycleEmitter) -> None:
-    """Navigate to chat.qwen.ai and emit WEB_LOADED."""
+    """Navigate to chat.qwen.ai, emit WEB_LOADED, and verify authenticated session."""
     page.goto(CHAT_URL, wait_until="domcontentloaded", timeout=30_000)
     try:
         page.wait_for_load_state("domcontentloaded", timeout=15_000)
     except PlaywrightError as e:
         log.warning("Load state wait failed, proceeding: %s", e)
+    _assert_on_chat_page(page)
     emitter.emit(EVENT_WEB_LOADED, {"url": page.url})
 
 
 def check_auth(page: Page) -> None:
-    """Raise AuthRequiredError if the page is on a login/auth URL."""
-    current_url = page.url.lower()
-    if any(k in current_url for k in AUTH_KEYWORDS):
-        raise AuthRequiredError("No active login session. Run 'qwc --login' to authenticate.")
+    """Raise AuthRequiredError if the page is on a login/auth URL or login form detected."""
+    _assert_on_chat_page(page)
 
 
 def _clean_stale_locks(user_data_dir: str) -> None:

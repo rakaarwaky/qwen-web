@@ -76,16 +76,10 @@ class QwenClient:
         except OSError as e:
             raise QwenCliError(f"Failed to read prompt file {filepath}: {e}") from e
 
-        if custom_prompt_path and custom_prompt_path.exists():
-            try:
-                role_prompt = custom_prompt_path.read_text(encoding="utf-8").strip()
-                if role_prompt.startswith("---"):
-                    parts = role_prompt.split("---", 2)
-                    if len(parts) >= 3:
-                        role_prompt = parts[2].strip()
-                prompt = f"{role_prompt}\n\n{prompt}"
-            except OSError as e:
-                log.warning("Failed to read role prompt file %s: %s", custom_prompt_path, e)
+        from .pipeline import load_role_prompt
+        role_prompt = load_role_prompt(filepath, custom_prompt_path, rel_path)
+        if role_prompt:
+            prompt = f"{role_prompt}\n\n{prompt}"
 
         navigate_to_chat(self.page, self.emitter)
         _check_auth(self.page)
@@ -94,12 +88,12 @@ class QwenClient:
         msg_count_before = count_messages(self.page)
 
         find_input(self.page)
-        attached = upload_attachment(self.page, filepath)
+        attached = upload_attachment(self.page, filepath, emitter=self.emitter, web_loaded=True)
         if not attached:
             log.warning("File upload failed, proceeding with text-only prompt: %s", filepath.name)
+            self.emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "char_count": len(prompt)})
         inject_text(self.page, prompt)
-        self.emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "char_count": len(prompt)})
-        click_send(self.page, self.emitter)
+        click_send(self.page, self.emitter, document_parsed=True)
         self.emitter.emit(EVENT_DISPATCH_ACKNOWLEDGED, {"file": str(filepath)})
 
         response = self._wait_for_response(timeout_sec, msg_count_before)
@@ -122,8 +116,8 @@ class QwenClient:
     def _latest_message_text(self) -> str | None:
         return latest_message_text(self.page) if self.page else None
 
-    def _wait_for_response(self, timeout_sec: int, msg_count_before: int) -> str | None:
-        return wait_for_response(self.page, timeout_sec, msg_count_before, self.emitter) if self.page else None
+    def _wait_for_response(self, timeout_sec: int, msg_count_before: int, dispatch_acknowledged: bool = True) -> str | None:
+        return wait_for_response(self.page, timeout_sec, msg_count_before, self.emitter, dispatch_acknowledged=dispatch_acknowledged) if self.page else None
 
     def __enter__(self) -> QwenClient:
         self.start()

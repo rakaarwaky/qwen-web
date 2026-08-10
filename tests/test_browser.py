@@ -48,7 +48,7 @@ def test_session_check_auth_redirect():
     mock_page.url = "https://chat.qwen.ai/login"
 
     checker = SessionCheck(mock_page)
-    with pytest.raises(AuthRequiredError, match="Session expired"):
+    with pytest.raises(AuthRequiredError, match="Not authenticated"):
         checker.check_auth()
 
 
@@ -62,7 +62,7 @@ def test_check_auth_login_url():
     mock_page = MagicMock()
     mock_page.url = "https://chat.qwen.ai/passport/login"
 
-    with pytest.raises(AuthRequiredError, match="No active login session"):
+    with pytest.raises(AuthRequiredError, match="Not authenticated"):
         check_auth(mock_page)
 
 

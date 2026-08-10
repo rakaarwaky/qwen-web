@@ -16,7 +16,9 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from .observability import get_logger
 from .types import (
     DEFAULT_UPLOAD_CONFIG,
+    EVENT_DOCUMENT_PARSED,
     FileValidationError,
+    LifecycleEmitter,
     UploadConfig,
 )
 
@@ -114,11 +116,18 @@ def _try_upload_attempt(page: Page, filepath: Path, config: UploadConfig) -> boo
     log.debug("Setting file on file chooser: %s", filepath.name)
     fc.value.set_files(str(filepath))
 
-    log.debug("Waiting for file card attachment indicator to render")
+    log.debug("Waiting for file card attachment indicator to render and complete parsing")
     card_selector_str = ", ".join(config.card_selectors)
     page.locator(card_selector_str).first.wait_for(
         state="visible", timeout=config.card_render_timeout_ms
     )
+    try:
+        page.locator("[class*='loading'], [class*='parsing'], [class*='spin'], .ant-spin").first.wait_for(
+            state="hidden", timeout=5000
+        )
+    except Exception:
+        pass
+    time.sleep(2.0)
 
     return True
 
@@ -127,6 +136,8 @@ def upload_attachment(
     page: Page,
     filepath: Path,
     config: UploadConfig | None = None,
+    emitter: LifecycleEmitter | None = None,
+    web_loaded: bool = True,
 ) -> bool:
     """Upload a file as an attachment via Qwen Web UI mode-select dropdown.
 
@@ -136,10 +147,15 @@ def upload_attachment(
         page: Playwright Page instance.
         filepath: Path object pointing to the file to upload.
         config: Optional UploadConfig instance.
+        emitter: Optional LifecycleEmitter instance to release EVENT_DOCUMENT_PARSED.
+        web_loaded: Bool indicating if web page loaded event (EVENT_WEB_LOADED) was released.
 
     Returns:
         True if the file was attached successfully, False otherwise.
     """
+    if not web_loaded:
+        raise RuntimeError("Cannot upload attachment: web page loading (EVENT_WEB_LOADED) is incomplete")
+
     active_config = config or DEFAULT_CONFIG
     start_time = time.monotonic()
 
@@ -172,6 +188,8 @@ def upload_attachment(
                     attempt,
                     filepath.name,
                 )
+                if emitter:
+                    emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "char_count": size_bytes})
                 return True
         except PlaywrightTimeoutError as e:
             log.warning("Timeout during upload attempt %d/%d: %s", attempt, max_attempts, e)
