@@ -45,7 +45,6 @@ class TestSdNotify:
     def test_with_socket(self, tmp_path):
         socket_path = str(tmp_path / "notify.sock")
         with patch.dict(os.environ, {"NOTIFY_SOCKET": socket_path}):
-            # No actual socket to connect to — should not raise
             sd_notify("READY=1")
 
     def test_with_abstract_socket(self):
@@ -64,3 +63,22 @@ class TestSdNotify:
     def test_sd_notify_stop(self):
         with patch.dict(os.environ, {}, clear=True):
             sd_notify_stop()
+
+    def test_with_real_socket(self, tmp_path):
+        import socket
+        socket_path = str(tmp_path / "notify.sock")
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        sock.bind(socket_path)
+        try:
+            with patch.dict(os.environ, {"NOTIFY_SOCKET": socket_path}):
+                sd_notify("READY=1")
+        finally:
+            sock.close()
+
+    def test_socket_connection_error(self):
+        with patch.dict(os.environ, {"NOTIFY_SOCKET": "/nonexistent/socket"}):
+            sd_notify("READY=1")
+
+    def test_unset_nonexistent_keys(self):
+        with patch.dict(os.environ, {"NOTIFY_SOCKET": "/tmp/test"}):
+            sd_notify("READY=1", unset_environment=True)

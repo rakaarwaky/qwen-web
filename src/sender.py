@@ -186,7 +186,7 @@ def latest_message_text(page: Page) -> str | None:
     try:
         text = page.evaluate(_JS_GET_RESPONSE_TEXT)
         if text and len(text.strip()) > 0:
-            return text.strip()
+            return str(text.strip())
     except PlaywrightError:
         pass
     # fallback: CSS selector
@@ -195,7 +195,7 @@ def latest_message_text(page: Page) -> str | None:
         if locator.count() > 0:
             text = locator.last.text_content()
             if text is not None:
-                return text.strip()
+                return str(text.strip())
     except PlaywrightError:
         pass
     return None

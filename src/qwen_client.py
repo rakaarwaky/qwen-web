@@ -4,8 +4,8 @@ External API unchanged: QwenClient(ctx, cfg), .send_file(), .reset_page(), .star
 """
 from __future__ import annotations
 
+import types
 from pathlib import Path
-from typing import Any
 
 from playwright.sync_api import Browser, BrowserContext, ElementHandle, Locator, Page
 
@@ -125,6 +125,6 @@ class QwenClient:
         self.start()
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: types.TracebackType | None) -> None:
         """Exit the context manager and stop the client."""
         self.stop()

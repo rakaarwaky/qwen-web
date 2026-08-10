@@ -1,0 +1,21 @@
+{
+  "include": ["src"],
+  "exclude": ["tests", "**/__pycache__"],
+  "reportAny": false,
+  "reportExplicitAny": false,
+  "reportUnusedCallResult": false,
+  "reportUnannotatedClassAttribute": false,
+  "reportImplicitStringConcatenation": false,
+  "reportUnknownVariableType": false,
+  "reportUnknownMemberType": false,
+  "reportImportCycles": false,
+  "reportMissingImports": false,
+  "reportOptionalMemberAccess": false,
+  "reportPossiblyUnboundVariable": false,
+  "reportPrivateUsage": false,
+  "reportUnusedFunction": false,
+  "reportUnusedVariable": false,
+  "reportUnusedParameter": false,
+  "reportImplicitOverride": false,
+  "reportDeprecated": false
+}

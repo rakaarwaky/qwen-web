@@ -1,4 +1,4 @@
-"""Tests for browser.py — navigate_to_chat, check_auth, _launch_context, browser_session."""
+"""Extended tests for browser.py — browser_session, _launch_context."""
 
 from __future__ import annotations
 
@@ -7,95 +7,143 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.browser import (
-    CHAT_URL,
-    _launch_context,
-    _assert_on_chat_page,
-    check_auth,
-    navigate_to_chat,
-)
-from src.types import AppConfig, AuthRequiredError, LifecycleEmitter
+from src.browser import _clean_stale_locks, _launch_context
+from src.types import AppConfig
 
 
-class TestNavigateToChat:
-    def test_navigates_and_emits(self):
-        page = MagicMock()
-        page.url = CHAT_URL
-        page.query_selector.return_value = MagicMock()
-        emitter = MagicMock(spec=LifecycleEmitter)
+class TestBrowserSession:
+    def test_browser_session_headless(self, tmp_path):
+        from src.browser import browser_session
+        cfg = AppConfig(
+            mode="batch",
+            input_path=tmp_path / "in",
+            output_path=tmp_path / "out",
+            done_path=tmp_path / "done",
+            failed_path=tmp_path / "failed",
+            proc_path=tmp_path / "proc",
+            session_path=tmp_path / "session",
+            headless=True,
+        )
+        mock_ctx = MagicMock()
+        mock_ctx.pages = [MagicMock()]
 
-        navigate_to_chat(page, emitter)
+        with patch("src.browser.sync_playwright") as mock_pw:
+            mock_p = MagicMock()
+            mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
+            mock_pw.return_value.__exit__ = MagicMock(return_value=False)
+            mock_p.chromium.launch_persistent_context.return_value = mock_ctx
 
-        page.goto.assert_called_once()
-        emitter.emit.assert_called_once()
+            with browser_session(cfg) as ctx:
+                assert ctx == mock_ctx
+            mock_ctx.close.assert_called()
 
-    def test_raises_auth_error_on_login_page(self):
-        page = MagicMock()
-        page.url = "https://chat.qwen.ai/login"
-        emitter = MagicMock(spec=LifecycleEmitter)
+    def test_browser_session_filters_assets(self, tmp_path):
+        from src.browser import browser_session
+        cfg = AppConfig(
+            mode="batch",
+            input_path=tmp_path / "in",
+            output_path=tmp_path / "out",
+            done_path=tmp_path / "done",
+            failed_path=tmp_path / "failed",
+            proc_path=tmp_path / "proc",
+            session_path=tmp_path / "session",
+            headless=True,
+        )
+        mock_ctx = MagicMock()
+        mock_ctx.pages = [MagicMock()]
 
-        with pytest.raises(AuthRequiredError):
-            navigate_to_chat(page, emitter)
+        with patch("src.browser.sync_playwright") as mock_pw:
+            mock_p = MagicMock()
+            mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
+            mock_pw.return_value.__exit__ = MagicMock(return_value=False)
+            mock_p.chromium.launch_persistent_context.return_value = mock_ctx
 
-    def test_handles_load_state_error(self):
-        page = MagicMock()
-        page.url = CHAT_URL
-        page.query_selector.return_value = MagicMock()
+            with browser_session(cfg) as ctx:
+                mock_ctx.route.assert_called_once()
+
+    def test_browser_session_login_mode_no_route(self, tmp_path):
+        from src.browser import browser_session
+        cfg = AppConfig(
+            mode="login",
+            input_path=tmp_path / "in",
+            output_path=tmp_path / "out",
+            done_path=tmp_path / "done",
+            failed_path=tmp_path / "failed",
+            proc_path=tmp_path / "proc",
+            session_path=tmp_path / "session",
+            headless=False,
+        )
+        mock_ctx = MagicMock()
+        mock_ctx.pages = [MagicMock()]
+
+        with patch("src.browser.sync_playwright") as mock_pw:
+            mock_p = MagicMock()
+            mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
+            mock_pw.return_value.__exit__ = MagicMock(return_value=False)
+            mock_p.chromium.launch_persistent_context.return_value = mock_ctx
+
+            with browser_session(cfg) as ctx:
+                mock_ctx.route.assert_not_called()
+
+    def test_browser_session_close_error_handled(self, tmp_path):
+        from src.browser import browser_session
         from playwright.sync_api import Error as PlaywrightError
-        page.wait_for_load_state.side_effect = PlaywrightError("timeout")
-        emitter = MagicMock(spec=LifecycleEmitter)
+        cfg = AppConfig(
+            mode="batch",
+            input_path=tmp_path / "in",
+            output_path=tmp_path / "out",
+            done_path=tmp_path / "done",
+            failed_path=tmp_path / "failed",
+            proc_path=tmp_path / "proc",
+            session_path=tmp_path / "session",
+            headless=True,
+        )
+        mock_ctx = MagicMock()
+        mock_ctx.pages = [MagicMock()]
+        mock_ctx.close.side_effect = PlaywrightError("already closed")
 
-        navigate_to_chat(page, emitter)
+        with patch("src.browser.sync_playwright") as mock_pw:
+            mock_p = MagicMock()
+            mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
+            mock_pw.return_value.__exit__ = MagicMock(return_value=False)
+            mock_p.chromium.launch_persistent_context.return_value = mock_ctx
 
-
-class TestCheckAuth:
-    def test_passes_on_chat_page(self):
-        page = MagicMock()
-        page.url = CHAT_URL
-        page.query_selector.return_value = MagicMock()
-        check_auth(page)
-
-    def test_raises_on_login(self):
-        page = MagicMock()
-        page.url = "https://passport.qwen.ai/auth"
-        with pytest.raises(AuthRequiredError):
-            check_auth(page)
+            with browser_session(cfg) as ctx:
+                pass
 
 
 class TestLaunchContext:
-    def test_launches_with_lock_cleanup(self):
+    def test_retries_on_failure(self):
+        from playwright.sync_api import Error as PlaywrightError
         p = MagicMock()
         kwargs = {"user_data_dir": "", "headless": True}
 
-        mock_ctx = MagicMock()
-        p.chromium.launch_persistent_context.return_value = mock_ctx
+        good_ctx = MagicMock()
+        good_ctx.pages = [MagicMock()]
+
+        call_count = [0]
+        def launch_side_effect(**kw):
+            call_count[0] += 1
+            if call_count[0] < 3:
+                raise PlaywrightError("crash")
+            return good_ctx
+
+        p.chromium.launch_persistent_context.side_effect = launch_side_effect
 
         ctx = _launch_context(p, kwargs)
-        assert ctx == mock_ctx
+        assert ctx == good_ctx
 
-    def test_cleans_locks_before_launch(self, tmp_path):
+    def test_cleans_stale_locks(self, tmp_path):
         p = MagicMock()
         lock_dir = tmp_path / "session"
         lock_dir.mkdir()
         (lock_dir / "SingletonLock").write_text("lock")
+        (lock_dir / "SingletonSocket").write_text("socket")
 
         kwargs = {"user_data_dir": str(lock_dir), "headless": True}
         mock_ctx = MagicMock()
         p.chromium.launch_persistent_context.return_value = mock_ctx
 
-        ctx = _launch_context(p, kwargs)
+        _launch_context(p, kwargs)
         assert not (lock_dir / "SingletonLock").exists()
-
-
-class TestAssertOnChatPageExtended:
-    def test_passes_with_url_check(self):
-        page = MagicMock()
-        page.url = "https://chat.qwen.ai/"
-        page.query_selector.return_value = MagicMock()
-        _assert_on_chat_page(page)
-
-    def test_raises_on_account_url(self):
-        page = MagicMock()
-        page.url = "https://chat.qwen.ai/account/settings"
-        with pytest.raises(AuthRequiredError, match="Not authenticated"):
-            _assert_on_chat_page(page)
+        assert not (lock_dir / "SingletonSocket").exists()

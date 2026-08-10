@@ -11,38 +11,38 @@ import os
 import sys
 import threading
 from contextlib import nullcontext
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 try:
     import structlog
-    HAS_STRUCTLOG = True
+    has_structlog = True
 except ImportError:  # pragma: no cover
     structlog = None  # type: ignore[assignment]
-    HAS_STRUCTLOG = False
+    has_structlog = False
 
 try:
     import sentry_sdk
-    HAS_SENTRY = True
+    has_sentry = True
 except ImportError:  # pragma: no cover
-    HAS_SENTRY = False
+    has_sentry = False
 
 try:
     from opentelemetry import trace
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
-    HAS_OTEL = True
+    has_otel = True
 except ImportError:  # pragma: no cover
     trace = None  # type: ignore[assignment]
-    HAS_OTEL = False
+    has_otel = False
 
 try:
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-    HAS_OTLP = True
+    has_otlp = True
 except ImportError:  # pragma: no cover
-    HAS_OTLP = False
+    has_otlp = False
 
 from .types import (
     SERVICE_NAME,
@@ -63,7 +63,7 @@ class MetricsCounter:
         """Initialize with empty counters and a start timestamp."""
         self._lock = threading.Lock()
         self._counters: dict[str, int] = {}
-        self._start_time = datetime.now()
+        self._start_time = datetime.now(tz=timezone.utc)
 
     def increment(self, key: str, amount: int = 1) -> None:
         """Increment a counter by amount."""
@@ -155,14 +155,14 @@ class StatusFileWriter:
 # ─── Logger / Tracer accessors ────────────────────────────────────────────────
 def get_logger(name: str = "qwen-cli") -> Any:
     """Return a structlog bound logger, falling back to stdlib logging."""
-    if HAS_STRUCTLOG:
+    if has_structlog:
         return structlog.get_logger(name)
     return logging.getLogger(name)
 
 
 def get_tracer(name: str = "qwen-cli") -> Any:
     """Return an OpenTelemetry tracer, or None when tracing is unavailable."""
-    if trace is not None and HAS_OTEL:
+    if trace is not None and has_otel:
         return trace.get_tracer(name)
     return None
 
@@ -195,13 +195,13 @@ def add_trace_context(_logger: Any, _method: str, event_dict: dict[str, Any]) ->
 # ─── Run-scoped context binding ──────────────────────────────────────────────
 def bind_run_context(run_id: str, **extra: Any) -> None:
     """Bind run-scoped fields into structlog contextvars (visible on every log line)."""
-    if HAS_STRUCTLOG:
+    if has_structlog:
         structlog.contextvars.bind_contextvars(run_id=run_id, **extra)
 
 
 def clear_run_context() -> None:
     """Clear all run-scoped contextvars."""
-    if HAS_STRUCTLOG:
+    if has_structlog:
         structlog.contextvars.clear_contextvars()
 
 
@@ -226,7 +226,7 @@ def _excepthook(exc_type: type[BaseException], exc_value: BaseException, exc_tb:
         exc_type=exc_type.__name__,
         category=ErrorCategory.categorize(exc_value),
     )
-    if HAS_SENTRY:
+    if has_sentry:
         sentry_sdk.capture_exception(exc_value)
     sys.exit(1)
 
@@ -239,7 +239,7 @@ def _thread_excepthook(args: Any) -> None:
         exc_type=args.exc_type.__name__,
         category=ErrorCategory.categorize(args.exc_value),
     )
-    if HAS_SENTRY:
+    if has_sentry:
         sentry_sdk.capture_exception(args.exc_value)
 
 
@@ -264,7 +264,7 @@ def setup_observability(log_path: Path) -> None:
 
 
 def _configure_sentry() -> None:
-    if not HAS_SENTRY:
+    if not has_sentry:
         return
     dsn = os.getenv("SENTRY_DSN", "")
     if not dsn:
@@ -280,13 +280,13 @@ def _configure_sentry() -> None:
 
 
 def _configure_tracing() -> None:
-    if not HAS_OTEL or trace is None:
+    if not has_otel or trace is None:
         return
     try:
         resource = Resource.create({"service.name": os.getenv("OTEL_SERVICE_NAME", SERVICE_NAME)})
         provider = TracerProvider(resource=resource)
         endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
-        if endpoint and HAS_OTLP:
+        if endpoint and has_otlp:
             provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
         trace.set_tracer_provider(provider)
     except Exception:
@@ -294,7 +294,7 @@ def _configure_tracing() -> None:
 
 
 def _configure_logging(log_path: Path) -> None:
-    if not HAS_STRUCTLOG or structlog is None:
+    if not has_structlog or structlog is None:
         logging.basicConfig(level=logging.INFO)
         return
 

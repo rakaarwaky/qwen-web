@@ -242,11 +242,11 @@ def _interactive_prompt() -> AppConfig | None:
             try:
                 choice_idx = int(file_choice) - 1
                 if 0 <= choice_idx < len(available_files):
-                    chosen_abs, chosen_rel = available_files[choice_idx]
+                    chosen_abs, _chosen_rel = available_files[choice_idx]
                 else:
-                    chosen_abs, chosen_rel = available_files[0]
+                    chosen_abs, _chosen_rel = available_files[0]
             except ValueError:
-                chosen_abs, chosen_rel = available_files[0]
+                chosen_abs, _chosen_rel = available_files[0]
             
             return AppConfig(
                 mode=mode,

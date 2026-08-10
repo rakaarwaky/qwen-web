@@ -12,7 +12,7 @@ import signal
 import threading
 import time
 from collections.abc import Iterator
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -133,7 +133,7 @@ class AuditLog:
         """Log granular step-by-step event execution for end-to-end traceability."""
         rec: dict[str, Any] = {
             "run_id": ctx.run_id,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
             "event": "step_execution",
             "step": step,
             "source_file": src,
@@ -158,7 +158,7 @@ class AuditLog:
         """Log a completed file processing result with duration and character counts."""
         rec = {
             "run_id": ctx.run_id,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
             "source_file": src,
             "output_file": dst,
             "status": status,
@@ -177,7 +177,7 @@ class AuditLog:
 
             err_json_rec = {
                 "run_id": ctx.run_id,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(tz=timezone.utc).isoformat(),
                 "source_file": src,
                 "output_file": dst,
                 "error": err,

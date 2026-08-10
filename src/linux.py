@@ -7,6 +7,7 @@ from __future__ import annotations
 import fcntl
 import os
 import tempfile
+import types
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,7 @@ class SingleInstanceLock:
         self._lock_path = (
             lock_path or Path(tempfile.gettempdir()) / "qwen-cli.lock"
         )
+        self._lock_fd: Any = None
 
     def __enter__(self) -> SingleInstanceLock:
         """Acquire the file lock; raise SingleInstanceError if already held."""
@@ -37,9 +39,9 @@ class SingleInstanceLock:
 
     def __exit__(
         self,
-        exc_type: Any,
-        exc_value: Any,
-        traceback: Any,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: types.TracebackType | None,
     ) -> None:
         """Release the file lock and clean up the lock file."""
         try:

@@ -6,7 +6,7 @@ Provides atomic file writing, metadata traceability headers, JSON sidecar genera
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .observability import get_logger
@@ -38,7 +38,7 @@ def _strip_ui_noise(text: str) -> str:
         if stripped in ("?", "Qwen3", "Qwen3.8-Max", "Qwen Plus", "Qwen Max",
                         "Qwen Turbo", "Auto"):
             continue
-        if stripped.endswith(".md") or stripped.endswith(" KB") or stripped.endswith(" B"):
+        if stripped.endswith((".md", " KB", " B")):
             continue
         # First meaningful line found — return from here onwards
         return "\n".join(lines[i:])
@@ -88,7 +88,7 @@ def write_output(
 
     """
     cfg = config or DEFAULT_SAVER_CONFIG
-    processed_at = datetime.now()
+    processed_at = datetime.now(tz=timezone.utc)
     iso_timestamp = processed_at.isoformat()
 
     header = ""

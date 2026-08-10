@@ -28,6 +28,16 @@ qwc = "src.main:main"
 where = ["."]
 include = ["src*"]
 
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+ignore = [
+    "BLE001",   # blind exception - intentional for browser automation safety
+    "S110",     # try-except-pass - intentional for cleanup/guard patterns
+    "S112",     # try-except-continue - intentional for element scanning loops
+    "PYI034",   # __enter__ return type - Self requires typing_extensions on py310
+]
 [tool.mypy]
 strict = true
 python_version = "3.10"

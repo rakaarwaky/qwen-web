@@ -319,11 +319,6 @@ def run_mcp_server() -> None:
     # Redirect standard text prints & logging to stderr to protect JSON-RPC stdio
     sys.stdout = sys.stderr
 
-    try:
-        from .observability import setup_observability
-    except ImportError:
-        pass
-
     setup_observability(DEFAULT_LOG)
     log.info("Starting Qwen Web Automation MCP Server...")
 

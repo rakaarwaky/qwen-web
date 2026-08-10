@@ -69,10 +69,7 @@ def is_generation_complete(page: Page) -> bool:
 
         # If typing/thinking indicator exists -> generation in progress
         typing_indicator = page.locator(".thinking:not([style*='display: none']), [class*='typing'], [class*='streaming']")
-        if typing_indicator.count() > 0 and typing_indicator.first.is_visible():
-            return False
-
-        return True
+        return not (typing_indicator.count() > 0 and typing_indicator.first.is_visible())
     except Exception:
         return False
 
