@@ -11,11 +11,18 @@ import shutil
 import signal
 import threading
 import time
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterator, List, Optional, Tuple
+from typing import Any
 
-from tenacity import RetryCallState, Retrying, retry_if_exception, stop_after_attempt, wait_exponential
+from tenacity import (
+    RetryCallState,
+    Retrying,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from .observability import get_logger, start_span
 from .qwen_client import QwenClient
@@ -25,11 +32,8 @@ from .types import (
     DEFAULT_TODO,
     AppConfig,
     AuthRequiredError,
-    BrowserLaunchError,
     CircuitBreaker,
     CircuitBreakerOpenError,
-    PipelineError,
-    QuarantineError,
     RateLimiter,
     RunContext,
 )
@@ -110,7 +114,7 @@ def _retry_policy(client: QwenClient, audit: AuditLog, ctx: RunContext, rel_path
 class AuditLog:
     """Logs structured JSONL audit history and error traces with step-level context."""
 
-    def __init__(self, log_dir: Optional[Path] = None) -> None:
+    def __init__(self, log_dir: Path | None = None) -> None:
         target_dir = log_dir or DEFAULT_LOG
         target_dir.mkdir(parents=True, exist_ok=True)
         self._audit = target_dir / "audit_history.jsonl"
@@ -123,7 +127,7 @@ class AuditLog:
         step: str,
         src: str,
         status: str,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Logs granular step-by-step event execution for end-to-end traceability."""
         rec: dict[str, Any] = {
@@ -192,9 +196,9 @@ def _extract_prompt_text(content: str) -> str:
     return stripped
 
 
-def _get_role_search_directories(file_path: Path, rel_path: Optional[Path]) -> List[Path]:
+def _get_role_search_directories(file_path: Path, rel_path: Path | None) -> list[Path]:
     """Collect priority list of directories to search for PROMPT.md."""
-    search_dirs: List[Path] = []
+    search_dirs: list[Path] = []
 
     if rel_path and rel_path.parts and rel_path.parts[0].startswith("role-"):
         role_dir_rel = DEFAULT_TODO / rel_path.parts[0]
@@ -220,8 +224,8 @@ def _get_role_search_directories(file_path: Path, rel_path: Optional[Path]) -> L
 
 def load_role_prompt(
     file_path: Path,
-    custom_prompt_path: Optional[Path] = None,
-    rel_path: Optional[Path] = None,
+    custom_prompt_path: Path | None = None,
+    rel_path: Path | None = None,
 ) -> str:
     """Dynamically loads custom PROMPT.md from file's parent role directory in input/."""
     if custom_prompt_path and custom_prompt_path.exists() and custom_prompt_path.is_file():
@@ -237,7 +241,7 @@ def load_role_prompt(
     return ""
 
 
-def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> Tuple[Path, Path, Path, Path]:
+def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> tuple[Path, Path, Path, Path]:
     """Resolves role-based paths for output, done, failed, and processing.
 
     Returns (out_path, done_path, fail_path, proc_file).
@@ -286,12 +290,20 @@ def _should_process_file(f: Path, base_src: Path) -> bool:
 
     if len(rel_parts) < 2 or not rel_parts[0].startswith("role-"):
         return False
-    if any(p in SKIP_DIRS or p.startswith(".") for p in rel_parts[:-1]):
-        return False
-    return True
+    return not any(p in SKIP_DIRS or p.startswith(".") for p in rel_parts[:-1])
 
 
-def _iter_todo_retry_failed(cfg: AppConfig) -> Iterator[Tuple[Path, Path]]:
+def _list_input_files(base_path: Path) -> list[tuple[Path, Path]]:
+    """List input files from base_path, excluding PROMPT.md and internal folders."""
+    if not base_path.is_dir():
+        return []
+    return [
+        (f, f.resolve().relative_to(base_path.resolve()))
+        for f in sorted(f for f in base_path.rglob("*") if _should_process_file(f, base_path))
+    ]
+
+
+def _iter_todo_retry_failed(cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
     """Yield files for retry-failed mode."""
     src = cfg.failed_path
     if not src.exists() or not src.is_dir():
@@ -305,7 +317,7 @@ def _iter_todo_retry_failed(cfg: AppConfig) -> Iterator[Tuple[Path, Path]]:
         yield proc_dest, rel_path
 
 
-def _iter_todo_single(cfg: AppConfig) -> Iterator[Tuple[Path, Path]]:
+def _iter_todo_single(cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
     """Yield file for single mode."""
     if not cfg.input_path.exists():
         raise FileNotFoundError(cfg.input_path)
@@ -323,7 +335,7 @@ def _iter_todo_single(cfg: AppConfig) -> Iterator[Tuple[Path, Path]]:
     yield proc_file, rel_path
 
 
-def _iter_todo_batch(src: Path, cfg: AppConfig) -> Iterator[Tuple[Path, Path]]:
+def _iter_todo_batch(src: Path, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
     """Yield files for batch mode."""
     for f in sorted(f for f in src.rglob("*") if _should_process_file(f, src)):
         rel_path = f.resolve().relative_to(src.resolve())
@@ -333,7 +345,7 @@ def _iter_todo_batch(src: Path, cfg: AppConfig) -> Iterator[Tuple[Path, Path]]:
         yield proc_dest, rel_path
 
 
-def _iter_todo_watcher(src: Path, cfg: AppConfig) -> Iterator[Tuple[Path, Path]]:
+def _iter_todo_watcher(src: Path, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
     """Yield files continuously in watcher mode."""
     log.info("watching %s every %ds", src, cfg.interval)
     _install_watcher_signal_handlers()
@@ -356,7 +368,7 @@ def _iter_todo_watcher(src: Path, cfg: AppConfig) -> Iterator[Tuple[Path, Path]]
         _watcher_sleep(cfg.interval)
 
 
-def _iter_todo(cfg: AppConfig) -> Iterator[Tuple[Path, Path]]:
+def _iter_todo(cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
     """Yield (proc_file, relative_path) tuples for processing queue."""
     src = cfg.input_path if cfg.input_path.is_dir() else DEFAULT_TODO
     src.mkdir(parents=True, exist_ok=True)

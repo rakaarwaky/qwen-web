@@ -10,16 +10,14 @@ import os
 import time
 from pathlib import Path
 
-from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Page
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from .observability import get_logger
 from .types import (
     DEFAULT_UPLOAD_CONFIG,
-    FileUploadError,
     FileValidationError,
-    UIInteractionError,
     UploadConfig,
-    UploadTimeoutError,
 )
 
 log = get_logger("file_uploader")

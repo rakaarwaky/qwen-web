@@ -8,8 +8,12 @@ from __future__ import annotations
 
 from playwright.sync_api import (
     ElementHandle,
-    Error as PlaywrightError,
     Page,
+)
+from playwright.sync_api import (
+    Error as PlaywrightError,
+)
+from playwright.sync_api import (
     TimeoutError as PlaywrightTimeoutError,
 )
 

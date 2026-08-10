@@ -1,12 +1,10 @@
 """Integration test suite for qwen_auto.py testing queue pipeline and file system workflow."""
-import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from typing import Optional
 
-from src.types import AppConfig, RunContext
 from src.pipeline import AuditLog, _iter_todo, _process_file
+from src.types import AppConfig, RunContext
 
 
 class MockQwenClient:
@@ -17,7 +15,7 @@ class MockQwenClient:
         self.return_text = return_text
         self.reset_count = 0
 
-    def send_file(self, file_path: Path, timeout: int = 300, custom_prompt_path: Optional[Path] = None, *args, **kwargs) -> str:
+    def send_file(self, file_path: Path, timeout: int = 300, custom_prompt_path: Path | None = None, *args, **kwargs) -> str:
         if self.raise_error:
             raise RuntimeError("Mock network failure")
         return self.return_text

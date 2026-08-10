@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.types import DEFAULT_LOG
 from src.mcp_server import (
     mcp,
     qwen_get_audit_log,

@@ -3,20 +3,21 @@ from __future__ import annotations
 
 import time
 
-from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError, Error as PlaywrightError
+from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import Page
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from .observability import get_logger
+from .sender import count_messages, latest_message_text
 from .types import (
+    EVENT_GENERATION_FINISHED,
+    EVENT_STREAMING_GENERATION,
+    EVENT_THINKING_STARTED,
     AuthRequiredError,
     LifecycleEmitter,
     NetworkTimeoutError,
     OutputValidationError,
-    StreamerConfig,
-    EVENT_THINKING_STARTED,
-    EVENT_STREAMING_GENERATION,
-    EVENT_GENERATION_FINISHED,
 )
-from .sender import count_messages, latest_message_text
-from .observability import get_logger
 
 log = get_logger("streamer")
 

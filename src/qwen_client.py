@@ -5,30 +5,34 @@ External API unchanged: QwenClient(ctx, cfg), .send_file(), .reset_page(), .star
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from playwright.sync_api import Browser, BrowserContext, ElementHandle, Locator, Page
 
+from .browser import (
+    SessionCheck,
+    navigate_to_chat,
+)
+from .browser import (
+    check_auth as _check_auth,
+)
+from .browser import (
+    reset_page as _reset_page,
+)
+from .file_uploader import upload_attachment
+from .observability import get_logger
+from .prompt_injector import find_input, inject_text
+from .prompt_injector import type_slowly as _type_slowly_mod
+from .sender import click_send, count_messages, latest_message_text
+from .streamer import wait_for_response
 from .types import (
+    EVENT_DISPATCH_ACKNOWLEDGED,
+    EVENT_DOCUMENT_PARSED,
+    EVENT_OUTPUT_COPIED,
     AppConfig,
     LifecycleEmitter,
     QwenCliError,
-    QwenClientConfig,
-    EVENT_DOCUMENT_PARSED,
-    EVENT_DISPATCH_ACKNOWLEDGED,
-    EVENT_OUTPUT_COPIED,
 )
-from .browser import (
-    SessionCheck,
-    reset_page as _reset_page,
-    navigate_to_chat,
-    check_auth as _check_auth,
-)
-from .file_uploader import upload_attachment
-from .prompt_injector import find_input, inject_text, type_slowly as _type_slowly_mod
-from .sender import click_send, count_messages, latest_message_text
-from .streamer import wait_for_response
-from .observability import get_logger
 
 log = get_logger("qwen_client")
 
@@ -43,7 +47,7 @@ class QwenClient:
         self,
         ctx: BrowserContext | None,
         cfg: AppConfig | None = None,
-        emitter: Optional[LifecycleEmitter] = None,
+        emitter: LifecycleEmitter | None = None,
     ) -> None:
         self.cfg = cfg
         self.browser: Browser | None = None
@@ -53,18 +57,16 @@ class QwenClient:
 
     def start(self) -> None:
         """No-op — browser context is managed externally via browser_session()."""
-        pass
 
     def stop(self) -> None:
         """No-op — browser context is managed externally via browser_session()."""
-        pass
 
     def reset_page(self) -> None:
         """Resets the page to a clean state."""
         if self.page:
             _reset_page(self.page, self.emitter)
 
-    def send_file(self, filepath: Path, timeout_sec: int, custom_prompt_path: Optional[Path] = None, rel_path: Optional[Path] = None) -> str:
+    def send_file(self, filepath: Path, timeout_sec: int, custom_prompt_path: Path | None = None, rel_path: Path | None = None) -> str:
         """Sends a prompt file to chat.qwen.ai and returns the full AI response as text."""
         if not self.page:
             raise RuntimeError("Browser not started. Call start() first.")
@@ -111,18 +113,19 @@ class QwenClient:
 
     # ─── Backward-compat delegates (tests call these directly) ───────────────
     def _type_slowly(self, textarea: ElementHandle | Locator, text: str, delay_ms: int = 30) -> None:
-        _type_slowly_mod(self.page, textarea, text, delay_ms)
+        if self.page and isinstance(textarea, ElementHandle):
+            _type_slowly_mod(self.page, textarea, text, delay_ms)
 
     def _count_messages(self) -> int:
-        return count_messages(self.page)
+        return count_messages(self.page) if self.page else 0
 
     def _latest_message_text(self) -> str | None:
-        return latest_message_text(self.page)
+        return latest_message_text(self.page) if self.page else None
 
     def _wait_for_response(self, timeout_sec: int, msg_count_before: int) -> str | None:
-        return wait_for_response(self.page, timeout_sec, msg_count_before, self.emitter)
+        return wait_for_response(self.page, timeout_sec, msg_count_before, self.emitter) if self.page else None
 
-    def __enter__(self) -> "QwenClient":
+    def __enter__(self) -> QwenClient:
         self.start()
         return self
 

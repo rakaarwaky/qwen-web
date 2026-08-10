@@ -4,9 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.types import AppConfig, RunContext
-from src.main import _build_config, _parse_args
+from src.main import _build_config
 from src.pipeline import AuditLog, _write_output
+from src.types import RunContext
 
 
 class TestQwenAutoUnit(unittest.TestCase):
@@ -77,15 +77,15 @@ class TestQwenAutoUnit(unittest.TestCase):
 
     def test_event_constants_and_emitter(self) -> None:
         from src.types import (
-            LifecycleEmitter,
-            EVENT_THINKING_STARTED,
-            EVENT_STREAMING_GENERATION,
-            EVENT_GENERATION_FINISHED,
-            EVENT_DOCUMENT_PARSED,
             EVENT_DISPATCH_ACKNOWLEDGED,
-            EVENT_SEND_CLICKED,
+            EVENT_DOCUMENT_PARSED,
+            EVENT_GENERATION_FINISHED,
             EVENT_NETWORK_RECONNECTING,
             EVENT_OUTPUT_COPIED,
+            EVENT_SEND_CLICKED,
+            EVENT_STREAMING_GENERATION,
+            EVENT_THINKING_STARTED,
+            LifecycleEmitter,
         )
 
         emitter = LifecycleEmitter()
@@ -131,7 +131,7 @@ class TestQwenAutoUnit(unittest.TestCase):
         )
 
     def test_enum_event_type_and_event_id(self) -> None:
-        from src.types import QwenEventType, LifecycleEmitter
+        from src.types import LifecycleEmitter, QwenEventType
 
         emitter = LifecycleEmitter()
         received = []

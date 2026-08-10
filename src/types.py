@@ -8,11 +8,12 @@ import os
 import time
 import uuid
 from collections import deque
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import StrEnum
+from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any
 
 # ─── Constants: Paths & Defaults (XDG Specification) ──────────────────────────
 
@@ -452,8 +453,11 @@ class RunContext:
 
 # ─── Event System Types ──────────────────────────────────────────────────────
 
-class QwenEventType(StrEnum):
+class QwenEventType(str, Enum):
     """Enterprise-level enum for Qwen Web pipeline event types (chronologically ordered)."""
+
+    def __str__(self) -> str:
+        return str(self.value)
 
     NETWORK_RECONNECTING  = "EVENT_NETWORK_RECONNECTING"  # Network reconnecting
     WEB_LOADED            = "EVENT_WEB_LOADED"            # Web page loaded
@@ -549,7 +553,7 @@ class CircuitBreaker:
             raise ValueError(f"window_sec must be >= 1, got {window_sec}")
         self._threshold = threshold
         self._window_sec = window_sec
-        self._failures: list[float] = []
+        self._failures: deque[float] = deque()
         self._trip: bool = False
 
     def record_success(self) -> None:

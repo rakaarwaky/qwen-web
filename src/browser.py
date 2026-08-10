@@ -4,29 +4,31 @@ from __future__ import annotations
 import asyncio
 import os
 import shutil
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from playwright.sync_api import (
     BrowserContext,
     Page,
     Playwright,
     sync_playwright,
+)
+from playwright.sync_api import (
     Error as PlaywrightError,
 )
 from tenacity import RetryCallState, Retrying, stop_after_attempt, wait_fixed
 
+from .observability import get_logger, start_span
 from .types import (
-    AppConfig,
-    AuthRequiredError,
-    BrowserConfig,
-    BrowserLaunchError,
-    LifecycleEmitter,
     EVENT_NETWORK_RECONNECTING,
     EVENT_WEB_LOADED,
+    AppConfig,
+    AuthRequiredError,
+    BrowserLaunchError,
+    LifecycleEmitter,
 )
-from .observability import get_logger, start_span
 
 log = get_logger("browser")
 

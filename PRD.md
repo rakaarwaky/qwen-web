@@ -179,35 +179,7 @@ qwen-web/
 
 ---
 
-### 9. CLI Arguments & Configuration Matrix
-
-| Flag / Option | Short | Default Value | Description |
-| :--- | :--- | :--- | :--- |
-| `init`, `--init` | N/A | `.` | Initialize workspace (`.agents/skills` & `.qwen-web` symlinks) |
-| `--input` | `-i` | `~/.local/share/qwen-web/input` | Input Markdown file or directory |
-| `--output` | `-o` | `~/.local/share/qwen-web/output` | Output file or directory |
-| `--done-dir` | `-d` | `~/.local/share/qwen-web/input/done` | Target folder for completed input files |
-| `--failed-dir` | N/A | `~/.local/share/qwen-web/input/failed` | Target folder for failed input files |
-| `--proc-dir` | N/A | `~/.cache/qwen-web/.processing` | Temporary atomic processing lock directory |
-| `--log-dir` | N/A | `~/.local/state/qwen-web/log` | Directory for structured logs and audit trail |
-| `--data-dir` | N/A | `~/.local/share/qwen-web/qwen_session` | Browser profile & persistent session storage |
-| `--watch` | `-w` | `False` | Enable continuous folder watcher mode |
-| `--interval` | N/A | `3` | Polling interval (seconds) for watcher mode |
-| `--headless` | N/A | `False` | Run browser in headless background mode |
-| `--login` | N/A | `False` | Open browser for manual login & session save |
-| `--mcp` | N/A | `False` | Run as Model Context Protocol (MCP) server over stdio |
-| `--timeout` | N/A | `300` | Maximum response wait time (seconds) |
-| `--request-timeout` | N/A | `120` | Max seconds to wait for network response |
-| `--poll-interval` | N/A | `1.0` | Seconds between DOM polling checks |
-| `--streaming-timeout` | N/A | `180` | Max streaming duration in seconds |
-| `--rate-limit` | N/A | `60` | Max prompt requests per minute |
-| `--cb-threshold` | N/A | `5` | Consecutive failures before tripping circuit breaker |
-| `--cb-window` | N/A | `30` | Circuit breaker sliding window in seconds |
-| `--retry-failed` | N/A | `False` | Process files in `failed/` directory on next run |
-
----
-
-### 10. Non-Functional Requirements
+### 9. Non-Functional Requirements
 
 - **Performance**: Polling overhead under 300ms per cycle; route blocking reduces network usage by ~40–60%.
 - **Reliability**: Atomic file moves via `safe_move`; no input file loss during processing failures.
@@ -218,7 +190,7 @@ qwen-web/
 
 ---
 
-### 11. Recent Changes (v1.1.0)
+### 10. Recent Changes (v1.1.0)
 
 - **Module decomposition**: Split `qwen_client.py` into focused modules (`prompt_injector.py`, `sender.py`, `streamer.py`, `saver.py`, `file_uploader.py`).
 - **Centralized error hierarchy**: Added `NetworkTimeoutError`, `OutputValidationError`, and 10+ domain-specific exceptions in `types.py`.

@@ -4,11 +4,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from src.types import AppConfig, RunContext
+import pytest
+
 from src.qwen_client import QwenClient
-from src.pipeline import AuditLog, _process_file
 
 
+@pytest.mark.e2e
 class TestQwenAutoE2E(unittest.TestCase):
     """End-to-end tests for full request processing lifecycle."""
 

@@ -5,13 +5,12 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from playwright.sync_api import Error as PlaywrightError, TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from src.prompt_injector import find_input, inject_text, type_slowly
 from src.types import (
-    DEFAULT_INJECTOR_CONFIG,
     ElementNotFoundError,
-    InjectorConfig,
     PromptInjectionError,
 )
 

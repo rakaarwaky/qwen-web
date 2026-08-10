@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from playwright.sync_api import Error as PlaywrightError
 
 from src.browser import (
     SessionCheck,
@@ -15,7 +14,7 @@ from src.browser import (
     navigate_to_chat,
     reset_page,
 )
-from src.types import AuthRequiredError, LifecycleEmitter, BrowserConfig
+from src.types import AuthRequiredError, LifecycleEmitter
 
 
 def test_session_check_is_alive_success():

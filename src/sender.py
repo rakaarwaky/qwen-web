@@ -5,7 +5,8 @@ Provides multi-strategy send button triggers, keyboard fallbacks, and message el
 
 from __future__ import annotations
 
-from playwright.sync_api import Error as PlaywrightError, Page
+from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import Page
 
 from .observability import get_logger
 from .types import (

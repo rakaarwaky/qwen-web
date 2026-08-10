@@ -6,9 +6,7 @@ from __future__ import annotations
 
 import fcntl
 import os
-import signal
 import tempfile
-import threading
 from pathlib import Path
 from typing import Any
 
@@ -18,12 +16,12 @@ from .types import SingleInstanceError
 class SingleInstanceLock:
     """File-based single-instance lock using fcntl.flock()."""
 
-    def __init__(self, lock_path: "Path | None" = None) -> None:
+    def __init__(self, lock_path: Path | None = None) -> None:
         self._lock_path = (
             lock_path or Path(tempfile.gettempdir()) / "qwen-cli.lock"
         )
 
-    def __enter__(self) -> "SingleInstanceLock":
+    def __enter__(self) -> SingleInstanceLock:
         self._lock_fd = open(self._lock_path, "w")
         try:
             fcntl.flock(self._lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)

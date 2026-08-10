@@ -2,9 +2,8 @@
 import unittest
 from pathlib import Path
 
-from src.types import AppConfig, AuthRequiredError, PromptInjectionError, RunContext
-from src.pipeline import AuditLog
 from src.qwen_client import QwenClient
+from src.types import AppConfig, AuthRequiredError, PromptInjectionError, RunContext
 
 
 class TestQwenAutoContract(unittest.TestCase):

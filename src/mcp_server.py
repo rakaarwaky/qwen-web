@@ -15,9 +15,8 @@ import json
 import shutil
 import sys
 import tempfile
-import time
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 
 try:
     from mcp.server.fastmcp import FastMCP
@@ -32,8 +31,11 @@ if not __package__:
     __package__ = _src_dir.name
 
 from .browser import browser_session
+from .observability import get_logger, setup_observability
+from .pipeline import AuditLog, _iter_todo, _process_file, _watcher_sleep
+from .qwen_client import QwenClient
 from .types import (
-    AuthRequiredError,
+    CHAT_URL,
     DEFAULT_DONE,
     DEFAULT_FAILED,
     DEFAULT_LOG,
@@ -42,14 +44,9 @@ from .types import (
     DEFAULT_SESSION,
     DEFAULT_TODO,
     AppConfig,
-    CHAT_URL,
-    MCPServerConfig,
-    MCPToolResponse,
+    AuthRequiredError,
     RunContext,
 )
-from .observability import get_logger, setup_observability
-from .pipeline import AuditLog, _iter_todo, _process_file, _watcher_sleep
-from .qwen_client import QwenClient
 
 # Initialize observability stack with stderr logging
 setup_observability(DEFAULT_LOG)
@@ -135,7 +132,7 @@ async def qwen_send_prompt(
 @_register_tool
 async def qwen_process_single(
     input_file: str,
-    output_file: Optional[str] = None,
+    output_file: str | None = None,
     headless: bool = True,
 ) -> str:
     """Process a single Markdown prompt file (1:1 CLI Single File Mode)."""
@@ -181,8 +178,8 @@ async def qwen_process_single(
 
 @_register_tool
 async def qwen_process_batch(
-    input_dir: Optional[str] = None,
-    output_dir: Optional[str] = None,
+    input_dir: str | None = None,
+    output_dir: str | None = None,
     headless: bool = True,
 ) -> str:
     """Process all prompt files inside an input directory (1:1 CLI Batch Mode)."""
@@ -301,7 +298,7 @@ def qwen_get_audit_log(limit: int = 20) -> str:
 
     lines = audit_file.read_text(encoding="utf-8").strip().splitlines()
     recent = lines[-limit:]
-    records: List[Any] = [json.loads(line) for line in recent if line.strip()]
+    records: list[Any] = [json.loads(line) for line in recent if line.strip()]
     return json.dumps(records, indent=2)
 
 

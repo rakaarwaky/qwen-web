@@ -13,7 +13,7 @@ import threading
 from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 try:
     import structlog
@@ -45,10 +45,9 @@ except ImportError:  # pragma: no cover
     HAS_OTLP = False
 
 from .types import (
-    ErrorCategory,
-    AuthRequiredError,
-    ObservabilityConfig,
     SERVICE_NAME,
+    AuthRequiredError,
+    ErrorCategory,
     StatusRecord,
 )
 
@@ -110,9 +109,9 @@ class StatusFileWriter:
         status: str,
         mode: str,
         headless: bool,
-        run_id: Optional[str] = None,
-        error: Optional[str] = None,
-        cpu_sec: Optional[float] = None,
+        run_id: str | None = None,
+        error: str | None = None,
+        cpu_sec: float | None = None,
         files_processed: int = 0,
         files_failed: int = 0,
     ) -> None:
@@ -140,10 +139,11 @@ class StatusFileWriter:
         except Exception:
             pass
 
-    def read(self) -> Optional[dict[str, Any]]:
+    def read(self) -> dict[str, Any] | None:
         """Read the last written status file."""
         try:
-            return json.loads(self._status_path.read_text(encoding="utf-8"))
+            res: dict[str, Any] = json.loads(self._status_path.read_text(encoding="utf-8"))
+            return res
         except FileNotFoundError:
             return None
         except Exception:
@@ -178,7 +178,7 @@ def start_span(name: str) -> Any:
 
 
 # ─── structlog processor: log-trace correlation ──────────────────────────────
-def add_trace_context(_logger: Any, _method: str, event_dict: Dict[str, Any]) -> Dict[str, Any]:
+def add_trace_context(_logger: Any, _method: str, event_dict: dict[str, Any]) -> dict[str, Any]:
     """Inject the active OTel trace_id/span_id (W3C hex) into every log event."""
     if trace is not None:
         span = trace.get_current_span()
@@ -208,7 +208,6 @@ def exit_code_for(exc: BaseException) -> int:
     """Map an unhandled exception to a process exit code."""
     if isinstance(exc, KeyboardInterrupt):
         return 130
-    from .types import AuthRequiredError
     if isinstance(exc, AuthRequiredError):
         return 2
     return 1
@@ -297,7 +296,7 @@ def _configure_logging(log_path: Path) -> None:
         logging.basicConfig(level=logging.INFO)
         return
 
-    shared_processors: List[Any] = [
+    shared_processors: list[Any] = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso", utc=True),

@@ -17,10 +17,10 @@ from playwright.sync_api import BrowserContext, sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.pipeline import AuditLog, load_role_prompt, resolve_role_paths  # noqa: E402
-from src.qwen_client import QwenClient  # noqa: E402
-from src.types import AppConfig, RunContext  # noqa: E402
-from tests.pipeline_fixtures import restore_fixture_state  # noqa: E402
+from src.pipeline import AuditLog
+from src.qwen_client import QwenClient
+from src.types import AppConfig, RunContext
+from tests.pipeline_fixtures import restore_fixture_state
 
 FIXTURE_ROOT = Path(__file__).resolve().parent / "fixtures"
 FIXTURE = (FIXTURE_ROOT / "qwen_fixture.html").as_uri()

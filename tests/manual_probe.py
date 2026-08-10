@@ -6,16 +6,21 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Sequence
 
 from playwright.sync_api import Page, sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.types import DEFAULT_SESSION, INPUT_SELECTORS, MESSAGE_SELECTORS, NEW_CHAT_SELECTORS, SEND_SELECTORS  # noqa: E402
+from src.types import (
+    DEFAULT_SESSION,
+    INPUT_SELECTORS,
+    NEW_CHAT_SELECTORS,
+    SEND_SELECTORS,
+)
 
 CHAT_URL = "https://chat.qwen.ai/"
 ART = Path(__file__).resolve().parent / "artifacts"

@@ -8,7 +8,6 @@ from __future__ import annotations
 import argparse
 import os
 import shutil
-import signal
 import sys
 import time
 from pathlib import Path
@@ -21,10 +20,26 @@ if not __package__:
         sys.path.insert(0, str(_parent_dir))
     __package__ = _src_dir.name
 
+from .browser import browser_session
+from .linux import SingleInstanceLock, sd_notify_stop
+from .observability import (
+    StatusFileWriter,
+    bind_run_context,
+    exit_code_for,
+    get_logger,
+    setup_observability,
+    start_span,
+)
+from .pipeline import (
+    AuditLog,
+    _iter_todo,
+    _process_file,
+    is_watcher_shutdown_set,
+)
+from .qwen_client import QwenClient
 from .types import (
     BASE_DIR,
     CHAT_URL,
-    AuthRequiredError,
     DEFAULT_DONE,
     DEFAULT_FAILED,
     DEFAULT_LOG,
@@ -34,31 +49,14 @@ from .types import (
     DEFAULT_TODO,
     XDG_SKILL_MD,
     AppConfig,
+    AuthRequiredError,
     RunContext,
-)
-from .browser import browser_session
-from .linux import SingleInstanceLock, sd_notify_stop
-from .observability import (
-    bind_run_context,
-    exit_code_for,
-    get_logger,
-    setup_observability,
-    start_span,
-    StatusFileWriter,
-)
-from .qwen_client import QwenClient
-from .pipeline import (
-    AuditLog,
-    _iter_todo,
-    _process_file,
-    is_watcher_shutdown_set,
-    request_watcher_shutdown,
 )
 
 log = get_logger()
 
 # ─── Centralized Default Paths (DRY) ─────────────────────────────────────────
-DEFAULT_PATHS: dict[str, Path] = {
+DEFAULT_PATHS: dict[str, Any] = {
     "input_path": DEFAULT_TODO,
     "output_path": DEFAULT_OUTPUT,
     "done_path": DEFAULT_DONE,
@@ -202,11 +200,19 @@ def _interactive_prompt() -> AppConfig | None:
         )
     
     headless = input("Run headless? [y/N, default=N]: ").strip().lower() == "y"
-    mode_map = {"1": "watcher", "2": "batch", "3": "single"}
+    mode_map: dict[str, Literal["watcher", "batch", "single", "login"]] = {
+        "1": "watcher",
+        "2": "batch",
+        "3": "single",
+    }
     mode: Literal["watcher", "batch", "single", "login"] = mode_map.get(choice, "watcher")
     
     if mode == "single":
-        available_files = _list_input_files(DEFAULT_TODO)
+        available_files = [
+            (f, f.relative_to(DEFAULT_TODO))
+            for f in sorted(DEFAULT_TODO.rglob("*"))
+            if f.is_file() and not f.name.startswith(".") and f.name.upper() != "PROMPT.MD"
+        ]
         if available_files:
             print("\n[FILES] Available input files:")
             for idx, (abs_p, rel_p) in enumerate(available_files, 1):
@@ -326,7 +332,7 @@ def _run_watcher(client: QwenClient, cfg: AppConfig, audit: AuditLog) -> None:
 
     try:
         for proc_file, rel_path in _iter_todo(cfg):
-            if _shutdown_requested():
+            if is_watcher_shutdown_set():
                 log.info("watcher_shutdown_requested")
                 break
 
@@ -362,12 +368,7 @@ def _run_watcher(client: QwenClient, cfg: AppConfig, audit: AuditLog) -> None:
 
 
 from .pipeline import (
-    AuditLog,
     _install_watcher_signal_handlers,
-    _iter_todo,
-    _process_file,
-    is_watcher_shutdown_set,
-    request_watcher_shutdown,
 )
 
 

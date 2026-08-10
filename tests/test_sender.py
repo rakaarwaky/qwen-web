@@ -5,10 +5,9 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from playwright.sync_api import Error as PlaywrightError
 
 from src.sender import click_send, count_messages, latest_message_text
-from src.types import LifecycleEmitter, SendDispatchError, SenderConfig
+from src.types import LifecycleEmitter, SendDispatchError
 
 
 def test_click_send_primary_selector_success():

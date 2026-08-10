@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import MagicMock
 
 import pytest
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from src.file_uploader import (
-    DEFAULT_CONFIG,
-    FileUploadError,
     FileValidationError,
     UploadConfig,
     _close_dropdown_if_open,
