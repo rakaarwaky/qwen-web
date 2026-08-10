@@ -19,9 +19,12 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from mcp.server.fastmcp import FastMCP
+    from fastmcp import FastMCP
 except ImportError:
-    FastMCP = None
+    try:
+        from mcp.server.fastmcp import FastMCP
+    except ImportError:
+        FastMCP = None
 
 if not __package__:
     _src_dir = Path(__file__).resolve().parent
