@@ -7,11 +7,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 
-from playwright.sync_api import Browser, BrowserContext, Page
+from playwright.sync_api import Browser, BrowserContext, ElementHandle, Locator, Page
 
 from .types import (
     AppConfig,
     LifecycleEmitter,
+    QwenCliError,
     EVENT_DOCUMENT_PARSED,
     EVENT_DISPATCH_ACKNOWLEDGED,
     EVENT_OUTPUT_COPIED,
@@ -68,15 +69,21 @@ class QwenClient:
         if not self.page:
             raise RuntimeError("Browser not started. Call start() first.")
 
-        prompt = filepath.read_text(encoding="utf-8").strip()
+        try:
+            prompt = filepath.read_text(encoding="utf-8").strip()
+        except OSError as e:
+            raise QwenCliError(f"Failed to read prompt file {filepath}: {e}") from e
 
         if custom_prompt_path and custom_prompt_path.exists():
-            role_prompt = custom_prompt_path.read_text(encoding="utf-8").strip()
-            if role_prompt.startswith("---"):
-                parts = role_prompt.split("---", 2)
-                if len(parts) >= 3:
-                    role_prompt = parts[2].strip()
-            prompt = f"{role_prompt}\n\n{prompt}"
+            try:
+                role_prompt = custom_prompt_path.read_text(encoding="utf-8").strip()
+                if role_prompt.startswith("---"):
+                    parts = role_prompt.split("---", 2)
+                    if len(parts) >= 3:
+                        role_prompt = parts[2].strip()
+                prompt = f"{role_prompt}\n\n{prompt}"
+            except OSError as e:
+                log.warning("Failed to read role prompt file %s: %s", custom_prompt_path, e)
 
         navigate_to_chat(self.page, self.emitter)
         _check_auth(self.page)
@@ -103,7 +110,7 @@ class QwenClient:
             raise TimeoutError(f"Timeout after {timeout_sec}s: no response detected")
 
     # ─── Backward-compat delegates (tests call these directly) ───────────────
-    def _type_slowly(self, textarea: Any, text: str, delay_ms: int = 30) -> None:
+    def _type_slowly(self, textarea: ElementHandle | Locator, text: str, delay_ms: int = 30) -> None:
         _type_slowly_mod(self.page, textarea, text, delay_ms)
 
     def _count_messages(self) -> int:

@@ -46,17 +46,32 @@ def click_send(page: Page, emitter: LifecycleEmitter) -> None:
     raise RuntimeError("Failed to send: no valid send button and Enter fallback failed")
 
 
+COMBINED_MESSAGE_SELECTOR = ", ".join(MESSAGE_SELECTORS)
+
+
 def count_messages(page: Page) -> int:
-    """Count assistant messages using verified selectors from config."""
-    for sel in MESSAGE_SELECTORS:
-        count = page.locator(sel).count()
-        if count > 0:
-            return count
-    return 0
+    """Count assistant messages using combined verified selectors."""
+    try:
+        return page.locator(COMBINED_MESSAGE_SELECTOR).count()
+    except PlaywrightError:
+        for sel in MESSAGE_SELECTORS:
+            count = page.locator(sel).count()
+            if count > 0:
+                return count
+        return 0
 
 
 def latest_message_text(page: Page) -> str | None:
-    """Get text of last assistant message using verified selectors from config."""
+    """Get text of last assistant message using combined verified selectors."""
+    try:
+        locator = page.locator(COMBINED_MESSAGE_SELECTOR)
+        if locator.count() > 0:
+            text = locator.last.text_content()
+            if text is not None:
+                return text.strip()
+    except PlaywrightError:
+        pass
+
     for sel in MESSAGE_SELECTORS:
         locator = page.locator(sel)
         if locator.count() > 0:

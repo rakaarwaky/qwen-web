@@ -23,8 +23,11 @@ from .types import (
     AppConfig,
     AuthRequiredError,
     BrowserLaunchError,
+    CircuitBreaker,
+    CircuitBreakerOpenError,
     DEFAULT_LOG,
     DEFAULT_TODO,
+    RateLimiter,
     RunContext,
 )
 from .observability import get_logger, start_span
@@ -36,6 +39,16 @@ log = get_logger("pipeline")
 # ─── Watcher graceful-shutdown state ─────────────────────────────────────────
 _watcher_shutdown: threading.Event = threading.Event()
 _WATCHER_SLEEP_CHUNK_SECS = 1
+
+
+def request_watcher_shutdown() -> None:
+    """Signal watcher loop to shutdown gracefully."""
+    _watcher_shutdown.set()
+
+
+def is_watcher_shutdown_set() -> bool:
+    """Return True if watcher shutdown has been requested."""
+    return _watcher_shutdown.is_set()
 
 
 def _install_watcher_signal_handlers() -> None:
@@ -59,69 +72,6 @@ def _watcher_sleep(interval: int) -> None:
         if _watcher_shutdown.is_set():
             return
         time.sleep(min(_WATCHER_SLEEP_CHUNK_SECS, interval))
-
-# ─── Circuit breaker (P6) ────────────────────────────────────────────────────
-class CircuitBreaker:
-    """Sliding-window circuit breaker for request-level failure tracking.
-
-    Trips when consecutive failures exceed the threshold within the configured
-    window seconds. Resets on a successful request.
-    """
-
-    def __init__(self, threshold: int = 5, window_sec: int = 30) -> None:
-        self._threshold = threshold
-        self._window_sec = window_sec
-        self._failures: deque[float] = deque()
-        self._trip: bool = False
-
-    def record_success(self) -> None:
-        """Reset the breaker on a successful request."""
-        self._failures.clear()
-        self._trip = False
-
-    def record_failure(self) -> None:
-        """Record a failure and trip if threshold exceeded within window."""
-        now = time.time()
-        self._failures.append(now)
-        # Prune old entries outside the window
-        while self._failures and (now - self._failures[0]) > self._window_sec:
-            self._failures.popleft()
-        if len(self._failures) >= self._threshold:
-            self._trip = True
-
-    @property
-    def is_tripped(self) -> bool:
-        return self._trip
-
-
-# ─── Rate limiter (P6) ───────────────────────────────────────────────────────
-class RateLimiter:
-    """Simple token-bucket rate limiter for request throttling.
-
-    Tracks the last N request timestamps and enforces a minimum interval.
-    """
-
-    def __init__(self, max_per_minute: int = 60) -> None:
-        self._max_per_minute = max_per_minute
-        self._timestamps: deque[float] = deque()
-
-    def acquire(self) -> None:
-        """Wait until a request slot is available."""
-        now = time.time()
-        window_start = now - 60.0  # 1-minute sliding window
-        while True:
-            # Prune old timestamps
-            while self._timestamps and self._timestamps[0] < window_start:
-                self._timestamps.popleft()
-            if len(self._timestamps) < self._max_per_minute:
-                break
-            # Calculate how long to wait
-            oldest = self._timestamps[0]
-            wait_sec = 60.0 - (now - oldest) + 0.1  # +0.1s buffer
-            if wait_sec > 0:
-                time.sleep(wait_sec)
-                now = time.time()
-        self._timestamps.append(time.time())
 
 
 # ─── Retry policy ────────────────────────────────────────────────────────────
@@ -403,22 +353,36 @@ def _iter_todo(cfg: AppConfig) -> Iterator[Tuple[Path, Path]]:
         _watcher_sleep(cfg.interval)
 
 
-def _process_file(client: QwenClient, proc_file: Path, rel_path: Path,
-                  cfg: AppConfig, audit: AuditLog, ctx: RunContext) -> None:
+def _process_file(
+    client: QwenClient,
+    proc_file: Path,
+    rel_path: Path,
+    cfg: AppConfig,
+    audit: AuditLog,
+    ctx: RunContext,
+    cb: CircuitBreaker | None = None,
+    rl: RateLimiter | None = None,
+) -> None:
     """Processes single file through Qwen web client with tenacity retry and quarantine handling."""
     out_path, done_path, fail_path, _ = resolve_role_paths(rel_path, cfg)
+
+    if cb is None:
+        cb = CircuitBreaker(
+            threshold=cfg.circuit_breaker_threshold,
+            window_sec=cfg.circuit_breaker_window,
+        )
+    if rl is None:
+        rl = RateLimiter(max_per_minute=cfg.rate_limit_per_minute)
+
+    if cb.is_tripped:
+        raise CircuitBreakerOpenError(
+            f"Circuit breaker tripped ({cfg.circuit_breaker_threshold} consecutive failures in {cfg.circuit_breaker_window}s). Aborting {rel_path}"
+        )
 
     prompt = proc_file.read_text(encoding="utf-8").strip()
     log.info("processing_file", file=str(rel_path), chars=len(prompt))
     t0 = time.time()
     audit.log_step(ctx, "START_PROCESSING", str(rel_path), "STARTED", {"input_chars": len(prompt)})
-
-    # P6: Initialize circuit breaker and rate limiter for this request
-    cb = CircuitBreaker(
-        threshold=cfg.circuit_breaker_threshold,
-        window_sec=cfg.circuit_breaker_window,
-    )
-    rl = RateLimiter(max_per_minute=cfg.rate_limit_per_minute)
 
     def _attempt() -> str:
         # Acquire rate limiter slot

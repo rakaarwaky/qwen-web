@@ -12,7 +12,7 @@ import signal
 import sys
 import time
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 if not __package__:
     _src_dir = Path(__file__).resolve().parent
@@ -37,7 +37,7 @@ from .types import (
     RunContext,
 )
 from .browser import browser_session
-from .linux import SingleInstanceLock, GracefulShutdown, sd_notify_stop
+from .linux import SingleInstanceLock, sd_notify_stop
 from .observability import (
     bind_run_context,
     exit_code_for,
@@ -52,9 +52,22 @@ from .pipeline import (
     _iter_todo,
     _list_input_files,
     _process_file,
+    is_watcher_shutdown_set,
+    request_watcher_shutdown,
 )
 
 log = get_logger()
+
+# ─── Centralized Default Paths (DRY) ─────────────────────────────────────────
+DEFAULT_PATHS: dict[str, Path] = {
+    "input_path": DEFAULT_TODO,
+    "output_path": DEFAULT_OUTPUT,
+    "done_path": DEFAULT_DONE,
+    "failed_path": DEFAULT_FAILED,
+    "proc_path": DEFAULT_PROC,
+    "session_path": DEFAULT_SESSION,
+    "log_path": DEFAULT_LOG,
+}
 
 
 def run_init(target_dir: Path | str = ".") -> None:
@@ -139,17 +152,13 @@ def run_init(target_dir: Path | str = ".") -> None:
 
 
 def _run_manual_login(cfg: AppConfig) -> None:
+    if not sys.stdin.isatty():
+        print("[ERROR] Manual login requires an interactive terminal (TTY).", file=sys.stderr)
+        sys.exit(1)
+
     login_cfg = AppConfig(
         mode="login",
-        input_path=cfg.input_path,
-        output_path=cfg.output_path,
-        done_path=cfg.done_path,
-        failed_path=cfg.failed_path,
-        proc_path=cfg.proc_path,
-        session_path=cfg.session_path,
-        log_path=cfg.log_path,
-        interval=cfg.interval,
-        timeout=cfg.timeout,
+        **DEFAULT_PATHS,
         headless=False,
     )
     print(f"\n[LOGIN] Launching visible browser window on {CHAT_URL}...")
@@ -161,7 +170,11 @@ def _run_manual_login(cfg: AppConfig) -> None:
         print(f"[OK] Session data successfully saved to '{login_cfg.session_path}'. You can now run in headless mode!\n")
 
 
-def _interactive_prompt() -> AppConfig:
+def _interactive_prompt() -> AppConfig | None:
+    if not sys.stdin.isatty():
+        print("[ERROR] Interactive mode requires a TTY. Please provide CLI arguments.", file=sys.stderr)
+        return None
+
     print("\n╭─ qwen-cli interactive setup ─────────────────────╮")
     print("│ 1. Watcher Mode (continuous)                     │")
     print("│ 2. Batch Mode (folder)                           │")
@@ -174,22 +187,16 @@ def _interactive_prompt() -> AppConfig:
     choice = input("Select [1-6, default=1]: ").strip() or "1"
     if choice == "6":
         print("Goodbye!")
-        sys.exit(0)
+        return None
     
     if choice == "5":
         run_init(Path.cwd())
-        sys.exit(0)
+        return None
     
     if choice == "4":
         return AppConfig(
             mode="login",
-            input_path=DEFAULT_TODO,
-            output_path=DEFAULT_OUTPUT,
-            done_path=DEFAULT_DONE,
-            failed_path=DEFAULT_FAILED,
-            proc_path=DEFAULT_PROC,
-            session_path=DEFAULT_SESSION,
-            log_path=DEFAULT_LOG,
+            **DEFAULT_PATHS,
             headless=False,
         )
     
@@ -218,11 +225,7 @@ def _interactive_prompt() -> AppConfig:
                 mode=mode,
                 input_path=chosen_abs,
                 output_path=DEFAULT_OUTPUT / chosen_rel,
-                done_path=DEFAULT_DONE,
-                failed_path=DEFAULT_FAILED,
-                proc_path=DEFAULT_PROC,
-                session_path=DEFAULT_SESSION,
-                log_path=DEFAULT_LOG,
+                **{k: v for k, v in DEFAULT_PATHS.items() if k not in ("input_path", "output_path")},
                 headless=headless,
             )
         else:
@@ -232,23 +235,13 @@ def _interactive_prompt() -> AppConfig:
                 mode=mode,
                 input_path=Path(input_file),
                 output_path=Path(output_file),
-                done_path=DEFAULT_DONE,
-                failed_path=DEFAULT_FAILED,
-                proc_path=DEFAULT_PROC,
-                session_path=DEFAULT_SESSION,
-                log_path=DEFAULT_LOG,
+                **{k: v for k, v in DEFAULT_PATHS.items() if k not in ("input_path", "output_path")},
                 headless=headless,
             )
     
     return AppConfig(
         mode=mode,
-        input_path=DEFAULT_TODO,
-        output_path=DEFAULT_OUTPUT,
-        done_path=DEFAULT_DONE,
-        failed_path=DEFAULT_FAILED,
-        proc_path=DEFAULT_PROC,
-        session_path=DEFAULT_SESSION,
-        log_path=DEFAULT_LOG,
+        **DEFAULT_PATHS,
         headless=headless,
     )
 
@@ -286,9 +279,9 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _build_config(args: argparse.Namespace) -> AppConfig:
-    if getattr(args, "login", False):
+    if args.login:
         mode_val: str = "login"
-    elif getattr(args, "watch", False):
+    elif args.watch:
         mode_val = "watcher"
     else:
         input_path = Path(args.input)
@@ -297,9 +290,9 @@ def _build_config(args: argparse.Namespace) -> AppConfig:
         mode=mode_val,
         input_path=Path(args.input),
         output_path=Path(args.output),
-        done_path=Path(args.done_dir),
-        failed_path=Path(args.failed_dir),
-        proc_path=Path(args.proc_dir),
+        done_path=Path(getattr(args, "done_dir", str(DEFAULT_DONE))),
+        failed_path=Path(getattr(args, "failed_dir", str(DEFAULT_FAILED))),
+        proc_path=Path(getattr(args, "proc_dir", str(DEFAULT_PROC))),
         session_path=Path(getattr(args, "data_dir", str(DEFAULT_SESSION))),
         log_path=Path(getattr(args, "log_dir", str(DEFAULT_LOG))),
         interval=getattr(args, "interval", 3),
@@ -373,13 +366,14 @@ _shutdown_flag: bool = False
 
 def _shutdown_requested() -> bool:
     """Check if shutdown has been requested."""
-    return _shutdown_flag
+    return _shutdown_flag or is_watcher_shutdown_set()
 
 
 def _signal_handler(signum: int, frame: Any) -> None:
     """Handle SIGINT/SIGTERM for graceful watcher shutdown."""
     global _shutdown_flag
     _shutdown_flag = True
+    request_watcher_shutdown()
 
 
 def main() -> int:
@@ -395,70 +389,75 @@ def main() -> int:
         run_init(target_dir)
         return 0
 
-    cfg: AppConfig
+    cfg: AppConfig | None
     if len(sys.argv) == 1 or args is None:
         cfg = _interactive_prompt()
+        if cfg is None:
+            return 0
     else:
         cfg = _build_config(args)
 
-    # ── Single-instance lock (P1) ──────────────────────────────────────────
-    try:
-        with SingleInstanceLock():
-            pass
-    except Exception as e:
-        print(f"[WARNING] {e}")
-        return 0
-
     # Observability first: Sentry -> OTel -> structlog -> global exception hooks.
-    setup_observability(cfg.log_path)
+    try:
+        setup_observability(cfg.log_path)
+    except Exception as e:
+        print(f"[WARNING] Failed to setup observability: {e}. Falling back to standard logging.", file=sys.stderr)
 
     if cfg.mode == "login":
         _run_manual_login(cfg)
         return 0
 
-    ctx = RunContext()
-    bind_run_context(run_id=ctx.run_id, mode=cfg.mode, headless=cfg.headless)
-    audit = AuditLog(cfg.log_path)
+    # ── Single-instance lock (P1) ──────────────────────────────────────────
+    try:
+        instance_lock = SingleInstanceLock()
+    except Exception as e:
+        print(f"[ERROR] Failed to acquire single instance lock: {e}", file=sys.stderr)
+        return 1
 
-    with start_span("qwen-cli.run") as span:
-        if span is not None:
-            span.set_attribute("mode", cfg.mode)
-            span.set_attribute("run_id", ctx.run_id)
-            span.set_attribute("headless", cfg.headless)
+    with instance_lock:
+        ctx = RunContext()
+        bind_run_context(run_id=ctx.run_id, mode=cfg.mode, headless=cfg.headless)
+        audit = AuditLog(cfg.log_path)
 
-        # Install signal handlers for graceful watcher shutdown (P4)
-        original_sigint = signal.signal(signal.SIGINT, _signal_handler)
-        original_sigterm = signal.signal(signal.SIGTERM, _signal_handler)
+        with start_span("qwen-cli.run") as span:
+            if span is not None:
+                span.set_attribute("mode", cfg.mode)
+                span.set_attribute("run_id", ctx.run_id)
+                span.set_attribute("headless", cfg.headless)
 
-        try:
-            with browser_session(cfg) as bctx:
-                client = QwenClient(bctx, cfg)
+            # Install signal handlers for graceful watcher shutdown (P4)
+            original_sigint = signal.signal(signal.SIGINT, _signal_handler)
+            original_sigterm = signal.signal(signal.SIGTERM, _signal_handler)
 
-                if cfg.mode == "watcher":
-                    _run_watcher(client, cfg, audit)
-                else:
-                    # batch / single mode: same loop as before
-                    for proc_file, rel_path in _iter_todo(cfg):
-                        _process_file(client, proc_file, rel_path, cfg, audit, ctx)
-        except AuthRequiredError as e:
-            print(f"\n[AUTH ERROR] {e}\n", file=sys.stderr)
-            log.error("auth_required", error=str(e))
-            return 1
-        except Exception as e:
-            log.exception("run_failed", error_type=type(e).__name__, error=str(e))
-            return exit_code_for(e)
-        finally:
-            # Restore original signal handlers
             try:
-                if original_sigint is not None:
-                    signal.signal(signal.SIGINT, original_sigint)
-                if original_sigterm is not None:
-                    signal.signal(signal.SIGTERM, original_sigterm)
-            except (OSError, ValueError):
-                pass
+                with browser_session(cfg) as bctx:
+                    client = QwenClient(bctx, cfg)
 
-            # Notify systemd of graceful stop (P1)
-            sd_notify_stop()
+                    if cfg.mode == "watcher":
+                        _run_watcher(client, cfg, audit)
+                    else:
+                        # batch / single mode: same loop as before
+                        for proc_file, rel_path in _iter_todo(cfg):
+                            _process_file(client, proc_file, rel_path, cfg, audit, ctx)
+            except AuthRequiredError as e:
+                print(f"\n[AUTH ERROR] {e}\n", file=sys.stderr)
+                log.error("auth_required", error=str(e))
+                return 1
+            except Exception as e:
+                log.exception("run_failed", error_type=type(e).__name__, error=str(e))
+                return exit_code_for(e)
+            finally:
+                # Restore original signal handlers
+                try:
+                    if original_sigint is not None:
+                        signal.signal(signal.SIGINT, original_sigint)
+                    if original_sigterm is not None:
+                        signal.signal(signal.SIGTERM, original_sigterm)
+                except (OSError, ValueError):
+                    pass
+
+                # Notify systemd of graceful stop (P1)
+                sd_notify_stop()
 
     return 0
 

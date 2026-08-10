@@ -22,8 +22,8 @@ class TestQwenAutoUnit(unittest.TestCase):
                 ctx=ctx,
                 src="source.md",
                 dur=5.5,
-                in_c=100,
-                out_c=50,
+                input_chars=100,
+                output_chars=50,
             )
             self.assertTrue(out_path.exists())
             text = out_path.read_text(encoding="utf-8")

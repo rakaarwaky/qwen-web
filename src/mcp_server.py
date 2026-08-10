@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 import sys
 import tempfile
 import time
@@ -166,9 +167,13 @@ async def qwen_process_single(
         ctx = RunContext()
 
         try:
+            proc_file = cfg.proc_path / in_p.name
+            proc_file.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(in_p, proc_file)
+
             with browser_session(cfg) as bctx:
                 client = QwenClient(bctx, cfg)
-                _process_file(client, in_p, Path(in_p.name), cfg, audit_log, ctx)
+                _process_file(client, proc_file, Path(in_p.name), cfg, audit_log, ctx)
                 return f"Successfully processed {in_p.name} -> {out_p}"
         except AuthRequiredError as e:
             return f"ERROR [AUTH_REQUIRED]: {e}"

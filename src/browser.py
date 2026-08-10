@@ -1,19 +1,37 @@
 """Browser lifecycle management for Playwright persistent context."""
 from __future__ import annotations
 
+import asyncio
 import os
 import shutil
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, Iterator
+from typing import Any, Iterator
 
-from playwright.sync_api import BrowserContext, Page, sync_playwright
+from playwright.sync_api import (
+    BrowserContext,
+    Page,
+    Playwright,
+    sync_playwright,
+    Error as PlaywrightError,
+)
 from tenacity import RetryCallState, Retrying, stop_after_attempt, wait_fixed
 
-from .types import AppConfig, AuthRequiredError, BrowserLaunchError, LifecycleEmitter, EVENT_NETWORK_RECONNECTING, EVENT_WEB_LOADED
+from .types import (
+    AppConfig,
+    AuthRequiredError,
+    BrowserLaunchError,
+    LifecycleEmitter,
+    EVENT_NETWORK_RECONNECTING,
+    EVENT_WEB_LOADED,
+)
 from .observability import get_logger, start_span
 
 log = get_logger("browser")
+
+CHAT_URL = "https://chat.qwen.ai/"
+TEXTAREA_SELECTOR = "textarea.message-input-textarea"
+AUTH_KEYWORDS = ("login", "passport", "auth", "signin")
 
 
 # ─── Session stability check ─────────────────────────────────────────────────
@@ -26,60 +44,62 @@ class SessionCheck:
     def is_alive(self) -> bool:
         """Return True if the session is stable and the chat UI is responsive."""
         try:
-            self.page.evaluate("() => document.readyState")
             ready = self.page.evaluate("() => document.readyState")
             if ready != "complete":
                 log.warning("session_check_failed", reason="page_not_ready", ready=ready)
                 return False
 
-            el = self.page.query_selector("textarea.message-input-textarea")
-            if not el:
+            if not self.page.query_selector(TEXTAREA_SELECTOR):
                 log.warning("session_check_failed", reason="textarea_missing")
                 return False
 
             return True
+        except PlaywrightError as exc:
+            log.warning("session_check_failed", reason="playwright_error", error=str(exc))
+            return False
         except Exception as exc:
-            log.warning("session_check_failed", reason=str(exc))
+            log.warning("session_check_failed", reason="unexpected_error", error=str(exc))
             return False
 
     def check_auth(self) -> None:
-        """Raise AuthRequiredError if the session is no longer authenticated."""
+        """Raise AuthRequiredError if the session is no longer authenticated or UI is missing."""
         try:
             current_url = self.page.url.lower()
-            if any(k in current_url for k in ("login", "passport", "auth", "signin")):
+            if any(k in current_url for k in AUTH_KEYWORDS):
                 raise AuthRequiredError("Session expired — redirected to login page.")
 
-            self.page.query_selector("textarea.message-input-textarea")
+            if not self.page.query_selector(TEXTAREA_SELECTOR):
+                raise AuthRequiredError("Session invalid: Chat textarea not found.")
         except AuthRequiredError:
             raise
-        except Exception as exc:
-            raise AuthRequiredError(f"Session invalid: {exc}")
+        except PlaywrightError as exc:
+            raise AuthRequiredError(f"Session invalid (browser error): {exc}")
 
 
 def reset_page(page: Page, emitter: LifecycleEmitter) -> None:
     """Reset the page to a clean state by navigating back to chat.qwen.ai."""
     try:
-        emitter.emit(EVENT_NETWORK_RECONNECTING, {"url": "https://chat.qwen.ai/"})
-        page.goto("https://chat.qwen.ai/", wait_until="domcontentloaded", timeout=10_000)
+        emitter.emit(EVENT_NETWORK_RECONNECTING, {"url": CHAT_URL})
+        page.goto(CHAT_URL, wait_until="domcontentloaded", timeout=10_000)
         page.wait_for_load_state("domcontentloaded", timeout=15_000)
-    except Exception as e:
-        log.warning("Error resetting page: %s", e)
+    except PlaywrightError as e:
+        log.warning("Failed to reset page: %s", e)
 
 
 def navigate_to_chat(page: Page, emitter: LifecycleEmitter) -> None:
     """Navigate to chat.qwen.ai and emit WEB_LOADED."""
-    page.goto("https://chat.qwen.ai/", wait_until="domcontentloaded", timeout=30_000)
+    page.goto(CHAT_URL, wait_until="domcontentloaded", timeout=30_000)
     try:
         page.wait_for_load_state("domcontentloaded", timeout=15_000)
-    except Exception:
-        pass
+    except PlaywrightError as e:
+        log.warning("Load state wait failed, proceeding: %s", e)
     emitter.emit(EVENT_WEB_LOADED, {"url": page.url})
 
 
 def check_auth(page: Page) -> None:
     """Raise AuthRequiredError if the page is on a login/auth URL."""
     current_url = page.url.lower()
-    if any(k in current_url for k in ("login", "passport", "auth", "signin")):
+    if any(k in current_url for k in AUTH_KEYWORDS):
         raise AuthRequiredError("No active login session. Run 'qwc --login' to authenticate.")
 
 
@@ -91,11 +111,11 @@ def _clean_stale_locks(user_data_dir: str) -> None:
         try:
             if lock_path.is_symlink() or lock_path.exists():
                 lock_path.unlink(missing_ok=True)
-        except Exception:
-            pass
+        except OSError as e:
+            log.warning("Failed to delete stale lock %s: %s", lock_path, e)
 
 
-def _launch_context(p: Any, kwargs: Dict[str, Any]) -> Any:
+def _launch_context(p: Playwright, kwargs: dict[str, Any]) -> BrowserContext:
     """Launches the persistent context with tenacity retry for transient crashes."""
     user_data_dir = kwargs.get("user_data_dir", "")
     if user_data_dir:
@@ -127,21 +147,13 @@ def _launch_context(p: Any, kwargs: Dict[str, Any]) -> Any:
 
 @contextmanager
 def browser_session(cfg: AppConfig) -> Iterator[BrowserContext]:
-    """Manages persistent Chromium browser context with session caching and asset optimization.
-
-    Linux-native defaults:
-      - Uses /usr/bin/google-chrome (or chromium-browser fallback).
-      - --disable-gpu on headless to avoid GPU-related crashes.
-      - --no-sandbox enabled for container/headless environments.
-      - Blocks heavy static assets to reduce IPC overhead.
-    """
+    """Manages persistent Chromium browser context with session caching and asset optimization."""
     cfg.session_path.mkdir(parents=True, exist_ok=True)
     try:
         os.chmod(cfg.session_path, 0o700)
-    except Exception as e:
+    except OSError as e:
         log.debug("failed_setting_session_permissions", error=str(e))
 
-    # Chrome binary path (Linux-native, dynamic discovery)
     chrome_bin = (
         shutil.which("google-chrome")
         or shutil.which("google-chrome-stable")
@@ -150,20 +162,18 @@ def browser_session(cfg: AppConfig) -> Iterator[BrowserContext]:
         or ""
     )
 
-    # Linux-specific Chrome args (P5)
     chrome_args = [
         "--disable-blink-features=AutomationControlled",
         "--no-sandbox",
     ]
 
-    # Headless GPU disable (Linux-native, P5)
     if cfg.headless:
         chrome_args.extend([
             "--disable-gpu",
             "--disable-software-compositing",
         ])
 
-    kwargs = {
+    kwargs: dict[str, Any] = {
         "user_data_dir": str(cfg.session_path),
         "headless": cfg.headless,
         "permissions": ["clipboard-read", "clipboard-write"],
@@ -181,7 +191,6 @@ def browser_session(cfg: AppConfig) -> Iterator[BrowserContext]:
             span.set_attribute("mode", cfg.mode)
             span.set_attribute("session_path", str(cfg.session_path))
         try:
-            import asyncio
             if hasattr(asyncio, "_set_running_loop"):
                 asyncio._set_running_loop(None)
         except Exception:
@@ -191,7 +200,6 @@ def browser_session(cfg: AppConfig) -> Iterator[BrowserContext]:
             with sync_playwright() as p:
                 ctx = _launch_context(p, kwargs)
                 if cfg.mode != "login":
-                    # Abort heavy static assets directly by pattern to prevent IPC overhead on XHR/SSE requests
                     ctx.route(
                         "**/*.{png,jpg,jpeg,gif,webp,mp4,mp3,woff,woff2,ttf,otf}",
                         lambda r: r.abort(),
@@ -201,8 +209,8 @@ def browser_session(cfg: AppConfig) -> Iterator[BrowserContext]:
                 finally:
                     try:
                         ctx.close()
-                    except Exception:
-                        pass
+                    except PlaywrightError as e:
+                        log.warning("Error closing browser context: %s", e)
         except AuthRequiredError:
             raise
         except Exception as e:

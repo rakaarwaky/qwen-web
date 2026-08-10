@@ -128,8 +128,8 @@ def test_write_output_creates_file_with_traceability_header(
         ctx=run_ctx,
         src="role-architect/task_001.md",
         dur=1.23,
-        in_c=len("input"),
-        out_c=len(content),
+        input_chars=len("input"),
+        output_chars=len(content),
     )
 
     assert out_file.exists(), "Output file must be created by _write_output"

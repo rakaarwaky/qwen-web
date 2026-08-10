@@ -6,13 +6,13 @@ from __future__ import annotations
 
 import os
 import time
-import logging
 import uuid
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable
 
 # ─── Constants: Paths & Defaults (XDG Specification) ──────────────────────────
 
@@ -28,7 +28,7 @@ def _get_xdg_dir(env_var: str, default_subpath: str) -> Path:
 
 XDG_DATA_HOME   = _get_xdg_dir("XDG_DATA_HOME", ".local/share")
 XDG_STATE_HOME  = _get_xdg_dir("XDG_STATE_HOME", ".local/state")
-XDG_CACHE_HOME  = _get_xdg_dir("XDG_STATE_HOME", ".cache")
+XDG_CACHE_HOME  = _get_xdg_dir("XDG_CACHE_HOME", ".cache")
 XDG_CONFIG_HOME = _get_xdg_dir("XDG_CONFIG_HOME", ".config")
 
 DEFAULT_TODO    = XDG_DATA_HOME / "input"
@@ -121,6 +121,14 @@ class SingleInstanceError(RuntimeError):
 class ElementNotFoundError(QwenCliError):
     """Raised when a required DOM element is not found on the page."""
 
+
+class NetworkTimeoutError(QwenCliError):
+    """Raised when network operation times out or drops."""
+
+
+class OutputValidationError(QwenCliError):
+    """Raised when response content fails sanity check (e.g. captcha/error page)."""
+
 # ─── Enums / Categorical Helpers ─────────────────────────────────────────────
 
 class ErrorCategory:
@@ -177,10 +185,10 @@ class AppConfig:
     interval: int = 3
     timeout: int = 300
     headless: bool = False
-    prompt_file: Optional[Path] = None
+    prompt_file: Path | None = None
 
     chrome_profile: str = "qwen-cli-profile"
-    storage_state_file: Optional[Path] = None
+    storage_state_file: Path | None = None
     disable_sandbox: bool = True
 
     request_timeout: int = 120
@@ -269,22 +277,22 @@ class LifecycleEvent:
     name: str
     timestamp: float = field(default_factory=time.time)
     event_id: str = field(default_factory=lambda: uuid.uuid4().hex)
-    details: dict = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 LifecycleCallback = Callable[[LifecycleEvent], None]
 
 
-EVENT_DESCRIPTIONS: dict[str, str] = {
-    "EVENT_NETWORK_RECONNECTING": "Reconnecting to Qwen Web...",
-    "EVENT_WEB_LOADED": "Qwen Web page loaded",
-    "EVENT_DOCUMENT_PARSED": "Document parsed",
-    "EVENT_SEND_CLICKED": "Send button clicked",
-    "EVENT_DISPATCH_ACKNOWLEDGED": "Dispatch acknowledged",
-    "EVENT_THINKING_STARTED": "Qwen AI thinking...",
-    "EVENT_STREAMING_GENERATION": "Qwen AI typing...",
-    "EVENT_GENERATION_FINISHED": "Generation finished",
-    "EVENT_OUTPUT_COPIED": "Output saved",
+EVENT_DESCRIPTIONS: dict[QwenEventType, str] = {
+    QwenEventType.NETWORK_RECONNECTING: "Reconnecting to Qwen Web...",
+    QwenEventType.WEB_LOADED: "Qwen Web page loaded",
+    QwenEventType.DOCUMENT_PARSED: "Document parsed",
+    QwenEventType.SEND_CLICKED: "Send button clicked",
+    QwenEventType.DISPATCH_ACKNOWLEDGED: "Dispatch acknowledged",
+    QwenEventType.THINKING_STARTED: "Qwen AI thinking...",
+    QwenEventType.STREAMING_GENERATION: "Qwen AI typing...",
+    QwenEventType.GENERATION_FINISHED: "Generation finished",
+    QwenEventType.OUTPUT_COPIED: "Output saved",
 }
 
 
@@ -299,7 +307,7 @@ class LifecycleEmitter:
         key = str(event_name)
         self._callbacks.setdefault(key, []).append(callback)
 
-    def emit(self, event_name: QwenEventType | str, details: Optional[dict] = None) -> LifecycleEvent:
+    def emit(self, event_name: QwenEventType | str, details: dict[str, Any] | None = None) -> LifecycleEvent:
         """Emit a lifecycle event to all registered callbacks."""
         key = str(event_name)
         evt = LifecycleEvent(
@@ -307,15 +315,17 @@ class LifecycleEmitter:
             timestamp=time.time(),
             details=details or {},
         )
-        logger = logging.getLogger("qwen-cli")
-        label = EVENT_DESCRIPTIONS.get(key, key)
+        from .observability import get_logger
+        logger = get_logger()
+        enum_member = event_name if isinstance(event_name, QwenEventType) else None
+        label = EVENT_DESCRIPTIONS.get(enum_member, key) if enum_member else key
         detail_str = f" - {details}" if details else ""
         logger.info(f"[{key}] {label}{detail_str}")
         for cb in self._callbacks.get(key, []):
             try:
                 cb(evt)
             except Exception as exc:
-                logger.warning(f"lifecycle_callback_error event={key} error={str(exc)}")
+                logger.warning(f"lifecycle_callback_error event={key} error={exc}")
         return evt
 
 
@@ -326,6 +336,10 @@ class CircuitBreaker:
     """Sliding-window circuit breaker for request-level failure tracking."""
 
     def __init__(self, threshold: int = 5, window_sec: int = 30) -> None:
+        if threshold < 1:
+            raise ValueError(f"threshold must be >= 1, got {threshold}")
+        if window_sec < 1:
+            raise ValueError(f"window_sec must be >= 1, got {window_sec}")
         self._threshold = threshold
         self._window_sec = window_sec
         self._failures: list[float] = []
@@ -341,7 +355,7 @@ class CircuitBreaker:
         now = time.time()
         self._failures.append(now)
         while self._failures and (now - self._failures[0]) > self._window_sec:
-            self._failures.pop(0)
+            self._failures.popleft()
         if len(self._failures) >= self._threshold:
             self._trip = True
 
@@ -357,8 +371,10 @@ class RateLimiter:
     """Simple token-bucket rate limiter for request throttling."""
 
     def __init__(self, max_per_minute: int = 60) -> None:
+        if max_per_minute < 1:
+            raise ValueError(f"max_per_minute must be >= 1, got {max_per_minute}")
         self._max_per_minute = max_per_minute
-        self._timestamps: list[float] = []
+        self._timestamps: deque[float] = deque()
 
     def acquire(self) -> None:
         """Wait until a request slot is available."""
@@ -366,14 +382,14 @@ class RateLimiter:
         window_start = now - 60.0
         while True:
             while self._timestamps and self._timestamps[0] < window_start:
-                self._timestamps.pop(0)
+                self._timestamps.popleft()
             if len(self._timestamps) < self._max_per_minute:
                 break
             oldest = self._timestamps[0]
-            wait_sec = 60.0 - (now - oldest) + 0.1
-            if wait_sec > 0:
-                time.sleep(wait_sec)
-                now = time.time()
+            wait_sec = max(0.1, 60.0 - (now - oldest) + 0.1)
+            time.sleep(wait_sec)
+            now = time.time()
+            window_start = now - 60.0
         self._timestamps.append(time.time())
 
 
