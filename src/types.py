@@ -195,7 +195,10 @@ class ErrorCategory:
             return "injection"
         if any(k in msg or k in exc_type.lower() for k in ("parse", "empty", "no response", "timeout")):
             return "parsing"
-        if any(k in msg or k in exc_type.lower() for k in ("file", "io", "disk", "read", "write")):
+        if isinstance(exc, (OSError, IOError)) or any(
+            k in msg or k in (exc_type.lower() if exc_type.lower() != "exception" else "")
+            for k in ("file", "ioerror", "disk", "read", "write")
+        ):
             return "file_io"
         return "other"
 

@@ -31,9 +31,11 @@ It supports **MCP Server integration for local AI agents**, **real-time file wat
 - **Interactive Terminal UI**: Run `python3 src/main.py` with no arguments to open an interactive selection menu.
 - **Persistent Session Login**: Retains session cookies in `./qwen_session`. Log in once, then run in `--headless` mode indefinitely.
 - **Smart Response Detection**: Polls AI generation progress dynamically; handles streaming until completion before writing output.
+- **Output Validation**: Detects CAPTCHA challenges, server error pages, and empty responses before accepting AI output.
 - **2-Tier Prompt Injection**: Handles large prompts (100k+ chars) via React prototype setter + synthetic events, with clipboard paste fallback.
 - **Structured Observability**: Structured JSON logging via `structlog`, OpenTelemetry tracing, Sentry error reporting, and JSONL audit trail.
-- **Fault Recovery**: Automatic retry up to 3 times with page re-initialization on failure.
+- **Fault Recovery**: Automatic retry up to 3 times with page re-initialization on failure; circuit breaker and rate limiting for resilience.
+- **Type-Safe**: Modern Python typing with validated constructors and specific exception hierarchy.
 
 ---
 
@@ -44,10 +46,15 @@ qwen-web/
 ├── src/
 │   ├── main.py             # CLI entrypoint & argument parser
 │   ├── mcp_server.py       # MCP Server exposing 1:1 CLI features as MCP tools
-│   ├── config.py           # Constants, dataclasses, custom exceptions
-│   ├── browser.py          # Playwright browser session management
-│   ├── qwen_client.py      # Core automation: injection, response detection
-│   ├── pipeline.py         # File pipeline: watcher, batch, single file
+│   ├── types.py            # Type definitions, AppConfig, exceptions, CircuitBreaker, RateLimiter
+│   ├── browser.py          # Playwright browser session management & health checks
+│   ├── qwen_client.py      # Core automation orchestrator
+│   ├── prompt_injector.py  # DOM text injection (React setter + clipboard fallback)
+│   ├── sender.py           # Send button click, message counting, latest message
+│   ├── streamer.py         # Response streaming detection & output validation
+│   ├── saver.py            # Output file writing with metadata traceability
+│   ├── file_uploader.py    # File attachment upload via Playwright file chooser
+│   ├── pipeline.py         # File pipeline: watcher, batch, single file, retry logic
 │   └── observability.py    # structlog, OTel, Sentry setup
 ├── tests/
 │   ├── unit_qwen_auto.py
@@ -55,12 +62,16 @@ qwen-web/
 │   ├── e2e_qwen_auto.py
 │   ├── regression_qwen_auto.py
 │   ├── smoke_qwen_auto.py
-│   └── contract_qwen_auto.py
+│   ├── contract_qwen_auto.py
+│   ├── test_qwen_client_behavior.py
+│   ├── test_pipeline_fixtures.py
+│   ├── test_e2e_pipeline.py
+│   └── manual_probe.py
 ├── input/                  # Drop new .md prompt files here (root of todo)
 │   ├── done/               # Processed files moved here
 │   ├── failed/             # Files that failed after all retries
 │   └── .processing/        # Temporary lock directory during processing
-├── output/                 # Generated AI response .md files
+├── output/                 # Generated AI response .md files + .meta.json sidecars
 ├── log/                    # Structured logs and audit_history.jsonl
 ├── qwen_session/           # Persistent browser profile & session cookies
 ├── requirements.txt        # Python dependencies
@@ -104,9 +115,10 @@ python3 src/main.py
 │ 2. Batch Mode (folder)                           │
 │ 3. Single File Mode                              │
 │ 4. Manual Login / Session Setup                  │
-│ 5. Exit                                          │
+│ 5. Init Workspace                                │
+│ 6. Exit                                          │
 ╰──────────────────────────────────────────────────╯
-Select [1-5, default=1]:
+Select [1-6, default=1]:
 Run headless? [y/N, default=N]:
 ```
 
@@ -191,6 +203,21 @@ python3 src/main.py --mcp
 | `--cb-threshold`       | `INT`    | Consecutive failures before tripping circuit breaker     | `5`                         |
 | `--cb-window`          | `INT`    | Circuit breaker sliding window in seconds                | `30`                        |
 | `--retry-failed`       | None     | Re-process files in `failed/` directory on next run      | disabled                    |
+
+---
+
+## Error Handling
+
+The application uses a structured exception hierarchy:
+
+| Exception | When Raised |
+| :--- | :--- |
+| `AuthRequiredError` | Session expired, CAPTCHA detected, or login redirect |
+| `PromptInjectionError` | All injection strategies failed for prompt text |
+| `NetworkTimeoutError` | Browser network timeout or IPC error during streaming |
+| `OutputValidationError` | Response content failed sanity check (empty, CAPTCHA, error page) |
+| `CircuitBreakerOpenError` | Too many consecutive failures; processing aborted |
+| `BrowserLaunchError` | Playwright browser launch failed after retries |
 
 ---
 

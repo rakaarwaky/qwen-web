@@ -1,3 +1,15 @@
+"""Pipeline fixture helpers and golden task state management for tests."""
+
+from __future__ import annotations
+
+import shutil
+import time
+from pathlib import Path
+
+_MIN_RUN_INTERVAL_SECS = 2.0
+
+GOLDEN_TASKS: dict[str, str] = {
+    "role-architect": """\
 from __future__ import annotations
 
 import hashlib
@@ -20,7 +32,7 @@ class TokenPayload:
 
 
 class TokenFactory:
-    """Creates and validates HMAC-SHA256 signed tokens."""
+    \"\"\"Creates and validates HMAC-SHA256 signed tokens.\"\"\"
 
     def __init__(self, secret: str | None = None, ttl_seconds: int = 3600) -> None:
         self.secret = (secret or os.environ.get("AUTH_SECRET", "changeme")).encode()
@@ -65,7 +77,7 @@ class TokenFactory:
 
 
 class UserRepository:
-    """In-memory user store with password-hash lookup."""
+    \"\"\"In-memory user store with password-hash lookup.\"\"\"
 
     def __init__(self) -> None:
         self._db: dict[str, str] = {}
@@ -80,7 +92,7 @@ class UserRepository:
 
 
 class AuthService:
-    """Login / logout / session validation."""
+    \"\"\"Login / logout / session validation.\"\"\"
 
     def __init__(self, repo: UserRepository, tokens: TokenFactory) -> None:
         self.repo = repo
@@ -106,3 +118,76 @@ class AuthService:
 
     def logout(self, username: str) -> None:
         self._sessions.pop(username, None)
+""",
+    "role-business-analyst": """\
+# Business Requirements: Notification Service
+
+## User Story
+As a registered user, I want to receive real-time notifications for critical system events.
+
+## Acceptance Criteria
+- Email notification sent within 30 seconds of trigger.
+- User can opt-out via preference settings.
+- Retry up to 3 times on delivery failure.
+""",
+    "role-tech-lead": """\
+# Tech Lead Review: Authentication Module
+
+## Key Concerns
+1. HMAC secret defaults to 'changeme' — must require environment override in production.
+2. In-memory UserRepository lacks persistent database adapter.
+3. Add rate limiting to AuthService.login to prevent brute-force attacks.
+""",
+}
+
+
+def restore_fixture_state(fixture_root: Path, force: bool = False) -> None:
+    """Restores tests/fixtures/ to pristine state if run threshold elapsed."""
+    ts_file = fixture_root / ".last_run_ts"
+    now = time.time()
+
+    if not force and ts_file.exists():
+        try:
+            last_run = float(ts_file.read_text(encoding="utf-8").strip())
+            if now - last_run < _MIN_RUN_INTERVAL_SECS:
+                print(f"\n\U0001f504  [FIXTURE RESET] Light restore (last run {now - last_run:.1f}s ago — output preserved)")
+                _restore_todo_files(fixture_root)
+                return
+        except ValueError:
+            pass
+
+    print("\n\U0001f504  [FIXTURE RESET] Full restore to pristine state...")
+    _clean_output_dirs(fixture_root)
+    _restore_todo_files(fixture_root)
+    ts_file.write_text(str(now), encoding="utf-8")
+
+
+def _clean_output_dirs(fixture_root: Path) -> None:
+    for out_sub in (fixture_root / "output").iterdir():
+        if out_sub.is_dir():
+            shutil.rmtree(out_sub, ignore_errors=True)
+        elif out_sub.is_file() and out_sub.name != ".gitkeep":
+            out_sub.unlink(missing_ok=True)
+
+    log_dir = fixture_root / "log"
+    for log_file in log_dir.glob("*"):
+        if log_file.is_file() and log_file.name != ".gitkeep":
+            log_file.unlink(missing_ok=True)
+
+
+def _restore_todo_files(fixture_root: Path) -> None:
+    input_dir = fixture_root / "input"
+    for role, content in GOLDEN_TASKS.items():
+        role_dir = input_dir / role
+        role_dir.mkdir(parents=True, exist_ok=True)
+
+        for sub in ("done", "failed", ".processing"):
+            sub_dir = role_dir / sub
+            if sub_dir.exists():
+                shutil.rmtree(sub_dir, ignore_errors=True)
+
+        todo_dir = role_dir / "todo"
+        todo_dir.mkdir(parents=True, exist_ok=True)
+        task_file = todo_dir / "task_001.md"
+        if not task_file.exists() or task_file.read_text(encoding="utf-8").strip() != content.strip():
+            task_file.write_text(content, encoding="utf-8")

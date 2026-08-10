@@ -22,13 +22,7 @@ from typing import Any, List, Optional
 try:
     from mcp.server.fastmcp import FastMCP
 except ImportError:
-    try:
-        from mcp.server import MCPServer as FastMCP
-    except ImportError:
-        try:
-            from mcp.server.mcpserver import MCPServer as FastMCP
-        except ImportError:
-            FastMCP = None
+    FastMCP = None
 
 if not __package__:
     _src_dir = Path(__file__).resolve().parent

@@ -1,37 +1,35 @@
 # TEST.md — Behavior Regression Lock & TDD Workflow
 
 > **Purpose:** Lock the exact DOM selectors, JS injection strategies, and
-> response-detection behavior of `src/qwen_client.py` against the verified
-> live Qwen UI (Qwen3.8-Max, August 2026). When adding features later,
-> these tests fail first if old behavior silently regresses.
+> response-detection behavior against the verified live Qwen UI (Qwen3.8-Max,
+> August 2026). When adding features later, these tests fail first if old
+> behavior silently regresses.
 
 ---
 
 ## 1. What Is Locked
 
-The regression suite in `tests/test_qwen_client_behavior.py` exercises the
-**production methods directly** against a real headless Chromium + a local
-HTML fixture (`tests/fixtures/qwen_fixture.html`) that mirrors the exact DOM
-structure verified live on `chat.qwen.ai`.
+The regression suite exercises the **production methods directly** against a
+real headless Chromium + a local HTML fixture (`tests/fixtures/qwen_fixture.html`)
+that mirrors the exact DOM structure verified live on `chat.qwen.ai`.
 
-### Locked methods & their verified selectors/strategies
+### Locked modules & their verified behaviors
 
-| Method | Verified behavior | Source of truth |
-|--------|-------------------|-----------------|
-| `_find_input` | Matches `textarea.message-input-textarea` | Live probe 2026-08-09 |
-| `_upload_file_attachment` | Single strategy: `.mode-select-open` → `Upload attachment` → file chooser → `.message-input-column-file` card | Live probe 2026-08-09 |
-| `_inject_text` | Tier 1: React `HTMLTextAreaElement.prototype` setter; Tier 2: `navigator.clipboard.writeText` + Ctrl/Cmd+V | Live probe 2026-08-09 |
-| `_wait_for_input_parsed` | Waits for `.fileitem-file-size` + enabled send button | Live probe 2026-08-09 |
-| `_click_send` | Clicks `button[aria-label*='Send']`; Enter fallback | Live probe 2026-08-09 |
-| `_is_prompt_dispatched` | Checks `chatLog` for new `.markdown-body` message count increase | Live probe 2026-08-09 |
-| `_verify_attachment_in_dom` | `.message-input-column-file.visible` + filename substring | Live probe 2026-08-09 |
-| `_count_messages` | Counts `.markdown-body` nodes under `#chatLog`, excludes user-only nodes | Live probe 2026-08-09 |
-| `_latest_message_text` | Returns `.markdown-body` text of last assistant node | Live probe 2026-08-09 |
-| `_is_network_disconnected` | Detects `.ant-message-error` / `.ant-message-warning` | Live probe 2026-08-09 |
-| `_check_ui_error` | Extracts toast text; swallows Playwright errors gracefully | Live probe 2026-08-09 |
-| `_wait_for_response_inner` | 3-poll stability loop on `.assistant .markdown-body` | Live probe 2026-08-09 |
-| `send_file` | Full pipeline: new chat → attach → inject → parse wait → send → response | Live probe 2026-08-09 |
-| `send_prompt` | Same pipeline without attachment | Live probe 2026-08-09 |
+| Module | Method | Verified behavior | Source of truth |
+|--------|--------|-------------------|-----------------|
+| `prompt_injector.py` | `find_input` | Matches `textarea.message-input-textarea` | Live probe 2026-08-09 |
+| `prompt_injector.py` | `inject_text` | Tier 1: React `HTMLTextAreaElement.prototype` setter; Tier 2: clipboard paste; Tier 3: `fill()`/`type()` | Live probe 2026-08-09 |
+| `prompt_injector.py` | `type_slowly` | Character-by-character typing with error escalation | Live probe 2026-08-09 |
+| `file_uploader.py` | `upload_file_attachment` | `.mode-select-open` → `Upload attachment` → file chooser → `.message-input-column-file` card | Live probe 2026-08-09 |
+| `sender.py` | `click_send` | Clicks `button[aria-label*='Send']`; Enter fallback | Live probe 2026-08-09 |
+| `sender.py` | `count_messages` | Counts `.markdown-body` nodes under `#chatLog` | Live probe 2026-08-09 |
+| `sender.py` | `latest_message_text` | Returns `.markdown-body` text of last assistant node | Live probe 2026-08-09 |
+| `streamer.py` | `validate_response_content` | Detects CAPTCHA challenges, server error pages, empty responses | Live probe 2026-08-09 |
+| `streamer.py` | `wait_for_response` | Stability loop with output validation | Live probe 2026-08-09 |
+| `browser.py` | `SessionCheck.is_alive` | Verifies page readiness and textarea presence | Live probe 2026-08-09 |
+| `browser.py` | `SessionCheck.check_auth` | Detects login redirects and missing textarea | Live probe 2026-08-09 |
+| `qwen_client.py` | `send_file` | Full pipeline: new chat → attach → inject → parse wait → send → response | Live probe 2026-08-09 |
+| `qwen_client.py` | `send_prompt` | Same pipeline without attachment | Live probe 2026-08-09 |
 
 ### Dead code removed (verified 2026-08-09)
 
@@ -40,7 +38,7 @@ structure verified live on `chat.qwen.ai`.
 | `#filesUpload` `set_input_files` | Hidden input; UI no longer processes file uploads via this path |
 | `[aria-label*='Upload']` button click | Button no longer has upload aria-label |
 | `new DataTransfer(...)` JS injection | Depended on `#filesUpload` which is dead |
-| `fill()` / `type()` for injection | Fragile in React; replaced with React-setter + clipboard |
+| `fill()` / `type()` for primary injection | Fragile in React; replaced with React-setter + clipboard |
 
 ---
 
@@ -89,12 +87,14 @@ pytest tests/test_qwen_client_behavior.py --cov=src --cov-report=term-missing
 
 | Module | Target | Typical | Notes |
 |--------|--------|---------|-------|
-| `src/config.py` | 100% | 100% | Selectors & constants — fully locked |
-| `src/qwen_client.py` | 100% UI-behavior | ~72% | Uncovered: network/auth error branches, `start_new_chat` lifecycle |
+| `src/types.py` | 100% | 100% | Selectors & constants — fully locked |
+| `src/prompt_injector.py` | 100% UI-behavior | ~72% | Uncovered: error branches, clipboard fallback edge cases |
+| `src/sender.py` | 100% | ~90% | Uncovered: PlaywrightError fallback branches |
+| `src/streamer.py` | 100% | ~85% | Uncovered: network timeout branches |
 | `src/pipeline.py` | — | ~19% | Locked via `test_pipeline_fixtures.py` state management |
 
-The **72% qwen_client coverage** is the expected steady state: the uncovered
-28% are `except PlaywrightError`, `start_new_chat` network redirects,
+The **72-85% coverage** is the expected steady state: the uncovered percentages
+are `except PlaywrightError`, `start_new_chat` network redirects,
 `_wait_for_auth` login detection, and other error-handling branches that
 require live network/auth and are tested separately via `test_e2e_pipeline.py`.
 
@@ -112,7 +112,7 @@ require live network/auth and are tested separately via `test_e2e_pipeline.py`.
 2. **Write a failing test for the new feature** against `qwen_fixture.html`.
    Add elements/states to the fixture if needed.
 
-3. **Implement the feature** in `src/qwen_client.py` (or wherever).
+3. **Implement the feature** in the appropriate module.
 
 4. **Run the lock again**:
    - If old tests fail → you broke existing behavior. Fix before merging.
@@ -120,14 +120,14 @@ require live network/auth and are tested separately via `test_e2e_pipeline.py`.
 
 5. **If Qwen UI changes** (selector drift):
    - Update `qwen_fixture.html` to match the new DOM
-   - Update `src/config.py` selectors
+   - Update `src/types.py` selectors (if centralized)
    - Update the affected test(s)
    - Do NOT skip the test — that's how drift goes undetected.
 
 ### Golden rule
 
 > **The fixture is the single source of truth for DOM structure.**
-> If a selector in `src/config.py` doesn't work against `qwen_fixture.html`,
+> If a selector in production code doesn't work against `qwen_fixture.html`,
 > it doesn't work in production either. Fix the fixture + selector together,
 > never independently.
 
@@ -179,18 +179,21 @@ and a real display.
 
 ```
 tests/
-├── conftest.py                          # Your golden-task fixtures + my browser/behavior fixtures
+├── conftest.py                          # Golden-task fixtures + browser/behavior fixtures
 ├── fixtures/
 │   ├── qwen_fixture.html                # DOM mirror for behavior tests
 │   ├── input/                           # 1:1 production mirror (real task prompts)
 │   ├── output/
 │   └── log/
-├── test_qwen_client_behavior.py         # 28 behavior-lock tests (TDD safety net)
-├── test_pipeline_fixtures.py            # Your fixture state management tests
-├── test_e2e_pipeline.py                 # Your live E2E pipeline tests
+├── test_qwen_client_behavior.py         # Behavior-lock tests (TDD safety net)
+├── test_pipeline_fixtures.py            # Fixture state management tests
+├── test_e2e_pipeline.py                 # Live E2E pipeline tests
 └── manual_probe.py                      # Ad-hoc headed probe for live UI debugging
 src/
-├── config.py                            # Selectors & constants (locked by tests)
+├── types.py                             # Selectors & constants (locked by tests)
+├── prompt_injector.py                   # DOM text injection (locked by tests)
+├── sender.py                            # Send button & message counting (locked by tests)
+├── streamer.py                          # Response streaming & validation (locked by tests)
 └── qwen_client.py                       # Production code under test
 ```
 
@@ -203,3 +206,5 @@ src/
 | 2026-08-09 | Initial behavior lock: 28 tests, fixture mirror, dead-code removal | dev |
 | 2026-08-09 | Restored conftest golden-task fixtures from git HEAD | dev |
 | 2026-08-09 | Updated behavior-lock tests & TEST.md to match active P7 QwenClient architecture | dev |
+| 2026-08-10 | Updated module inventory to reflect decomposition into focused modules | dev |
+| 2026-08-10 | Added validate_response_content to locked behaviors | dev |

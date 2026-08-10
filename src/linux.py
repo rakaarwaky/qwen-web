@@ -53,44 +53,6 @@ class SingleInstanceLock:
                 pass
 
 
-class GracefulShutdown:
-    """Context manager that installs SIGINT/SIGTERM handlers and sets a flag."""
-
-    def __init__(self, root_dir: "Path | None" = None) -> None:
-        self._root_dir = root_dir or Path("/tmp")
-        self._shutdown_flag: threading.Event = threading.Event()
-        self._original_sigint: Any = None
-        self._original_sigterm: Any = None
-
-    def __enter__(self) -> "GracefulShutdown":
-        def _handler(_signum: int, _frame: Any) -> None:
-            self._shutdown_flag.set()
-
-        try:
-            self._original_sigint = signal.signal(signal.SIGINT, _handler)
-            self._original_sigterm = signal.signal(signal.SIGTERM, _handler)
-        except (OSError, ValueError):
-            pass
-        return self
-
-    def __exit__(
-        self,
-        exc_type: Any,
-        exc_value: Any,
-        traceback: Any,
-    ) -> None:
-        try:
-            if self._original_sigint is not None:
-                signal.signal(signal.SIGINT, self._original_sigint)
-            if self._original_sigterm is not None:
-                signal.signal(signal.SIGTERM, self._original_sigterm)
-        except (OSError, ValueError):
-            pass
-
-    def __call__(self) -> bool:
-        """Return True if shutdown has been requested."""
-        return self._shutdown_flag.is_set()
-
 
 def sd_notify(message: str, unset_environment: bool = False) -> None:
     """Send a message to systemd via the NOTIFY_SOCKET Unix datagram socket.

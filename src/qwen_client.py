@@ -122,9 +122,6 @@ class QwenClient:
     def _wait_for_response(self, timeout_sec: int, msg_count_before: int) -> str | None:
         return wait_for_response(self.page, timeout_sec, msg_count_before, self.emitter)
 
-    _detect_response_mutation = _wait_for_response
-    _adaptive_poll = _wait_for_response
-
     def __enter__(self) -> "QwenClient":
         self.start()
         return self

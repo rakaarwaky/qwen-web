@@ -1,20 +1,22 @@
 """Unit tests for 10/10 error handling & resilience coverage."""
-import pytest
+
+from __future__ import annotations
+
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+
+from src.saver import write_output
+from src.streamer import validate_response_content
 from src.types import (
     AuthRequiredError,
     CircuitBreaker,
-    CircuitBreakerOpenError,
-    ElementNotFoundError,
-    NetworkTimeoutError,
     OutputValidationError,
+    OutputWriteError,
     RateLimiter,
     RunContext,
 )
-from src.streamer import validate_response_content
-from src.saver import write_output
 
 
 def test_validate_response_content_valid():
@@ -57,12 +59,11 @@ def test_rate_limiter_acquisition():
     assert len(rl._timestamps) == 1
 
 
-def test_saver_error_handling():
+def test_saver_error_handling(tmp_path: Path):
     ctx = RunContext()
+    # Provide directory as target file to trigger OSError -> OutputWriteError
+    dir_as_file = tmp_path / "dir_target"
+    dir_as_file.mkdir()
 
-    mock_path = MagicMock(spec=Path)
-    mock_path.parent.mkdir.return_value = None
-    mock_path.write_text.side_effect = OSError("Disk space full")
-
-    with pytest.raises(OSError, match="Disk space full"):
-        write_output(mock_path, "test", ctx, "src.md", 1.0, 10, 10)
+    with pytest.raises(OutputWriteError, match="Failed to write output file"):
+        write_output(dir_as_file, "test content", ctx, "src.md", 1.0, 10, 12)

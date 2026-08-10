@@ -15,7 +15,7 @@ import pytest
 # These imports come from src/ via conftest.py sys.path injection
 from src.pipeline import (
     AuditLog,
-    _list_input_files,
+    _should_process_file,
     _write_output,
     load_role_prompt,
     resolve_role_paths,
@@ -25,50 +25,25 @@ from src.types import AppConfig, RunContext
 ROLES = ["role-architect", "role-business-analyst", "role-tech-lead"]
 
 
-# ─── _list_input_files ───────────────────────────────────────────────────────
+# ─── _should_process_file ───────────────────────────────────────────────────
 
-def test_list_input_files_finds_tasks(cfg: AppConfig) -> None:
-    """_list_input_files must find task_001.md in each role folder."""
-    files = _list_input_files(cfg.input_path)
-    rel_paths = [str(rel) for _, rel in files]
-
-    for role in ROLES:
-        expected = f"{role}/todo/task_001.md"
-        assert any(expected in p for p in rel_paths), (
-            f"Expected to find '{expected}' but got: {rel_paths}"
-        )
+def test_should_process_file_valid(cfg: AppConfig) -> None:
+    """_should_process_file must return True for task_001.md in role todo folders."""
+    task_file = cfg.input_path / "role-architect" / "todo" / "task_001.md"
+    assert _should_process_file(task_file, cfg.input_path) is True
 
 
-def test_list_input_files_skips_prompt_md(cfg: AppConfig) -> None:
-    """_list_input_files must skip PROMPT.md exactly as production does (line 227 pipeline.py)."""
-    files = _list_input_files(cfg.input_path)
-    rel_paths = [str(rel).upper() for _, rel in files]
-
-    assert not any("PROMPT.MD" in p for p in rel_paths), (
-        "PROMPT.md must be skipped by scanner — it is a role config, not a task"
-    )
+def test_should_process_file_skips_prompt_md(cfg: AppConfig) -> None:
+    """_should_process_file must skip PROMPT.md."""
+    prompt_file = cfg.input_path / "role-architect" / "PROMPT.md"
+    assert _should_process_file(prompt_file, cfg.input_path) is False
 
 
-def test_list_input_files_skips_done_failed_processing(cfg: AppConfig, tmp_path: Path) -> None:
-    """_list_input_files must skip done/, failed/, .processing/ subdirs."""
-    # Place a file in each skip-dir to confirm it is ignored
-    skip_dirs = ["done", "failed", ".processing"]
-    created: list[Path] = []
-    for d in skip_dirs:
+def test_should_process_file_skips_done_failed_processing(cfg: AppConfig) -> None:
+    """_should_process_file must skip done/, failed/, .processing/ subdirs."""
+    for d in ("done", "failed", ".processing"):
         p = cfg.input_path / "role-architect" / d / "should_be_skipped.md"
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text("skip me", encoding="utf-8")
-        created.append(p)
-
-    try:
-        files = _list_input_files(cfg.input_path)
-        rel_paths = [str(rel) for _, rel in files]
-        assert not any("should_be_skipped" in p for p in rel_paths), (
-            f"Files in skip dirs must be excluded. Found: {rel_paths}"
-        )
-    finally:
-        for p in created:
-            p.unlink(missing_ok=True)
+        assert _should_process_file(p, cfg.input_path) is False
 
 
 # ─── resolve_role_paths ──────────────────────────────────────────────────────

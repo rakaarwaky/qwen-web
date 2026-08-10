@@ -41,8 +41,7 @@ class TestQwenAutoContract(unittest.TestCase):
             "send_file",
             "reset_page",
             "stop",
-            "_detect_response_mutation",
-            "_adaptive_poll",
+            "_wait_for_response",
         ]
         for m in expected_methods:
             self.assertTrue(

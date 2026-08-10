@@ -12,7 +12,6 @@ Use this skill when an AI agent needs to send prompts or document files to **Qwe
 
 When connected via Model Context Protocol (MCP), use the following tools:
 
-
 | MCP Tool Name         | Description                                  | Key Parameters                                                                    |
 | :---------------------- | :--------------------------------------------- | :---------------------------------------------------------------------------------- |
 | `qwen_send_prompt`    | Send direct prompt text string to Qwen AI    | `prompt` (str), `timeout_sec` (int, default 120), `headless` (bool, default true) |
@@ -43,6 +42,7 @@ When connected via Model Context Protocol (MCP), use the following tools:
 
 - Use when processing an existing Markdown prompt file stored on disk.
 - Moves processed input to `input/done/` and writes output to the specified target path.
+- Creates `.meta.json` sidecar with traceability metadata.
 
 ```json
 {
@@ -51,9 +51,58 @@ When connected via Model Context Protocol (MCP), use the following tools:
 }
 ```
 
-### 3. Session Authentication (`qwen_setup_session`)
+### 3. Batch Processing (`qwen_process_batch`)
+
+- Use to process all pending files in the input directory at once.
+- Processes sequentially in a single browser session.
+
+```json
+{
+  "input_dir": "input/",
+  "output_dir": "output/",
+  "headless": true
+}
+```
+
+### 4. Continuous Watcher (`qwen_start_watcher`)
+
+- Use for long-running monitoring of the input directory.
+- Processes new files as they appear.
+
+```json
+{
+  "interval_sec": 3,
+  "headless": true
+}
+```
+
+### 5. Session Authentication (`qwen_setup_session`)
 
 - If session cookies expire or CAPTCHA is detected, invoke `qwen_setup_session` to launch a visible browser window for manual user login.
+
+### 6. Audit Trail (`qwen_get_audit_log`)
+
+- Retrieve recent execution records for debugging or monitoring.
+
+```json
+{
+  "limit": 20
+}
+```
+
+---
+
+## Error Handling
+
+The application raises specific exceptions for different failure modes:
+
+| Exception | Meaning | Agent Action |
+| :--- | :--- | :--- |
+| `AuthRequiredError` | Session expired or CAPTCHA detected | Call `qwen_setup_session` for re-authentication |
+| `NetworkTimeoutError` | Browser network timeout | Retry with increased `timeout_sec` |
+| `OutputValidationError` | Response contains error page or CAPTCHA | Retry or check input quality |
+| `CircuitBreakerOpenError` | Too many consecutive failures | Wait and retry later |
+| `PromptInjectionError` | Text injection failed | Check if Qwen UI has changed |
 
 ---
 
@@ -66,3 +115,36 @@ If MCP protocol is unavailable, run equivalent commands via terminal:
 - **Batch Folder CLI Mode**: `qwc -i input/ -o output/ --headless`
 - **Watcher Mode**: `qwc --watch --headless`
 - **Manual Login**: `qwc --login`
+- **Initialize Workspace**: `qwc init`
+
+---
+
+## Output Format
+
+Each processed file produces:
+
+1. **Output file** (`.md`): AI response with HTML comment metadata header containing:
+   - Run ID, Source File, Processed At (ISO timestamp)
+   - Duration, Input Characters, Output Characters
+
+2. **Metadata sidecar** (`.meta.json`): Machine-readable JSON with same traceability data.
+
+3. **Audit log entry** (JSONL): Appended to `log/audit_history.jsonl` with status, paths, and metrics.
+
+---
+
+## Session Management
+
+- Session cookies stored in `qwen_session/` (persistent across runs).
+- First run requires `--login` or interactive mode for manual authentication.
+- Subsequent runs can use `--headless` mode.
+- Session health checked automatically before each file processing.
+
+---
+
+## Resilience Features
+
+- **Retry**: Failed operations retried up to 3 times with exponential backoff.
+- **Circuit Breaker**: Stops processing after N consecutive failures within a time window.
+- **Rate Limiting**: Throttles requests to prevent overwhelming the Qwen API.
+- **Graceful Shutdown**: SIGINT/SIGTERM signals trigger clean shutdown of watcher loops.

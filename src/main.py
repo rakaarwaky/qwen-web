@@ -50,7 +50,6 @@ from .qwen_client import QwenClient
 from .pipeline import (
     AuditLog,
     _iter_todo,
-    _list_input_files,
     _process_file,
     is_watcher_shutdown_set,
     request_watcher_shutdown,
@@ -362,20 +361,14 @@ def _run_watcher(client: QwenClient, cfg: AppConfig, audit: AuditLog) -> None:
     )
 
 
-# ─── Global shutdown flag (for watcher signal handlers) ──────────────────────
-_shutdown_flag: bool = False
-
-
-def _shutdown_requested() -> bool:
-    """Check if shutdown has been requested."""
-    return _shutdown_flag or is_watcher_shutdown_set()
-
-
-def _signal_handler(signum: int, frame: Any) -> None:
-    """Handle SIGINT/SIGTERM for graceful watcher shutdown."""
-    global _shutdown_flag
-    _shutdown_flag = True
-    request_watcher_shutdown()
+from .pipeline import (
+    AuditLog,
+    _install_watcher_signal_handlers,
+    _iter_todo,
+    _process_file,
+    is_watcher_shutdown_set,
+    request_watcher_shutdown,
+)
 
 
 def main() -> int:
@@ -428,8 +421,7 @@ def main() -> int:
                 span.set_attribute("headless", cfg.headless)
 
             # Install signal handlers for graceful watcher shutdown (P4)
-            original_sigint = signal.signal(signal.SIGINT, _signal_handler)
-            original_sigterm = signal.signal(signal.SIGTERM, _signal_handler)
+            _install_watcher_signal_handlers()
 
             try:
                 with browser_session(cfg) as bctx:
@@ -449,15 +441,6 @@ def main() -> int:
                 log.exception("run_failed", error_type=type(e).__name__, error=str(e))
                 return exit_code_for(e)
             finally:
-                # Restore original signal handlers
-                try:
-                    if original_sigint is not None:
-                        signal.signal(signal.SIGINT, original_sigint)
-                    if original_sigterm is not None:
-                        signal.signal(signal.SIGTERM, original_sigterm)
-                except (OSError, ValueError):
-                    pass
-
                 # Notify systemd of graceful stop (P1)
                 sd_notify_stop()
 
