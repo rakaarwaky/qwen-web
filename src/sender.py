@@ -24,38 +24,60 @@ log = get_logger("sender")
 TEXTAREA_SELECTOR = "textarea.message-input-textarea"
 COMBINED_MESSAGE_SELECTOR = ", ".join(MESSAGE_SELECTORS)
 
-# JS that finds the last AI response block by looking for the largest text
-# element that is not inside the input/header/footer areas.
+# JS that finds the AI response text in the live Qwen DOM.
+# Strategy 1: look for known chat log containers (#chatLog, virtual-list, etc.)
+# Strategy 2: find the longest text block that is NOT inside known Qwen UI chrome elements.
+# Exclusion list is derived from live DOM inspection of chat.qwen.ai.
 _JS_GET_RESPONSE_TEXT = """
 () => {
-    var skip = ['SCRIPT','STYLE','TEXTAREA','INPUT','BUTTON','HEADER','FOOTER','NAV'];
-    var inputBox = document.querySelector('textarea.message-input-textarea');
+    // Strategy 1: known chat log containers - try last child text
+    var containers = ['#chatLog', '[class*="chat-log"]', '[class*="virtual-list"]',
+                      '[class*="message-list"]', '[class*="conversation-body"]',
+                      '[class*="dialog-content"]'];
+    for (var ci = 0; ci < containers.length; ci++) {
+        var container = document.querySelector(containers[ci]);
+        if (container && container.children.length > 0) {
+            var lastChild = container.children[container.children.length - 1];
+            var txt = (lastChild.innerText || '').trim();
+            if (txt.length > 20) return txt;
+        }
+    }
+
+    // Strategy 2: longest text outside known Qwen UI chrome
+    // These class substrings identify UI chrome to skip:
+    var SKIP_CLASSES = [
+        'model-selector', 'fileitem', 'placeholder', 'message-input',
+        'header', 'footer', 'feedback', 'downLoad', 'sidebar',
+        'mode-select', 'send-button', 'toolbar', 'nav', 'spinner',
+        'thinking', 'attachment', 'file-card', 'file-content',
+        'chat-footer', 'chat-prompt-recommend'
+    ];
+
+    function isInChrome(el) {
+        var p = el;
+        while (p) {
+            var cls = p.className;
+            if (cls && typeof cls === 'string') {
+                for (var i = 0; i < SKIP_CLASSES.length; i++) {
+                    if (cls.indexOf(SKIP_CLASSES[i]) >= 0) return true;
+                }
+            }
+            if (p.tagName === 'HEADER' || p.tagName === 'FOOTER' ||
+                p.tagName === 'NAV' || p.tagName === 'ASIDE') return true;
+            p = p.parentElement;
+        }
+        return false;
+    }
+
     var best = null;
     var bestLen = 0;
-    var all = document.querySelectorAll('div, p, pre, section, article');
+    var all = document.querySelectorAll('div, p, pre, section, article, main');
     for (var i = 0; i < all.length; i++) {
         var el = all[i];
-        if (skip.indexOf(el.tagName) >= 0) continue;
-        if (inputBox && inputBox.contains(el)) continue;
-        var pEl = el.parentElement;
-        var skip2 = false;
-        while (pEl) {
-            if (pEl.className && typeof pEl.className === 'string' &&
-                (pEl.className.indexOf('message-input') >= 0 ||
-                 pEl.className.indexOf('header') >= 0 ||
-                 pEl.className.indexOf('footer') >= 0 ||
-                 pEl.className.indexOf('feedback') >= 0 ||
-                 pEl.className.indexOf('downLoad') >= 0)) {
-                skip2 = true; break;
-            }
-            pEl = pEl.parentElement;
-        }
-        if (skip2) continue;
-        var txt = (el.innerText || '').trim();
-        if (txt.length > bestLen) {
-            bestLen = txt.length;
-            best = txt;
-        }
+        if (['SCRIPT','STYLE','TEXTAREA','INPUT','BUTTON'].indexOf(el.tagName) >= 0) continue;
+        if (isInChrome(el)) continue;
+        var txt2 = (el.innerText || '').trim();
+        if (txt2.length > bestLen) { bestLen = txt2.length; best = txt2; }
     }
     return best;
 }

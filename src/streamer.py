@@ -98,47 +98,26 @@ def wait_for_response(
     emitter.emit(EVENT_THINKING_STARTED)
     has_thinking = True
 
+    # Capture baseline page text so we can detect genuinely new content
+    baseline_text: str | None = latest_message_text(page)
+
     start = time.time()
     last_text: str | None = None
     stable_count = 0
-    _dom_dumped = False
 
     while time.time() - start < timeout_sec:
         try:
-            # DEBUG: one-shot DOM class dump to discover live selectors
-            if not _dom_dumped:
-                _dom_dumped = True
-                try:
-                    _js = """() => {
-                        var els = Array.from(document.querySelectorAll('div,p,pre,section,article'));
-                        var seen = {};
-                        var out = [];
-                        for (var i = 0; i < els.length; i++) {
-                            var el = els[i];
-                            var cls = el.className;
-                            if (!cls || typeof cls !== 'string') continue;
-                            if (seen[cls]) continue;
-                            seen[cls] = true;
-                            var txt = (el.innerText || '').trim().slice(0, 60);
-                            if (txt.length > 5) out.push(cls + ' ||| ' + txt);
-                            if (out.length >= 60) break;
-                        }
-                        return out.join('\\n');
-                    }"""
-                    dom_dump = page.evaluate(_js)
-                    log.info("DOM_DEBUG_DUMP:\n%s", dom_dump)
-                except Exception as _de:
-                    log.warning("DOM dump failed: %s", _de)
-
             count = count_messages(page)
             if count >= msg_count_before:
                 text = latest_message_text(page)
-                if text is not None and len(text) >= min_text_length:
+                # Only treat as new response if text differs from baseline page content
+                if text is not None and len(text) >= min_text_length and text != baseline_text:
                     if text == last_text:
                         stable_count += 1
                         is_complete = is_generation_complete(page)
-                        if has_thinking and has_streaming and stable_count >= stability_checks and is_complete:
-                            log.info("Response stabilized after %d checks (complete=%s)", stable_count, is_complete)
+                        force_complete = stable_count >= stability_checks * 2
+                        if has_thinking and has_streaming and stable_count >= stability_checks and (is_complete or force_complete):
+                            log.info("Response stabilized after %d checks (is_complete=%s, forced=%s)", stable_count, is_complete, force_complete)
                             validate_response_content(text)
                             emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(text)})
                             return text

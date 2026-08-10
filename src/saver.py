@@ -21,6 +21,30 @@ from .types import (
 log = get_logger("saver")
 
 
+def _strip_ui_noise(text: str) -> str:
+    """Remove Qwen UI chrome from the start of captured output.
+
+    When JS scrapes the live DOM, short UI strings (model name, file card,
+    placeholder) may appear before the actual AI response.  This trims
+    everything before the first line that looks like real content:
+    a markdown heading, a list item, a sentence, or a code fence.
+    """
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        # Skip blank lines and known Qwen UI noise tokens
+        if not stripped:
+            continue
+        if stripped in ("?", "Qwen3", "Qwen3.8-Max", "Qwen Plus", "Qwen Max",
+                        "Qwen Turbo", "Auto"):
+            continue
+        if stripped.endswith(".md") or stripped.endswith(" KB") or stripped.endswith(" B"):
+            continue
+        # First meaningful line found — return from here onwards
+        return "\n".join(lines[i:])
+    return text
+
+
 def _write_file_atomic(target_path: Path, data: str) -> None:
     """Atomically write text content to target path using a temporary file."""
     tmp_path = target_path.with_suffix(f"{target_path.suffix}.tmp")
@@ -81,7 +105,7 @@ def write_output(
             "-->\n\n"
         )
 
-    full_text = header + content
+    full_text = header + _strip_ui_noise(content)
 
     if cfg.atomic_write:
         _write_file_atomic(path, full_text)
