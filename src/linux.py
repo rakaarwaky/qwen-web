@@ -93,22 +93,28 @@ class GracefulShutdown:
 
 
 def sd_notify(message: str, unset_environment: bool = False) -> None:
-    """Send a message to systemd via the SD_LISTEN_PIDS / SD_NOTIFY socket."""
-    pid_str = os.environ.get("SD_LISTEN_PIDS", "")
-    if not pid_str:
+    """Send a message to systemd via the NOTIFY_SOCKET Unix datagram socket.
+
+    This is the real sd_notify protocol — NOT an environment variable hack.
+    systemd expects a UDP datagram sent to the Unix socket at $NOTIFY_SOCKET.
+    """
+    notify_socket = os.environ.get("NOTIFY_SOCKET")
+    if not notify_socket:
         return
 
+    import socket
     try:
-        if str(os.getpid()) not in pid_str:
-            return
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        if notify_socket[0] == "@":
+            notify_socket = "\0" + notify_socket[1:]
+        sock.connect(notify_socket)
+        sock.sendall(message.encode("utf-8"))
+        sock.close()
     except Exception:
         pass
 
-    os.environ.setdefault("SD_NOTIFY", "1")
-    os.environ["SD_NOTIFY"] = "1"
-
     if unset_environment:
-        for key in ("SD_LISTEN_PIDS", "SD_LISTEN_FDS", "SD_LISTEN_NAMES"):
+        for key in ("NOTIFY_SOCKET", "WATCHDOG_USEC", "WATCHDOG_PID"):
             os.environ.pop(key, None)
 
 

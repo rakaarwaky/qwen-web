@@ -117,6 +117,10 @@ class BrowserLaunchError(QwenCliError):
 class SingleInstanceError(RuntimeError):
     """Raised when another instance of qwen-cli is already running."""
 
+
+class ElementNotFoundError(QwenCliError):
+    """Raised when a required DOM element is not found on the page."""
+
 # ─── Enums / Categorical Helpers ─────────────────────────────────────────────
 
 class ErrorCategory:
@@ -315,92 +319,6 @@ class LifecycleEmitter:
         return evt
 
 
-# ─── Metrics counter (P8) ────────────────────────────────────────────────────
-
-class MetricsCounter:
-    """Simple in-memory metrics collector for request/file stats.
-
-    Thread-safe via threading.Lock.
-    """
-
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._counters: dict[str, int] = {}
-        self._start_time = datetime.now()
-
-    def increment(self, key: str, amount: int = 1) -> None:
-        """Increment a counter by amount."""
-        with self._lock:
-            self._counters[key] = self._counters.get(key, 0) + amount
-
-    def get(self, key: str) -> int:
-        """Get current counter value."""
-        with self._lock:
-            return self._counters.get(key, 0)
-
-    def snapshot(self) -> dict[str, Any]:
-        """Return a copy of all counters."""
-        with self._lock:
-            return dict(self._counters)
-
-
-# ─── Status file writer (P8) ────────────────────────────────────────────────
-
-class StatusFileWriter:
-    """Writes a JSON status file that systemd / monitoring tools can read.
-
-    The status file is updated on every major lifecycle event.
-    """
-
-    def __init__(self, status_path: Path) -> None:
-        self._status_path = status_path
-        self._status_path.parent.mkdir(parents=True, exist_ok=True)
-
-    def write(
-        self,
-        status: str,
-        mode: str,
-        headless: bool,
-        run_id: Optional[str] = None,
-        error: Optional[str] = None,
-        cpu_sec: Optional[float] = None,
-        files_processed: int = 0,
-        files_failed: int = 0,
-    ) -> None:
-        """Atomically write the current status to disk."""
-        rec: dict[str, Any] = {
-            "status": status,
-            "mode": mode,
-            "headless": headless,
-            "run_id": run_id,
-            "files_processed": files_processed,
-            "files_failed": files_failed,
-        }
-        if cpu_sec is not None:
-            rec["cpu_sec"] = round(cpu_sec, 2)
-        if error:
-            rec["error"] = error
-
-        tmp_path = self._status_path.with_suffix(".tmp")
-        try:
-            import json
-            tmp_path.write_text(
-                json.dumps(rec, ensure_ascii=False) + "\n",
-                encoding="utf-8",
-            )
-            tmp_path.rename(self._status_path)
-        except Exception:
-            pass
-
-    def read(self) -> Optional[dict[str, Any]]:
-        """Read the last written status file."""
-        try:
-            import json
-            return json.loads(self._status_path.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
-        except FileNotFoundError:
-            return None
-        except Exception:
-            return None
 
 # ─── Circuit Breaker Entity ──────────────────────────────────────────────────
 
@@ -458,116 +376,5 @@ class RateLimiter:
                 now = time.time()
         self._timestamps.append(time.time())
 
-# ─── Single-Instance Lock Entity ─────────────────────────────────────────────
-
-class SingleInstanceLock:
-    """File-based single-instance lock using fcntl.flock()."""
-
-    def __init__(self, lock_path: Optional[Path] = None) -> None:
-        import tempfile
-        self._lock_path = (
-            lock_path or Path(tempfile.gettempdir()) / "qwen-cli.lock"
-        )
-
-    def __enter__(self) -> SingleInstanceLock:
-        self._lock_fd = open(self._lock_path, "w")
-        try:
-            fcntl.flock(self._lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
-            self._lock_fd.close()
-            raise SingleInstanceError(
-                "Another instance of qwen-cli is already running. "
-                f"Lock file: {self._lock_path}"
-            )
-        return self
-
-    def __exit__(
-        self,
-        exc_type: Any,
-        exc_value: Any,
-        traceback: Any,
-    ) -> None:
-        try:
-            fcntl.flock(self._lock_fd.fileno(), fcntl.LOCK_UN)
-            self._lock_fd.close()
-        except Exception:
-            pass
-        finally:
-            try:
-                self._lock_path.unlink(missing_ok=True)
-            except Exception:
-                pass
-
-# ─── Graceful Shutdown Entity ────────────────────────────────────────────────
-
-class GracefulShutdown:
-    """Context manager that installs SIGINT/SIGTERM handlers and sets a flag."""
-
-    def __init__(self, root_dir: Optional[Path] = None) -> None:
-        self._root_dir = root_dir or Path("/tmp")
-        self._shutdown_flag: threading.Event = threading.Event()
-        self._original_sigint: Any = None
-        self._original_sigterm: Any = None
-
-    def __enter__(self) -> GracefulShutdown:
-        def _handler(_signum: int, _frame: Any) -> None:
-            self._shutdown_flag.set()
-
-        try:
-            self._original_sigint = signal.signal(signal.SIGINT, _handler)
-            self._original_sigterm = signal.signal(signal.SIGTERM, _handler)
-        except (OSError, ValueError):
-            pass
-        return self
-
-    def __exit__(
-        self,
-        exc_type: Any,
-        exc_value: Any,
-        traceback: Any,
-    ) -> None:
-        try:
-            if self._original_sigint is not None:
-                signal.signal(signal.SIGINT, self._original_sigint)
-            if self._original_sigterm is not None:
-                signal.signal(signal.SIGTERM, self._original_sigterm)
-        except (OSError, ValueError):
-            pass
-
-    def __call__(self) -> bool:
-        """Return True if shutdown has been requested."""
-        return self._shutdown_flag.is_set()
-
-
-# ─── sd_notify Functions ─────────────────────────────────────────────────────
-
-def sd_notify(message: str, unset_environment: bool = False) -> None:
-    """Send a message to systemd via the SD_LISTEN_PIDS / SD_NOTIFY socket."""
-    pid_str = os.environ.get("SD_LISTEN_PIDS", "")
-    if not pid_str:
-        return
-
-    try:
-        if str(os.getpid()) not in pid_str:
-            return
-    except Exception:
-        pass
-
-    os.environ.setdefault("SD_NOTIFY", "1")
-    os.environ["SD_NOTIFY"] = "1"
-
-    if unset_environment:
-        for key in ("SD_LISTEN_PIDS", "SD_LISTEN_FDS", "SD_LISTEN_NAMES"):
-            os.environ.pop(key, None)
-
-
-def sd_notify_ready() -> None:
-    """Notify systemd that the application is ready."""
-    sd_notify(SD_NOTIFY_READY)
-
-
-def sd_notify_stop() -> None:
-    """Notify systemd that the application is stopping gracefully."""
-    sd_notify(SD_NOTIFY_STOPPING)
 
 

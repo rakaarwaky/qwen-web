@@ -7,7 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 
-from playwright.sync_api import BrowserContext, Page
+from playwright.sync_api import Browser, BrowserContext, Page
 
 from .types import (
     AppConfig,
@@ -85,7 +85,9 @@ class QwenClient:
         msg_count_before = count_messages(self.page)
 
         find_input(self.page)
-        upload_attachment(self.page, filepath)
+        attached = upload_attachment(self.page, filepath)
+        if not attached:
+            log.warning("File upload failed, proceeding with text-only prompt: %s", filepath.name)
         inject_text(self.page, prompt)
         self.emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "char_count": len(prompt)})
         click_send(self.page, self.emitter)
@@ -101,7 +103,7 @@ class QwenClient:
             raise TimeoutError(f"Timeout after {timeout_sec}s: no response detected")
 
     # ─── Backward-compat delegates (tests call these directly) ───────────────
-    def _type_slowly(self, textarea: Any, text: str, delay_ms: float = 30) -> None:
+    def _type_slowly(self, textarea: Any, text: str, delay_ms: int = 30) -> None:
         _type_slowly_mod(self.page, textarea, text, delay_ms)
 
     def _count_messages(self) -> int:

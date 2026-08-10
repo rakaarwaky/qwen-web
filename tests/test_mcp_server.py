@@ -6,6 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from src.types import DEFAULT_LOG
 from src.mcp_server import (
     mcp,
@@ -14,6 +16,22 @@ from src.mcp_server import (
     qwen_send_prompt,
     qwen_setup_session,
 )
+
+
+@pytest.fixture(autouse=True)
+def _reset_event_loop():
+    """Reset asyncio event loop before each test to avoid Playwright contamination."""
+    try:
+        if hasattr(asyncio, "_set_running_loop"):
+            asyncio._set_running_loop(None)
+    except Exception:
+        pass
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    except Exception:
+        pass
+    yield
 
 
 class TestMCPServerTools(unittest.TestCase):

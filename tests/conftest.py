@@ -56,6 +56,23 @@ def browser_ctx() -> BrowserContext:
             pass
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _reset_event_loop_at_session_end():
+    """Reset asyncio event loop after session to prevent cross-module contamination."""
+    yield
+    import asyncio
+    try:
+        if hasattr(asyncio, "_set_running_loop"):
+            asyncio._set_running_loop(None)
+    except Exception:
+        pass
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    except Exception:
+        pass
+
+
 @pytest.fixture
 def page(browser_ctx: BrowserContext):
     pg = browser_ctx.new_page()
