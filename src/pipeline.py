@@ -284,9 +284,11 @@ def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> tuple[Path, Path, Path
     is_single_file_input = cfg.mode == "single" or bool(cfg.input_path.suffix) or cfg.input_path.is_file()
     base = DEFAULT_TODO if is_single_file_input else cfg.input_path
 
-    if parts and parts[0].startswith("role-"):
-        role_folder = parts[0]
-        sub_parts = parts[1:]
+    # Check if role-* exists in parts (either at start or anywhere in the path)
+    role_idx = next((i for i, p in enumerate(parts) if p.startswith("role-")), None)
+    if role_idx is not None:
+        role_folder = parts[role_idx]
+        sub_parts = parts[role_idx + 1:]
         if sub_parts and sub_parts[0] in ("todo", "done", "failed", ".processing", "proc"):
             sub_parts = sub_parts[1:]
         sub_path = Path(*sub_parts) if sub_parts else Path(rel_path.name)
