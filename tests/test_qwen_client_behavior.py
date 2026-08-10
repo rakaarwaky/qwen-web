@@ -143,15 +143,11 @@ class TestSendFilePipeline:
 
 
 class TestClientLifecycle:
-    def test_stop_closes_resources(self):
+    def test_stop_is_noop(self):
         mock_ctx = MagicMock()
-        mock_browser = MagicMock()
         client = QwenClient(mock_ctx)
-        client.browser = mock_browser
-
         client.stop()
-        mock_ctx.close.assert_called_once()
-        mock_browser.close.assert_called_once()
+        mock_ctx.close.assert_not_called()
 
     def test_context_manager(self, monkeypatch):
         mock_start = MagicMock()

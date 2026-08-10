@@ -7,13 +7,80 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterator
 
-from playwright.sync_api import BrowserContext, sync_playwright
+from playwright.sync_api import BrowserContext, Page, sync_playwright
 from tenacity import RetryCallState, Retrying, stop_after_attempt, wait_fixed
 
-from .types import AppConfig, AuthRequiredError, BrowserLaunchError
+from .types import AppConfig, AuthRequiredError, BrowserLaunchError, LifecycleEmitter, EVENT_NETWORK_RECONNECTING, EVENT_WEB_LOADED
 from .observability import get_logger, start_span
 
 log = get_logger("browser")
+
+
+# ─── Session stability check ─────────────────────────────────────────────────
+class SessionCheck:
+    """Validates that the browser session and Qwen chat UI are alive."""
+
+    def __init__(self, page: Page) -> None:
+        self.page = page
+
+    def is_alive(self) -> bool:
+        """Return True if the session is stable and the chat UI is responsive."""
+        try:
+            self.page.evaluate("() => document.readyState")
+            ready = self.page.evaluate("() => document.readyState")
+            if ready != "complete":
+                log.warning("session_check_failed", reason="page_not_ready", ready=ready)
+                return False
+
+            el = self.page.query_selector("textarea.message-input-textarea")
+            if not el:
+                log.warning("session_check_failed", reason="textarea_missing")
+                return False
+
+            return True
+        except Exception as exc:
+            log.warning("session_check_failed", reason=str(exc))
+            return False
+
+    def check_auth(self) -> None:
+        """Raise AuthRequiredError if the session is no longer authenticated."""
+        try:
+            current_url = self.page.url.lower()
+            if any(k in current_url for k in ("login", "passport", "auth", "signin")):
+                raise AuthRequiredError("Session expired — redirected to login page.")
+
+            self.page.query_selector("textarea.message-input-textarea")
+        except AuthRequiredError:
+            raise
+        except Exception as exc:
+            raise AuthRequiredError(f"Session invalid: {exc}")
+
+
+def reset_page(page: Page, emitter: LifecycleEmitter) -> None:
+    """Reset the page to a clean state by navigating back to chat.qwen.ai."""
+    try:
+        emitter.emit(EVENT_NETWORK_RECONNECTING, {"url": "https://chat.qwen.ai/"})
+        page.goto("https://chat.qwen.ai/", wait_until="domcontentloaded", timeout=10_000)
+        page.wait_for_load_state("domcontentloaded", timeout=15_000)
+    except Exception as e:
+        log.warning("Error resetting page: %s", e)
+
+
+def navigate_to_chat(page: Page, emitter: LifecycleEmitter) -> None:
+    """Navigate to chat.qwen.ai and emit WEB_LOADED."""
+    page.goto("https://chat.qwen.ai/", wait_until="domcontentloaded", timeout=30_000)
+    try:
+        page.wait_for_load_state("domcontentloaded", timeout=15_000)
+    except Exception:
+        pass
+    emitter.emit(EVENT_WEB_LOADED, {"url": page.url})
+
+
+def check_auth(page: Page) -> None:
+    """Raise AuthRequiredError if the page is on a login/auth URL."""
+    current_url = page.url.lower()
+    if any(k in current_url for k in ("login", "passport", "auth", "signin")):
+        raise AuthRequiredError("No active login session. Run 'qwc --login' to authenticate.")
 
 
 def _clean_stale_locks(user_data_dir: str) -> None:

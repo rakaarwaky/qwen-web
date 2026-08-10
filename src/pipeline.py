@@ -29,6 +29,7 @@ from .types import (
 )
 from .observability import get_logger, start_span
 from .qwen_client import QwenClient
+from .saver import write_output as _write_output
 
 log = get_logger("pipeline")
 
@@ -217,41 +218,6 @@ class AuditLog:
                 f.write(json.dumps(err_json_rec, ensure_ascii=False) + "\n")
 
 
-def _write_output(path: Path, content: str, ctx: RunContext, src: str, dur: float, in_c: int, out_c: int) -> None:
-    """Writes processed output to disk with metadata traceability header."""
-    header = (
-        "<!--\n"
-        "--- METADATA TRACEABILITY ---\n"
-        f"Run ID           : {ctx.run_id}\n"
-        f"Source File      : {src}\n"
-        f"Processed At     : {datetime.now().isoformat()}\n"
-        f"Duration         : {dur:.2f}s\n"
-        f"Input Characters : {in_c}\n"
-        f"Output Characters: {out_c}\n"
-        "-----------------------------\n"
-        "-->\n\n"
-    )
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(header + content, encoding="utf-8")
-
-    # P6: Write sidecar metadata JSON next to the output file
-    sidecar_path = path.with_suffix(".meta.json")
-    try:
-        meta = {
-            "run_id": ctx.run_id,
-            "source_file": src,
-            "processed_at": datetime.now().isoformat(),
-            "duration_sec": round(dur, 2),
-            "input_chars": in_c,
-            "output_chars": out_c,
-        }
-        sidecar_path.write_text(json.dumps(meta, ensure_ascii=False) + "\n", encoding="utf-8")
-    except Exception:
-        pass  # Non-fatal
-
-    log.info("output_file_copied", filename=path.name)
-
-
 def load_role_prompt(file_path: Path, custom_prompt_path: Optional[Path] = None, rel_path: Optional[Path] = None) -> str:
     """Dynamically loads custom PROMPT.md from file's parent role directory in input/."""
     if custom_prompt_path and custom_prompt_path.exists() and custom_prompt_path.is_file():
@@ -310,6 +276,7 @@ def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> Tuple[Path, Path, Path
     Returns (out_path, done_path, fail_path, proc_file).
     """
     parts = rel_path.parts
+    base = cfg.input_path.parent if cfg.input_path.is_file() else cfg.input_path
     if parts and parts[0].startswith("role-"):
         role_folder = parts[0]
         sub_parts = parts[1:]
@@ -318,9 +285,9 @@ def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> Tuple[Path, Path, Path
         sub_path = Path(*sub_parts) if sub_parts else Path(rel_path.name)
 
         out_path = cfg.output_path / role_folder / sub_path
-        done_path = DEFAULT_TODO / role_folder / "done" / sub_path
-        fail_path = DEFAULT_TODO / role_folder / "failed" / sub_path
-        proc_file = DEFAULT_TODO / role_folder / ".processing" / sub_path
+        done_path = base / role_folder / "done" / sub_path
+        fail_path = base / role_folder / "failed" / sub_path
+        proc_file = base / role_folder / ".processing" / sub_path
     else:
         sub_parts = parts
         if sub_parts and sub_parts[0] == "todo":

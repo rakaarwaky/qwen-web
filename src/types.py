@@ -234,25 +234,27 @@ class RunContext:
 # ─── Event System Types ──────────────────────────────────────────────────────
 
 class QwenEventType(StrEnum):
-    """Enterprise-level enum for Qwen Web pipeline event types."""
+    """Enterprise-level enum for Qwen Web pipeline event types (chronologically ordered)."""
 
-    THINKING_STARTED      = "EVENT_THINKING_STARTED"      # Qwen thinking
-    STREAMING_GENERATION  = "EVENT_STREAMING_GENERATION"  # Qwen typing (realtime)
-    GENERATION_FINISHED   = "EVENT_GENERATION_FINISHED"   # Qwen finished
-    DOCUMENT_PARSED       = "EVENT_DOCUMENT_PARSED"       # Document parsed
-    DISPATCH_ACKNOWLEDGED = "EVENT_DISPATCH_ACKNOWLEDGED" # Dispatch acknowledged
-    SEND_CLICKED          = "EVENT_SEND_CLICKED"          # Send clicked
     NETWORK_RECONNECTING  = "EVENT_NETWORK_RECONNECTING"  # Network reconnecting
-    OUTPUT_COPIED         = "EVENT_OUTPUT_COPIED"         # Output copied
+    WEB_LOADED            = "EVENT_WEB_LOADED"            # Web page loaded
+    DOCUMENT_PARSED       = "EVENT_DOCUMENT_PARSED"       # Document parsed
+    SEND_CLICKED          = "EVENT_SEND_CLICKED"          # Send button clicked
+    DISPATCH_ACKNOWLEDGED = "EVENT_DISPATCH_ACKNOWLEDGED" # Dispatch acknowledged
+    THINKING_STARTED      = "EVENT_THINKING_STARTED"      # Qwen AI thinking
+    STREAMING_GENERATION  = "EVENT_STREAMING_GENERATION"  # Qwen AI typing (realtime)
+    GENERATION_FINISHED   = "EVENT_GENERATION_FINISHED"   # Generation finished
+    OUTPUT_COPIED         = "EVENT_OUTPUT_COPIED"         # Output saved
 
 
+EVENT_NETWORK_RECONNECTING = QwenEventType.NETWORK_RECONNECTING
+EVENT_WEB_LOADED           = QwenEventType.WEB_LOADED
+EVENT_DOCUMENT_PARSED      = QwenEventType.DOCUMENT_PARSED
+EVENT_SEND_CLICKED         = QwenEventType.SEND_CLICKED
+EVENT_DISPATCH_ACKNOWLEDGED= QwenEventType.DISPATCH_ACKNOWLEDGED
 EVENT_THINKING_STARTED     = QwenEventType.THINKING_STARTED
 EVENT_STREAMING_GENERATION = QwenEventType.STREAMING_GENERATION
 EVENT_GENERATION_FINISHED  = QwenEventType.GENERATION_FINISHED
-EVENT_DOCUMENT_PARSED      = QwenEventType.DOCUMENT_PARSED
-EVENT_DISPATCH_ACKNOWLEDGED= QwenEventType.DISPATCH_ACKNOWLEDGED
-EVENT_SEND_CLICKED         = QwenEventType.SEND_CLICKED
-EVENT_NETWORK_RECONNECTING = QwenEventType.NETWORK_RECONNECTING
 EVENT_OUTPUT_COPIED        = QwenEventType.OUTPUT_COPIED
 
 
@@ -267,6 +269,19 @@ class LifecycleEvent:
 
 
 LifecycleCallback = Callable[[LifecycleEvent], None]
+
+
+EVENT_DESCRIPTIONS: dict[str, str] = {
+    "EVENT_NETWORK_RECONNECTING": "Reconnecting to Qwen Web...",
+    "EVENT_WEB_LOADED": "Qwen Web page loaded",
+    "EVENT_DOCUMENT_PARSED": "Document parsed",
+    "EVENT_SEND_CLICKED": "Send button clicked",
+    "EVENT_DISPATCH_ACKNOWLEDGED": "Dispatch acknowledged",
+    "EVENT_THINKING_STARTED": "Qwen AI thinking...",
+    "EVENT_STREAMING_GENERATION": "Qwen AI typing...",
+    "EVENT_GENERATION_FINISHED": "Generation finished",
+    "EVENT_OUTPUT_COPIED": "Output saved",
+}
 
 
 class LifecycleEmitter:
@@ -289,7 +304,9 @@ class LifecycleEmitter:
             details=details or {},
         )
         logger = logging.getLogger("qwen-cli")
-        logger.debug(f"lifecycle_event event_id={evt.event_id} event={key} details={details}")
+        label = EVENT_DESCRIPTIONS.get(key, key)
+        detail_str = f" - {details}" if details else ""
+        logger.info(f"[{key}] {label}{detail_str}")
         for cb in self._callbacks.get(key, []):
             try:
                 cb(evt)

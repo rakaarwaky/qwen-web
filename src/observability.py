@@ -291,7 +291,7 @@ def _configure_logging(log_path: Path) -> None:
         structlog.processors.format_exc_info,
     ]
 
-    is_dev = os.getenv("ENVIRONMENT", "production") == "development"
+    is_dev = os.getenv("ENVIRONMENT", "production") == "development" or sys.stderr.isatty()
     renderer = (
         structlog.dev.ConsoleRenderer(colors=True)
         if is_dev
