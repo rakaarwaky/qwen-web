@@ -18,7 +18,7 @@ htmlcov/
 # Playwright / browser artifacts
 qwen_session/
 tests/artifacts/
-
+tests/fixtures/qwen_session
 # IDE
 .idea/
 .vscode/
