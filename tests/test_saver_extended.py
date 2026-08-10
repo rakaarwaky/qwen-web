@@ -1,0 +1,126 @@
+"""Tests for saver.py — remaining uncovered lines in _strip_ui_noise, _write_file_atomic, write_output."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from src.saver import _strip_ui_noise, _write_file_atomic, write_output
+from src.types import OutputWriteError, RunContext, SaverConfig
+
+
+class TestStripUiNoise:
+    def test_strips_qwen_model_names(self):
+        text = "Qwen3\nQwen3.8-Max\nActual content here"
+        result = _strip_ui_noise(text)
+        assert "Qwen3" not in result
+        assert "Actual content here" in result
+
+    def test_strips_question_mark(self):
+        text = "?\nReal answer"
+        result = _strip_ui_noise(text)
+        assert result == "Real answer"
+
+    def test_strips_file_size_suffixes(self):
+        text = "12.5 KB\nDocument.docx\nReal content"
+        result = _strip_ui_noise(text)
+        assert "12.5 KB" not in result
+
+    def test_no_stripping_needed(self):
+        text = "# Heading\nSome content"
+        result = _strip_ui_noise(text)
+        assert result == text
+
+    def test_all_noise_returns_original(self):
+        text = "Qwen3\nQwen Plus\nAuto"
+        result = _strip_ui_noise(text)
+        assert result == text
+
+    def test_blank_lines_before_content(self):
+        text = "\n\n\nReal content"
+        result = _strip_ui_noise(text)
+        assert "Real content" in result
+
+    def test_empty_string(self):
+        assert _strip_ui_noise("") == ""
+
+
+class TestWriteFileAtomic:
+    def test_atomic_write(self, tmp_path):
+        target = tmp_path / "output.md"
+        _write_file_atomic(target, "hello world")
+        assert target.read_text() == "hello world"
+
+    def test_creates_parent_dirs(self, tmp_path):
+        target = tmp_path / "sub" / "dir" / "file.md"
+        _write_file_atomic(target, "nested")
+        assert target.read_text() == "nested"
+
+
+class TestWriteOutputExtended:
+    def test_with_sidecar(self, tmp_path):
+        out_file = tmp_path / "result.md"
+        ctx = RunContext()
+        write_output(
+            path=out_file,
+            content="AI answer",
+            ctx=ctx,
+            src="input.md",
+            dur=1.0,
+            input_chars=5,
+            output_chars=9,
+        )
+        sidecar = out_file.with_suffix(".meta.json")
+        assert sidecar.exists()
+        meta = json.loads(sidecar.read_text())
+        assert meta["run_id"] == ctx.run_id
+
+    def test_without_sidecar(self, tmp_path):
+        out_file = tmp_path / "plain.md"
+        ctx = RunContext()
+        cfg = SaverConfig(generate_sidecar=False)
+        write_output(
+            path=out_file,
+            content="plain",
+            ctx=ctx,
+            src="in.md",
+            dur=0.1,
+            input_chars=2,
+            output_chars=5,
+            config=cfg,
+        )
+        assert not out_file.with_suffix(".meta.json").exists()
+
+    def test_non_atomic_write(self, tmp_path):
+        out_file = tmp_path / "result.md"
+        ctx = RunContext()
+        cfg = SaverConfig(atomic_write=False)
+        write_output(
+            path=out_file,
+            content="data",
+            ctx=ctx,
+            src="in.md",
+            dur=0.1,
+            input_chars=2,
+            output_chars=4,
+            config=cfg,
+        )
+        assert out_file.exists()
+
+    def test_strips_ui_noise(self, tmp_path):
+        out_file = tmp_path / "result.md"
+        ctx = RunContext()
+        write_output(
+            path=out_file,
+            content="Qwen3\nReal content here",
+            ctx=ctx,
+            src="in.md",
+            dur=0.1,
+            input_chars=2,
+            output_chars=20,
+        )
+        content = out_file.read_text()
+        assert "Qwen3" not in content
+        assert "Real content here" in content

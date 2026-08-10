@@ -1,84 +1,113 @@
-"""Unit tests for enterprise file_uploader module."""
+"""Tests for file_uploader.py — validate_file, _close_dropdown_if_open, upload_attachment."""
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from src.file_uploader import (
-    FileValidationError,
-    UploadConfig,
     _close_dropdown_if_open,
     upload_attachment,
     validate_file,
 )
+from src.types import FileValidationError, LifecycleEmitter
 
 
-def test_validate_file_success(tmp_path: Path):
-    test_file = tmp_path / "test.txt"
-    test_file.write_text("hello world")
+class TestValidateFile:
+    def test_valid_file(self, tmp_path):
+        f = tmp_path / "test.md"
+        f.write_text("hello")
+        size = validate_file(f)
+        assert size == 5
 
-    size = validate_file(test_file, max_size_mb=1.0)
-    assert size == 11
+    def test_nonexistent_file(self, tmp_path):
+        with pytest.raises(FileValidationError, match="does not exist"):
+            validate_file(tmp_path / "nope.md")
 
+    def test_directory_not_file(self, tmp_path):
+        with pytest.raises(FileValidationError, match="not a regular file"):
+            validate_file(tmp_path)
 
-def test_validate_file_non_existent():
-    path = Path("/non/existent/file.txt")
-    with pytest.raises(FileValidationError, match="does not exist"):
-        validate_file(path)
+    def test_unreadable_file(self, tmp_path):
+        f = tmp_path / "locked.md"
+        f.write_text("locked")
+        os.chmod(f, 0o000)
+        try:
+            with pytest.raises(FileValidationError, match="not readable"):
+                validate_file(f)
+        finally:
+            os.chmod(f, 0o644)
 
-
-def test_validate_file_too_large(tmp_path: Path):
-    test_file = tmp_path / "big.bin"
-    test_file.write_bytes(b"0" * 1024 * 1024 * 2)  # 2 MB
-
-    with pytest.raises(FileValidationError, match="exceeds maximum limit"):
-        validate_file(test_file, max_size_mb=1.0)
-
-
-def test_close_dropdown_if_open():
-    mock_page = MagicMock()
-    _close_dropdown_if_open(mock_page)
-    mock_page.keyboard.press.assert_called_once_with("Escape")
-
-
-def test_upload_attachment_success(tmp_path: Path):
-    test_file = tmp_path / "sample.pdf"
-    test_file.write_text("pdf content")
-
-    mock_page = MagicMock()
-    mock_locator = MagicMock()
-    mock_page.locator.return_value = mock_locator
-    mock_locator.first = mock_locator
-    mock_locator.is_visible.return_value = True
-
-    mock_file_chooser = MagicMock()
-    mock_expect_context = MagicMock()
-    mock_expect_context.__enter__.return_value = mock_file_chooser
-    mock_page.expect_file_chooser.return_value = mock_expect_context
-
-    result = upload_attachment(mock_page, test_file)
-
-    assert result is True
-    mock_file_chooser.value.set_files.assert_called_once_with(str(test_file))
+    def test_file_too_large(self, tmp_path):
+        f = tmp_path / "big.md"
+        f.write_text("x" * 1024)
+        with pytest.raises(FileValidationError, match="exceeds maximum"):
+            validate_file(f, max_size_mb=0.0001)
 
 
-def test_upload_attachment_timeout_with_retry_and_recovery(tmp_path: Path):
-    test_file = tmp_path / "sample.txt"
-    test_file.write_text("content")
+class TestCloseDropdownIfOpen:
+    def test_presses_escape(self):
+        page = MagicMock()
+        _close_dropdown_if_open(page)
+        page.keyboard.press.assert_called_once_with("Escape")
 
-    mock_page = MagicMock()
-    mock_locator = MagicMock()
-    mock_page.locator.return_value = mock_locator
-    mock_locator.first = mock_locator
-    mock_locator.click.side_effect = PlaywrightTimeoutError("UI timeout")
+    def test_handles_exception(self):
+        page = MagicMock()
+        page.keyboard.press.side_effect = Exception("page closed")
+        _close_dropdown_if_open(page)
 
-    config = UploadConfig(max_retries=1, backoff_delay_sec=0.01)
-    result = upload_attachment(mock_page, test_file, config=config)
 
-    assert result is False
-    # Check escape key attempt on retry cleanup
-    assert mock_page.keyboard.press.call_count >= 1
+class TestUploadAttachment:
+    def test_web_not_loaded_raises(self):
+        page = MagicMock()
+        with pytest.raises(RuntimeError, match="web page loading"):
+            upload_attachment(page, Path("/fake.md"), web_loaded=False)
+
+    def test_file_validation_failure_returns_false(self, tmp_path):
+        f = tmp_path / "nope.md"
+        page = MagicMock()
+        result = upload_attachment(page, f)
+        assert result is False
+
+    def test_upload_returns_true(self, tmp_path):
+        f = tmp_path / "test.md"
+        f.write_text("hello")
+        page = MagicMock()
+
+        mock_dropdown = MagicMock()
+        mock_dropdown.is_visible.return_value = True
+        mock_option = MagicMock()
+        mock_option.is_visible.return_value = True
+
+        page.locator.return_value.first = mock_dropdown
+
+        mock_fc = MagicMock()
+        page.expect_file_chooser.return_value.__enter__ = MagicMock(return_value=mock_fc)
+        page.expect_file_chooser.return_value.__exit__ = MagicMock(return_value=False)
+
+        with patch("src.file_uploader._try_upload_attempt", return_value=True):
+            result = upload_attachment(page, f)
+            assert result is True
+
+    def test_emitter_called_on_success(self, tmp_path):
+        f = tmp_path / "test.md"
+        f.write_text("hello")
+        page = MagicMock()
+        emitter = MagicMock(spec=LifecycleEmitter)
+
+        with patch("src.file_uploader._try_upload_attempt", return_value=True):
+            upload_attachment(page, f, emitter=emitter)
+            emitter.emit.assert_called_once()
+
+    def test_retry_on_failure(self, tmp_path):
+        f = tmp_path / "test.md"
+        f.write_text("hello")
+        page = MagicMock()
+
+        with patch("src.file_uploader._try_upload_attempt", side_effect=[False, False, True]), \
+             patch("src.file_uploader.time"):
+            result = upload_attachment(page, f, config=None)
+            assert result is True

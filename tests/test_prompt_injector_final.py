@@ -1,0 +1,68 @@
+"""Tests for prompt_injector.py — remaining uncovered lines."""
+
+from __future__ import annotations
+
+from unittest.mock import MagicMock
+
+import pytest
+from playwright.sync_api import Error as PlaywrightError
+
+from src.prompt_injector import _verify_injection, inject_text
+from src.types import PromptInjectionError
+
+
+class TestVerifyInjectionExtended:
+    def test_verify_numeric_value(self):
+        el = MagicMock()
+        el.evaluate.return_value = 0
+        assert _verify_injection(el) is False
+
+    def test_verify_list_value(self):
+        el = MagicMock()
+        el.evaluate.return_value = ["text"]
+        assert _verify_injection(el) is True
+
+    def test_verify_empty_list(self):
+        el = MagicMock()
+        el.evaluate.return_value = []
+        assert _verify_injection(el) is False
+
+
+class TestInjectTextExtended:
+    def test_react_strategy_js_exception(self):
+        page = MagicMock()
+        el = MagicMock()
+        page.wait_for_selector.return_value = el
+        # React JS raises PlaywrightError
+        page.evaluate.side_effect = PlaywrightError("script error")
+        # fill works
+        inject_text(page, "text via fill")
+        el.fill.assert_called_once()
+
+    def test_contenteditable_js_returns_false(self):
+        page = MagicMock()
+        el = MagicMock()
+        page.wait_for_selector.return_value = el
+        # React returns False, contenteditable returns False
+        page.evaluate.side_effect = [False, False]
+        inject_text(page, "text via fill")
+        el.fill.assert_called_once()
+
+    def test_react_strategy_verification_fails(self):
+        page = MagicMock()
+        el = MagicMock()
+        page.wait_for_selector.return_value = el
+        # React inject returns True, but verification returns empty
+        # This causes all strategies to fail verification
+        el.evaluate.return_value = ""
+        page.evaluate.side_effect = [True, False]  # react inject, contenteditable
+        with pytest.raises(PromptInjectionError, match="All injection strategies"):
+            inject_text(page, "text via fill")
+
+    def test_focus_failure_before_inject(self):
+        page = MagicMock()
+        el = MagicMock()
+        page.wait_for_selector.return_value = el
+        el.focus.side_effect = PlaywrightError("disconnected")
+        page.evaluate.side_effect = [True, True]  # React succeeds despite focus fail
+        inject_text(page, "text after focus fail")
