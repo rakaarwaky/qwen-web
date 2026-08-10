@@ -256,8 +256,8 @@ def _interactive_prompt() -> AppConfig | None:
                 headless=headless,
             )
         else:
-            input_file = input("Enter input file path [default: input.md]: ").strip() or "input.md"
-            output_file = input("Enter output file path [default: output.md]: ").strip() or "output.md"
+            input_file = input(f"Enter input file path [default: {DEFAULT_TODO}]: ").strip() or str(DEFAULT_TODO)
+            output_file = input(f"Enter output file path [default: {DEFAULT_OUTPUT}]: ").strip() or str(DEFAULT_OUTPUT)
             return AppConfig(
                 mode=mode,
                 input_path=Path(input_file),
