@@ -163,16 +163,19 @@ def restore_fixture_state(fixture_root: Path, force: bool = False) -> None:
 
 
 def _clean_output_dirs(fixture_root: Path) -> None:
-    for out_sub in (fixture_root / "output").iterdir():
-        if out_sub.is_dir():
-            shutil.rmtree(out_sub, ignore_errors=True)
-        elif out_sub.is_file() and out_sub.name != ".gitkeep":
-            out_sub.unlink(missing_ok=True)
+    output_dir = fixture_root / "output"
+    if output_dir.exists():
+        for out_sub in output_dir.iterdir():
+            if out_sub.is_dir():
+                shutil.rmtree(out_sub, ignore_errors=True)
+            elif out_sub.is_file() and out_sub.name != ".gitkeep":
+                out_sub.unlink(missing_ok=True)
 
     log_dir = fixture_root / "log"
-    for log_file in log_dir.glob("*"):
-        if log_file.is_file() and log_file.name != ".gitkeep":
-            log_file.unlink(missing_ok=True)
+    if log_dir.exists():
+        for log_file in log_dir.glob("*"):
+            if log_file.is_file() and log_file.name != ".gitkeep":
+                log_file.unlink(missing_ok=True)
 
 
 def _restore_todo_files(fixture_root: Path) -> None:
