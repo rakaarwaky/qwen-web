@@ -115,6 +115,7 @@ class AuditLog:
     """Logs structured JSONL audit history and error traces with step-level context."""
 
     def __init__(self, log_dir: Path | None = None) -> None:
+        """Initialize audit log files in the target directory."""
         target_dir = log_dir or DEFAULT_LOG
         target_dir.mkdir(parents=True, exist_ok=True)
         self._audit = target_dir / "audit_history.jsonl"
@@ -129,7 +130,7 @@ class AuditLog:
         status: str,
         details: dict[str, Any] | None = None,
     ) -> None:
-        """Logs granular step-by-step event execution for end-to-end traceability."""
+        """Log granular step-by-step event execution for end-to-end traceability."""
         rec: dict[str, Any] = {
             "run_id": ctx.run_id,
             "timestamp": datetime.now().isoformat(),
@@ -154,6 +155,7 @@ class AuditLog:
         out_c: int,
         err: str = "",
     ) -> None:
+        """Log a completed file processing result with duration and character counts."""
         rec = {
             "run_id": ctx.run_id,
             "timestamp": datetime.now().isoformat(),
@@ -187,13 +189,45 @@ class AuditLog:
 
 
 def _extract_prompt_text(content: str) -> str:
-    """Strips YAML frontmatter header if present."""
+    """Strip YAML frontmatter header if present."""
     stripped = content.strip()
     if stripped.startswith("---"):
         parts = stripped.split("---", 2)
         if len(parts) >= 3:
             return parts[2].strip()
     return stripped
+
+
+def _strip_input_from_output(text: str, full_prompt: str) -> str:
+    """Strip leaked input content from AI response.
+
+    When DOM scraping returns user input mixed with AI response,
+    this strips the prompt prefix to return only the AI's output.
+    """
+    if not text or not full_prompt:
+        return text
+
+    prompt_stripped = full_prompt.strip()
+    text_stripped = text.strip()
+
+    if text_stripped.startswith(prompt_stripped):
+        candidate = text_stripped[len(prompt_stripped):].lstrip("\n")
+        if len(candidate.strip()) > 20:
+            log.info("Stripped %d chars of leaked input from response", len(prompt_stripped))
+            return candidate
+
+    lines = text_stripped.splitlines()
+    prompt_lines = set(prompt_stripped.splitlines())
+    if prompt_lines and len(prompt_lines) > 5:
+        matching = sum(1 for l in lines if l.strip() in prompt_lines)
+        if matching >= len(prompt_lines) * 0.8 and matching > 3:
+            filtered = [l for l in lines if l.strip() not in prompt_lines]
+            result = "\n".join(filtered).strip()
+            if len(result) > 20:
+                log.info("Filtered %d matching prompt lines from response", matching)
+                return result
+
+    return text
 
 
 def _get_role_search_directories(file_path: Path, rel_path: Path | None) -> list[Path]:
@@ -242,7 +276,7 @@ def load_role_prompt(
 
 
 def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> tuple[Path, Path, Path, Path]:
-    """Resolves role-based paths for output, done, failed, and processing.
+    """Resolve role-based paths for output, done, failed, and processing.
 
     Returns (out_path, done_path, fail_path, proc_file).
     """
@@ -410,8 +444,14 @@ def _execute_single_attempt(
 ) -> str:
     """Execute single attempt to process file through QwenClient."""
     rl.acquire()
+
+    role_prompt = load_role_prompt(proc_file, cfg.prompt_file, rel_path)
+    full_prompt = f"{role_prompt}\n\n{prompt}" if role_prompt else prompt
+
     text = client.send_file(proc_file, cfg.timeout, custom_prompt_path=cfg.prompt_file, rel_path=rel_path)
     dur = time.time() - t0
+
+    text = _strip_input_from_output(text, full_prompt)
 
     cb.record_success()
     _write_output(out_path, text, ctx, str(rel_path), dur, len(prompt), len(text))
@@ -433,7 +473,7 @@ def _execute_single_attempt(
 
 
 def _cleanup_empty_dirs(dir_path: Path, root_limit: Path) -> None:
-    """Removes empty parent directories up to root_limit."""
+    """Remove empty parent directories up to root_limit."""
     try:
         curr = dir_path
         root_res = root_limit.resolve()
@@ -494,7 +534,7 @@ def _process_file(
     cb: CircuitBreaker | None = None,
     rl: RateLimiter | None = None,
 ) -> None:
-    """Processes single file through Qwen web client with tenacity retry and quarantine handling."""
+    """Process single file through Qwen web client with tenacity retry and quarantine handling."""
     out_path, done_path, fail_path, _ = resolve_role_paths(rel_path, cfg)
 
     active_cb = cb or CircuitBreaker(

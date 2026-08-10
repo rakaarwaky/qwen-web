@@ -85,6 +85,7 @@ def write_output(
 
     Raises:
         OutputWriteError: If primary file write operation fails.
+
     """
     cfg = config or DEFAULT_SAVER_CONFIG
     processed_at = datetime.now()

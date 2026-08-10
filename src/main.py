@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""
-qwen-cli v4: Production-grade automation for chat.qwen.ai.
+"""qwen-cli v4: Production-grade automation for chat.qwen.ai.
+
 Main execution entrypoint and CLI argument parser.
 """
 from __future__ import annotations
@@ -150,6 +150,19 @@ def run_init(target_dir: Path | str = ".") -> None:
 
 
 def _run_manual_login(cfg: AppConfig) -> None:
+    """Launch visible browser for interactive login and save session cookies.
+
+    Opens chat.qwen.ai in a visible browser window, prompts the user to log in
+    manually (including CAPTCHA resolution), and persists the session data to
+    cfg.session_path so subsequent headless runs can reuse the authenticated state.
+
+    Args:
+        cfg: AppConfig with mode='login' and headless=False.
+
+    Raises:
+        SystemExit: If stdin is not a TTY (interactive terminal required).
+
+    """
     if not sys.stdin.isatty():
         print("[ERROR] Manual login requires an interactive terminal (TTY).", file=sys.stderr)
         sys.exit(1)
@@ -171,6 +184,16 @@ def _run_manual_login(cfg: AppConfig) -> None:
 
 
 def _interactive_prompt() -> AppConfig | None:
+    """Display interactive TUI menu and build AppConfig from user selections.
+
+    Presents a numbered menu for selecting operation mode (watcher, batch, single,
+    login, init, exit), collects headless preference, and resolves input/output
+    paths. Returns None if the user selects exit or init.
+
+    Returns:
+        AppConfig built from user selections, or None to exit.
+
+    """
     if not sys.stdin.isatty():
         print("[ERROR] Interactive mode requires a TTY. Please provide CLI arguments.", file=sys.stderr)
         return None
@@ -251,6 +274,13 @@ def _interactive_prompt() -> AppConfig | None:
 
 
 def _parse_args() -> argparse.Namespace:
+    """Parse CLI arguments for qwen-cli subcommands and options.
+
+    Returns:
+        argparse.Namespace with all parsed arguments including mode flags,
+        path overrides, timeout/rate-limit/circuit-breaker settings, and MCP flag.
+
+    """
     p = argparse.ArgumentParser(prog="qwen-cli", description="Automate chat.qwen.ai")
     p.add_argument("command", nargs="?", default=None, help="Subcommand (e.g. init)")
     p.add_argument("target_dir", nargs="?", default=None, help="Target directory for init subcommand")
@@ -283,6 +313,18 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _build_config(args: argparse.Namespace) -> AppConfig:
+    """Build AppConfig from parsed CLI arguments.
+
+    Derives the operation mode from flags (--login, --watch, or input path type)
+    and maps all CLI arguments to their corresponding AppConfig fields.
+
+    Args:
+        args: Parsed argparse.Namespace from _parse_args().
+
+    Returns:
+        Fully constructed AppConfig ready for execution.
+
+    """
     if args.login:
         mode_val: str = "login"
     elif args.watch:
@@ -370,6 +412,16 @@ from .pipeline import (
 
 
 def main() -> int:
+    """Run the main entrypoint for qwen-cli.
+
+    Handles argument parsing, mode dispatch (login/watcher/batch/single/MCP/init),
+    observability setup, single-instance locking, browser session management, and
+    graceful shutdown via signal handlers.
+
+    Returns:
+        Process exit code: 0=success, 1=general error, 2=auth required, 130=SIGINT.
+
+    """
     # Check if MCP server mode requested
     args = _parse_args() if len(sys.argv) > 1 else None
     if args and getattr(args, "mcp", False):

@@ -49,6 +49,7 @@ class QwenClient:
         cfg: AppConfig | None = None,
         emitter: LifecycleEmitter | None = None,
     ) -> None:
+        """Initialize QwenClient with browser context, config, and event emitter."""
         self.cfg = cfg
         self.browser: Browser | None = None
         self.context: BrowserContext | None = ctx
@@ -62,12 +63,12 @@ class QwenClient:
         """No-op — browser context is managed externally via browser_session()."""
 
     def reset_page(self) -> None:
-        """Resets the page to a clean state."""
+        """Reset the page to a clean state."""
         if self.page:
             _reset_page(self.page, self.emitter)
 
     def send_file(self, filepath: Path, timeout_sec: int, custom_prompt_path: Path | None = None, rel_path: Path | None = None) -> str:
-        """Sends a prompt file to chat.qwen.ai and returns the full AI response as text."""
+        """Send a prompt file to chat.qwen.ai and return the full AI response as text."""
         if not self.page:
             raise RuntimeError("Browser not started. Call start() first.")
 
@@ -120,8 +121,10 @@ class QwenClient:
         return wait_for_response(self.page, timeout_sec, msg_count_before, self.emitter, dispatch_acknowledged=dispatch_acknowledged) if self.page else None
 
     def __enter__(self) -> QwenClient:
+        """Enter the context manager and start the client."""
         self.start()
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Exit the context manager and stop the client."""
         self.stop()

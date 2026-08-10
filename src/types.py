@@ -21,6 +21,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 def _get_xdg_dir(env_var: str, default_subpath: str) -> Path:
+    """Resolve an XDG Base Directory Specification path.
+
+    Checks the environment variable first; falls back to ~/default_subpath.
+    Appends 'qwen-web' as the application subdirectory.
+
+    Args:
+        env_var: Name of the XDG environment variable (e.g. XDG_DATA_HOME).
+        default_subpath: Fallback subdirectory under $HOME when env_var is unset.
+
+    Returns:
+        Resolved Path for the application's XDG directory.
+
+    """
     env_val = os.getenv(env_var)
     if env_val:
         return Path(env_val) / "qwen-web"
@@ -421,6 +434,7 @@ class AppConfig:
         ------
         ValueError
             If any configuration value is invalid.
+
         """
         if self.timeout < 30:
             raise ValueError(f"timeout must be >= 30s, got {self.timeout}")
@@ -446,6 +460,7 @@ class RunContext:
     ----------
     run_id : str
         Unique identifier: YYYYMMDD_HHMMSS_randomhex[:6].
+
     """
 
     run_id: str = field(default_factory=lambda: datetime.now().strftime("%Y%m%d_%H%M%S_") + uuid.uuid4().hex[:6])
@@ -457,6 +472,7 @@ class QwenEventType(str, Enum):
     """Enterprise-level enum for Qwen Web pipeline event types (chronologically ordered)."""
 
     def __str__(self) -> str:
+        """Return the string value of the event type."""
         return str(self.value)
 
     NETWORK_RECONNECTING  = "EVENT_NETWORK_RECONNECTING"  # Network reconnecting
@@ -511,6 +527,7 @@ class LifecycleEmitter:
     """Simple event bus for pipeline lifecycle events with typed dispatcher capability."""
 
     def __init__(self) -> None:
+        """Initialize with an empty callback registry."""
         self._callbacks: dict[str, list[LifecycleCallback]] = {}
 
     def on(self, event_name: QwenEventType | str, callback: LifecycleCallback) -> None:
@@ -547,6 +564,16 @@ class CircuitBreaker:
     """Sliding-window circuit breaker for request-level failure tracking."""
 
     def __init__(self, threshold: int = 5, window_sec: int = 30) -> None:
+        """Initialize circuit breaker with sliding-window failure threshold.
+
+        Args:
+            threshold: Number of failures within window_sec to trip the breaker.
+            window_sec: Sliding time window in seconds for counting failures.
+
+        Raises:
+            ValueError: If threshold or window_sec < 1.
+
+        """
         if threshold < 1:
             raise ValueError(f"threshold must be >= 1, got {threshold}")
         if window_sec < 1:
@@ -582,6 +609,15 @@ class RateLimiter:
     """Simple token-bucket rate limiter for request throttling."""
 
     def __init__(self, max_per_minute: int = 60) -> None:
+        """Initialize rate limiter with a fixed window of max requests per minute.
+
+        Args:
+            max_per_minute: Maximum number of acquire() calls allowed per 60-second window.
+
+        Raises:
+            ValueError: If max_per_minute < 1.
+
+        """
         if max_per_minute < 1:
             raise ValueError(f"max_per_minute must be >= 1, got {max_per_minute}")
         self._max_per_minute = max_per_minute

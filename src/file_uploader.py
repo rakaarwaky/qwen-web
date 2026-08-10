@@ -40,6 +40,7 @@ def validate_file(filepath: Path, max_size_mb: float = 100.0) -> int:
     Raises:
         FileValidationError: If file does not exist, is not a regular file, is unreadable,
                             or exceeds size limits.
+
     """
     if not filepath.exists():
         raise FileValidationError(f"File does not exist: {filepath}")
@@ -75,6 +76,7 @@ def _try_upload_attempt(page: Page, filepath: Path, config: UploadConfig) -> boo
     Raises:
         PlaywrightTimeoutError: On element wait timeouts.
         UIInteractionError: When required elements are missing.
+
     """
     log.debug("Opening mode-select dropdown using primary/fallback selectors")
     dropdown_element = None
@@ -152,6 +154,7 @@ def upload_attachment(
 
     Returns:
         True if the file was attached successfully, False otherwise.
+
     """
     if not web_loaded:
         raise RuntimeError("Cannot upload attachment: web page loading (EVENT_WEB_LOADED) is incomplete")

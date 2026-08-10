@@ -60,6 +60,7 @@ class MetricsCounter:
     """
 
     def __init__(self) -> None:
+        """Initialize with empty counters and a start timestamp."""
         self._lock = threading.Lock()
         self._counters: dict[str, int] = {}
         self._start_time = datetime.now()
@@ -88,6 +89,7 @@ class StatusFileWriter:
     """
 
     def __init__(self, status_path: Path) -> None:
+        """Initialize with the target status file path, creating parent dirs."""
         self._status_path = status_path
         self._status_path.parent.mkdir(parents=True, exist_ok=True)
 

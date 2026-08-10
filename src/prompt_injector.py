@@ -40,6 +40,7 @@ def find_input(page: Page, config: InjectorConfig | None = None) -> ElementHandl
 
     Raises:
         ElementNotFoundError: If no input element is found within timeout.
+
     """
     cfg = config or DEFAULT_INJECTOR_CONFIG
     start_timeout = max(1000, cfg.wait_timeout_ms // len(cfg.input_selectors))
@@ -98,6 +99,7 @@ def inject_text(page: Page, text: str, config: InjectorConfig | None = None) -> 
     Raises:
         PromptInjectionError: If text is invalid or all injection strategies fail.
         ElementNotFoundError: If input element cannot be located.
+
     """
     if not text or not text.strip():
         raise PromptInjectionError("Cannot inject empty or whitespace-only prompt text.")
@@ -193,6 +195,7 @@ def type_slowly(
 
     Raises:
         PromptInjectionError: If typing fails.
+
     """
     if not text:
         return

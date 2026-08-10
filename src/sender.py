@@ -109,6 +109,7 @@ def click_send(
 
     Raises:
         SendDispatchError: If document_parsed is False or no valid send trigger succeeds.
+
     """
     if not document_parsed:
         raise SendDispatchError("Cannot send prompt: document attachment parsing (EVENT_DOCUMENT_PARSED) is incomplete")
@@ -154,6 +155,7 @@ def count_messages(page: Page) -> int:
 
     Returns:
         Number of detected chat turn elements.
+
     """
     try:
         count = page.evaluate(_JS_COUNT_TURNS)
@@ -179,6 +181,7 @@ def latest_message_text(page: Page) -> str | None:
 
     Returns:
         Cleaned text string of the latest AI response, or None if not found.
+
     """
     try:
         text = page.evaluate(_JS_GET_RESPONSE_TEXT)

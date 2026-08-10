@@ -17,11 +17,13 @@ class SingleInstanceLock:
     """File-based single-instance lock using fcntl.flock()."""
 
     def __init__(self, lock_path: Path | None = None) -> None:
+        """Initialize with an optional custom lock file path."""
         self._lock_path = (
             lock_path or Path(tempfile.gettempdir()) / "qwen-cli.lock"
         )
 
     def __enter__(self) -> SingleInstanceLock:
+        """Acquire the file lock; raise SingleInstanceError if already held."""
         self._lock_fd = open(self._lock_path, "w")
         try:
             fcntl.flock(self._lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -39,6 +41,7 @@ class SingleInstanceLock:
         exc_value: Any,
         traceback: Any,
     ) -> None:
+        """Release the file lock and clean up the lock file."""
         try:
             fcntl.flock(self._lock_fd.fileno(), fcntl.LOCK_UN)
             self._lock_fd.close()

@@ -51,6 +51,7 @@ class SessionCheck:
     """Validates that the browser session and Qwen chat UI are alive."""
 
     def __init__(self, page: Page) -> None:
+        """Initialize with a Playwright Page instance."""
         self.page = page
 
     def is_alive(self) -> bool:
@@ -157,7 +158,7 @@ def _clean_stale_locks(user_data_dir: str) -> None:
 
 
 def _launch_context(p: Playwright, kwargs: dict[str, Any]) -> BrowserContext:
-    """Launches the persistent context with tenacity retry for transient crashes."""
+    """Launch the persistent context with tenacity retry for transient crashes."""
     user_data_dir = kwargs.get("user_data_dir", "")
     if user_data_dir:
         _clean_stale_locks(user_data_dir)
@@ -188,7 +189,7 @@ def _launch_context(p: Playwright, kwargs: dict[str, Any]) -> BrowserContext:
 
 @contextmanager
 def browser_session(cfg: AppConfig) -> Iterator[BrowserContext]:
-    """Manages persistent Chromium browser context with session caching and asset optimization."""
+    """Manage persistent Chromium browser context with session caching and asset optimization."""
     cfg.session_path.mkdir(parents=True, exist_ok=True)
     try:
         os.chmod(cfg.session_path, 0o700)

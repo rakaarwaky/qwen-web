@@ -81,6 +81,18 @@ def _isolate_thread_event_loop() -> None:
 
 
 def _register_tool(fn: Any) -> Any:
+    """Register a function as an MCP tool if FastMCP is available.
+
+    Wraps the function with mcp.tool() decorator when the 'mcp' package is installed.
+    Returns the function unchanged when mcp is unavailable (graceful degradation).
+
+    Args:
+        fn: Async function to register as an MCP tool.
+
+    Returns:
+        Decorated function (MCP tool) or the original function if mcp is missing.
+
+    """
     if mcp is not None:
         return mcp.tool()(fn)
     return fn
