@@ -20,6 +20,7 @@ from tenacity import RetryCallState, Retrying, stop_after_attempt, wait_fixed
 from .types import (
     AppConfig,
     AuthRequiredError,
+    BrowserConfig,
     BrowserLaunchError,
     LifecycleEmitter,
     EVENT_NETWORK_RECONNECTING,

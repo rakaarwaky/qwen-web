@@ -159,6 +159,8 @@ def _run_manual_login(cfg: AppConfig) -> None:
     login_cfg = AppConfig(
         mode="login",
         **DEFAULT_PATHS,
+        interval=cfg.interval,
+        timeout=cfg.timeout,
         headless=False,
     )
     print(f"\n[LOGIN] Launching visible browser window on {CHAT_URL}...")

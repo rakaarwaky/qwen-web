@@ -13,6 +13,7 @@ from .types import (
     AppConfig,
     LifecycleEmitter,
     QwenCliError,
+    QwenClientConfig,
     EVENT_DOCUMENT_PARSED,
     EVENT_DISPATCH_ACKNOWLEDGED,
     EVENT_OUTPUT_COPIED,
@@ -24,10 +25,9 @@ from .browser import (
     check_auth as _check_auth,
 )
 from .file_uploader import upload_attachment
-from .prompt_injector import find_input, inject_text, type_slowly
+from .prompt_injector import find_input, inject_text, type_slowly as _type_slowly_mod
 from .sender import click_send, count_messages, latest_message_text
 from .streamer import wait_for_response
-from .prompt_injector import type_slowly as _type_slowly_mod
 from .observability import get_logger
 
 log = get_logger("qwen_client")

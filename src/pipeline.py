@@ -27,6 +27,8 @@ from .types import (
     CircuitBreakerOpenError,
     DEFAULT_LOG,
     DEFAULT_TODO,
+    PipelineError,
+    QuarantineError,
     RateLimiter,
     RunContext,
 )

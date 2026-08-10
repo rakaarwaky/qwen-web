@@ -47,7 +47,9 @@ except ImportError:  # pragma: no cover
 from .types import (
     ErrorCategory,
     AuthRequiredError,
+    ObservabilityConfig,
     SERVICE_NAME,
+    StatusRecord,
 )
 
 
@@ -89,6 +91,19 @@ class StatusFileWriter:
     def __init__(self, status_path: Path) -> None:
         self._status_path = status_path
         self._status_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def write_record(self, record: StatusRecord) -> None:
+        """Atomically write a StatusRecord to disk."""
+        self.write(
+            status=record.status,
+            mode=record.mode,
+            headless=record.headless,
+            run_id=record.run_id,
+            error=record.error,
+            cpu_sec=record.cpu_sec,
+            files_processed=record.files_processed,
+            files_failed=record.files_failed,
+        )
 
     def write(
         self,

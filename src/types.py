@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 # ─── Constants: Paths & Defaults (XDG Specification) ──────────────────────────
 
@@ -129,6 +129,38 @@ class NetworkTimeoutError(QwenCliError):
 class OutputValidationError(QwenCliError):
     """Raised when response content fails sanity check (e.g. captcha/error page)."""
 
+
+class FileUploadError(QwenCliError):
+    """Base exception for file upload errors."""
+
+
+class FileValidationError(FileUploadError):
+    """Raised when file pre-flight validation fails."""
+
+
+class UploadTimeoutError(FileUploadError):
+    """Raised when Playwright interactions encounter a timeout during upload."""
+
+
+class UIInteractionError(FileUploadError):
+    """Raised when upload UI elements cannot be found or interacted with."""
+
+
+class PipelineError(QwenCliError):
+    """Base exception for queue processing pipeline errors."""
+
+
+class QuarantineError(PipelineError):
+    """Raised when a file fails all processing attempts and is moved to quarantine."""
+
+
+class SendDispatchError(QwenCliError):
+    """Raised when clicking the send button or triggering send key fails across all strategies."""
+
+
+class OutputWriteError(QwenCliError):
+    """Raised when writing output or metadata sidecar file fails."""
+
 # ─── Enums / Categorical Helpers ─────────────────────────────────────────────
 
 class ErrorCategory:
@@ -168,6 +200,178 @@ class ErrorCategory:
         return "other"
 
 # ─── Dataclasses (Entities) ─────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class UploadConfig:
+    """Configuration options for file upload behavior."""
+
+    max_file_size_mb: float = 100.0
+    dropdown_timeout_ms: int = 5000
+    option_timeout_ms: int = 3000
+    file_chooser_timeout_ms: int = 8000
+    card_render_timeout_ms: int = 5000
+    max_retries: int = 2
+    backoff_delay_sec: float = 1.0
+
+    dropdown_selectors: Sequence[str] = field(
+        default_factory=lambda: (
+            ".mode-select-open",
+            "[class*='mode-select']",
+            "button:has-text('Upload')",
+        )
+    )
+
+    upload_option_selectors: Sequence[str] = field(
+        default_factory=lambda: (
+            ".mode-select-dropdown-item",
+            "text='Upload attachment'",
+            "text='Upload file'",
+        )
+    )
+
+    card_selectors: Sequence[str] = field(
+        default_factory=lambda: (
+            ".file-card-list",
+            ".fileitem-btn",
+            ".message-input-column-file",
+            "[class*='file-card']",
+            "[class*='file-item']",
+            "[class*='fileitem']",
+        )
+    )
+
+
+DEFAULT_UPLOAD_CONFIG = UploadConfig()
+
+
+@dataclass(frozen=True)
+class InjectorConfig:
+    """Configuration options for prompt text injection."""
+
+    wait_timeout_ms: int = 10_000
+    typing_delay_ms: int = 10
+    verify_injection: bool = True
+    input_selectors: Sequence[str] = field(
+        default_factory=lambda: (
+            "textarea.message-input-textarea",
+            "textarea",
+            "div[contenteditable='true']",
+            "#chat-input",
+            ".chat-input",
+        )
+    )
+
+
+DEFAULT_INJECTOR_CONFIG = InjectorConfig()
+
+
+@dataclass(frozen=True)
+class StatusRecord:
+    """Status payload recorded for systemd/monitoring integration."""
+
+    status: str
+    mode: str
+    headless: bool
+    run_id: str | None = None
+    files_processed: int = 0
+    files_failed: int = 0
+    cpu_sec: float | None = None
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class ObservabilityConfig:
+    """Configuration options for observability logging and tracing."""
+
+    log_path: Path
+    enable_sentry: bool = True
+    enable_otel: bool = True
+    environment: str = "production"
+
+
+@dataclass(frozen=True)
+class MCPToolResponse:
+    """Structured response payload for MCP tool invocations."""
+
+    success: bool
+    data: str
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class MCPServerConfig:
+    """Configuration options for MCP server entrypoint."""
+
+    server_name: str = "Qwen-Web"
+    transport: str = "stdio"
+
+
+@dataclass(frozen=True)
+class QwenClientConfig:
+    """Client operational configuration options."""
+
+    timeout_sec: int = 120
+    auto_attach_files: bool = True
+    retry_upload_on_failure: bool = True
+
+
+@dataclass(frozen=True)
+class BrowserConfig:
+    """Browser launch and session configuration options."""
+
+    headless: bool = True
+    user_agent: str = (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    )
+    viewport_width: int = 1280
+    viewport_height: int = 800
+    block_media_assets: bool = True
+    launch_timeout_sec: int = 30
+
+
+@dataclass(frozen=True)
+class SenderConfig:
+    """Configuration options for send button interactions."""
+
+    click_timeout_ms: int = 3000
+    try_enter_key_fallback: bool = True
+
+
+DEFAULT_SENDER_CONFIG = SenderConfig()
+
+
+@dataclass(frozen=True)
+class StreamerConfig:
+    """Configuration options for AI response streaming and stability detection."""
+
+    polling_interval_sec: float = 1.0
+    stability_checks: int = 3
+    min_text_length: int = 1
+
+
+@dataclass(frozen=True)
+class OutputMetadata:
+    """Metadata payload recorded with processed output files."""
+
+    run_id: str
+    source_file: str
+    processed_at: str
+    duration_sec: float
+    input_chars: int
+    output_chars: int
+
+
+@dataclass(frozen=True)
+class SaverConfig:
+    """Configuration options for saver module."""
+
+    include_header: bool = True
+    generate_sidecar: bool = True
+    atomic_write: bool = True
+
+
+DEFAULT_SAVER_CONFIG = SaverConfig()
 
 @dataclass(frozen=True)
 class AppConfig:

@@ -10,6 +10,7 @@ from .types import (
     LifecycleEmitter,
     NetworkTimeoutError,
     OutputValidationError,
+    StreamerConfig,
     EVENT_THINKING_STARTED,
     EVENT_STREAMING_GENERATION,
     EVENT_GENERATION_FINISHED,
@@ -52,7 +53,7 @@ def wait_for_response(
     polling_interval_sec: float = 1.0,
     stability_checks: int = 3,
     min_text_length: int = 1,
-) -> str:
+) -> str | None:
     """Wait for new assistant message with stability check and output validation."""
     log.info("Waiting for AI response (timeout: %ds)", timeout_sec)
     emitter.emit(EVENT_THINKING_STARTED)
