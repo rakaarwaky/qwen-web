@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "qwen-web-cli": {
-      "command": "/home/raka/mcp-arwaky/qwen-web-arwaky/venv/bin/qwc",
+      "command": "qwc",
       "args": [
         "--mcp"
       ]
