@@ -1,3 +1,5 @@
+plan/
+
 # Python
 __pycache__/
 *.pyc
@@ -35,4 +37,3 @@ log/
 plan/
 .qwen-web/
 .codegraph/
-
