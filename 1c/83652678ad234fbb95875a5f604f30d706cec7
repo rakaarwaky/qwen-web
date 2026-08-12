@@ -1,0 +1,31 @@
+modules/shared/src/taxonomy_core_vo.py
+  s_c9eb092532d501::t_c1ca1f45e93d40 3,5-14,16-37,64-178
+modules/shared/src/__init__.py
+  s_c9eb092532d501::t_eabe1fec75991a 1-5,24-91,95-122,149-150,171-186,194-197,201-365
+modules/shared/src/taxonomy_core_constant.py
+  s_c9eb092532d501::t_0dce2899199d80 3,5-11,13-89,91-158,163-189
+modules/shared/src/utility_core_validation.py
+  s_c9eb092532d501::t_c389e970476d57 54
+  s_c9eb092532d501::t_b81334842420c6 8
+  s_c9eb092532d501::t_34429aacd08e66 9-52,57
+modules/shared/pyproject.toml
+  s_c9eb092532d501::t_a3d06dc63cda19 7-12
+scripts/verify_modules_import.py
+  s_c9eb092532d501::t_16a3caa06530a5 41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "1c83652678ad234fbb95875a5f604f30d706cec7",
+  "prompts": {},
+  "sessions": {
+    "s_c9eb092532d501": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_00b84a1b7ffeKoV7QCQbGK1aiw",
+        "model": "deepseek-v4-flash-free"
+      },
+      "human_author": "rakaarwaky <arwaky90@gmail.com>"
+    }
+  }
+}
