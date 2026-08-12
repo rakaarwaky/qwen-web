@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from modules.shared.src.contract_metrics_protocol import IMetricsProtocol
+from modules.shared.src.taxonomy_core_vo import ErrorCategory, ExitCode, ServiceName
 
 
 class MetricsCounter(IMetricsProtocol):

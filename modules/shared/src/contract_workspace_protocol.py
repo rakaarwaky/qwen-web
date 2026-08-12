@@ -9,12 +9,14 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+from modules.shared.src.taxonomy_core_vo import FilePath
+
 
 class IWorkspaceProtocol(ABC):
     """Workspace directory provisioning capability contract."""
 
     @abstractmethod
-    def init_workspace(self, target_dir: Path) -> None:
+    def init_workspace(self, target_dir: FilePath) -> None:
         """Initialize workspace directories, SKILL.md, symlinks, and .gitignore."""
 
 

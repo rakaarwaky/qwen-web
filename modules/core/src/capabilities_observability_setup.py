@@ -5,13 +5,11 @@ Implements IObservabilityProtocol.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import sys
 import threading
 from contextlib import nullcontext, suppress
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 

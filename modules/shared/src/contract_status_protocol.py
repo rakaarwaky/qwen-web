@@ -9,6 +9,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
+from modules.shared.src.taxonomy_core_vo import StatusRecordVO
+
 
 class IStatusProtocol(ABC):
     """Status file write/read capability contract."""
@@ -18,7 +20,7 @@ class IStatusProtocol(ABC):
         """Atomically write status to disk."""
 
     @abstractmethod
-    def write_record(self, record: Any) -> None:
+    def write_record(self, record: StatusRecordVO) -> None:
         """Atomically write a record to disk."""
 
     @abstractmethod

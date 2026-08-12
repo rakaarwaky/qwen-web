@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from modules.shared.src.contract_status_protocol import IStatusProtocol
+from modules.shared.src.taxonomy_core_vo import ErrorCategory, ExitCode, ServiceName
        
 # Block 1: Class Definition & Constructor ──────────────
 class StatusFileWriter(IStatusProtocol):

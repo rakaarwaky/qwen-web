@@ -9,16 +9,18 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
+from modules.shared.src.taxonomy_core_vo import EventMessage, MessageCount
+
 
 class IMetricsProtocol(ABC):
     """In-memory metrics collection capability contract."""
 
     @abstractmethod
-    def increment(self, key: str, amount: int = 1) -> None:
+    def increment(self, key: EventMessage, amount: MessageCount = MessageCount(1)) -> None:
         """Increment a counter by the given amount."""
 
     @abstractmethod
-    def get(self, key: str) -> int:
+    def get(self, key: EventMessage) -> MessageCount:
         """Return the current value of a counter."""
 
     @abstractmethod
