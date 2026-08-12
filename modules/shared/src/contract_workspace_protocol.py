@@ -7,7 +7,6 @@ Capabilities implement these; agents/surfaces depend on them via DI.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from pathlib import Path
 
 from modules.shared.src.taxonomy_core_vo import FilePath
 
