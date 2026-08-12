@@ -1,0 +1,14 @@
+.gitignore
+  h_16053b17f89e22 42-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "1fc8cdb0961e28b989158d83be6947400eb2a768",
+  "prompts": {},
+  "humans": {
+    "h_16053b17f89e22": {
+      "author": "rakaarwaky <arwaky90@gmail.com>"
+    }
+  }
+}
