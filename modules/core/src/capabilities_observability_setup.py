@@ -16,8 +16,7 @@ from typing import Any
 from modules.shared.src import utility_core_exit
 from modules.shared.src.contract_core_protocol import IObservabilityProtocol
 from modules.shared.src.contract_status_protocol import IStatusProtocol
-from modules.shared.src.taxonomy_config_vo import ExitCode
-from modules.shared.src.taxonomy_core_vo import ErrorCategory, ServiceName
+from modules.shared.src.taxonomy_core_vo import ErrorCategory, ExitCode, ServiceName
 
 log = __import__("logging").getLogger("capabilities_observability")
 
