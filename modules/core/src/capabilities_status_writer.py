@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from modules.shared.src.contract_status_protocol import IStatusProtocol
-from modules.shared.src.taxonomy_core_vo import ErrorCategory, ExitCode, ServiceName
-       
+from modules.shared.src.taxonomy_core_vo import StatusRecordVO
+
 # Block 1: Class Definition & Constructor ──────────────
 class StatusFileWriter(IStatusProtocol):
     """Writes JSON status file for systemd/monitoring tools."""
@@ -44,7 +44,7 @@ class StatusFileWriter(IStatusProtocol):
         except Exception:
             pass
 
-    def write_record(self, record: Any) -> None:
+    def write_record(self, record: StatusRecordVO) -> None:
         """Atomically write a StatusRecordVO to disk."""
         self.write(
             status=record.status,
