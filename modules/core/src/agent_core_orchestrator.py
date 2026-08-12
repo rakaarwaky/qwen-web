@@ -21,7 +21,7 @@ from playwright.sync_api import ElementHandle, Locator, Page
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.contract_core_protocol import (
     IBrowserProtocol,
-    IFileSystemProtocol,
+    IAuditProtocol,
     IInjectionProtocol,
     IObservabilityProtocol,
     ISaverProtocol,
@@ -92,7 +92,7 @@ class CoreOrchestrator(ICoreAggregate):
         streamer: IStreamProtocol,
         uploader: IUploadProtocol,
         saver: ISaverProtocol,
-        audit: IFileSystemProtocol,
+        audit: IAuditProtocol,
         observability: IObservabilityProtocol,
         circuit_breaker: CircuitBreaker | None = None,
         rate_limiter: RateLimiter | None = None,

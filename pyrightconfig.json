@@ -1,6 +1,6 @@
 {
   "include": ["src"],
-  "exclude": ["tests", "**/__pycache__"],
+  "exclude": ["tests", "**/__pycache__", "**/node_modules", "**/.*"],
   "reportAny": false,
   "reportExplicitAny": false,
   "reportUnusedCallResult": false,

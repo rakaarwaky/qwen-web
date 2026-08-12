@@ -15,7 +15,7 @@ from typing import Any
 from modules.shared.src.contract_core_protocol import IAuditProtocol
 from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
-from modules.shared.src.taxonomy_core_vo import ResponseText, RunContext
+from modules.shared.src.taxonomy_core_vo import FilePath, ResponseText, RunContext
 
 # Block 1: Class Definition & Constructor
 
@@ -98,10 +98,10 @@ class AuditRepository(IAuditProtocol):
             with self._errors_jsonl.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(err_json_rec, ensure_ascii=False) + "\n")
 
-    def init_workspace(self, target_dir: Path) -> None:
+    def init_workspace(self, target_dir: FilePath) -> None:
         """Delegate to workspace provisioner (separate concern via DI)."""
         if self._workspace is not None:
-            self._workspace.init_workspace(target_dir)
+            self._workspace.init_workspace(FilePath(str(target_dir)))
 
     def get_audit_log(self, limit: int = 20) -> ResponseText:
         """Fetch recent entries from the JSONL audit trail log."""
