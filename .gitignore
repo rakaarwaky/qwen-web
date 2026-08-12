@@ -38,3 +38,4 @@ plan/
 .qwen-web/
 .codegraph/
 .worktree/
+.repowise/
