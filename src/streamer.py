@@ -74,6 +74,26 @@ def is_generation_complete(page: Page) -> bool:
         return False
 
 
+def is_thinking_active(page: Page, msg_count_before: int) -> bool:
+    """Check if Qwen AI thinking/reasoning indicator is actively visible inside a new assistant response turn."""
+    try:
+        current_turns = count_messages(page)
+        if current_turns <= msg_count_before:
+            return False
+        # Specific assistant thinking indicators in active chat turn
+        thinking_loc = page.locator(
+            ".chat-message-assistant .thinking, "
+            "[data-role='assistant'] [class*='thinking'], "
+            ".chat-message-assistant [class*='thought-process'], "
+            ".qwen-markdown .thinking"
+        )
+        if thinking_loc.count() > 0 and thinking_loc.first.is_visible():
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def wait_for_response(
     page: Page,
     timeout_sec: int,
@@ -92,8 +112,6 @@ def wait_for_response(
     has_streaming = False
 
     log.info("Waiting for AI response (timeout: %ds)", timeout_sec)
-    emitter.emit(EVENT_THINKING_STARTED)
-    has_thinking = True
 
     # Capture baseline page text so we can detect genuinely new content
     baseline_text: str | None = latest_message_text(page)
@@ -104,6 +122,11 @@ def wait_for_response(
 
     while time.time() - start < timeout_sec:
         try:
+            # Detect real DOM thinking phase dynamically only after new chat turn appears
+            if not has_thinking and is_thinking_active(page, msg_count_before):
+                emitter.emit(EVENT_THINKING_STARTED)
+                has_thinking = True
+
             count = count_messages(page)
             if count >= msg_count_before:
                 text = latest_message_text(page)
@@ -113,18 +136,49 @@ def wait_for_response(
                         stable_count += 1
                         is_complete = is_generation_complete(page)
                         force_complete = stable_count >= stability_checks * 2
-                        if has_thinking and has_streaming and stable_count >= stability_checks and (is_complete or force_complete):
+                        if has_streaming and stable_count >= stability_checks and (is_complete or force_complete):
                             log.info("Response stabilized after %d checks (is_complete=%s, forced=%s)", stable_count, is_complete, force_complete)
                             validate_response_content(text)
                             emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(text)})
                             return text
                     else:
-                        if has_thinking:
-                            has_streaming = True
-                            stable_count = 0
-                            last_text = text
-                            emitter.emit(EVENT_STREAMING_GENERATION, {"text_length": len(text)})
-            time.sleep(polling_interval_sec)
+                        has_streaming = True
+                        stable_count = 0
+                        last_text = text
+                        emitter.emit(EVENT_STREAMING_GENERATION, {"text_length": len(text)})
+
+            # Pure DOM Mutation Event Listener — wake immediately when DOM mutates, without fixed time.sleep
+            try:
+                page.wait_for_function(
+                    """
+                    (args) => {
+                        const [oldTurnCount, oldText] = args;
+                        const turns = document.querySelectorAll('[class*="chat-message"], [class*="message-item"], [class*="virtual-list-item"], [class*="turn"]').length;
+                        if (turns > oldTurnCount) return true;
+                        const selectors = [
+                            '.chat-message-assistant .markdown-body:not(.thinking):not([class*="thought"])',
+                            '.chat-message-assistant:not(.thinking)',
+                            '[class*="assistant"] .markdown-body:not(.thinking):not([class*="thought"])',
+                            '[class*="assistant"] [class*="markdown"]:not(.thinking):not([class*="thought"])',
+                            '[data-role="assistant"] .markdown-body:not(.thinking):not([class*="thought"])',
+                            '.qwen-markdown:not(.thinking):not([class*="thought"])'
+                        ];
+                        for (let i = 0; i < selectors.length; i++) {
+                            const els = document.querySelectorAll(selectors[i]);
+                            if (els.length > 0) {
+                                const currentText = (els[els.length - 1].innerText || '').trim();
+                                if (currentText && currentText !== oldText) return true;
+                            }
+                        }
+                        const thinking = document.querySelector('.thinking:not([style*="display: none"]), [class*="thought"]:not([style*="display: none"])');
+                        return thinking !== null;
+                    }
+                    """,
+                    arg=(count if 'count' in locals() else msg_count_before, last_text or baseline_text or ""),
+                    timeout=max(500, int(polling_interval_sec * 1000)),
+                )
+            except PlaywrightTimeoutError:
+                pass
         except PlaywrightTimeoutError as e:
             raise NetworkTimeoutError(f"Browser network timeout during streaming poll: {e}") from e
         except PlaywrightError as e:
@@ -140,5 +194,4 @@ def wait_for_response(
         validate_response_content(last_text)
         return last_text
 
-    log.warning("Timeout after %ds — no response detected", timeout_sec)
-    return None
+    raise TimeoutError(f"Timeout after {timeout_sec}s: no valid AI assistant response detected on chat.qwen.ai")

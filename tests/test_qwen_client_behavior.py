@@ -79,11 +79,11 @@ class TestWaitForResponse:
         assert response is not None
         assert "assistant response" in response
 
-    def test_returns_none_on_timeout(self, client, page, monkeypatch):
-        # No message will appear — should timeout
+    def test_raises_timeout_error_on_timeout(self, client, page, monkeypatch):
+        # No message will appear — should raise TimeoutError
         msg_count_before = client._count_messages()
-        response = client._wait_for_response(timeout_sec=1, msg_count_before=msg_count_before)
-        assert response is None
+        with pytest.raises(TimeoutError, match="Timeout after"):
+            client._wait_for_response(timeout_sec=1, msg_count_before=msg_count_before)
 
     def test_returns_stable_text(self, client, page, monkeypatch):
         # Capture baseline count, then simulate a new message appearing

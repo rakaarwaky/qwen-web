@@ -232,9 +232,11 @@ class UploadConfig:
 
     dropdown_selectors: Sequence[str] = field(
         default_factory=lambda: (
-            ".mode-select-open",
-            "[class*='mode-select']",
-            "button:has-text('Upload')",
+            "[class*='chat-input'] .mode-select-open",
+            "[class*='message-input'] .mode-select-open",
+            "button[aria-label*='Upload' i]:not([class*='sidebar'])",
+            "button[aria-label*='attachment' i]:not([class*='sidebar'])",
+            ".mode-select-open:not([class*='sidebar'])",
         )
     )
 
@@ -383,7 +385,7 @@ class OutputMetadata:
 class SaverConfig:
     """Configuration options for saver module."""
 
-    include_header: bool = True
+    include_header: bool = False
     generate_sidecar: bool = True
     atomic_write: bool = True
 
@@ -406,6 +408,7 @@ class AppConfig:
     interval: int = 3
     timeout: int = 300
     headless: bool = False
+    keep_open: bool = False
     prompt_file: Path | None = None
 
     chrome_profile: str = "qwen-cli-profile"
@@ -478,6 +481,7 @@ class QwenEventType(str, Enum):
     NETWORK_RECONNECTING  = "EVENT_NETWORK_RECONNECTING"  # Network reconnecting
     WEB_LOADED            = "EVENT_WEB_LOADED"            # Web page loaded
     DOCUMENT_PARSED       = "EVENT_DOCUMENT_PARSED"       # Document parsed
+    PROMPT_INJECTED       = "EVENT_PROMPT_INJECTED"       # Role prompt injected into textarea
     SEND_CLICKED          = "EVENT_SEND_CLICKED"          # Send button clicked
     DISPATCH_ACKNOWLEDGED = "EVENT_DISPATCH_ACKNOWLEDGED" # Dispatch acknowledged
     THINKING_STARTED      = "EVENT_THINKING_STARTED"      # Qwen AI thinking
@@ -489,6 +493,7 @@ class QwenEventType(str, Enum):
 EVENT_NETWORK_RECONNECTING = QwenEventType.NETWORK_RECONNECTING
 EVENT_WEB_LOADED           = QwenEventType.WEB_LOADED
 EVENT_DOCUMENT_PARSED      = QwenEventType.DOCUMENT_PARSED
+EVENT_PROMPT_INJECTED       = QwenEventType.PROMPT_INJECTED
 EVENT_SEND_CLICKED         = QwenEventType.SEND_CLICKED
 EVENT_DISPATCH_ACKNOWLEDGED= QwenEventType.DISPATCH_ACKNOWLEDGED
 EVENT_THINKING_STARTED     = QwenEventType.THINKING_STARTED
@@ -534,6 +539,15 @@ class LifecycleEmitter:
         """Register a callback for a named lifecycle event."""
         key = str(event_name)
         self._callbacks.setdefault(key, []).append(callback)
+
+    def off(self, event_name: QwenEventType | str, callback: Callable[[LifecycleEvent], None]) -> None:
+        """Unregister a lifecycle event listener callback."""
+        key = str(event_name)
+        if key in self._callbacks:
+            try:
+                self._callbacks[key].remove(callback)
+            except ValueError:
+                pass
 
     def emit(self, event_name: QwenEventType | str, details: dict[str, Any] | None = None) -> LifecycleEvent:
         """Emit a lifecycle event to all registered callbacks."""

@@ -15,6 +15,8 @@ from src.pipeline import (
 )
 from src.types import AppConfig
 
+ROLE = "role-test"
+
 
 # ─── _extract_prompt_text ───────────────────────────────────────────────────
 
@@ -103,37 +105,37 @@ class TestStripInputFromOutput:
 
 class TestShouldProcessFile:
     def test_valid_file(self, tmp_path):
-        f = tmp_path / "role-architect" / "todo" / "task.md"
+        f = tmp_path / ROLE / "todo" / "task.md"
         f.parent.mkdir(parents=True)
         f.write_text("content")
         assert _should_process_file(f, tmp_path) is True
 
     def test_hidden_file_skipped(self, tmp_path):
-        f = tmp_path / "role-architect" / "todo" / ".hidden.md"
+        f = tmp_path / ROLE / "todo" / ".hidden.md"
         f.parent.mkdir(parents=True)
         f.write_text("content")
         assert _should_process_file(f, tmp_path) is False
 
     def test_prompt_md_skipped(self, tmp_path):
-        f = tmp_path / "role-architect" / "todo" / "PROMPT.md"
+        f = tmp_path / ROLE / "todo" / "PROMPT.md"
         f.parent.mkdir(parents=True)
         f.write_text("content")
         assert _should_process_file(f, tmp_path) is False
 
     def test_done_dir_skipped(self, tmp_path):
-        f = tmp_path / "role-architect" / "done" / "task.md"
+        f = tmp_path / ROLE / "done" / "task.md"
         f.parent.mkdir(parents=True)
         f.write_text("content")
         assert _should_process_file(f, tmp_path) is False
 
     def test_failed_dir_skipped(self, tmp_path):
-        f = tmp_path / "role-architect" / "failed" / "task.md"
+        f = tmp_path / ROLE / "failed" / "task.md"
         f.parent.mkdir(parents=True)
         f.write_text("content")
         assert _should_process_file(f, tmp_path) is False
 
     def test_processing_dir_skipped(self, tmp_path):
-        f = tmp_path / "role-architect" / ".processing" / "task.md"
+        f = tmp_path / ROLE / ".processing" / "task.md"
         f.parent.mkdir(parents=True)
         f.write_text("content")
         assert _should_process_file(f, tmp_path) is False
@@ -150,12 +152,12 @@ class TestShouldProcessFile:
         assert _should_process_file(f, tmp_path) is False
 
     def test_directory_returns_false(self, tmp_path):
-        d = tmp_path / "role-architect" / "todo"
+        d = tmp_path / ROLE / "todo"
         d.mkdir(parents=True)
         assert _should_process_file(d, tmp_path) is False
 
     def test_dotfile_in_role_dir_skipped(self, tmp_path):
-        f = tmp_path / "role-architect" / ".config"
+        f = tmp_path / ROLE / ".config"
         f.parent.mkdir(parents=True)
         f.write_text("content")
         assert _should_process_file(f, tmp_path) is False
@@ -166,27 +168,27 @@ class TestShouldProcessFile:
 
 class TestListInputFiles:
     def test_returns_valid_files(self, tmp_path):
-        f = tmp_path / "role-dev" / "todo" / "a.md"
+        f = tmp_path / ROLE / "todo" / "a.md"
         f.parent.mkdir(parents=True)
         f.write_text("a")
         files = _list_input_files(tmp_path)
         assert len(files) == 1
-        assert files[0][1] == Path("role-dev/todo/a.md")
+        assert files[0][1] == Path(f"{ROLE}/todo/a.md")
 
     def test_excludes_done(self, tmp_path):
-        f = tmp_path / "role-dev" / "done" / "a.md"
+        f = tmp_path / ROLE / "done" / "a.md"
         f.parent.mkdir(parents=True)
         f.write_text("a")
         assert _list_input_files(tmp_path) == []
 
     def test_excludes_prompt_md(self, tmp_path):
-        f = tmp_path / "role-dev" / "todo" / "PROMPT.md"
+        f = tmp_path / ROLE / "todo" / "PROMPT.md"
         f.parent.mkdir(parents=True)
         f.write_text("prompt")
         assert _list_input_files(tmp_path) == []
 
     def test_excludes_hidden_files(self, tmp_path):
-        f = tmp_path / "role-dev" / "todo" / ".env"
+        f = tmp_path / ROLE / "todo" / ".env"
         f.parent.mkdir(parents=True)
         f.write_text("secret")
         assert _list_input_files(tmp_path) == []
@@ -198,7 +200,7 @@ class TestListInputFiles:
         assert _list_input_files(tmp_path / "nonexistent") == []
 
     def test_multiple_roles(self, tmp_path):
-        for role in ["role-dev", "role-design"]:
+        for role in ["role-a", "role-b"]:
             f = tmp_path / role / "todo" / "task.md"
             f.parent.mkdir(parents=True)
             f.write_text("task")

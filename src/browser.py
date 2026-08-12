@@ -249,10 +249,23 @@ def browser_session(cfg: AppConfig) -> Iterator[BrowserContext]:
                 try:
                     yield ctx
                 finally:
-                    try:
-                        ctx.close()
-                    except PlaywrightError as e:
-                        log.warning("Error closing browser context: %s", e)
+                    if not cfg.keep_open:
+                        try:
+                            ctx.close()
+                        except PlaywrightError as e:
+                            log.warning("Error closing browser context: %s", e)
+                    else:
+                        log.info("keep_open is True — leaving browser window open for user inspection")
+                        try:
+                            print("\n[KEEP-OPEN] Task finished. Browser window is kept open for inspection.")
+                            print("Press Enter in this terminal to close the browser...")
+                            input()
+                        except (KeyboardInterrupt, EOFError):
+                            pass
+                        try:
+                            ctx.close()
+                        except Exception:
+                            pass
         except AuthRequiredError:
             raise
         except Exception as e:

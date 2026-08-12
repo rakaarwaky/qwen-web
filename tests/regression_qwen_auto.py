@@ -64,7 +64,7 @@ class TestQwenAutoRegression(unittest.TestCase):
 
             (role_dir / "PROMPT.md").write_text("Prompt config")
             (role_dir / "doc1.md").write_text("Doc 1")
-            
+
             done_dir = role_dir / "done"
             done_dir.mkdir(parents=True, exist_ok=True)
             (done_dir / "old.md").write_text("Old completed doc")

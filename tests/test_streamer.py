@@ -196,14 +196,14 @@ class TestWaitForResponseEdgeCases:
             mock_time.time.side_effect = [0, 0, 0, 9999]
             mock_time.sleep = MagicMock()
 
-            result = wait_for_response(
-                page,
-                timeout_sec=1,
-                msg_count_before=1,
-                emitter=emitter,
-                polling_interval_sec=0,
-            )
-            assert result is None
+            with pytest.raises(TimeoutError, match="Timeout after 1s"):
+                wait_for_response(
+                    page,
+                    timeout_sec=1,
+                    msg_count_before=1,
+                    emitter=emitter,
+                    polling_interval_sec=0,
+                )
 
     def test_returns_stable_text(self):
         page = MagicMock()

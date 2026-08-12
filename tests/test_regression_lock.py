@@ -431,13 +431,11 @@ class TestAuditLogLock:
 # ─── write_output (saver) lock ────────────────────────────────────────────────
 
 class TestWriteOutputLock:
-    def test_creates_file_with_traceability_header(self, tmp_path: Path):
+    def test_creates_file_pure_content(self, tmp_path: Path):
         out = tmp_path / "result.md"
         ctx = RunContext()
         write_output(out, "AI response content", ctx, "input.md", 1.23, 10, 19)
         text = out.read_text()
-        assert "METADATA TRACEABILITY" in text
-        assert ctx.run_id in text
         assert "AI response content" in text
 
     def test_creates_json_sidecar(self, tmp_path: Path):

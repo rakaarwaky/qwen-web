@@ -231,27 +231,31 @@ def _strip_input_from_output(text: str, full_prompt: str) -> str:
 
 
 def _get_role_search_directories(file_path: Path, rel_path: Path | None) -> list[Path]:
-    """Collect priority list of directories to search for PROMPT.md."""
+    """Collect priority list of directories to search for PROMPT.md.
+
+    Include-only approach: search closest ancestor role directory first,
+    then walk up parent directories within the role tree.
+    e.g. input/role-dev/todo/file.md → searches:
+      1. input/role-dev/ (closest ancestor role dir)
+      2. input/ (grandparent role dir)
+    """
     search_dirs: list[Path] = []
 
-    if rel_path and rel_path.parts and rel_path.parts[0].startswith("role-"):
-        role_dir_rel = DEFAULT_TODO / rel_path.parts[0]
-        search_dirs.extend([role_dir_rel, role_dir_rel.resolve()])
+    if rel_path and rel_path.parts:
+        # Find the role-* directory index
+        role_idx = next((i for i, p in enumerate(rel_path.parts) if p.startswith("role-")), None)
+        if role_idx is not None:
+            # Walk up from file toward root, collecting role directories
+            parts = rel_path.parts[:role_idx + 1]
+            for i in range(role_idx, -1, -1):
+                role_dir = DEFAULT_TODO / Path(*parts[:i + 1])
+                if role_dir not in search_dirs:
+                    search_dirs.append(role_dir)
 
     abs_path = file_path.resolve()
     curr_abs = abs_path.parent if abs_path.is_file() else abs_path
     search_dirs.append(curr_abs)
     search_dirs.extend(curr_abs.parents)
-
-    curr_rel = file_path.parent if file_path.is_file() else file_path
-    if curr_rel not in search_dirs:
-        search_dirs.append(curr_rel)
-        search_dirs.extend(curr_rel.parents)
-
-    for path_obj in (abs_path, file_path):
-        for part in path_obj.parts:
-            if part.startswith("role-"):
-                search_dirs.extend([DEFAULT_TODO.resolve() / part, DEFAULT_TODO / part])
 
     return search_dirs
 
@@ -354,8 +358,8 @@ def _iter_todo_retry_failed(cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
         rel_path = f.resolve().relative_to(src.resolve())
         _, _, _, proc_dest = resolve_role_paths(rel_path, cfg)
         proc_dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(f), str(proc_dest))
-        yield proc_dest, rel_path
+        shutil.copy2(str(f), str(proc_dest))
+        yield proc_dest, rel_path, f
 
 
 def _iter_todo_single(cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
@@ -372,8 +376,8 @@ def _iter_todo_single(cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
 
     _, _, _, proc_file = resolve_role_paths(rel_path, cfg)
     proc_file.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(cfg.input_path), str(proc_file))
-    yield proc_file, rel_path
+    shutil.copy2(str(cfg.input_path), str(proc_file))
+    yield proc_file, rel_path, cfg.input_path
 
 
 def _iter_todo_batch(src: Path, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
@@ -382,8 +386,8 @@ def _iter_todo_batch(src: Path, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
         rel_path = f.resolve().relative_to(src.resolve())
         _, _, _, proc_dest = resolve_role_paths(rel_path, cfg)
         proc_dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(f), str(proc_dest))
-        yield proc_dest, rel_path
+        shutil.copy2(str(f), str(proc_dest))
+        yield proc_dest, rel_path, f
 
 
 def _iter_todo_watcher(src: Path, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
@@ -399,8 +403,8 @@ def _iter_todo_watcher(src: Path, cfg: AppConfig) -> Iterator[tuple[Path, Path]]
             _, _, _, proc_dest = resolve_role_paths(rel_path, cfg)
             proc_dest.parent.mkdir(parents=True, exist_ok=True)
             try:
-                shutil.move(str(f), str(proc_dest))
-                yield proc_dest, rel_path
+                shutil.copy2(str(f), str(proc_dest))
+                yield proc_dest, rel_path, f
             except OSError as e:
                 log.debug("skipping %s: %s", f, e)
         if _watcher_shutdown.is_set():
@@ -443,6 +447,7 @@ def _execute_single_attempt(
     prompt: str,
     out_path: Path,
     done_path: Path,
+    orig_file: Path | None = None,
 ) -> str:
     """Execute single attempt to process file through QwenClient."""
     rl.acquire()
@@ -468,6 +473,11 @@ def _execute_single_attempt(
     else:
         done_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(proc_file), str(done_path))
+        if orig_file and orig_file.exists() and orig_file.resolve() != done_path.resolve():
+            try:
+                orig_file.unlink()
+            except Exception:
+                pass
 
     _cleanup_empty_dirs(proc_file.parent, cfg.proc_path)
     log.info("processed_file_success", out_path=str(out_path), duration_sec=round(dur, 1))
@@ -502,6 +512,7 @@ def _handle_processing_failure(
     fail_path: Path,
     exc: Exception,
     cfg: AppConfig | None = None,
+    orig_file: Path | None = None,
 ) -> None:
     """Record failure metrics, update circuit breaker, and quarantine file."""
     dur = time.time() - t0
@@ -515,6 +526,11 @@ def _handle_processing_failure(
     if out_path.resolve() != fail_path.resolve() and proc_file.exists():
         fail_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(proc_file), str(fail_path))
+        if orig_file and orig_file.exists() and orig_file.resolve() != fail_path.resolve():
+            try:
+                orig_file.unlink()
+            except Exception:
+                pass
     else:
         try:
             proc_file.unlink()
@@ -535,6 +551,7 @@ def _process_file(
     ctx: RunContext,
     cb: CircuitBreaker | None = None,
     rl: RateLimiter | None = None,
+    orig_file: Path | None = None,
 ) -> None:
     """Process single file through Qwen web client with tenacity retry and quarantine handling."""
     out_path, done_path, fail_path, _ = resolve_role_paths(rel_path, cfg)
@@ -566,12 +583,12 @@ def _process_file(
                 with attempt:
                     _execute_single_attempt(
                         client, proc_file, rel_path, cfg, audit, ctx,
-                        active_cb, active_rl, t0, prompt, out_path, done_path,
+                        active_cb, active_rl, t0, prompt, out_path, done_path, orig_file
                     )
                     break
     except AuthRequiredError:
         raise
     except Exception as exc:
         _handle_processing_failure(
-            client, proc_file, rel_path, audit, ctx, active_cb, t0, prompt, out_path, fail_path, exc
+            client, proc_file, rel_path, audit, ctx, active_cb, t0, prompt, out_path, fail_path, exc, cfg, orig_file
         )

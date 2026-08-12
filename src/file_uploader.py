@@ -71,13 +71,15 @@ def _close_dropdown_if_open(page: Page) -> None:
 
 
 def _try_upload_attempt(page: Page, filepath: Path, config: UploadConfig) -> bool:
-    """Execute a single attempt to attach a file via the Qwen Web UI.
+    """Execute a single attempt to attach a file via the Qwen Web UI mode-select dropdown."""
+    # DOM Mount Gate: Ensure chat textarea is fully visible and focused before triggering upload dropdown
+    try:
+        textarea = page.locator("textarea.message-input-textarea, textarea[placeholder*='Message']").first
+        textarea.wait_for(state="visible", timeout=5000)
+        textarea.focus()
+    except Exception as e:
+        log.debug("Chat textarea focus gate skipped/bypassed: %s", e)
 
-    Raises:
-        PlaywrightTimeoutError: On element wait timeouts.
-        UIInteractionError: When required elements are missing.
-
-    """
     log.debug("Opening mode-select dropdown using primary/fallback selectors")
     dropdown_element = None
     for selector in config.dropdown_selectors:
@@ -90,7 +92,6 @@ def _try_upload_attempt(page: Page, filepath: Path, config: UploadConfig) -> boo
             continue
 
     if not dropdown_element:
-        # Final attempt with full standard timeout on primary selector
         dropdown_element = page.locator(config.dropdown_selectors[0]).first
 
     dropdown_element.click(timeout=config.dropdown_timeout_ms)
@@ -118,18 +119,23 @@ def _try_upload_attempt(page: Page, filepath: Path, config: UploadConfig) -> boo
     log.debug("Setting file on file chooser: %s", filepath.name)
     fc.value.set_files(str(filepath))
 
-    log.debug("Waiting for file card attachment indicator to render and complete parsing")
+    log.debug("Waiting for file attachment parsing completion via DOM event state")
+    # Event Trigger 1: Wait until file card renders inside chat input container
     card_selector_str = ", ".join(config.card_selectors)
-    page.locator(card_selector_str).first.wait_for(
-        state="visible", timeout=config.card_render_timeout_ms
-    )
+    card_loc = page.locator(card_selector_str).first
+    card_loc.wait_for(state="visible", timeout=config.card_render_timeout_ms)
+
+    # Event Trigger 2: Wait strictly for any loading/parsing spinners inside chat-input to fully detach
+    # Direct wait without premature count() check on millisecond 0
     try:
-        page.locator("[class*='loading'], [class*='parsing'], [class*='spin'], .ant-spin").first.wait_for(
-            state="hidden", timeout=5000
-        )
-    except Exception:
-        pass
-    time.sleep(2.0)
+        page.locator(
+            "[class*='chat-input'] [class*='loading'], "
+            "[class*='chat-input'] [class*='parsing'], "
+            "[class*='chat-input'] [class*='spin'], "
+            "[class*='chat-input'] .ant-spin"
+        ).first.wait_for(state="hidden", timeout=30000)
+    except Exception as e:
+        log.debug("No active parsing indicator remaining: %s", e)
 
     return True
 
@@ -202,7 +208,11 @@ def upload_attachment(
             _close_dropdown_if_open(page)
 
         if attempt < max_attempts:
-            time.sleep(active_config.backoff_delay_sec * attempt)
+            # Reactive DOM recovery: wait for input element to be stable instead of sleeping
+            try:
+                page.locator("textarea, div[contenteditable='true']").first.wait_for(state="visible", timeout=1000)
+            except Exception:
+                pass
 
     elapsed = time.monotonic() - start_time
     log.error("All %d upload attempts failed for %s after %.2fs", max_attempts, filepath.name, elapsed)

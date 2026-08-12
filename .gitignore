@@ -37,3 +37,4 @@ log/
 plan/
 .qwen-web/
 .codegraph/
+.worktree/

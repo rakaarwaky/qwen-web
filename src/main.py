@@ -274,57 +274,24 @@ def _interactive_prompt() -> AppConfig | None:
 
 
 def _parse_args() -> argparse.Namespace:
-    """Parse CLI arguments for qwen-cli subcommands and options.
-
-    Returns:
-        argparse.Namespace with all parsed arguments including mode flags,
-        path overrides, timeout/rate-limit/circuit-breaker settings, and MCP flag.
-
-    """
+    """Parse CLI arguments for qwen-cli subcommands and options."""
     p = argparse.ArgumentParser(prog="qwen-cli", description="Automate chat.qwen.ai")
     p.add_argument("command", nargs="?", default=None, help="Subcommand (e.g. init)")
     p.add_argument("target_dir", nargs="?", default=None, help="Target directory for init subcommand")
     p.add_argument("--init", action="store_true", help="Initialize workspace with .agents/skills and .qwen-web symlinks")
     p.add_argument("-i", "--input", default=str(DEFAULT_TODO))
     p.add_argument("-o", "--output", default=str(DEFAULT_OUTPUT))
-    p.add_argument("-d", "--done-dir", default=str(DEFAULT_DONE))
-    p.add_argument("--failed-dir", default=str(DEFAULT_FAILED))
-    p.add_argument("--proc-dir", default=str(DEFAULT_PROC))
-    p.add_argument("--log-dir", default=str(DEFAULT_LOG))
     p.add_argument("-w", "--watch", action="store_true")
-    p.add_argument("--interval", type=int, default=3)
     p.add_argument("--headless", action="store_true", help="Run browser headlessly (default: show window)")
-    p.add_argument("--data-dir", default=str(DEFAULT_SESSION))
-    p.add_argument("--timeout", type=int, default=300)
     p.add_argument("--login", action="store_true", help="Open browser to log in manually and save session")
+    p.add_argument("--no-close", action="store_true", help="Keep browser window open after processing for manual inspection")
     p.add_argument("--mcp", action="store_true", help="Run as Model Context Protocol (MCP) server over stdio")
-    # P2: request / polling timeouts
-    p.add_argument("--request-timeout", type=int, default=120, help="Max seconds to wait for Qwen response")
-    p.add_argument("--poll-interval", type=float, default=1.0, help="Seconds between message-poll checks")
-    p.add_argument("--streaming-timeout", type=int, default=180, help="Max seconds for streaming generation")
-    # P2: rate limiting
-    p.add_argument("--rate-limit", type=int, default=60, help="Max requests per minute")
-    # P2: circuit breaker
-    p.add_argument("--cb-threshold", type=int, default=5, help="Consecutive failures to trip circuit breaker")
-    p.add_argument("--cb-window", type=int, default=30, help="Circuit breaker sliding window in seconds")
-    # P6: retry-failed mode
     p.add_argument("--retry-failed", action="store_true", help="Process files in failed/ directory on next run")
     return p.parse_args()
 
 
 def _build_config(args: argparse.Namespace) -> AppConfig:
-    """Build AppConfig from parsed CLI arguments.
-
-    Derives the operation mode from flags (--login, --watch, or input path type)
-    and maps all CLI arguments to their corresponding AppConfig fields.
-
-    Args:
-        args: Parsed argparse.Namespace from _parse_args().
-
-    Returns:
-        Fully constructed AppConfig ready for execution.
-
-    """
+    """Build AppConfig from parsed CLI arguments."""
     if args.login:
         mode_val: str = "login"
     elif args.watch:
@@ -336,20 +303,13 @@ def _build_config(args: argparse.Namespace) -> AppConfig:
         mode=mode_val,
         input_path=Path(args.input),
         output_path=Path(args.output),
-        done_path=Path(getattr(args, "done_dir", str(DEFAULT_DONE))),
-        failed_path=Path(getattr(args, "failed_dir", str(DEFAULT_FAILED))),
-        proc_path=Path(getattr(args, "proc_dir", str(DEFAULT_PROC))),
-        session_path=Path(getattr(args, "data_dir", str(DEFAULT_SESSION))),
-        log_path=Path(getattr(args, "log_dir", str(DEFAULT_LOG))),
-        interval=getattr(args, "interval", 3),
-        timeout=getattr(args, "timeout", 300),
+        done_path=DEFAULT_DONE,
+        failed_path=DEFAULT_FAILED,
+        proc_path=DEFAULT_PROC,
+        session_path=DEFAULT_SESSION,
+        log_path=DEFAULT_LOG,
         headless=bool(getattr(args, "headless", False)),
-        request_timeout=getattr(args, "request_timeout", 120),
-        poll_interval=float(getattr(args, "poll_interval", 1.0)),
-        streaming_timeout=getattr(args, "streaming_timeout", 180),
-        rate_limit_per_minute=getattr(args, "rate_limit", 60),
-        circuit_breaker_threshold=getattr(args, "cb_threshold", 5),
-        circuit_breaker_window=getattr(args, "cb_window", 30),
+        keep_open=bool(getattr(args, "no_close", False)),
         retry_failed=bool(getattr(args, "retry_failed", False)),
     )
 
@@ -481,8 +441,10 @@ def main() -> int:
                         _run_watcher(client, cfg, audit)
                     else:
                         # batch / single mode: same loop as before
-                        for proc_file, rel_path in _iter_todo(cfg):
-                            _process_file(client, proc_file, rel_path, cfg, audit, ctx)
+                        for item in _iter_todo(cfg):
+                            proc_file, rel_path = item[0], item[1]
+                            orig_file = item[2] if len(item) > 2 else None
+                            _process_file(client, proc_file, rel_path, cfg, audit, ctx, orig_file=orig_file)
             except AuthRequiredError as e:
                 print(f"\n[AUTH ERROR] {e}\n", file=sys.stderr)
                 log.error("auth_required", error=str(e))

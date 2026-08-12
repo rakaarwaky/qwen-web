@@ -10,7 +10,14 @@ import pytest
 from playwright.sync_api import ElementHandle
 
 from src.qwen_client import QwenClient
-from src.types import AppConfig, LifecycleEmitter, QwenCliError
+from src.types import (
+    EVENT_DOCUMENT_PARSED,
+    EVENT_PROMPT_INJECTED,
+    EVENT_SEND_CLICKED,
+    AppConfig,
+    LifecycleEmitter,
+    QwenCliError,
+)
 
 
 class TestQwenClientSendFile:
@@ -35,13 +42,26 @@ class TestQwenClientSendFile:
         f = tmp_path / "task.md"
         f.write_text("hello")
 
+        def mock_upload_attachment(p, f, emitter=None, web_loaded=True):
+            if emitter:
+                emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(f), "char_count": 5})
+            return True
+
+        def mock_inject_text(p, text, emitter=None):
+            if emitter:
+                emitter.emit(EVENT_PROMPT_INJECTED, {"text_length": len(text)})
+
+        def mock_click_send(p, emitter, document_parsed=True, prompt_injected=True):
+            if emitter:
+                emitter.emit(EVENT_SEND_CLICKED, {"selector": "mock"})
+
         with patch("src.qwen_client.navigate_to_chat"), \
              patch("src.qwen_client._check_auth"), \
              patch("src.qwen_client.count_messages", return_value=0), \
              patch("src.qwen_client.find_input"), \
-             patch("src.qwen_client.upload_attachment", return_value=True), \
-             patch("src.qwen_client.inject_text"), \
-             patch("src.qwen_client.click_send"), \
+             patch("src.qwen_client.upload_attachment", side_effect=mock_upload_attachment), \
+             patch("src.qwen_client.inject_text", side_effect=mock_inject_text), \
+             patch("src.qwen_client.click_send", side_effect=mock_click_send), \
              patch("src.qwen_client.wait_for_response", return_value=None):
             with pytest.raises(TimeoutError, match="Timeout"):
                 client.send_file(f, timeout_sec=10)

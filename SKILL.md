@@ -99,7 +99,7 @@ Retrieve recent execution records for debugging or monitoring.
 
 ## Session Management
 
-- Session cookies stored in `qwen_session/` (persistent across runs).
+- Session cookies stored automatically in `~/.local/share/qwen-web/qwen_session` (persistent across runs).
 - First run requires `--login` or interactive mode for manual authentication.
 - Subsequent runs can use `--headless` mode.
 - Session health checked automatically before each file processing.

@@ -11,6 +11,8 @@ from playwright.sync_api import Page
 from .observability import get_logger
 from .types import (
     DEFAULT_SENDER_CONFIG,
+    EVENT_DOCUMENT_PARSED,
+    EVENT_PROMPT_INJECTED,
     EVENT_SEND_CLICKED,
     MESSAGE_SELECTORS,
     SEND_SELECTORS,
@@ -30,56 +32,27 @@ COMBINED_MESSAGE_SELECTOR = ", ".join(MESSAGE_SELECTORS)
 # Exclusion list is derived from live DOM inspection of chat.qwen.ai.
 _JS_GET_RESPONSE_TEXT = """
 () => {
-    // Strategy 1: known chat log containers - try last child text
-    var containers = ['#chatLog', '[class*="chat-log"]', '[class*="virtual-list"]',
-                      '[class*="message-list"]', '[class*="conversation-body"]',
-                      '[class*="dialog-content"]'];
-    for (var ci = 0; ci < containers.length; ci++) {
-        var container = document.querySelector(containers[ci]);
-        if (container && container.children.length > 0) {
-            var lastChild = container.children[container.children.length - 1];
-            var txt = (lastChild.innerText || '').trim();
-            if (txt.length > 20) return txt;
-        }
-    }
-
-    // Strategy 2: longest text outside known Qwen UI chrome
-    // These class substrings identify UI chrome to skip:
-    var SKIP_CLASSES = [
-        'model-selector', 'fileitem', 'placeholder', 'message-input',
-        'header', 'footer', 'feedback', 'downLoad', 'sidebar',
-        'mode-select', 'send-button', 'toolbar', 'nav', 'spinner',
-        'thinking', 'attachment', 'file-card', 'file-content',
-        'chat-footer', 'chat-prompt-recommend'
+    // Target exact Qwen assistant response elements excluding thinking/thought blocks
+    var selectors = [
+        '.chat-message-assistant .markdown-body:not(.thinking):not([class*="thought"])',
+        '.chat-message-assistant:not(.thinking)',
+        '[class*="assistant"] .markdown-body:not(.thinking):not([class*="thought"])',
+        '[class*="assistant"] [class*="markdown"]:not(.thinking):not([class*="thought"])',
+        '[data-role="assistant"] .markdown-body:not(.thinking):not([class*="thought"])',
+        '.qwen-markdown:not(.thinking):not([class*="thought"])'
     ];
-
-    function isInChrome(el) {
-        var p = el;
-        while (p) {
-            var cls = p.className;
-            if (cls && typeof cls === 'string') {
-                for (var i = 0; i < SKIP_CLASSES.length; i++) {
-                    if (cls.indexOf(SKIP_CLASSES[i]) >= 0) return true;
-                }
+    for (var i = 0; i < selectors.length; i++) {
+        var els = document.querySelectorAll(selectors[i]);
+        if (els.length > 0) {
+            for (var j = els.length - 1; j >= 0; j--) {
+                var el = els[j];
+                if (el.closest && (el.closest('.thinking') || el.closest('[class*="thought"]'))) continue;
+                var txt = (el.innerText || el.textContent || '').trim();
+                if (txt.length > 0) return txt;
             }
-            if (p.tagName === 'HEADER' || p.tagName === 'FOOTER' ||
-                p.tagName === 'NAV' || p.tagName === 'ASIDE') return true;
-            p = p.parentElement;
         }
-        return false;
     }
-
-    var best = null;
-    var bestLen = 0;
-    var all = document.querySelectorAll('div, p, pre, section, article, main');
-    for (var i = 0; i < all.length; i++) {
-        var el = all[i];
-        if (['SCRIPT','STYLE','TEXTAREA','INPUT','BUTTON'].indexOf(el.tagName) >= 0) continue;
-        if (isInChrome(el)) continue;
-        var txt2 = (el.innerText || '').trim();
-        if (txt2.length > bestLen) { bestLen = txt2.length; best = txt2; }
-    }
-    return best;
+    return null;
 }
 """
 
@@ -98,25 +71,35 @@ def click_send(
     emitter: LifecycleEmitter,
     config: SenderConfig | None = None,
     document_parsed: bool = True,
+    prompt_injected: bool = True,
 ) -> None:
-    """Click the prompt send button using verified selectors with keyboard Enter fallback.
+    """Click the Send button or trigger Enter fallback.
 
     Args:
         page: Playwright Page instance.
         emitter: LifecycleEmitter for event notification.
         config: Optional SenderConfig instance.
         document_parsed: Bool indicating if document parsed event has been released.
+        prompt_injected: Bool indicating if prompt injected event (EVENT_PROMPT_INJECTED) has been released.
 
     Raises:
-        SendDispatchError: If document_parsed is False or no valid send trigger succeeds.
+        SendDispatchError: If document_parsed or prompt_injected is False or no valid send trigger succeeds.
 
     """
     if not document_parsed:
-        raise SendDispatchError("Cannot send prompt: document attachment parsing (EVENT_DOCUMENT_PARSED) is incomplete")
+        raise SendDispatchError(f"Cannot send prompt: document attachment parsing ({EVENT_DOCUMENT_PARSED}) is incomplete")
+    if not prompt_injected:
+        raise SendDispatchError(f"Cannot send prompt: prompt injection ({EVENT_PROMPT_INJECTED}) is incomplete")
 
     cfg = config or DEFAULT_SENDER_CONFIG
 
-    # Strategy 1: Iterate verified DOM send selectors
+    # Event Safeguard: Ensure no active parsing/processing file indicators remain in the DOM
+    try:
+        page.locator("[class*='file'], [class*='attachment'], [class*='card']").filter(has_text="Parsing").wait_for(
+            state="hidden", timeout=30000
+        )
+    except Exception as e:
+        log.debug("Parsing indicator check finished/bypassed: %s", e)
     for sel in SEND_SELECTORS:
         try:
             locator = page.locator(sel)
@@ -124,6 +107,13 @@ def click_send(
                 locator.click(timeout=cfg.click_timeout_ms)
                 log.info("Send button clicked via: %s", sel)
                 emitter.emit(EVENT_SEND_CLICKED, {"selector": sel})
+                # Trigger native Enter press to ensure React dispatch if input is non-empty
+                try:
+                    textarea_el = page.locator(TEXTAREA_SELECTOR)
+                    if textarea_el.count() > 0 and textarea_el.first.is_visible():
+                        textarea_el.first.press("Enter")
+                except Exception:
+                    pass
                 return
         except PlaywrightError as e:
             log.warning("Selector '%s' failed: %s", sel, e)
@@ -137,8 +127,8 @@ def click_send(
         try:
             textarea = page.locator(TEXTAREA_SELECTOR)
             if textarea.count() > 0:
-                textarea.press("Enter")
-                log.info("Enter key pressed (send button not found)")
+                textarea.first.press("Enter")
+                log.info("Enter key pressed (send button fallback)")
                 emitter.emit(EVENT_SEND_CLICKED, {"selector": "Enter"})
                 return
         except PlaywrightError as e:
