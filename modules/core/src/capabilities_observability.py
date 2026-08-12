@@ -335,6 +335,21 @@ def setup_observability(log_path: Path) -> None:
     inst.setup_observability()
 
 
+def _configure_sentry() -> None:
+    """Configure Sentry (module-level convenience)."""
+    ObservabilitySetup(Path("/tmp/qwen-web"))._configure_sentry()
+
+
+def _configure_tracing() -> None:
+    """Configure OpenTelemetry tracing (module-level convenience)."""
+    ObservabilitySetup(Path("/tmp/qwen-web"))._configure_tracing()
+
+
+def _configure_logging(log_path: Path) -> None:
+    """Configure structlog/stdlib logging (module-level convenience)."""
+    ObservabilitySetup(log_path)._configure_logging(log_path)
+
+
 # Module-level convenience
 def get_status_writer(log_path: Path) -> StatusFileWriter:
     return StatusFileWriter(log_path / "status.json")

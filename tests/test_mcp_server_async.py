@@ -20,8 +20,8 @@ from modules.root_mcp_main_entry import (
 
 class TestQwenSendPrompt:
     def test_send_prompt_success(self):
-        with patch("modules.mcp_server.browser_session") as mock_bs, \
-             patch("modules.mcp_server.QwenClient") as mock_client:
+        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
+             patch("modules.root_mcp_main_entry.QwenClient") as mock_client:
             mock_ctx = MagicMock()
             mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
             mock_bs.return_value.__exit__ = MagicMock(return_value=False)
@@ -34,8 +34,8 @@ class TestQwenSendPrompt:
 
     def test_send_prompt_auth_error(self):
         from modules.shared.src import AuthRequiredError
-        with patch("modules.mcp_server.browser_session") as mock_bs, \
-             patch("modules.mcp_server.QwenClient") as mock_client:
+        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
+             patch("modules.root_mcp_main_entry.QwenClient") as mock_client:
             mock_ctx = MagicMock()
             mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
             mock_bs.return_value.__exit__ = MagicMock(return_value=False)
@@ -52,10 +52,10 @@ class TestQwenProcessSingle:
         task = tmp_path / "task.md"
         task.write_text("task")
 
-        with patch("modules.mcp_server.browser_session") as mock_bs, \
-             patch("modules.mcp_server.QwenClient") as mock_client, \
-             patch("modules.mcp_server._process_file"), \
-             patch("modules.mcp_server.AuditLog"):
+        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
+             patch("modules.root_mcp_main_entry.QwenClient") as mock_client, \
+             patch("modules.root_mcp_main_entry._process_file"), \
+             patch("modules.root_mcp_main_entry.AuditLog"):
             mock_ctx = MagicMock()
             mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
             mock_bs.return_value.__exit__ = MagicMock(return_value=False)
@@ -74,10 +74,10 @@ class TestQwenProcessSingle:
 
 class TestQwenProcessBatch:
     def test_process_batch_empty(self):
-        with patch("modules.mcp_server.browser_session") as mock_bs, \
-             patch("modules.mcp_server.QwenClient"), \
-             patch("modules.mcp_server._iter_todo", return_value=iter([])), \
-             patch("modules.mcp_server.AuditLog"):
+        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
+             patch("modules.root_mcp_main_entry.QwenClient"), \
+             patch("modules.root_mcp_main_entry._iter_todo", return_value=iter([])), \
+             patch("modules.root_mcp_main_entry.AuditLog"):
             mock_ctx = MagicMock()
             mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
             mock_bs.return_value.__exit__ = MagicMock(return_value=False)
@@ -90,7 +90,7 @@ class TestQwenProcessBatch:
 
 class TestQwenSetupSession:
     def test_setup_session(self):
-        with patch("modules.mcp_server.browser_session") as mock_bs:
+        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs:
             mock_ctx = MagicMock()
             mock_page = MagicMock()
             mock_ctx.pages = [mock_page]
@@ -108,7 +108,7 @@ class TestQwenGetAuditLogExtended:
         log_file = tmp_path / "audit_history.jsonl"
         entries = [json.dumps({"run_id": str(i)}) for i in range(5)]
         log_file.write_text("\n".join(entries) + "\n")
-        with patch("modules.mcp_server.DEFAULT_LOG", tmp_path):
+        with patch("modules.root_mcp_main_entry.DEFAULT_LOG", tmp_path):
             result = qwen_get_audit_log(limit=3)
             records = json.loads(result)
             assert len(records) == 3
@@ -116,7 +116,7 @@ class TestQwenGetAuditLogExtended:
     def test_empty_file(self, tmp_path):
         log_file = tmp_path / "audit_history.jsonl"
         log_file.write_text("")
-        with patch("modules.mcp_server.DEFAULT_LOG", tmp_path):
+        with patch("modules.root_mcp_main_entry.DEFAULT_LOG", tmp_path):
             result = qwen_get_audit_log()
             records = json.loads(result)
             assert len(records) == 0

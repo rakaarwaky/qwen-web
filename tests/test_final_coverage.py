@@ -16,7 +16,7 @@ from modules.root_mcp_main_entry import (
     qwen_send_prompt,
     qwen_start_watcher,
 )
-from modules.core.src.capabilities_pipeline_compat import (
+from modules.core.src.agent_core_orchestrator import (
     _iter_todo_retry_failed,
     _iter_todo_single,
     _iter_todo_watcher,
@@ -65,7 +65,7 @@ class TestMainWatcherError:
             assert any("error" in str(c) for c in calls)
 
     def test_watcher_shutdown_breaks_loop(self, tmp_path):
-        from modules.core.src.capabilities_pipeline_compat import _watcher_shutdown
+        from modules.core.src.agent_core_orchestrator import _watcher_shutdown
         _watcher_shutdown.set()
         client = MagicMock()
         cfg = AppConfig(
@@ -92,8 +92,8 @@ class TestMainWatcherError:
 class TestMcpServerRemainingAsync:
     def test_qwen_send_prompt_auth_error(self):
         from modules.shared.src import AuthRequiredError
-        with patch("modules.mcp_server.browser_session") as mock_bs, \
-             patch("modules.mcp_server.QwenClient") as mock_client:
+        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
+             patch("modules.root_mcp_main_entry.QwenClient") as mock_client:
             mock_ctx = MagicMock()
             mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
             mock_bs.return_value.__exit__ = MagicMock(return_value=False)
@@ -104,8 +104,8 @@ class TestMcpServerRemainingAsync:
             assert "AUTH_REQUIRED" in result
 
     def test_qwen_send_prompt_general_error(self):
-        with patch("modules.mcp_server.browser_session") as mock_bs, \
-             patch("modules.mcp_server.QwenClient") as mock_client:
+        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
+             patch("modules.root_mcp_main_entry.QwenClient") as mock_client:
             mock_ctx = MagicMock()
             mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
             mock_bs.return_value.__exit__ = MagicMock(return_value=False)
@@ -120,11 +120,11 @@ class TestMcpServerRemainingAsync:
         tmp_task = Path("/tmp/test_task.md")
         tmp_task.write_text("task")
         try:
-            with patch("modules.mcp_server.browser_session") as mock_bs, \
-                 patch("modules.mcp_server.QwenClient"), \
-                 patch("modules.mcp_server._process_file", side_effect=AuthRequiredError("login")), \
-                 patch("modules.mcp_server.AuditLog"), \
-                 patch("modules.mcp_server.shutil"):
+            with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
+                 patch("modules.root_mcp_main_entry.QwenClient"), \
+                 patch("modules.root_mcp_main_entry._process_file", side_effect=AuthRequiredError("login")), \
+                 patch("modules.root_mcp_main_entry.AuditLog"), \
+                 patch("modules.root_mcp_main_entry.shutil"):
                 mock_ctx = MagicMock()
                 mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
                 mock_bs.return_value.__exit__ = MagicMock(return_value=False)
@@ -137,10 +137,10 @@ class TestMcpServerRemainingAsync:
 
     def test_qwen_process_batch_auth_error(self):
         from modules.shared.src import AuthRequiredError
-        with patch("modules.mcp_server.browser_session") as mock_bs, \
-             patch("modules.mcp_server.QwenClient"), \
-             patch("modules.mcp_server._iter_todo", return_value=iter([])), \
-             patch("modules.mcp_server.AuditLog"):
+        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
+             patch("modules.root_mcp_main_entry.QwenClient"), \
+             patch("modules.root_mcp_main_entry._iter_todo", return_value=iter([])), \
+             patch("modules.root_mcp_main_entry.AuditLog"):
             mock_ctx = MagicMock()
             mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
             mock_bs.return_value.__exit__ = MagicMock(return_value=False)
@@ -239,8 +239,8 @@ class TestBrowserRemainingPaths:
         )
         mock_ctx = MagicMock()
         mock_ctx.pages = [MagicMock()]
-        with patch("modules.browser.sync_playwright") as mock_pw, \
-             patch("modules.browser.os.chmod"):
+        with patch("modules.core.src.capabilities_browser_adapter.sync_playwright") as mock_pw, \
+             patch("modules.core.src.capabilities_browser_adapter.os.chmod"):
             mock_p = MagicMock()
             mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)

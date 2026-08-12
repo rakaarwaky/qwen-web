@@ -4,12 +4,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from modules.core.src.capabilities_pipeline_compat import (
-    _list_input_files,
-    load_role_prompt,
+from modules.shared.src.utility_core_path import (
+    list_input_files as _list_input_files,
     resolve_role_paths,
 )
-from modules.core.src.capabilities_qwen_client import QwenClient
+from modules.shared.src.utility_core_prompt import load_role_prompt
+from modules.core.src.agent_core_orchestrator import QwenClient
 from modules.shared.src import AppConfig
 
 

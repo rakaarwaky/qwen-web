@@ -8,15 +8,29 @@ ICoreAggregate, consumed by the CLI/MCP surfaces.
 from __future__ import annotations
 
 import contextlib
-import json
 import shutil
 import signal
 import tempfile
 import threading
 import time
+import types
 from pathlib import Path
 from typing import Any
 
+from playwright.sync_api import Browser, BrowserContext, ElementHandle, Locator, Page
+
+from modules.core.src.capabilities_browser_adapter import (
+    SessionCheck,
+    check_auth,
+    navigate_to_chat,
+    reset_page,
+)
+from modules.core.src.capabilities_file_uploader import upload_attachment
+from modules.core.src.capabilities_observability import get_logger
+from modules.core.src.capabilities_prompt_injector import find_input, inject_text
+from modules.core.src.capabilities_prompt_injector import type_slowly as _type_slowly_mod
+from modules.core.src.capabilities_send_dispatcher import click_send, count_messages, latest_message_text
+from modules.core.src.capabilities_stream_monitor import wait_for_response
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.contract_core_protocol import (
     IBrowserProtocol,
@@ -42,10 +56,16 @@ from modules.shared.src.taxonomy_core_constant import (
 )
 from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
 from modules.shared.src.taxonomy_core_event import LifecycleEmitter
-from modules.shared.src.taxonomy_core_vo import RunContext
+from modules.shared.src.taxonomy_core_vo import (
+    EVENT_DISPATCH_ACKNOWLEDGED,
+    EVENT_DOCUMENT_PARSED,
+    EVENT_OUTPUT_COPIED,
+    RunContext,
+)
 from modules.shared.src.taxonomy_domain_error import (
     AuthRequiredError,
     CircuitBreakerOpenError,
+    QwenCliError,
 )
 from modules.shared.src.utility_core_path import (
     cleanup_empty_dirs,
@@ -254,15 +274,12 @@ class CoreOrchestrator(ICoreAggregate):
         return f"Browser session saved to '{cfg.session_path}'. You can now run tasks in headless mode."
 
     def get_audit_log(self, limit: int = 20) -> str:
-        """Fetch recent entries from the JSONL audit trail log."""
-        audit_file = DEFAULT_LOG / "audit_history.jsonl"
-        if not audit_file.exists():
-            return "Audit log file does not exist yet."
+        """Return recent audit log entries as JSON text (delegated to audit capability)."""
+        return self._audit.get_audit_log(limit)
 
-        lines = audit_file.read_text(encoding="utf-8").strip().splitlines()
-        recent = lines[-limit:]
-        records: list[Any] = [json.loads(line) for line in recent if line.strip()]
-        return json.dumps(records, indent=2)
+    def init_workspace(self, target_dir: Path | str = ".") -> None:
+        """Initialize the workspace (delegated to the audit/file-system capability)."""
+        self._audit.init_workspace(Path(target_dir))
 
     # ─── Private orchestration helpers (Block 3) ─────────────────
     def _send_file(
@@ -425,6 +442,9 @@ class CoreOrchestrator(ICoreAggregate):
         src.mkdir(parents=True, exist_ok=True)
         cfg.proc_path.mkdir(parents=True, exist_ok=True)
 
+        if cfg.retry_failed:
+            yield from self._iter_todo_retry_failed(cfg)
+            return
         if cfg.mode == "single":
             yield from self._iter_todo_single(cfg)
             return
@@ -432,6 +452,18 @@ class CoreOrchestrator(ICoreAggregate):
             yield from self._iter_todo_batch(src, cfg)
             return
         yield from self._iter_todo_watcher(src, cfg)
+
+    def _iter_todo_retry_failed(self, cfg: AppConfig) -> Any:
+        """Yield files for retry-failed mode."""
+        src = cfg.failed_path
+        if not src.exists() or not src.is_dir():
+            return
+        for f in sorted(f for f in src.rglob("*") if should_process_file(f, src)):
+            rel_path = f.resolve().relative_to(src.resolve())
+            _, _, _, proc_dest = resolve_role_paths(rel_path, cfg)
+            proc_dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(f), str(proc_dest))
+            yield proc_dest, rel_path
 
     def _iter_todo_single(self, cfg: AppConfig) -> Any:
         """Yield file for single mode."""
@@ -498,3 +530,194 @@ class CoreOrchestrator(ICoreAggregate):
             signal.signal(signal.SIGTERM, _handle_signal)
         except (OSError, ValueError):
             pass
+
+
+class QwenClient:
+    """Wraps a Playwright persistent context to interact with chat.qwen.ai.
+
+    Façade composing the browser/inject/upload/send/stream capabilities into
+    the send-file orchestration flow. Lives in the agent layer because it is
+    pure orchestration of capability calls.
+    """
+
+    def __init__(
+        self,
+        ctx: BrowserContext | None,
+        cfg: AppConfig | None = None,
+        emitter: LifecycleEmitter | None = None,
+    ) -> None:
+        """Initialize QwenClient with browser context, config, and event emitter."""
+        self.cfg = cfg
+        self.browser: Browser | None = None
+        self.context: BrowserContext | None = ctx
+        self.page: Page | None = ctx.pages[0] if ctx and ctx.pages else (ctx.new_page() if ctx else None)
+        self.emitter: LifecycleEmitter = emitter or LifecycleEmitter()
+
+    def start(self) -> None:
+        """No-op — browser context is managed externally via browser_session()."""
+
+    def stop(self) -> None:
+        """No-op — browser context is managed externally via browser_session()."""
+
+    def reset_page(self) -> None:
+        """Reset the page to a clean state."""
+        if self.page:
+            reset_page(self.page, self.emitter)
+
+    def send_file(
+        self,
+        filepath: Path,
+        timeout_sec: int,
+        custom_prompt_path: Path | None = None,
+        rel_path: Path | None = None,
+    ) -> str:
+        """Send a prompt file to chat.qwen.ai and return the full AI response as text."""
+        if not self.page:
+            raise RuntimeError("Browser not started. Call start() first.")
+
+        try:
+            prompt = filepath.read_text(encoding="utf-8").strip()
+        except OSError as e:
+            raise QwenCliError(f"Failed to read prompt file {filepath}: {e}") from e
+
+        role_prompt = load_role_prompt(filepath, custom_prompt_path, rel_path)
+        if role_prompt:
+            prompt = f"{role_prompt}\n\n{prompt}"
+
+        navigate_to_chat(self.page, self.emitter)
+        check_auth(self.page)
+
+        get_logger("qwen_client").info("Sending prompt to chat.qwen.ai (%d chars)", len(prompt))
+        msg_count_before = count_messages(self.page)
+
+        find_input(self.page)
+        attached = upload_attachment(self.page, filepath, emitter=self.emitter, web_loaded=True)
+        if not attached:
+            get_logger("qwen_client").warning(
+                "File upload failed, proceeding with text-only prompt: %s", filepath.name
+            )
+            self.emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "char_count": len(prompt)})
+        inject_text(self.page, prompt)
+        click_send(self.page, self.emitter, document_parsed=True)
+        self.emitter.emit(EVENT_DISPATCH_ACKNOWLEDGED, {"file": str(filepath)})
+
+        response = self._wait_for_response(timeout_sec, msg_count_before)
+
+        if response and len(response.strip()) > 0:
+            get_logger("qwen_client").info("Received response (%d chars)", len(response))
+            self.emitter.emit(EVENT_OUTPUT_COPIED, {"file": str(filepath), "char_count": len(response.strip())})
+            return response.strip()
+        raise TimeoutError(f"Timeout after {timeout_sec}s: no response detected")
+
+    # ─── Delegate helpers (tests call these directly) ───────────
+    def _type_slowly(self, textarea: ElementHandle | Locator, text: str, delay_ms: int = 30) -> None:
+        if self.page and isinstance(textarea, ElementHandle):
+            _type_slowly_mod(self.page, textarea, text, delay_ms)
+
+    def _count_messages(self) -> int:
+        return count_messages(self.page) if self.page else 0
+
+    def _latest_message_text(self) -> str | None:
+        return latest_message_text(self.page) if self.page else None
+
+    def _wait_for_response(
+        self,
+        timeout_sec: int,
+        msg_count_before: int,
+        dispatch_acknowledged: bool = True,
+    ) -> str | None:
+        return (
+            wait_for_response(
+                self.page, timeout_sec, msg_count_before, self.emitter,
+                dispatch_acknowledged=dispatch_acknowledged,
+            )
+            if self.page
+            else None
+        )
+
+    def __enter__(self) -> "QwenClient":
+        """Enter the context manager and start the client."""
+        self.start()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: types.TracebackType | None,
+    ) -> None:
+        """Exit the context manager and stop the client."""
+        self.stop()
+
+
+# ─── Module-level orchestration helpers (behavior-lock surface) ──────────────
+def _watcher_sleep(interval: int) -> None:
+    """Sleep in small chunks so shutdown remains responsive."""
+    for _ in range(max(1, interval)):
+        if _watcher_shutdown.is_set():
+            return
+        time.sleep(min(_WATCHER_SLEEP_CHUNK_SECS, interval))
+
+
+def _iter_todo(cfg: AppConfig) -> Any:
+    """Yield (proc_file, relative_path) tuples for the processing queue."""
+    yield from _iter_todo_impl(cfg)
+
+
+def _iter_todo_impl(cfg: AppConfig) -> Any:
+    """Shared implementation delegating to a wired orchestrator instance."""
+    from modules.cli.src.root_cli_container import CliContainer
+
+    container = CliContainer()
+    container.wire()
+    yield from container.core._iter_todo(cfg)
+
+
+def _iter_todo_retry_failed(cfg: AppConfig) -> Any:
+    from modules.cli.src.root_cli_container import CliContainer
+
+    container = CliContainer()
+    container.wire()
+    yield from container.core._iter_todo_retry_failed(cfg)
+
+
+def _iter_todo_single(cfg: AppConfig) -> Any:
+    from modules.cli.src.root_cli_container import CliContainer
+
+    container = CliContainer()
+    container.wire()
+    yield from container.core._iter_todo_single(cfg)
+
+
+def _iter_todo_batch(src: Path, cfg: AppConfig) -> Any:
+    from modules.cli.src.root_cli_container import CliContainer
+
+    container = CliContainer()
+    container.wire()
+    yield from container.core._iter_todo_batch(src, cfg)
+
+
+def _iter_todo_watcher(src: Path, cfg: AppConfig) -> Any:
+    from modules.cli.src.root_cli_container import CliContainer
+
+    container = CliContainer()
+    container.wire()
+    yield from container.core._iter_todo_watcher(src, cfg)
+
+
+def _process_file(
+    client: Any,
+    proc_file: Path,
+    rel_path: Path,
+    cfg: AppConfig,
+    audit: Any,
+    ctx: RunContext,
+    cb: CircuitBreaker | None = None,
+    rl: RateLimiter | None = None,
+) -> None:
+    """Process a single file via a wired orchestrator (behavior-lock surface)."""
+    from modules.cli.src.root_cli_container import CliContainer
+
+    container = CliContainer()
+    container.wire()
+    container.core._process_file(proc_file, rel_path, cfg, ctx)

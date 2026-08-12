@@ -110,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
     if args and (getattr(args, "command", None) == "init" or getattr(args, "init", False)):
         target_dir = getattr(args, "target_dir", None) or Path.cwd()
         container = _default_container()
-        container.cli.init_workspace(target_dir)
+        container.core.init_workspace(target_dir)
         return 0
 
     # Interactive mode when no args
@@ -132,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if cfg.mode == "login":
-        container.cli.run_manual_login(cfg)
+        _run_manual_login(cfg)
         return 0
 
     try:
@@ -156,14 +156,18 @@ def main(argv: list[str] | None = None) -> int:
 
 def _interactive_prompt() -> AppConfig | None:
     """Display interactive TUI menu and build AppConfig from user selections."""
+    from modules.cli.src.surface_cli_interactive_controller import InteractiveController
+
     container = _default_container()
-    return container.cli.interactive_prompt()
+    return InteractiveController(container.core).interactive_prompt()
 
 
 def _run_manual_login(cfg: AppConfig) -> None:
-    """Launch visible browser for interactive login."""
+    """Launch visible browser for interactive login (TTY flow in the surface)."""
+    from modules.cli.src.surface_cli_login_command import handle as _login_handle
+
     container = _default_container()
-    container.cli.run_manual_login(cfg)
+    _login_handle(None, container.core, cfg)
 
 
 def _run_watcher(client: Any, cfg: AppConfig, audit: Any) -> None:

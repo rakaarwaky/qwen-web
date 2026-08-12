@@ -1,17 +1,18 @@
 """CLI surface: login command — manual browser login / session setup.
 
-Smart surface: TTY check + delegate to the CLI aggregate.
+Smart surface: TTY check + interactive ENTER prompt; delegates the browser
+session to the shared core aggregate.
 """
 
 from __future__ import annotations
 
 import sys
 
-from modules.shared.src.contract_cli_aggregate import ICliAggregate
+from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.taxonomy_config_vo import AppConfig
 
 
-def handle(_args: object, cli: ICliAggregate, cfg: AppConfig) -> dict[str, object]:
+def handle(_args: object, core: ICoreAggregate, cfg: AppConfig) -> dict[str, object]:
     """Run manual login in a visible browser window."""
     if not sys.stdin.isatty():
         return {
@@ -21,7 +22,10 @@ def handle(_args: object, cli: ICliAggregate, cfg: AppConfig) -> dict[str, objec
             "ref": "cli-400",
         }
     try:
-        cli.run_manual_login(cfg)
+        print("Please log in or resolve CAPTCHA in the browser window.")
+        core.setup_session()
+        print("Press [ENTER] once you have finished logging in:")
+        input()
         return {"success": True, "message": "Login session saved."}
     except Exception as e:
         return {

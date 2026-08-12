@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from modules.core.src.capabilities_qwen_client import QwenClient
+from modules.core.src.agent_core_orchestrator import QwenClient
 
 
 def _probe_file(tmp_path: Path, content: str = "# probe\nconfirm you can read this file.\n") -> Path:

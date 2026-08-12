@@ -1,12 +1,12 @@
 """Root: MCP feature DI container.
 
-Wires capabilities → agent → surface for the MCP feature.
+Wires capabilities → agent → surface for the MCP feature. The MCP surface
+shares the single ICoreAggregate with the CLI surface.
 """
 
 from __future__ import annotations
 
 from modules.core.src.agent_core_orchestrator import CoreOrchestrator
-from modules.core.src.agent_mcp_orchestrator import McpOrchestrator
 from modules.core.src.capabilities_audit_repository import AuditRepository
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
 from modules.core.src.capabilities_file_uploader import FileUploader
@@ -53,7 +53,6 @@ class McpContainer:
             circuit_breaker=self.cb,
             rate_limiter=self.rl,
         )
-        self.mcp = McpOrchestrator(self.core)
 
     def wire(self) -> None:
         """Wire the container (idempotent — attributes already composed)."""

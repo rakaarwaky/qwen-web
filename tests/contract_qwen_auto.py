@@ -2,7 +2,7 @@
 import unittest
 from pathlib import Path
 
-from modules.core.src.capabilities_qwen_client import QwenClient
+from modules.core.src.agent_core_orchestrator import QwenClient
 from modules.shared.src import AppConfig, AuthRequiredError, PromptInjectionError, RunContext
 
 

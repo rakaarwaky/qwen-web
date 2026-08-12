@@ -1,13 +1,13 @@
 """Root: CLI feature DI container.
 
-Wires capabilities → agent → surface for the CLI feature.
+Wires capabilities → agent → surface for the CLI feature. The CLI surface
+shares the single ICoreAggregate with the MCP surface.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from modules.core.src.agent_cli_orchestrator import CliOrchestrator
 from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 from modules.core.src.capabilities_audit_repository import AuditRepository
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
@@ -58,7 +58,6 @@ class CliContainer:
             circuit_breaker=self.cb,
             rate_limiter=self.rl,
         )
-        self.cli = CliOrchestrator(self.browser)
         self.linux = LinuxGuard()
 
     def wire(self) -> None:

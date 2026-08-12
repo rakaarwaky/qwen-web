@@ -9,7 +9,7 @@ import pytest
 
 from playwright.sync_api import ElementHandle
 
-from modules.core.src.capabilities_qwen_client import QwenClient
+from modules.core.src.agent_core_orchestrator import QwenClient
 from modules.shared.src import AppConfig, LifecycleEmitter, QwenCliError
 
 

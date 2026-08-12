@@ -17,8 +17,8 @@ from playwright.sync_api import BrowserContext, sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from modules.core.src.capabilities_pipeline_compat import AuditLog
-from modules.core.src.capabilities_qwen_client import QwenClient
+from modules.core.src.capabilities_audit_repository import AuditRepository as AuditLog
+from modules.core.src.agent_core_orchestrator import QwenClient
 from modules.shared.src import AppConfig, RunContext
 from tests.pipeline_fixtures import restore_fixture_state
 

@@ -5,7 +5,8 @@ import unittest
 from pathlib import Path
 
 from modules.root_cli_main_entry import _build_config
-from modules.core.src.capabilities_pipeline_compat import AuditLog, _write_output
+from modules.core.src.capabilities_audit_repository import AuditRepository as AuditLog
+from modules.core.src.capabilities_saver import write_output as _write_output
 from modules.shared.src import RunContext
 
 

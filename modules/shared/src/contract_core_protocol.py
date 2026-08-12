@@ -167,7 +167,7 @@ class IObservabilityProtocol(ABC):
 
 
 class IFileSystemProtocol(ABC):
-    """Audit log persistence contract (I/O over the filesystem)."""
+    """Audit log persistence and workspace-init contract (I/O over the filesystem)."""
 
     @abstractmethod
     def log_step(
@@ -193,6 +193,14 @@ class IFileSystemProtocol(ABC):
         err: str = "",
     ) -> None:
         """Log a completed file processing result."""
+
+    @abstractmethod
+    def init_workspace(self, target_dir: Path) -> None:
+        """Initialize workspace dirs, SKILL.md, symlinks, and .gitignore."""
+
+    @abstractmethod
+    def get_audit_log(self, limit: int = 20) -> str:
+        """Return recent audit log entries as JSON text."""
 
 
 class ILinuxProtocol(ABC):

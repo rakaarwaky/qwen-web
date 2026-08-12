@@ -21,15 +21,19 @@ from modules.root_mcp_main_entry import (
     qwen_setup_session,
     qwen_start_watcher,
 )
-from modules.core.src.capabilities_pipeline_compat import (
-    _cleanup_empty_dirs,
-    _extract_prompt_text,
+from modules.core.src.agent_core_orchestrator import (
     _iter_todo_batch,
     _iter_todo_retry_failed,
     _iter_todo_single,
-    _list_input_files,
-    _should_process_file,
-    _strip_input_from_output,
+)
+from modules.shared.src.utility_core_path import (
+    cleanup_empty_dirs as _cleanup_empty_dirs,
+    list_input_files as _list_input_files,
+    should_process_file as _should_process_file,
+)
+from modules.shared.src.utility_core_prompt import (
+    extract_prompt_text as _extract_prompt_text,
+    strip_input_from_output as _strip_input_from_output,
 )
 from modules.core.src.capabilities_browser_adapter import _assert_on_chat_page, _clean_stale_locks, navigate_to_chat
 from modules.core.src.capabilities_observability import (
@@ -92,11 +96,11 @@ class TestMainRemaining:
 
 class TestMcpServerRemaining:
     def test_qwen_start_watcher(self):
-        with patch("modules.mcp_server.browser_session") as mock_bs, \
-             patch("modules.mcp_server.QwenClient"), \
-             patch("modules.mcp_server._iter_todo", return_value=iter([])), \
-             patch("modules.mcp_server.AuditLog"), \
-             patch("modules.mcp_server._watcher_sleep"):
+        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
+             patch("modules.root_mcp_main_entry.QwenClient"), \
+             patch("modules.root_mcp_main_entry._iter_todo", return_value=iter([])), \
+             patch("modules.root_mcp_main_entry.AuditLog"), \
+             patch("modules.root_mcp_main_entry._watcher_sleep"):
             mock_ctx = MagicMock()
             mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
             mock_bs.return_value.__exit__ = MagicMock(return_value=False)
@@ -106,7 +110,7 @@ class TestMcpServerRemaining:
             assert "Watcher loop completed" in result
 
     def test_qwen_get_audit_log_file_not_exist(self, tmp_path):
-        with patch("modules.mcp_server.DEFAULT_LOG", tmp_path):
+        with patch("modules.root_mcp_main_entry.DEFAULT_LOG", tmp_path):
             result = qwen_get_audit_log()
             assert "does not exist" in result
 

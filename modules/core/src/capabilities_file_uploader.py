@@ -236,3 +236,19 @@ def upload_attachment(
     """Upload attachment (module-level convenience)."""
     uploader = FileUploader()
     return uploader.upload_attachment(page, filepath, _config, emitter, web_loaded)
+
+
+def validate_file(filepath: Path, max_size_mb: float = 100.0) -> int:
+    """Pre-flight file validation (module-level convenience)."""
+    uploader = FileUploader()
+    return uploader.validate_file(filepath, max_size_mb)
+
+
+def _close_dropdown_if_open(page: Page) -> None:
+    """Send Escape key to close orphaned dropdown menus (module-level convenience)."""
+    FileUploader()._close_dropdown_if_open(page)
+
+
+def _try_upload_attempt(page: Page, filepath: Path) -> bool:
+    """Execute a single upload attempt (module-level convenience)."""
+    return FileUploader()._try_upload_attempt(page, filepath)

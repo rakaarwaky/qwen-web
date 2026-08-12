@@ -173,3 +173,8 @@ def type_slowly(_page: Page, textarea: Any, text: str, delay_ms: int = 30) -> No
         textarea.type(text, delay=delay_ms)
     except PlaywrightError as e:
         raise PromptInjectionError(f"Native typing failed: {e}") from e
+
+
+def _verify_injection(el: Any) -> bool:
+    """Verify that text is non-empty inside the input element (module-level convenience)."""
+    return PromptInjector()._verify_injection(el)

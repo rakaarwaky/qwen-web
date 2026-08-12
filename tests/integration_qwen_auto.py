@@ -3,7 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from modules.core.src.capabilities_pipeline_compat import AuditLog, _iter_todo, _process_file
+from modules.core.src.capabilities_audit_repository import AuditRepository as AuditLog
+from modules.core.src.agent_core_orchestrator import _iter_todo, _process_file
 from modules.shared.src import AppConfig, RunContext
 
 

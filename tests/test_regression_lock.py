@@ -23,7 +23,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from modules.core.src.capabilities_audit_repository import AuditRepository as AuditLog
-from modules.core.src.capabilities_qwen_client import QwenClient
+from modules.core.src.agent_core_orchestrator import QwenClient
 from modules.core.src.capabilities_saver import write_output
 from modules.shared.src.utility_core_prompt import (
     extract_prompt_text as _extract_prompt_text,

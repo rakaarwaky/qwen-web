@@ -32,10 +32,10 @@ from modules.core.src.capabilities_observability import (
     _thread_excepthook,
     setup_observability,
 )
-from modules.core.src.capabilities_pipeline_compat import (
-    _cleanup_empty_dirs,
-    _list_input_files,
-    _should_process_file,
+from modules.shared.src.utility_core_path import (
+    cleanup_empty_dirs as _cleanup_empty_dirs,
+    list_input_files as _list_input_files,
+    should_process_file as _should_process_file,
 )
 from modules.shared.src import AppConfig, LifecycleEmitter
 
@@ -54,7 +54,7 @@ class TestBrowserCoverage:
         # Make assert_on_chat_page happy: URL is fine, textarea exists
         page.query_selector.return_value = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
-        with patch("modules.browser.check_auth", side_effect=Exception("login")):
+        with patch("modules.core.src.capabilities_browser_adapter.check_auth", side_effect=Exception("login")):
             navigate_to_chat(page, emitter)
 
     def test_assert_on_chat_page_auth_keywords(self):
@@ -76,8 +76,8 @@ class TestBrowserCoverage:
         )
         mock_ctx = MagicMock()
         mock_ctx.pages = [MagicMock()]
-        with patch("modules.browser.sync_playwright") as mock_pw, \
-             patch("modules.browser.os.chmod"):
+        with patch("modules.core.src.capabilities_browser_adapter.sync_playwright") as mock_pw, \
+             patch("modules.core.src.capabilities_browser_adapter.os.chmod"):
             mock_p = MagicMock()
             mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
@@ -98,9 +98,9 @@ class TestBrowserCoverage:
         )
         mock_ctx = MagicMock()
         mock_ctx.pages = [MagicMock()]
-        with patch("modules.browser.sync_playwright") as mock_pw, \
-             patch("modules.browser.os.chmod"), \
-             patch("modules.browser.os.makedirs"):
+        with patch("modules.core.src.capabilities_browser_adapter.sync_playwright") as mock_pw, \
+             patch("modules.core.src.capabilities_browser_adapter.os.chmod"), \
+             patch("modules.core.src.capabilities_browser_adapter.os.makedirs"):
             mock_p = MagicMock()
             mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
@@ -112,9 +112,9 @@ class TestBrowserCoverage:
         p = MagicMock()
         mock_ctx = MagicMock()
         p.chromium.launch_persistent_context.return_value = mock_ctx
-        with patch("modules.browser.os.makedirs"), \
-             patch("modules.browser.os.chmod"), \
-             patch("modules.browser.Path.mkdir"):
+        with patch("modules.core.src.capabilities_browser_adapter.os.makedirs"), \
+             patch("modules.core.src.capabilities_browser_adapter.os.chmod"), \
+             patch("modules.core.src.capabilities_browser_adapter.Path.mkdir"):
             ctx = _launch_context(p, {"user_data_dir": "/tmp/chrome", "headless": True})
             assert ctx == mock_ctx
 
@@ -152,11 +152,11 @@ class TestFileUploaderCoverage:
 
 class TestMcpServerRemainingAsync:
     def test_qwen_process_single_error(self):
-        with patch("modules.mcp_server.browser_session") as mock_bs, \
-             patch("modules.mcp_server.QwenClient"), \
-             patch("modules.mcp_server._process_file", side_effect=RuntimeError("boom")), \
-             patch("modules.mcp_server.AuditLog"), \
-             patch("modules.mcp_server.shutil"):
+        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
+             patch("modules.root_mcp_main_entry.QwenClient"), \
+             patch("modules.root_mcp_main_entry._process_file", side_effect=RuntimeError("boom")), \
+             patch("modules.root_mcp_main_entry.AuditLog"), \
+             patch("modules.root_mcp_main_entry.shutil"):
             mock_ctx = MagicMock()
             mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
             mock_bs.return_value.__exit__ = MagicMock(return_value=False)
@@ -171,11 +171,11 @@ class TestMcpServerRemainingAsync:
                 tmp.unlink(missing_ok=True)
 
     def test_qwen_start_watcher(self):
-        with patch("modules.mcp_server.browser_session") as mock_bs, \
-             patch("modules.mcp_server.QwenClient"), \
-             patch("modules.mcp_server._iter_todo", return_value=iter([])), \
-             patch("modules.mcp_server.AuditLog"), \
-             patch("modules.mcp_server._watcher_sleep"):
+        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
+             patch("modules.root_mcp_main_entry.QwenClient"), \
+             patch("modules.root_mcp_main_entry._iter_todo", return_value=iter([])), \
+             patch("modules.root_mcp_main_entry.AuditLog"), \
+             patch("modules.root_mcp_main_entry._watcher_sleep"):
             mock_ctx = MagicMock()
             mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
             mock_bs.return_value.__exit__ = MagicMock(return_value=False)

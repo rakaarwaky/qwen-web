@@ -9,9 +9,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from modules.core.src.capabilities_pipeline_compat import (
-    AuditLog,
-    _cleanup_empty_dirs,
+from modules.core.src.capabilities_audit_repository import AuditRepository as AuditLog
+from modules.core.src.agent_core_orchestrator import (
     _iter_todo,
     _iter_todo_batch,
     _iter_todo_retry_failed,
@@ -22,6 +21,7 @@ from modules.core.src.capabilities_pipeline_compat import (
     is_watcher_shutdown_set,
     request_watcher_shutdown,
 )
+from modules.shared.src.utility_core_path import cleanup_empty_dirs as _cleanup_empty_dirs
 from modules.shared.src import (
     AppConfig,
     AuthRequiredError,
@@ -252,18 +252,18 @@ class TestWatcherSleep:
         request_watcher_shutdown()
         _watcher_sleep(10)  # should return immediately
         # Reset for other tests
-        from modules.core.src.capabilities_pipeline_compat import _watcher_shutdown
+        from modules.core.src.agent_core_orchestrator import _watcher_shutdown
         _watcher_shutdown.clear()
 
     def test_normal_sleep(self):
-        from modules.core.src.capabilities_pipeline_compat import _watcher_shutdown
+        from modules.core.src.agent_core_orchestrator import _watcher_shutdown
         _watcher_shutdown.clear()
         _watcher_sleep(1)
 
 
 class TestIterTodoWatcher:
     def test_yields_and_shutdown(self, tmp_path):
-        from modules.core.src.capabilities_pipeline_compat import _watcher_shutdown
+        from modules.core.src.agent_core_orchestrator import _watcher_shutdown
         _watcher_shutdown.clear()
 
         todo = tmp_path / "todo" / "role-dev" / "todo"

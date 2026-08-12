@@ -11,8 +11,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from modules.shared.src.taxonomy_config_vo import AppConfig
-
 
 class ICoreAggregate(ABC):
     """Core processing aggregate consumed by CLI and MCP surfaces."""
@@ -52,18 +50,10 @@ class ICoreAggregate(ABC):
     def get_audit_log(self, limit: int = 20) -> str:
         """Return recent audit log entries as JSON text."""
 
-    # ─── Workspace API (used by the CLI surface) ─────────────────
+    # ─── Workspace API (back-end; I/O delegated to capabilities) ─
     @abstractmethod
     def init_workspace(self, target_dir: Path | str = ".") -> None:
         """Initialize the workspace (.agents/skills + .qwen-web symlinks)."""
 
-    @abstractmethod
-    def interactive_prompt(self) -> AppConfig | None:
-        """Display the interactive TUI and build an AppConfig."""
 
-    @abstractmethod
-    def run_manual_login(self, cfg: AppConfig) -> None:
-        """Open a visible browser for manual login."""
-
-
-__all__ = ["ICoreAggregate", "AppConfig"]
+__all__ = ["ICoreAggregate"]
