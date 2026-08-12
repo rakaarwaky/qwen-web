@@ -16,6 +16,9 @@ from modules.shared.src.taxonomy_domain_error import ElementNotFoundError, Promp
 log = __import__("logging").getLogger("capabilities_prompt_injector")
 
 
+# Block 1: Class Definition & Constructor
+
+
 class PromptInjector(IInjectionProtocol):
     """Multi-strategy DOM text injection with verification."""
 

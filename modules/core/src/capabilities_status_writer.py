@@ -10,13 +10,13 @@ from pathlib import Path
 from typing import Any
 
 from modules.shared.src.contract_status_protocol import IStatusProtocol
-
-
+       
+# Block 1: Class Definition & Constructor ──────────────
 class StatusFileWriter(IStatusProtocol):
     """Writes JSON status file for systemd/monitoring tools."""
 
     def __init__(self, status_path: Path) -> None:
-        # Block 1: Class Definition & Constructor ──────────────
+
         self._status_path = status_path
         self._status_path.parent.mkdir(parents=True, exist_ok=True)
 

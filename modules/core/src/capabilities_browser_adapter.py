@@ -41,12 +41,18 @@ from modules.shared.src.taxonomy_domain_error import AuthRequiredError, BrowserL
 log = structlog.get_logger("browser")
 
 
+# Block 1: Class Definition & Constructor
+
+
 class SessionCheck:
     """Validates that the browser session and Qwen chat UI are alive."""
 
     def __init__(self, page: Page) -> None:
         """Initialize with a Playwright Page instance."""
         self.page = page
+
+# Block 2: Public Contract
+
 
     def is_alive(self) -> bool:
         """Return True if the session is stable and the chat UI is responsive."""
@@ -77,6 +83,13 @@ class SessionCheck:
         except Error as exc:
             raise AuthRequiredError(f"Session invalid (browser error): {exc}") from exc
 
+# Block 3: Dunder Methods, Factories & Helpers
+
+
+    def __repr__(self) -> str:
+        """Return string representation of SessionCheck."""
+        return f"SessionCheck(page={self.page!r})"
+
 
 def _assert_on_chat_page(page: Page) -> None:
     """Raise AuthRequiredError if the page is a login/auth page (URL + DOM triple-check)."""
@@ -103,8 +116,18 @@ def _assert_on_chat_page(page: Page) -> None:
         log.warning("chat_textarea_missing_but_no_login_form_detected", url=page.url)
 
 
+# Block 1: Class Definition & Constructor
+
+
 class BrowserAdapter(IBrowserProtocol):
     """Persistent Chromium browser context adapter implementing the browser contract."""
+
+    def __init__(self) -> None:
+        """Initialize BrowserAdapter."""
+        pass
+
+# Block 2: Public Contract
+
 
     def reset_page(self, page: Page, emitter: LifecycleEmitter) -> None:
         """Reset the page to a clean state by navigating back to chat.qwen.ai."""
@@ -235,6 +258,13 @@ class BrowserAdapter(IBrowserProtocol):
         except Exception as e:
             log.critical("browser_launch_failed", error=str(e))
             raise BrowserLaunchError(f"Failed to launch browser: {e}") from e
+
+# Block 3: Dunder Methods, Factories & Helpers
+
+
+    def __repr__(self) -> str:
+        """Return string representation of BrowserAdapter."""
+        return "BrowserAdapter()"
 
 
 # ─── Module-level convenience functions ──────────────────────────────────────

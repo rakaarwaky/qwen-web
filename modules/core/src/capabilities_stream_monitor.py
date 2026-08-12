@@ -38,44 +38,6 @@ DEFAULT_STABILITY_CHECKS = StabilityChecks(4)
 DEFAULT_MIN_TEXT_LENGTH = MinTextLength(1)
 
 
-def _safe_count(cnt: Any) -> int:
-    """Return 0 when count() returns a non-int (e.g. MagicMock) for test safety."""
-    return cnt if isinstance(cnt, int) else 0
-
-
-def _count_messages(page: Page) -> int:
-    """Count chat turns using JS evaluate — robust against CSS modules and virtual DOM."""
-    try:
-        count = page.evaluate(JS_COUNT_TURNS)
-        if isinstance(count, int) and count > 0:
-            return count
-    except Error:
-        pass
-    try:
-        return page.locator(COMBINED_MESSAGE_SELECTOR).count()
-    except Error:
-        return 0
-
-
-def _latest_message_text(page: Page) -> str | None:
-    """Get the longest text block on the page excluding input/UI chrome — JS-based."""
-    try:
-        text = page.evaluate(JS_GET_RESPONSE_TEXT)
-        if text and len(text.strip()) > 0:
-            return str(text.strip())
-    except Error:
-        pass
-    try:
-        locator = page.locator(COMBINED_MESSAGE_SELECTOR)
-        cnt = locator.count()
-        if isinstance(cnt, int) and cnt > 0:
-            text = locator.last.text_content()
-            if text is not None:
-                return str(text.strip())
-    except Error:
-        pass
-    return None
-
 
 # Block 1: Class Definition & Constructor
 
@@ -246,3 +208,43 @@ def is_thinking_active(page: Page) -> bool:
     """Check if thinking active (module-level convenience)."""
     monitor = StreamMonitor()
     return monitor.is_thinking_active(page)
+
+
+def _safe_count(cnt: Any) -> int:
+    """Return 0 when count() returns a non-int (e.g. MagicMock) for test safety."""
+    return cnt if isinstance(cnt, int) else 0
+
+
+def _count_messages(page: Page) -> int:
+    """Count chat turns using JS evaluate — robust against CSS modules and virtual DOM."""
+    try:
+        count = page.evaluate(JS_COUNT_TURNS)
+        if isinstance(count, int) and count > 0:
+            return count
+    except Error:
+        pass
+    try:
+        return page.locator(COMBINED_MESSAGE_SELECTOR).count()
+    except Error:
+        return 0
+
+
+def _latest_message_text(page: Page) -> str | None:
+    """Get the longest text block on the page excluding input/UI chrome — JS-based."""
+    try:
+        text = page.evaluate(JS_GET_RESPONSE_TEXT)
+        if text and len(text.strip()) > 0:
+            return str(text.strip())
+    except Error:
+        pass
+    try:
+        locator = page.locator(COMBINED_MESSAGE_SELECTOR)
+        cnt = locator.count()
+        if isinstance(cnt, int) and cnt > 0:
+            text = locator.last.text_content()
+            if text is not None:
+                return str(text.strip())
+    except Error:
+        pass
+    return None
+

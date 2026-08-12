@@ -41,6 +41,9 @@ DEFAULT_MAX_RETRIES = MaxRetries(2)
 DEFAULT_BACKOFF_DELAY_SEC = BackoffDelaySec(1.0)
 
 
+# Block 1: Class Definition & Constructor
+
+
 class FileUploader(IUploadProtocol):
     """Resilient file upload with validation, retry, and DOM recovery."""
 
@@ -80,6 +83,9 @@ class FileUploader(IUploadProtocol):
             "[class*='file-item']",
             "[class*='fileitem']",
         )
+
+# Block 2: Public Contract
+
 
     def upload_attachment(
         self,
@@ -227,6 +233,16 @@ class FileUploader(IUploadProtocol):
         time.sleep(2.0)
 
         return True
+
+# Block 3: Dunder Methods, Factories & Helpers
+
+
+    def __repr__(self) -> str:
+        """Return string representation of FileUploader."""
+        return (
+            f"FileUploader(max_size={self.max_file_size_mb}, retries={self.max_retries}, "
+            f"backoff={self.backoff_delay_sec})"
+        )
 
 
 # Module-level convenience function

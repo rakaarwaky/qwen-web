@@ -1,8 +1,8 @@
 """Capabilities: audit log repository (AES403).
 
-Implements IFileSystemProtocol — structured JSONL audit history, error traces,
+Implements IAuditProtocol — structured JSONL audit history, error traces,
 step-level context, and audit-log reads. Workspace provisioning delegates to
-capabilities_workspace_provisioner. All file system I/O for the domain lives here.
+IWorkspaceProtocol via DI. All file system I/O for the domain lives here.
 """
 
 from __future__ import annotations
@@ -12,21 +12,29 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from modules.shared.src.contract_core_protocol import IFileSystemProtocol
+from modules.shared.src.contract_core_protocol import IAuditProtocol
+from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
 from modules.shared.src.taxonomy_core_vo import ResponseText, RunContext
 
 
-class AuditRepository(IFileSystemProtocol):
+# Block 1: Class Definition & Constructor
+
+
+class AuditRepository(IAuditProtocol):
     """Structured JSONL audit log with error traces and step-level context."""
 
-    def __init__(self, log_dir: Path | None = None) -> None:
+    def __init__(self, log_dir: Path | None = None, workspace: IWorkspaceProtocol | None = None) -> None:
         """Initialize audit log files in the target directory."""
         target_dir = log_dir or DEFAULT_LOG
         target_dir.mkdir(parents=True, exist_ok=True)
         self._audit = target_dir / "audit_history.jsonl"
         self._errors = target_dir / "errors.log"
         self._errors_jsonl = target_dir / "errors.jsonl"
+        self._workspace = workspace
+
+    # Block 2: Public Contract
+
 
     def log_step(
         self,
@@ -94,10 +102,9 @@ class AuditRepository(IFileSystemProtocol):
                 f.write(json.dumps(err_json_rec, ensure_ascii=False) + "\n")
 
     def init_workspace(self, target_dir: Path) -> None:
-        """Delegate to WorkspaceProvisioner (separate concern)."""
-        from modules.core.src.capabilities_workspace_provisioner import WorkspaceProvisioner
-
-        WorkspaceProvisioner().init_workspace(target_dir)
+        """Delegate to workspace provisioner (separate concern via DI)."""
+        if self._workspace is not None:
+            self._workspace.init_workspace(target_dir)
 
     def get_audit_log(self, limit: int = 20) -> ResponseText:
         """Fetch recent entries from the JSONL audit trail log."""
@@ -109,3 +116,10 @@ class AuditRepository(IFileSystemProtocol):
         recent = lines[-limit:]
         records: list[Any] = [json.loads(line) for line in recent if line.strip()]
         return ResponseText(json.dumps(records, indent=2))
+
+# Block 3: Dunder Methods, Factories & Helpers
+
+
+    def __repr__(self) -> str:
+        """Return string representation of AuditRepository."""
+        return f"AuditRepository(log_dir={self._audit.parent!r})"

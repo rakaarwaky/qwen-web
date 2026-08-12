@@ -28,18 +28,7 @@ DEFAULT_GENERATE_SIDECAR = GenerateSidecarFlag(True)
 DEFAULT_ATOMIC_WRITE = AtomicWriteFlag(True)
 
 
-def _write_file_atomic(target_path: Path, data: str) -> None:
-    """Atomically write text content to target path using a temporary file."""
-    tmp_path = target_path.with_suffix(f"{target_path.suffix}.tmp")
-    try:
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path.write_text(data, encoding="utf-8")
-        tmp_path.replace(target_path)
-    except OSError as e:
-        if tmp_path.exists():
-            with contextlib.suppress(OSError):
-                tmp_path.unlink()
-        raise OutputWriteError(f"Failed to write output file {target_path}: {e}") from e
+# Block 1: Class Definition & Constructor
 
 
 class Saver(ISaverProtocol):
@@ -54,6 +43,9 @@ class Saver(ISaverProtocol):
         self.include_header = include_header
         self.generate_sidecar = generate_sidecar
         self.atomic_write = atomic_write
+
+# Block 2: Public Contract
+
 
     def write_output(
         self,
@@ -118,6 +110,13 @@ class Saver(ISaverProtocol):
                 log.error("Failed to write metadata sidecar for %s: %s", path, e)
 
         log.info("output_file_written: %s", path.name)
+
+# Block 3: Dunder Methods, Factories & Helpers
+
+
+    def __repr__(self) -> str:
+        """Return string representation of Saver."""
+        return f"Saver(header={self.include_header}, sidecar={self.generate_sidecar}, atomic={self.atomic_write})"
 
 
 # Module-level convenience function

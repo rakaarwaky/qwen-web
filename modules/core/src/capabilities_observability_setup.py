@@ -17,105 +17,25 @@ from typing import Any
 
 from modules.shared.src import utility_core_exit
 from modules.shared.src.contract_core_protocol import IObservabilityProtocol
+from modules.shared.src.contract_status_protocol import IStatusProtocol
 from modules.shared.src.taxonomy_core_vo import ErrorCategory, ExitCode, ServiceName
 
 log = __import__("logging").getLogger("capabilities_observability")
 
 
-def _module_impl() -> Any:
-    """Return this module to call module-level functions from methods."""
-    import importlib
-
-    return importlib.import_module(__name__)
-
-# Optional imports
-structlog: Any = None
-trace: Any = None
-
-try:
-    import structlog
-    has_structlog = True
-except ImportError:
-    has_structlog = False
-
-try:
-    import sentry_sdk
-    has_sentry = True
-except ImportError:
-    has_sentry = False
-
-try:
-    from opentelemetry import trace
-    from opentelemetry.sdk.resources import Resource
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor
-    has_otel = True
-except ImportError:
-    has_otel = False
-
-try:
-    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-    has_otlp = True
-except ImportError:
-    has_otlp = False
-
-
-# Re-export from dedicated modules (single-concern files)
-from modules.core.src.capabilities_status_writer import StatusFileWriter
-
-
-def get_logger(name: str = "qwen-web") -> Any:
-    """Return a structlog bound logger, falling back to stdlib logging."""
-    if has_structlog and structlog:
-        return structlog.get_logger(name)
-    return logging.getLogger(name)
-
-
-def get_tracer(name: str = "qwen-web") -> Any:
-    """Return an OpenTelemetry tracer, or None when tracing unavailable."""
-    if trace is not None and has_otel:
-        return trace.get_tracer(name)
-    return None
-
-
-def start_span(name: str) -> Any:
-    """Context manager for an OTel span; yields None (no-op) when tracing unavailable."""
-    tracer = get_tracer()
-    if tracer is None:
-        return nullcontext()
-    return tracer.start_as_current_span(name)
-
-
-def add_trace_context(_logger: Any, _method: str, event_dict: dict[str, Any]) -> dict[str, Any]:
-    """Inject active OTel trace_id/span_id into every log event."""
-    if trace is not None:
-        span = trace.get_current_span()
-        ctx = span.get_span_context()
-        if ctx.is_valid:
-            event_dict["trace_id"] = format(ctx.trace_id, "032x")
-            event_dict["span_id"] = format(ctx.span_id, "016x")
-            event_dict["trace_sampled"] = ctx.trace_flags.sampled
-    return event_dict
-
-
-def bind_run_context(run_id: str, **extra: Any) -> None:
-    """Bind run-scoped fields into structlog contextvars."""
-    if has_structlog and structlog:
-        structlog.contextvars.bind_contextvars(run_id=run_id, **extra)
-
-
-def clear_run_context() -> None:
-    """Clear all run-scoped contextvars."""
-    if has_structlog and structlog:
-        structlog.contextvars.clear_contextvars()
+# Block 1: Class Definition & Constructor
 
 
 class ObservabilitySetup(IObservabilityProtocol):
     """Full observability bootstrap: Sentry → OTel → structlog → hooks."""
 
-    def __init__(self, log_path: Path) -> None:
+    def __init__(self, log_path: Path, status_writer: IStatusProtocol | None = None) -> None:
         self._log_path = log_path
         self._status_path = log_path / "status.json"
+        self._status_writer = status_writer
+
+# Block 2: Public Contract
+
 
     def setup_observability(self, log_path: Path | None = None) -> None:
         """Bootstrap observability stack."""
@@ -127,7 +47,10 @@ class ObservabilitySetup(IObservabilityProtocol):
         self._install_excepthooks()
 
     def _configure_sentry(self) -> None:
-        if not has_sentry:
+        """Configure Sentry (private helper)."""
+        try:
+            import sentry_sdk
+        except ImportError:
             return
         dsn = os.getenv("SENTRY_DSN", "")
         if not dsn:
@@ -140,20 +63,33 @@ class ObservabilitySetup(IObservabilityProtocol):
             )
 
     def _configure_tracing(self) -> None:
-        if not has_otel or trace is None:
+        """Configure OpenTelemetry tracing (private helper)."""
+        try:
+            from opentelemetry import trace
+            from opentelemetry.sdk.resources import Resource
+            from opentelemetry.sdk.trace import TracerProvider
+            from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        except ImportError:
             return
         try:
             resource = Resource.create({"service.name": os.getenv("OTEL_SERVICE_NAME", ServiceName("qwen-web"))})
             provider = TracerProvider(resource=resource)
             endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
-            if endpoint and has_otlp:
-                provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
+            try:
+                from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+                if endpoint:
+                    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
+            except ImportError:
+                pass
             trace.set_tracer_provider(provider)
         except Exception:
             pass
 
     def _configure_logging(self, log_path: Path) -> None:
-        if not has_structlog or structlog is None:
+        """Configure structlog/stdlib logging (private helper)."""
+        try:
+            import structlog
+        except ImportError:
             logging.basicConfig(level=logging.INFO)
             return
 
@@ -203,37 +139,115 @@ class ObservabilitySetup(IObservabilityProtocol):
             pass
 
     def _install_excepthooks(self) -> None:
+        """Install global exception handlers (private helper)."""
         sys.excepthook = _excepthook
         threading.excepthook = _thread_excepthook
 
     def get_logger(self, name: str = "qwen-web") -> Any:
-        return _module_impl().get_logger(name)
+        return _get_logger(name)
 
     def get_tracer(self) -> Any:
-        return _module_impl().get_tracer()
+        return _get_tracer()
 
     def start_span(self, name: str) -> Any:
-        return _module_impl().start_span(name)
+        return _start_span(name)
 
     def bind_run_context(self, run_id: str, **extra: Any) -> None:
-        _module_impl().bind_run_context(run_id, **extra)
+        _bind_run_context(run_id, **extra)
 
     def clear_run_context(self) -> None:
-        _module_impl().clear_run_context()
+        _clear_run_context()
 
     def exit_code_for(self, exc: BaseException) -> ExitCode:
         return ExitCode(utility_core_exit.exit_code_for(exc))
 
     def install_excepthooks(self) -> None:
-        _module_impl().install_excepthooks()
+        """Install global exception handlers."""
+        sys.excepthook = _excepthook
+        threading.excepthook = _thread_excepthook
 
     def write_status(self, status: str, mode: str, headless: bool, run_id: str | None = None) -> None:
-        writer = StatusFileWriter(self._status_path)
-        writer.write(status=status, mode=mode, headless=headless, run_id=run_id)
+        """Write status to disk via DI-injected IStatusProtocol."""
+        if self._status_writer is not None:
+            self._status_writer.write(status=status, mode=mode, headless=headless, run_id=run_id)
+
+# Block 3: Dunder Methods, Factories & Helpers
+
+
+    def __repr__(self) -> str:
+        """Return string representation of ObservabilitySetup."""
+        return f"ObservabilitySetup(log_path={self._log_path!r})"
+
+
+# ─── Module-level helper functions ──────────────────────────────────────────
+
+def _get_logger(name: str = "qwen-web") -> Any:
+    """Return a structlog bound logger, falling back to stdlib logging."""
+    try:
+        import structlog
+    except ImportError:
+        return logging.getLogger(name)
+    if structlog:
+        return structlog.get_logger(name)
+    return logging.getLogger(name)
+
+
+def _get_tracer(name: str = "qwen-web") -> Any:
+    """Return an OpenTelemetry tracer, or None when tracing unavailable."""
+    try:
+        from opentelemetry import trace
+    except ImportError:
+        return None
+    if trace is not None:
+        return trace.get_tracer(name)
+    return None
+
+
+def _start_span(name: str) -> Any:
+    """Context manager for an OTel span; yields None (no-op) when tracing unavailable."""
+    tracer = _get_tracer()
+    if tracer is None:
+        return nullcontext()
+    return tracer.start_as_current_span(name)
+
+
+def add_trace_context(_logger: Any, _method: str, event_dict: dict[str, Any]) -> dict[str, Any]:
+    """Inject active OTel trace_id/span_id into every log event."""
+    try:
+        from opentelemetry import trace
+    except ImportError:
+        return event_dict
+    span = trace.get_current_span()
+    ctx = span.get_span_context()
+    if ctx.is_valid:
+        event_dict["trace_id"] = format(ctx.trace_id, "032x")
+        event_dict["span_id"] = format(ctx.span_id, "016x")
+        event_dict["trace_sampled"] = ctx.trace_flags.sampled
+    return event_dict
+
+
+def _bind_run_context(run_id: str, **extra: Any) -> None:
+    """Bind run-scoped fields into structlog contextvars."""
+    try:
+        import structlog
+    except ImportError:
+        return
+    if structlog:
+        structlog.contextvars.bind_contextvars(run_id=run_id, **extra)
+
+
+def _clear_run_context() -> None:
+    """Clear all run-scoped contextvars."""
+    try:
+        import structlog
+    except ImportError:
+        return
+    if structlog:
+        structlog.contextvars.clear_contextvars()
 
 
 def _excepthook(exc_type: type[BaseException], exc_value: BaseException, exc_tb: Any) -> None:
-    logger = get_logger("qwen-web")
+    logger = _get_logger("qwen-web")
     if issubclass(exc_type, KeyboardInterrupt):
         logger.warning("interrupted")
         sys.exit(130)
@@ -243,20 +257,28 @@ def _excepthook(exc_type: type[BaseException], exc_value: BaseException, exc_tb:
         exc_type=exc_type.__name__,
         category=ErrorCategory.categorize(exc_value),
     )
-    if has_sentry and sentry_sdk:
+    try:
+        import sentry_sdk
+    except ImportError:
+        pass
+    else:
         sentry_sdk.capture_exception(exc_value)
     sys.exit(1)
 
 
 def _thread_excepthook(args: Any) -> None:
-    logger = get_logger("qwen-web")
+    logger = _get_logger("qwen-web")
     logger.critical(
         "unhandled_exception_in_thread",
         exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
         exc_type=args.exc_type.__name__,
         category=ErrorCategory.categorize(args.exc_value),
     )
-    if has_sentry and sentry_sdk:
+    try:
+        import sentry_sdk
+    except ImportError:
+        pass
+    else:
         sentry_sdk.capture_exception(args.exc_value)
 
 
@@ -275,22 +297,3 @@ def setup_observability(log_path: Path) -> None:
 def exit_code_for(exc: BaseException) -> ExitCode:
     """Map an unhandled exception to a process exit code (delegates to utility)."""
     return ExitCode(utility_core_exit.exit_code_for(exc))
-
-
-def _configure_sentry() -> None:
-    """Configure Sentry (module-level convenience)."""
-    ObservabilitySetup(Path("/tmp/qwen-web"))._configure_sentry()
-
-
-def _configure_tracing() -> None:
-    """Configure OpenTelemetry tracing (module-level convenience)."""
-    ObservabilitySetup(Path("/tmp/qwen-web"))._configure_tracing()
-
-
-def _configure_logging(log_path: Path) -> None:
-    """Configure structlog/stdlib logging (module-level convenience)."""
-    ObservabilitySetup(log_path)._configure_logging(log_path)
-
-
-# Re-export from dedicated module
-from modules.core.src.capabilities_status_writer import get_status_writer
