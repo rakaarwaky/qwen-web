@@ -77,6 +77,9 @@ def _latest_message_text(page: Page) -> str | None:
     return None
 
 
+# Block 1: Class Definition & Constructor
+
+
 class StreamMonitor(IStreamProtocol):
     """Response streaming detection and stability polling."""
 
@@ -89,6 +92,9 @@ class StreamMonitor(IStreamProtocol):
         self.polling_interval_sec = polling_interval_sec
         self.stability_checks = stability_checks
         self.min_text_length = min_text_length
+
+# Block 2: Public Contract
+
 
     def is_generation_complete(self, page: Page) -> bool:
         """Check if Qwen AI is done generating."""
@@ -189,6 +195,16 @@ class StreamMonitor(IStreamProtocol):
 
         log.warning("Timeout after %ds — no response detected", timeout_sec)
         return None
+
+# Block 3: Dunder Methods, Factories & Helpers
+
+
+    def __repr__(self) -> str:
+        """Return string representation of StreamMonitor."""
+        return (
+            f"StreamMonitor(poll={self.polling_interval_sec}, checks={self.stability_checks}, "
+            f"min_len={self.min_text_length})"
+        )
 
 
 # Module-level convenience functions

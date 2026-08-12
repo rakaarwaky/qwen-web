@@ -23,6 +23,9 @@ class PromptInjector(IInjectionProtocol):
         """Initialize with an InjectorConfig VO."""
         self.config = config
 
+# Block 2: Public Contract
+
+
     def find_input(self, page: Page, config: InjectorConfig | None = None) -> Any:
         """Find input element using selector fallbacks."""
         cfg = config or self.config
@@ -128,9 +131,12 @@ class PromptInjector(IInjectionProtocol):
                 log.info("Prompt injected via Playwright type() (%d chars)", len(text))
                 return
         except Error as exc:
-            raise PromptInjectionError(f"All injection strategies failed for prompt: {exc}") from exc
+            raise PromptInjectionError(f"All strategies failed for prompt: {exc}") from exc
 
-        raise PromptInjectionError("All injection strategies executed but input verification failed.")
+        raise PromptInjectionError("All strategies executed but input verification failed.")
+
+# Block 3: Dunder Methods, Factories & Helpers
+
 
     def _verify_injection(self, el: Any) -> bool:
         """Verify that text is non-empty inside the input element."""
@@ -141,6 +147,10 @@ class PromptInjector(IInjectionProtocol):
             return bool(val and len(str(val).strip()) > 0)
         except Exception:
             return False
+
+    def __repr__(self) -> str:
+        """Return string representation of PromptInjector."""
+        return f"PromptInjector(config={self.config!r})"
 
 
 def find_input(page: Page, config: InjectorConfig | None = None) -> Any:

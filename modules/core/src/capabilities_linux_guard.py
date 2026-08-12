@@ -56,12 +56,18 @@ class SingleInstanceLock:
                 self._lock_path.unlink(missing_ok=True)
 
 
+# Block 1: Class Definition & Constructor
+
+
 class LinuxGuard(ILinuxProtocol):
     """Linux-native guard: single-instance lock and sd_notify notifications."""
 
     def __init__(self, lock_path: Path | None = None) -> None:
         """Initialize with an optional custom lock file path."""
         self._lock_path = lock_path
+
+# Block 2: Public Contract
+
 
     def acquire_lock(self) -> SingleInstanceLock:
         """Acquire the single-instance file lock."""
@@ -79,6 +85,9 @@ class LinuxGuard(ILinuxProtocol):
     def sd_notify_stop(self) -> None:
         """Notify systemd that the application is stopping gracefully."""
         self._sd_notify("STOPPING=1")
+
+# Block 3: Dunder Methods, Factories & Helpers
+
 
     def _sd_notify(self, message: str, unset_environment: bool = False) -> None:
         """Send a message to systemd via the NOTIFY_SOCKET Unix datagram socket."""
@@ -99,6 +108,10 @@ class LinuxGuard(ILinuxProtocol):
         if unset_environment:
             for key in ("NOTIFY_SOCKET", "WATCHDOG_USEC", "WATCHDOG_PID"):
                 os.environ.pop(key, None)
+
+    def __repr__(self) -> str:
+        """Return string representation of LinuxGuard."""
+        return f"LinuxGuard(lock_path={self._lock_path!r})"
 
 
 # ─── Module-level convenience functions ──────────────────────────────────────

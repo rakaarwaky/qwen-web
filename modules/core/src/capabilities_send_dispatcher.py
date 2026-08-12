@@ -83,6 +83,9 @@ _JS_COUNT_TURNS = """() => {
 }"""
 
 
+# Block 1: Class Definition & Constructor
+
+
 class SendDispatcher(ISendProtocol):
     """Multi-strategy send button trigger with keyboard fallback."""
 
@@ -93,6 +96,9 @@ class SendDispatcher(ISendProtocol):
     ) -> None:
         self.click_timeout_ms = click_timeout_ms
         self.try_enter_key_fallback = try_enter_key_fallback
+
+# Block 2: Public Contract
+
 
     def click_send(
         self,
@@ -173,6 +179,13 @@ class SendDispatcher(ISendProtocol):
         except Error:
             pass
         return None
+
+# Block 3: Dunder Methods, Factories & Helpers
+
+
+    def __repr__(self) -> str:
+        """Return string representation of SendDispatcher."""
+        return f"SendDispatcher(timeout={self.click_timeout_ms}, fallback={self.try_enter_key_fallback})"
 
 
 # Module-level convenience functions

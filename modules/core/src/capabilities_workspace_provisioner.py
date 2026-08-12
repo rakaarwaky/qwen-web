@@ -1,6 +1,6 @@
 """Capabilities: workspace provisioner (AES403).
 
-Implements IFileSystemProtocol — workspace initialization with XDG directories,
+Implements IWorkspaceProtocol — workspace initialization with XDG directories,
 SKILL.md provisioning, .qwen-web symlinks, and .gitignore management.
 All file system I/O for workspace setup lives here.
 """
@@ -12,7 +12,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from modules.shared.src.contract_core_protocol import IFileSystemProtocol
+from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
 from modules.shared.src.taxonomy_core_constant import (
     BASE_DIR,
     DEFAULT_LOG,
@@ -22,8 +22,18 @@ from modules.shared.src.taxonomy_core_constant import (
 )
 
 
-class WorkspaceProvisioner(IFileSystemProtocol):
+# Block 1: Class Definition & Constructor
+
+
+class WorkspaceProvisioner(IWorkspaceProtocol):
     """Workspace directory provisioning with symlinks and .gitignore management."""
+
+    def __init__(self) -> None:
+        """Initialize WorkspaceProvisioner."""
+        pass
+
+# Block 2: Public Contract
+
 
     def init_workspace(self, target_dir: Path) -> None:
         """Initialize workspace with .agents/skills/qwen-web/SKILL.md, .qwen-web symlinks, and .gitignore."""
@@ -89,6 +99,13 @@ class WorkspaceProvisioner(IFileSystemProtocol):
                 git_ignore.write_text(content, encoding="utf-8")
         else:
             git_ignore.write_text(f"{entry}\n", encoding="utf-8")
+
+# Block 3: Dunder Methods, Factories & Helpers
+
+
+    def __repr__(self) -> str:
+        """Return string representation of WorkspaceProvisioner."""
+        return "WorkspaceProvisioner()"
 
 
 # Module-level convenience function
