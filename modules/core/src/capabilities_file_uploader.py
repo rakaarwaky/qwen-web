@@ -42,8 +42,6 @@ DEFAULT_BACKOFF_DELAY_SEC = BackoffDelaySec(1.0)
 
 
 # Block 1: Class Definition & Constructor
-
-
 class FileUploader(IUploadProtocol):
     """Resilient file upload with validation, retry, and DOM recovery."""
 

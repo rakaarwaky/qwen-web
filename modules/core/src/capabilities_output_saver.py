@@ -28,19 +28,6 @@ DEFAULT_GENERATE_SIDECAR = GenerateSidecarFlag(True)
 DEFAULT_ATOMIC_WRITE = AtomicWriteFlag(True)
 
 
-def _write_file_atomic(target_path: Path, data: str) -> None:
-    """Atomically write text content to target path using a temporary file."""
-    tmp_path = target_path.with_suffix(f"{target_path.suffix}.tmp")
-    try:
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path.write_text(data, encoding="utf-8")
-        tmp_path.replace(target_path)
-    except OSError as e:
-        if tmp_path.exists():
-            with contextlib.suppress(OSError):
-                tmp_path.unlink()
-        raise OutputWriteError(f"Failed to write output file {target_path}: {e}") from e
-
 
 # Block 1: Class Definition & Constructor
 
@@ -147,3 +134,18 @@ def write_output(
     """Write output file (module-level convenience)."""
     saver = Saver()
     saver.write_output(path, content, ctx, src, dur, input_chars, output_chars, config)
+    
+def _write_file_atomic(target_path: Path, data: str) -> None:
+    """Atomically write text content to target path using a temporary file."""
+    tmp_path = target_path.with_suffix(f"{target_path.suffix}.tmp")
+    try:
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path.write_text(data, encoding="utf-8")
+        tmp_path.replace(target_path)
+    except OSError as e:
+        if tmp_path.exists():
+            with contextlib.suppress(OSError):
+                tmp_path.unlink()
+        raise OutputWriteError(f"Failed to write output file {target_path}: {e}") from e
+
+

@@ -14,11 +14,15 @@ from modules.shared.src.contract_metrics_protocol import IMetricsProtocol
 from modules.shared.src.taxonomy_core_vo import MessageCount
 
 
+# Block 1: Class Definition & Constructor ──────────────
 class MetricsCounter(IMetricsProtocol):
-    """Thread-safe in-memory metrics collector."""
+    """Thread-safe in-memory metrics collector.
+
+    In-memory dict with thread lock — fast for local counters,
+    not persisted across restarts.
+    """
 
     def __init__(self) -> None:
-        # Block 1: Class Definition & Constructor ──────────────
         self._lock = threading.Lock()
         self._counters: dict[str, int] = {}
         self._start_time = datetime.now(tz=timezone.utc)

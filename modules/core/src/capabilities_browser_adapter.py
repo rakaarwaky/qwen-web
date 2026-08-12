@@ -40,9 +40,7 @@ from modules.shared.src.taxonomy_domain_error import AuthRequiredError, BrowserL
 
 log = structlog.get_logger("browser")
 
-
 # Block 1: Class Definition & Constructor
-
 
 class SessionCheck:
     """Validates that the browser session and Qwen chat UI are alive."""
@@ -51,8 +49,7 @@ class SessionCheck:
         """Initialize with a Playwright Page instance."""
         self.page = page
 
-# Block 2: Public Contract
-
+    # ─── Block 2: Public Contract (IBrowserProtocol ONLY) ──
 
     def is_alive(self) -> bool:
         """Return True if the session is stable and the chat UI is responsive."""

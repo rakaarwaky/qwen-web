@@ -18,7 +18,7 @@ from typing import Any
 from modules.shared.src.contract_core_protocol import ILinuxProtocol
 from modules.shared.src.taxonomy_domain_error import SingleInstanceError
 
-
+# Block 1: Class Definition & Constructor
 class SingleInstanceLock:
     """File-based single-instance lock using fcntl.flock()."""
 
@@ -54,11 +54,6 @@ class SingleInstanceLock:
         finally:
             with contextlib.suppress(Exception):
                 self._lock_path.unlink(missing_ok=True)
-
-
-# Block 1: Class Definition & Constructor
-
-
 class LinuxGuard(ILinuxProtocol):
     """Linux-native guard: single-instance lock and sd_notify notifications."""
 
@@ -73,6 +68,7 @@ class LinuxGuard(ILinuxProtocol):
         """Acquire the single-instance file lock."""
         return SingleInstanceLock(self._lock_path).__enter__()
 
+    # ─── Block 2: Public Contract (ILinuxProtocol ONLY) ──
     def release_lock(self, lock: Any) -> None:
         """Release a previously acquired lock."""
         if isinstance(lock, SingleInstanceLock):

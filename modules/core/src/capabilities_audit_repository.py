@@ -17,9 +17,7 @@ from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
 from modules.shared.src.taxonomy_core_vo import ResponseText, RunContext
 
-
 # Block 1: Class Definition & Constructor
-
 
 class AuditRepository(IAuditProtocol):
     """Structured JSONL audit log with error traces and step-level context."""
@@ -33,8 +31,7 @@ class AuditRepository(IAuditProtocol):
         self._errors_jsonl = target_dir / "errors.jsonl"
         self._workspace = workspace
 
-    # Block 2: Public Contract
-
+    # ─── Block 2: Public Contract (IAuditProtocol ONLY) ──
 
     def log_step(
         self,

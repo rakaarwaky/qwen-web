@@ -20,10 +20,7 @@ from modules.shared.src.taxonomy_core_vo import ErrorCategory, ExitCode, Service
 
 log = __import__("logging").getLogger("capabilities_observability")
 
-
 # Block 1: Class Definition & Constructor
-
-
 class ObservabilitySetup(IObservabilityProtocol):
     """Full observability bootstrap: Sentry → OTel → structlog → hooks."""
 
@@ -32,8 +29,7 @@ class ObservabilitySetup(IObservabilityProtocol):
         self._status_path = log_path / "status.json"
         self._status_writer = status_writer
 
-# Block 2: Public Contract
-
+    # ─── Block 2: Public Contract (IObservabilityProtocol ONLY) ──
 
     def setup_observability(self, log_path: Path | None = None) -> None:
         """Bootstrap observability stack."""
