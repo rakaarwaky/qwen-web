@@ -6,7 +6,7 @@ Implements IStreamProtocol.
 import time
 from typing import Any
 
-from playwright.sync_api import Error, Page, TimeoutError
+from playwright.sync_api import Error, Page
 
 from modules.shared.src.contract_core_protocol import IStreamProtocol
 from modules.shared.src.taxonomy_core_constant import (

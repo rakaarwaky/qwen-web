@@ -41,7 +41,7 @@ class StatusFileWriter(IStatusProtocol):
         try:
             tmp_path.write_text(json.dumps(rec, ensure_ascii=False) + "\n", encoding="utf-8")
             tmp_path.rename(self._status_path)
-        except Exception:
+        except (OSError, IOError):
             pass
 
     def write_record(self, record: StatusRecordVO) -> None:

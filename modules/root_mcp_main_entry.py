@@ -55,12 +55,12 @@ def _isolate_thread_event_loop() -> None:
     try:
         if hasattr(asyncio, "_set_running_loop"):
             asyncio._set_running_loop(None)
-    except Exception:
-        pass
+        except (RuntimeError, AttributeError):
+            pass
     try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    except Exception:
+    except RuntimeError:
         pass
 
 

@@ -21,7 +21,6 @@ from modules.cli.src import (
 )
 from modules.cli.src.root_cli_container import CliContainer
 from modules.core.src.agent_core_orchestrator import is_watcher_shutdown_set
-from modules.shared.src.contract_metrics_protocol import IMetricsProtocol
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_DONE,

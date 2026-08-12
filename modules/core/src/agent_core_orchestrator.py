@@ -142,7 +142,7 @@ class CoreOrchestrator(ICoreAggregate):
         shutil.copy2(in_p, proc_file)
 
         try:
-            with self._browser.browser_session(cfg) as _bctx:
+            with self._browser.browser_session(cfg):
                 self._process_file(proc_file, Path(in_p.name), cfg, ctx)
             return ResponseText(f"Successfully processed {in_p.name} -> {out_p}")
         except AuthRequiredError as e:
@@ -177,7 +177,7 @@ class CoreOrchestrator(ICoreAggregate):
         failed = 0
 
         try:
-            with self._browser.browser_session(cfg) as _bctx:
+            with self._browser.browser_session(cfg):
                 for proc_file, rel_path in self._iter_todo(cfg):
                     try:
                         self._process_file(proc_file, rel_path, cfg, ctx)
@@ -210,7 +210,7 @@ class CoreOrchestrator(ICoreAggregate):
 
         ctx = RunContext()
         try:
-            with self._browser.browser_session(cfg) as _bctx:
+            with self._browser.browser_session(cfg):
                 for proc_file, rel_path in self._iter_todo(cfg):
                     self._process_file(proc_file, rel_path, cfg, ctx)
                     self._watcher_sleep(cfg.interval)
@@ -239,7 +239,7 @@ class CoreOrchestrator(ICoreAggregate):
         )
 
         try:
-            with self._browser.browser_session(cfg) as _bctx:
+            with self._browser.browser_session(cfg):
                 return ResponseText(self._send_file(tmp_path, timeout_sec, None, None, cfg))
         except AuthRequiredError as e:
             return ResponseText(f"ERROR [AUTH_REQUIRED]: {e}")

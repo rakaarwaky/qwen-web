@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from playwright.sync_api import Page, TimeoutError
+from playwright.sync_api import Page
 
 from modules.shared.src.contract_core_protocol import IUploadProtocol
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
@@ -190,7 +190,7 @@ class FileUploader(IUploadProtocol):
                 if loc.is_visible(timeout=1000):
                     dropdown_element = loc
                     break
-            except Exception:
+            except (TimeoutError, Exception):
                 continue
 
         if not dropdown_element:
@@ -206,7 +206,7 @@ class FileUploader(IUploadProtocol):
                 if item.is_visible(timeout=1000):
                     option_element = item
                     break
-            except Exception:
+            except (TimeoutError, Exception):
                 continue
 
         if not option_element:

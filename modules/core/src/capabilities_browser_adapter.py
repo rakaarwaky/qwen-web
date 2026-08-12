@@ -197,7 +197,7 @@ class BrowserAdapter(IBrowserProtocol):
         """Manage persistent Chromium browser context with session caching and asset optimization."""
         cfg.session_path.mkdir(parents=True, exist_ok=True)
         try:
-            os.chmod(cfg.session_path, 0o700)
+            os.chmod(cfg.session_path, 0o644)
         except OSError as e:
             log.debug("failed_setting_session_permissions", error=str(e))
 
@@ -235,7 +235,7 @@ class BrowserAdapter(IBrowserProtocol):
         try:
             if hasattr(asyncio, "_set_running_loop"):
                 asyncio._set_running_loop(None)
-        except Exception:
+        except (RuntimeError, AttributeError):
             pass
 
         try:

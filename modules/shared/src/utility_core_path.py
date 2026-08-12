@@ -92,5 +92,5 @@ def cleanup_empty_dirs(dir_path: Path, root_limit: Path) -> None:
                 curr = curr.parent
             else:
                 break
-    except Exception:
+    except (OSError, PermissionError):
         pass

@@ -102,7 +102,7 @@ class LinuxGuard(ILinuxProtocol):
             sock.connect(notify_socket)
             sock.sendall(message.encode("utf-8"))
             sock.close()
-        except Exception:
+        except (OSError, ConnectionError):
             pass
 
         if unset_environment:

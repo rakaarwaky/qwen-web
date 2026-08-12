@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from playwright.sync_api import Error, Page, TimeoutError
+from playwright.sync_api import Error, Page
 
 from modules.shared.src.contract_core_protocol import IInjectionProtocol
 from modules.shared.src.taxonomy_config_vo import DEFAULT_INJECTOR_CONFIG, InjectorConfig
