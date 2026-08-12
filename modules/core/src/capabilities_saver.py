@@ -19,28 +19,14 @@ from modules.shared.src.taxonomy_core_vo import (
     RunContext,
 )
 from modules.shared.src.taxonomy_domain_error import OutputWriteError
+from modules.shared.src.utility_core_text import build_metadata_header
+from modules.shared.src.utility_core_text import strip_ui_noise as _strip_ui_noise
 
 log = __import__("logging").getLogger("capabilities_saver")
 
 DEFAULT_INCLUDE_HEADER = IncludeHeaderFlag(True)
 DEFAULT_GENERATE_SIDECAR = GenerateSidecarFlag(True)
 DEFAULT_ATOMIC_WRITE = AtomicWriteFlag(True)
-
-
-def _strip_ui_noise(text: str) -> str:
-    """Remove Qwen UI chrome from the start of captured output."""
-    lines = text.splitlines()
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        if not stripped:
-            continue
-        if stripped in ("?", "Qwen3", "Qwen3.8-Max", "Qwen Plus", "Qwen Max",
-                        "Qwen Turbo", "Auto"):
-            continue
-        if stripped.endswith((".md", " KB", " B")):
-            continue
-        return "\n".join(lines[i:])
-    return text
 
 
 def _write_file_atomic(target_path: Path, data: str) -> None:
@@ -91,20 +77,7 @@ class Saver(ISaverProtocol):
         processed_at = datetime.now(tz=timezone.utc)
         iso_timestamp = processed_at.isoformat()
 
-        header = ""
-        if include_header:
-            header = (
-                "<!--\n"
-                "--- METADATA TRACEABILITY ---\n"
-                f"Run ID           : {run_id}\n"
-                f"Source File      : {src}\n"
-                f"Processed At     : {iso_timestamp}\n"
-                f"Duration         : {dur:.2f}s\n"
-                f"Input Characters : {input_chars}\n"
-                f"Output Characters: {output_chars}\n"
-                "------------------------------\n"
-                "-->\n\n"
-            )
+        header = build_metadata_header(ctx, src, dur, input_chars, output_chars) if include_header else ""
 
         full_text = header + _strip_ui_noise(content)
 

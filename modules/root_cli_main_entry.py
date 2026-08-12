@@ -14,6 +14,10 @@ from pathlib import Path
 from typing import Any
 
 from modules.cli.src.root_cli_container import CliContainer
+from modules.cli.src.surface_cli_init_command import handle as _surface_init_handle
+from modules.cli.src.surface_cli_interactive_controller import InteractiveController as _InteractiveController
+from modules.cli.src.surface_cli_login_command import handle as _surface_login_handle
+from modules.cli.src.surface_cli_run_command import handle as _surface_run_handle
 from modules.core.src.agent_core_orchestrator import is_watcher_shutdown_set
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
@@ -26,7 +30,6 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_TODO,
 )
 from modules.shared.src.taxonomy_core_vo import RunContext
-from modules.shared.src.taxonomy_domain_error import AuthRequiredError
 
 
 def _parse_args() -> argparse.Namespace:
@@ -108,10 +111,9 @@ def main(argv: list[str] | None = None) -> int:
 
     # Init subcommand
     if args and (getattr(args, "command", None) == "init" or getattr(args, "init", False)):
-        target_dir = getattr(args, "target_dir", None) or Path.cwd()
         container = _default_container()
-        container.core.init_workspace(target_dir)
-        return 0
+        result = _surface_init_handle(args, container.core)
+        return 0 if result.get("success") else 1
 
     # Interactive mode when no args
     if len(sys.argv) == 1 and argv is None:
@@ -135,39 +137,26 @@ def main(argv: list[str] | None = None) -> int:
         _run_manual_login(cfg)
         return 0
 
-    try:
-        if cfg.mode == "watcher":
-            result = container.core.process_watcher(cfg.interval, cfg.headless)
-        elif cfg.mode == "single":
-            result = container.core.process_single_file(cfg.input_path, cfg.output_path, cfg.headless)
-        else:
-            result = container.core.process_batch(cfg.input_path, cfg.output_path, cfg.headless)
-        if result.startswith("ERROR"):
-            print(result, file=sys.stderr)
-            return 1
-        return 0
-    except AuthRequiredError as e:
-        print(f"\n[AUTH ERROR] {e}\n", file=sys.stderr)
+    args_with_cfg = args
+    if args_with_cfg is not None:
+        args_with_cfg._cfg = cfg
+    result = _surface_run_handle(args_with_cfg, container.core)
+    if not result.get("success"):
+        print(result.get("error", "Unknown error"), file=sys.stderr)
         return 1
-    except Exception as e:
-        print(f"ERROR [{type(e).__name__}]: {e}", file=sys.stderr)
-        return 1
+    return 0
 
 
 def _interactive_prompt() -> AppConfig | None:
     """Display interactive TUI menu and build AppConfig from user selections."""
-    from modules.cli.src.surface_cli_interactive_controller import InteractiveController
-
     container = _default_container()
-    return InteractiveController(container.core).interactive_prompt()
+    return _InteractiveController(container.core).interactive_prompt()
 
 
 def _run_manual_login(cfg: AppConfig) -> None:
     """Launch visible browser for interactive login (TTY flow in the surface)."""
-    from modules.cli.src.surface_cli_login_command import handle as _login_handle
-
     container = _default_container()
-    _login_handle(None, container.core, cfg)
+    _surface_login_handle(None, container.core, cfg)
 
 
 def _run_watcher(client: Any, cfg: AppConfig, audit: Any) -> None:

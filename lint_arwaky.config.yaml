@@ -46,7 +46,8 @@ architecture:
           "surface",
           "root",
         ]
-      exceptions: []
+      exceptions:
+        - "__main__.py"
 
     AES102:
       enabled: true

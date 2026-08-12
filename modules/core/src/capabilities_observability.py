@@ -17,7 +17,7 @@ from typing import Any
 
 from modules.shared.src.contract_core_protocol import IObservabilityProtocol
 from modules.shared.src.taxonomy_core_vo import ErrorCategory, ServiceName
-from modules.shared.src.taxonomy_domain_error import AuthRequiredError
+from modules.shared.src.utility_core_error import exit_code_for
 
 log = __import__("logging").getLogger("capabilities_observability")
 
@@ -162,15 +162,6 @@ def clear_run_context() -> None:
     """Clear all run-scoped contextvars."""
     if has_structlog and structlog:
         structlog.contextvars.clear_contextvars()
-
-
-def exit_code_for(exc: BaseException) -> int:
-    """Map an unhandled exception to a process exit code."""
-    if isinstance(exc, KeyboardInterrupt):
-        return 130
-    if isinstance(exc, AuthRequiredError):
-        return 2
-    return 1
 
 
 class ObservabilitySetup(IObservabilityProtocol):

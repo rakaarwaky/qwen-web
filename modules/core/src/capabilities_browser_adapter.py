@@ -269,4 +269,5 @@ def _launch_context(p: Playwright, kwargs: dict[str, Any]) -> BrowserContext:
 def browser_session(cfg: Any) -> Iterator[BrowserContext]:
     """Manage persistent Chromium browser context (module-level convenience)."""
     adapter = BrowserAdapter()
-    yield from adapter.browser_session(cfg)
+    with adapter.browser_session(cfg) as ctx:
+        yield ctx

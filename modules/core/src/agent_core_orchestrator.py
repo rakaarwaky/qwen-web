@@ -19,18 +19,6 @@ from typing import Any
 
 from playwright.sync_api import Browser, BrowserContext, ElementHandle, Locator, Page
 
-from modules.core.src.capabilities_browser_adapter import (
-    SessionCheck,
-    check_auth,
-    navigate_to_chat,
-    reset_page,
-)
-from modules.core.src.capabilities_file_uploader import upload_attachment
-from modules.core.src.capabilities_observability import get_logger
-from modules.core.src.capabilities_prompt_injector import find_input, inject_text
-from modules.core.src.capabilities_prompt_injector import type_slowly as _type_slowly_mod
-from modules.core.src.capabilities_send_dispatcher import click_send, count_messages, latest_message_text
-from modules.core.src.capabilities_stream_monitor import wait_for_response
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.contract_core_protocol import (
     IBrowserProtocol,
@@ -635,7 +623,7 @@ class QwenClient:
             else None
         )
 
-    def __enter__(self) -> "QwenClient":
+    def __enter__(self) -> QwenClient:
         """Enter the context manager and start the client."""
         self.start()
         return self

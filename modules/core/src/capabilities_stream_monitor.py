@@ -13,7 +13,6 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from modules.shared.src.contract_core_protocol import IStreamProtocol
 from modules.shared.src.taxonomy_core_constant import (
-    CHALLENGE_KEYWORDS,
     COMBINED_MESSAGE_SELECTOR,
     JS_COUNT_TURNS,
     JS_GET_RESPONSE_TEXT,
@@ -31,6 +30,8 @@ from modules.shared.src.taxonomy_core_vo import (
     StabilityChecks,
 )
 from modules.shared.src.taxonomy_domain_error import AuthRequiredError, NetworkTimeoutError, OutputValidationError
+from modules.shared.src.utility_core_events import is_stability_satisfied, should_treat_as_new_response
+from modules.shared.src.utility_core_validation import validate_response_content
 
 log = __import__("logging").getLogger("capabilities_stream_monitor")
 
@@ -146,15 +147,16 @@ class StreamMonitor(IStreamProtocol):
                 count = _count_messages(page)
                 if count >= msg_count_before:
                     text = _latest_message_text(page)
-                    if text is not None and len(text) >= active_min_len and text != baseline_text:
+                    if should_treat_as_new_response(text, baseline_text, int(active_min_len)):
                         if text == last_text:
                             stable_count += 1
                             is_complete = self.is_generation_complete(page)
-                            force_complete = stable_count >= active_checks * 2
-                            if has_thinking and has_streaming and stable_count >= active_checks and (is_complete or force_complete):
+                            if is_stability_satisfied(
+                                stable_count, int(active_checks), has_thinking, has_streaming, is_complete
+                            ):
                                 log.info(
-                                    "Response stabilized after %d checks (is_complete=%s, forced=%s)",
-                                    stable_count, is_complete, force_complete
+                                    "Response stabilized after %d checks (is_complete=%s)",
+                                    stable_count, is_complete
                                 )
                                 validate_response_content(text)
                                 emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(text)})
@@ -183,19 +185,6 @@ class StreamMonitor(IStreamProtocol):
 
         log.warning("Timeout after %ds — no response detected", timeout_sec)
         return None
-
-
-def validate_response_content(text: str) -> None:
-    """Validate AI response text for server error pages or CAPTCHA challenges."""
-    if not text or not text.strip():
-        raise OutputValidationError("Response content is empty")
-
-    text_lower = text.lower()
-    for kw in CHALLENGE_KEYWORDS:
-        if kw in text_lower and len(text) < 500:
-            if "verify you are human" in text_lower or "attention required!" in text_lower:
-                raise AuthRequiredError(f"CAPTCHA / Bot detection challenge detected: '{kw}'")
-            raise OutputValidationError(f"Server error or challenge page detected in output: '{kw}'")
 
 
 # Module-level convenience functions
