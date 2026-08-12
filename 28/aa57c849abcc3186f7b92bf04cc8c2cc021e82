@@ -1,0 +1,14 @@
+.agents/skills/codacy-review/SKILL.md
+  h_16053b17f89e22 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "28aa57c849abcc3186f7b92bf04cc8c2cc021e82",
+  "prompts": {},
+  "humans": {
+    "h_16053b17f89e22": {
+      "author": "rakaarwaky <arwaky90@gmail.com>"
+    }
+  }
+}
