@@ -10,7 +10,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from playwright.sync_api import Error as PlaywrightError
 
 from modules.root_cli_main_entry import _interactive_prompt, _run_manual_login, _run_watcher, main
 from modules.root_mcp_main_entry import (
@@ -21,22 +20,22 @@ from modules.root_mcp_main_entry import (
     qwen_setup_session,
     qwen_start_watcher,
 )
-from modules.core.src.agent_core_orchestrator import (
+from modules.root_cli_main_entry import (
     _iter_todo_batch,
     _iter_todo_retry_failed,
     _iter_todo_single,
 )
 from modules.shared.src.utility_core_path import (
-    cleanup_empty_dirs as _cleanup_empty_dirs,
-    list_input_files as _list_input_files,
-    should_process_file as _should_process_file,
+    cleanup_empty_dirs,
+    list_input_files,
+    should_process_file,
 )
 from modules.shared.src.utility_core_prompt import (
-    extract_prompt_text as _extract_prompt_text,
-    strip_input_from_output as _strip_input_from_output,
+    extract_prompt_text,
+    strip_input_from_output,
 )
 from modules.core.src.capabilities_browser_adapter import _assert_on_chat_page, _clean_stale_locks, navigate_to_chat
-from modules.core.src.capabilities_observability import (
+from modules.core.src.capabilities_observability_setup import (
     MetricsCounter,
     StatusFileWriter,
     bind_run_context,
@@ -59,8 +58,7 @@ class TestMainRemaining:
 
     def test_main_single_instance_lock_error(self):
         with patch("sys.argv", ["qwen-cli", "-i", "/tmp/in", "-o", "/tmp/out", "--headless"]), \
-             patch("modules.main.setup_observability"), \
-             patch("modules.main.SingleInstanceLock", side_effect=Exception("lock")):
+             patch("modules.root_cli_main_entry.CliContainer", side_effect=Exception("lock")):
             result = main()
             assert result == 1
 
@@ -68,49 +66,35 @@ class TestMainRemaining:
         in_dir = tmp_path / "in"
         in_dir.mkdir()
         with patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless"]), \
-             patch("modules.main.setup_observability"), \
-             patch("modules.main.browser_session") as mock_bs, \
-             patch("modules.main.QwenClient") as mock_client, \
-             patch("modules.main._iter_todo", return_value=iter([(tmp_path / "task.md", Path("task.md"))])):
-            mock_bs.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
-            with patch("modules.main._process_file"):
-                result = main()
-                assert result == 0
+             patch("modules.cli.src.surface_cli_run_command.handle", return_value={"success": True, "message": "ok"}):
+            result = main()
+            assert result == 0
 
     def test_main_setup_observability_error(self, tmp_path):
         in_dir = tmp_path / "in"
         in_dir.mkdir()
         with patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless"]), \
-             patch("modules.main.setup_observability", side_effect=Exception("obs")), \
-             patch("modules.main.browser_session") as mock_bs, \
-             patch("modules.main.QwenClient") as mock_client, \
-             patch("modules.main._iter_todo", return_value=iter([])):
-            mock_bs.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
+             patch("modules.cli.src.surface_cli_run_command.handle", return_value={"success": False, "error": "boom"}):
             result = main()
-            assert result == 0
+            assert result == 1
 
 
 # ─── mcp_server.py remaining lines ──────────────────────────────────────────
 
 class TestMcpServerRemaining:
     def test_qwen_start_watcher(self):
-        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
-             patch("modules.root_mcp_main_entry.QwenClient"), \
-             patch("modules.root_mcp_main_entry._iter_todo", return_value=iter([])), \
-             patch("modules.root_mcp_main_entry.AuditLog"), \
-             patch("modules.root_mcp_main_entry._watcher_sleep"):
-            mock_ctx = MagicMock()
-            mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
+        mock_tools = MagicMock()
+        mock_tools.start_watcher.return_value = "Watcher loop completed."
+        with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
             loop = asyncio.new_event_loop()
             result = loop.run_until_complete(qwen_start_watcher(interval_sec=1))
             loop.close()
             assert "Watcher loop completed" in result
 
     def test_qwen_get_audit_log_file_not_exist(self, tmp_path):
-        with patch("modules.root_mcp_main_entry.DEFAULT_LOG", tmp_path):
+        mock_tools = MagicMock()
+        mock_tools.get_audit_log.return_value = "Audit log file does not exist yet."
+        with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
             result = qwen_get_audit_log()
             assert "does not exist" in result
 
@@ -120,7 +104,7 @@ class TestMcpServerRemaining:
 class TestPipelineRemaining:
     def test_extract_prompt_text_multiline(self):
         content = "---\ntitle: test\n---\nLine 1\nLine 2"
-        result = _extract_prompt_text(content)
+        result = extract_prompt_text(content)
         assert "Line 1" in result
 
     def test_strip_input_from_output_line_filter(self):
@@ -128,7 +112,7 @@ class TestPipelineRemaining:
         response = "Actual AI response"
         text = "\n".join(lines[:5]) + "\n" + response + "\n" + "\n".join(lines[5:])
         prompt = "\n".join(lines)
-        result = _strip_input_from_output(text, prompt)
+        result = strip_input_from_output(text, prompt)
         assert response in result
 
     def test_list_input_files_nested_roles(self, tmp_path):
@@ -136,14 +120,14 @@ class TestPipelineRemaining:
             f = tmp_path / role / "todo" / "task.md"
             f.parent.mkdir(parents=True)
             f.write_text("task")
-        files = _list_input_files(tmp_path)
+        files = list_input_files(tmp_path)
         assert len(files) == 2
 
     def test_should_process_file_in_done_dir(self, tmp_path):
         f = tmp_path / "role-dev" / "done" / "task.md"
         f.parent.mkdir(parents=True)
         f.write_text("x")
-        assert _should_process_file(f, tmp_path) is False
+        assert should_process_file(f, tmp_path) is False
 
     def test_iter_todo_batch_moves_files(self, tmp_path):
         todo = tmp_path / "todo" / "role-dev" / "todo"
@@ -165,7 +149,7 @@ class TestPipelineRemaining:
         d = tmp_path / "dir"
         d.mkdir()
         (d / "file.txt").write_text("x")
-        _cleanup_empty_dirs(d, tmp_path)
+        cleanup_empty_dirs(d, tmp_path)
         assert d.exists()
 
 
@@ -228,7 +212,7 @@ class TestObservabilityRemaining:
     def test_status_file_write_and_read(self, tmp_path):
         path = tmp_path / "status.json"
         writer = StatusFileWriter(path)
-        writer.write("running", "batch", True)
+        writer.write(status="running", mode="batch", headless=True)
         result = writer.read()
         assert result["status"] == "running"
 

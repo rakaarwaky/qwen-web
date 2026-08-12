@@ -5,8 +5,8 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Error
+from playwright.sync_api import TimeoutError
 
 from modules.core.src.capabilities_prompt_injector import find_input, inject_text, type_slowly
 from modules.shared.src import (
@@ -26,7 +26,7 @@ def test_find_input_success():
 
 def test_find_input_timeout():
     mock_page = MagicMock()
-    mock_page.wait_for_selector.side_effect = PlaywrightTimeoutError("Selector timeout")
+    mock_page.wait_for_selector.side_effect = TimeoutError("Selector timeout")
 
     with pytest.raises(ElementNotFoundError, match="Timed out waiting for input selector"):
         find_input(mock_page)
@@ -70,7 +70,7 @@ def test_type_slowly_success():
 def test_type_slowly_failure():
     mock_page = MagicMock()
     mock_el = MagicMock()
-    mock_el.type.side_effect = PlaywrightError("Typing error")
+    mock_el.type.side_effect = Error("Typing error")
 
     with pytest.raises(PromptInjectionError, match="Native typing failed"):
         type_slowly(mock_page, mock_el, "slow text")

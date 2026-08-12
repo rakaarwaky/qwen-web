@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from modules.core.src.capabilities_saver import write_output
+from modules.core.src.capabilities_output_saver import write_output
 from modules.core.src.capabilities_stream_monitor import validate_response_content
 from modules.shared.src import (
     AuthRequiredError,

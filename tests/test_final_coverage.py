@@ -16,14 +16,14 @@ from modules.root_mcp_main_entry import (
     qwen_send_prompt,
     qwen_start_watcher,
 )
-from modules.core.src.agent_core_orchestrator import (
+from modules.root_cli_main_entry import (
     _iter_todo_retry_failed,
     _iter_todo_single,
     _iter_todo_watcher,
     _process_file,
     request_watcher_shutdown,
 )
-from modules.core.src.capabilities_observability import (
+from modules.core.src.capabilities_observability_setup import (
     _configure_sentry,
     _configure_tracing,
     _configure_logging,
@@ -57,15 +57,15 @@ class TestMainWatcherError:
             yield tmp_path / "task.md", Path("task.md")
             raise RuntimeError("boom")
 
-        with patch("modules.main._iter_todo", side_effect=iter_with_error), \
-             patch("modules.main._process_file"), \
-             patch("modules.main.StatusFileWriter") as mock_sw:
+        with patch("modules.root_cli_main_entry._iter_todo", side_effect=iter_with_error), \
+             patch("modules.root_cli_main_entry._process_file"), \
+             patch("modules.core.src.capabilities_observability_setup.StatusFileWriter") as mock_sw:
             _run_watcher(client, cfg, audit)
             calls = mock_sw.return_value.write.call_args_list
             assert any("error" in str(c) for c in calls)
 
     def test_watcher_shutdown_breaks_loop(self, tmp_path):
-        from modules.core.src.agent_core_orchestrator import _watcher_shutdown
+        from modules.root_cli_main_entry import _watcher_shutdown
         _watcher_shutdown.set()
         client = MagicMock()
         cfg = AppConfig(
@@ -81,8 +81,8 @@ class TestMainWatcherError:
         )
         audit = MagicMock()
 
-        with patch("modules.main._iter_todo", return_value=iter([])), \
-             patch("modules.main.StatusFileWriter"):
+        with patch("modules.root_cli_main_entry._iter_todo", return_value=iter([])), \
+             patch("modules.core.src.capabilities_observability_setup.StatusFileWriter"):
             _run_watcher(client, cfg, audit)
         _watcher_shutdown.clear()
 
@@ -91,43 +91,30 @@ class TestMainWatcherError:
 
 class TestMcpServerRemainingAsync:
     def test_qwen_send_prompt_auth_error(self):
-        from modules.shared.src import AuthRequiredError
-        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
-             patch("modules.root_mcp_main_entry.QwenClient") as mock_client:
-            mock_ctx = MagicMock()
-            mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
-            mock_client.return_value.send_file.side_effect = AuthRequiredError("login")
+        mock_tools = MagicMock()
+        mock_tools.send_prompt.return_value = "ERROR [AUTH_REQUIRED]: login"
+        with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
             loop = asyncio.new_event_loop()
             result = loop.run_until_complete(qwen_send_prompt("hello"))
             loop.close()
             assert "AUTH_REQUIRED" in result
 
     def test_qwen_send_prompt_general_error(self):
-        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
-             patch("modules.root_mcp_main_entry.QwenClient") as mock_client:
-            mock_ctx = MagicMock()
-            mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
-            mock_client.return_value.send_file.side_effect = RuntimeError("boom")
+        mock_tools = MagicMock()
+        mock_tools.send_prompt.return_value = "ERROR [RuntimeError]: boom"
+        with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
             loop = asyncio.new_event_loop()
             result = loop.run_until_complete(qwen_send_prompt("hello"))
             loop.close()
             assert "RuntimeError" in result
 
     def test_qwen_process_single_auth_error(self):
-        from modules.shared.src import AuthRequiredError
+        mock_tools = MagicMock()
+        mock_tools.process_single.return_value = "ERROR [AUTH_REQUIRED]: login"
         tmp_task = Path("/tmp/test_task.md")
         tmp_task.write_text("task")
         try:
-            with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
-                 patch("modules.root_mcp_main_entry.QwenClient"), \
-                 patch("modules.root_mcp_main_entry._process_file", side_effect=AuthRequiredError("login")), \
-                 patch("modules.root_mcp_main_entry.AuditLog"), \
-                 patch("modules.root_mcp_main_entry.shutil"):
-                mock_ctx = MagicMock()
-                mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
-                mock_bs.return_value.__exit__ = MagicMock(return_value=False)
+            with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
                 loop = asyncio.new_event_loop()
                 result = loop.run_until_complete(qwen_process_single(str(tmp_task)))
                 loop.close()
@@ -136,14 +123,9 @@ class TestMcpServerRemainingAsync:
             tmp_task.unlink(missing_ok=True)
 
     def test_qwen_process_batch_auth_error(self):
-        from modules.shared.src import AuthRequiredError
-        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
-             patch("modules.root_mcp_main_entry.QwenClient"), \
-             patch("modules.root_mcp_main_entry._iter_todo", return_value=iter([])), \
-             patch("modules.root_mcp_main_entry.AuditLog"):
-            mock_ctx = MagicMock()
-            mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
+        mock_tools = MagicMock()
+        mock_tools.process_batch.return_value = "Batch processing complete. Successfully processed: 0, Failed: 0"
+        with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
             loop = asyncio.new_event_loop()
             result = loop.run_until_complete(qwen_process_batch())
             loop.close()
@@ -188,21 +170,21 @@ class TestPipelineRemainingPaths:
 class TestObservabilityRemainingPaths:
     def test_configure_sentry_with_dsn(self):
         with patch.dict("os.environ", {"SENTRY_DSN": "https://key@sentry.io/1"}), \
-             patch("modules.observability.has_sentry", True), \
-             patch("modules.observability.sentry_sdk") as mock_sentry:
+             patch("modules.core.src.capabilities_observability_setup.has_sentry", True), \
+             patch("modules.core.src.capabilities_observability_setup.sentry_sdk") as mock_sentry:
             _configure_sentry()
             mock_sentry.init.assert_called_once()
 
     def test_configure_tracing_with_endpoint(self):
         with patch.dict("os.environ", {"OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318"}), \
-             patch("modules.observability.has_otel", True), \
-             patch("modules.observability.has_otlp", True), \
-             patch("modules.observability.trace") as mock_trace, \
-             patch("modules.observability.TracerProvider") as mock_tp:
+             patch("modules.core.src.capabilities_observability_setup.has_otel", True), \
+             patch("modules.core.src.capabilities_observability_setup.has_otlp", True), \
+             patch("modules.core.src.capabilities_observability_setup.trace") as mock_trace, \
+             patch("modules.core.src.capabilities_observability_setup.TracerProvider") as mock_tp:
             _configure_tracing()
 
     def test_excepthook_keyboard_interrupt(self):
-        with patch("modules.observability.sys") as mock_sys:
+        with patch("modules.core.src.capabilities_observability_setup.sys") as mock_sys:
             mock_sys.exit = MagicMock(side_effect=SystemExit(130))
             with pytest.raises(SystemExit):
                 _excepthook(KeyboardInterrupt, KeyboardInterrupt(), None)

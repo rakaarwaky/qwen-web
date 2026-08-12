@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from modules.core.src.capabilities_audit_repository import AuditRepository as AuditLog
-from modules.core.src.capabilities_saver import write_output as _write_output
+from modules.core.src.capabilities_audit_repository import AuditRepository
+from modules.core.src.capabilities_output_saver import write_output
 from modules.shared.src.utility_core_path import (
     resolve_role_paths,
     should_process_file as _should_process_file,
@@ -128,7 +128,7 @@ def test_write_output_creates_file_with_traceability_header(
     out_file = tmp_path / "output" / "role-architect" / "task_001_result.md"
     content = "# Result\nThis is the Qwen response."
 
-    _write_output(
+    write_output(
         path=out_file,
         content=content,
         ctx=run_ctx,
@@ -147,7 +147,7 @@ def test_write_output_creates_file_with_traceability_header(
 
 # ─── AuditLog ────────────────────────────────────────────────────────────────
 
-def test_audit_log_step_writes_valid_jsonl(audit: AuditLog, run_ctx: RunContext, cfg: AppConfig) -> None:
+def test_audit_log_step_writes_valid_jsonl(audit: AuditRepository, run_ctx: RunContext, cfg: AppConfig) -> None:
     """AuditLog.log_step must write a parseable JSONL line to audit_history.jsonl."""
     audit.log_step(run_ctx, "START_PROCESSING", "role-architect/task_001.md", "STARTED", {"input_chars": 42})
 
@@ -164,7 +164,7 @@ def test_audit_log_step_writes_valid_jsonl(audit: AuditLog, run_ctx: RunContext,
     assert rec["event"] == "step_execution"
 
 
-def test_audit_log_error_writes_errors_jsonl(audit: AuditLog, run_ctx: RunContext, cfg: AppConfig) -> None:
+def test_audit_log_error_writes_errors_jsonl(audit: AuditRepository, run_ctx: RunContext, cfg: AppConfig) -> None:
     """AuditLog.log with status FAILED must write to both audit_history.jsonl and errors.jsonl."""
     audit.log(
         status="FAILED",
@@ -286,6 +286,7 @@ def test_file_moves_to_done_on_success(tmp_path: Path, mocker: Any) -> None:
     orchestrator._saver = mock_saver
     orchestrator._rl = RateLimiter()
     orchestrator._cb = CircuitBreaker()
+    orchestrator._send_file = mocker.MagicMock(return_value="Response text")
 
     orchestrator._execute_single_attempt(
         proc_file, rel_path, cfg, mocker.MagicMock(),

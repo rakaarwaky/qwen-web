@@ -10,13 +10,14 @@ from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 from modules.core.src.capabilities_audit_repository import AuditRepository
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
 from modules.core.src.capabilities_file_uploader import FileUploader
-from modules.core.src.capabilities_observability import ObservabilitySetup
+from modules.core.src.capabilities_observability_setup import ObservabilitySetup
+from modules.core.src.capabilities_output_saver import Saver
 from modules.core.src.capabilities_prompt_injector import PromptInjector
-from modules.core.src.capabilities_saver import Saver
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.core.src.capabilities_stream_monitor import StreamMonitor
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
 from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
+from modules.shared.src.taxonomy_core_vo import FailureThreshold, MaxPerMinute, WindowSec
 
 
 class McpContainer:
@@ -29,8 +30,8 @@ class McpContainer:
         rate_limit_per_minute: int = 60,
     ) -> None:
         """Wire capabilities with injected dependencies."""
-        self.cb = CircuitBreaker(circuit_breaker_threshold, circuit_breaker_window)
-        self.rl = RateLimiter(rate_limit_per_minute)
+        self.cb = CircuitBreaker(FailureThreshold(circuit_breaker_threshold), WindowSec(circuit_breaker_window))
+        self.rl = RateLimiter(MaxPerMinute(rate_limit_per_minute))
 
         self.browser = BrowserAdapter()
         self.injector = PromptInjector()

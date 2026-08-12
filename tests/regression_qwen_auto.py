@@ -9,7 +9,7 @@ from modules.shared.src.utility_core_path import (
     resolve_role_paths,
 )
 from modules.shared.src.utility_core_prompt import load_role_prompt
-from modules.core.src.agent_core_orchestrator import QwenClient
+from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 from modules.shared.src import AppConfig
 
 
@@ -76,24 +76,15 @@ class TestQwenAutoRegression(unittest.TestCase):
             self.assertNotIn("role-architect/PROMPT.md", rel_files)
             self.assertNotIn("role-architect/done/old.md", rel_files)
 
-    def test_regression_qwen_client_backward_compatible_init(self) -> None:
-        """Verifies QwenClient accepts both old (ctx, cfg) and new interfaces."""
-        mock_ctx = MagicMock()
-        client_old = QwenClient(mock_ctx)
-        self.assertIsNotNone(client_old)
-        self.assertIsNotNone(client_old.context)
-
-        cfg = AppConfig(
-            mode="batch",
-            input_path=Path("input"),
-            output_path=Path("output"),
-            done_path=Path("input/done"),
-            failed_path=Path("input/failed"),
-            proc_path=Path("input/.processing"),
-            session_path=Path("qwen_session"),
-        )
-        client_new = QwenClient(None, cfg)
-        self.assertIsNotNone(client_new)
+    def test_regression_core_orchestrator_di(self) -> None:
+        """Verifies CoreOrchestrator accepts DI'd capabilities."""
+        mock_caps = {k: MagicMock() for k in (
+            "browser", "injector", "sender", "streamer",
+            "uploader", "saver", "audit", "observability",
+        )}
+        orch = CoreOrchestrator(**mock_caps)  # type: ignore[arg-type]
+        self.assertIsNotNone(orch)
+        self.assertIs(orch._browser, mock_caps["browser"])
 
 
 if __name__ == "__main__":

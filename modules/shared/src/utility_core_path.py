@@ -11,6 +11,7 @@ from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import DEFAULT_TODO
 
 SKIP_DIRS = {"done", "failed", ".processing", "proc"}
+ROLE_PATH_SKIP_DIRS = {"todo", "done", "failed", ".processing", "proc"}
 
 
 def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> tuple[Path, Path, Path, Path]:
@@ -26,7 +27,7 @@ def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> tuple[Path, Path, Path
     if role_idx is not None:
         role_folder = parts[role_idx]
         sub_parts = parts[role_idx + 1:]
-        if sub_parts and sub_parts[0] in SKIP_DIRS:
+        if sub_parts and sub_parts[0] in ROLE_PATH_SKIP_DIRS:
             sub_parts = sub_parts[1:]
         sub_path = Path(*sub_parts) if sub_parts else Path(rel_path.name)
 
@@ -40,7 +41,7 @@ def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> tuple[Path, Path, Path
         proc_file = cfg.proc_path / role_folder / sub_path
     else:
         sub_parts = parts
-        if sub_parts and sub_parts[0] in SKIP_DIRS:
+        if sub_parts and sub_parts[0] in ROLE_PATH_SKIP_DIRS:
             sub_parts = sub_parts[1:]
         sub_path = Path(*sub_parts) if sub_parts else Path(rel_path.name)
 

@@ -5,8 +5,8 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Error
+from playwright.sync_api import TimeoutError
 
 from modules.core.src.capabilities_prompt_injector import _verify_injection, find_input, inject_text
 from modules.shared.src import (
@@ -61,7 +61,7 @@ class TestFindInputCustomConfig:
         def wait_side_effect(sel, state=None, timeout=None):
             if sel == "#third":
                 return el
-            raise PlaywrightTimeoutError("not found")
+            raise TimeoutError("not found")
 
         page.wait_for_selector.side_effect = wait_side_effect
 
@@ -83,7 +83,7 @@ class TestFindInputCustomConfig:
             # Second call: full timeout on primary
             if call_count[0] >= 2:
                 return el
-            raise PlaywrightTimeoutError("not found")
+            raise TimeoutError("not found")
 
         page.wait_for_selector.side_effect = wait_side_effect
         result = find_input(page, config=cfg)
@@ -91,7 +91,7 @@ class TestFindInputCustomConfig:
 
     def test_all_selectors_fail_raises(self):
         page = MagicMock()
-        page.wait_for_selector.side_effect = PlaywrightTimeoutError("timeout")
+        page.wait_for_selector.side_effect = TimeoutError("timeout")
 
         cfg = InjectorConfig(input_selectors=["#x"], wait_timeout_ms=50)
         with pytest.raises(ElementNotFoundError):
@@ -136,7 +136,7 @@ class TestInjectTextStrategies:
         page.wait_for_selector.return_value = el
         # JS fails, fill fails, type succeeds
         page.evaluate.side_effect = [False, False]
-        el.fill.side_effect = PlaywrightError("fill broken")
+        el.fill.side_effect = Error("fill broken")
 
         inject_text(page, "Type fallback text")
         el.type.assert_called_once()
@@ -146,8 +146,8 @@ class TestInjectTextStrategies:
         el = MagicMock()
         page.wait_for_selector.return_value = el
         page.evaluate.side_effect = [False, False]
-        el.fill.side_effect = PlaywrightError("broken")
-        el.type.side_effect = PlaywrightError("broken")
+        el.fill.side_effect = Error("broken")
+        el.type.side_effect = Error("broken")
 
         with pytest.raises(PromptInjectionError, match="All injection strategies"):
             inject_text(page, "failing")

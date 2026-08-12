@@ -20,9 +20,6 @@ adapters:
 ignored_rules: []
 
 ignored_paths:
-  - "src"
-  - "tests"
-  - "scripts"
   - "deploy"
   - "log"
   - "docs"
@@ -46,8 +43,7 @@ architecture:
           "surface",
           "root",
         ]
-      exceptions:
-        - "__main__.py"
+      exceptions: []
 
     AES102:
       enabled: true

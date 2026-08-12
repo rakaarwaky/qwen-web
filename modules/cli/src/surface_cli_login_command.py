@@ -26,7 +26,7 @@ def handle(_args: object, core: ICoreAggregate, cfg: AppConfig) -> dict[str, obj
         core.setup_session()
         print("Press [ENTER] once you have finished logging in:")
         input()
-        return {"success": True, "message": "Login session saved."}
+        return {"success": True, "message": f"Login session saved to '{cfg.session_path}'."}
     except Exception as e:
         return {
             "success": False,

@@ -4,7 +4,7 @@ Direct module imports for AES506 linter traceability — the entry point imports
 these modules so the linter's import graph can trace each surface file.
 """
 
-from modules.cli.src import (
+from . import (
     surface_cli_init_command,
     surface_cli_interactive_controller,
     surface_cli_login_command,

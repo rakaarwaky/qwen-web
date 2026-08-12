@@ -19,8 +19,7 @@ from modules.shared.src.taxonomy_core_vo import (
     RunContext,
 )
 from modules.shared.src.taxonomy_domain_error import OutputWriteError
-from modules.shared.src.utility_core_text import build_metadata_header
-from modules.shared.src.utility_core_text import strip_ui_noise as _strip_ui_noise
+from modules.shared.src.utility_core_text import build_metadata_header, strip_ui_noise
 
 log = __import__("logging").getLogger("capabilities_saver")
 
@@ -69,6 +68,13 @@ class Saver(ISaverProtocol):
     ) -> None:
         """Write processed output to disk with metadata traceability header."""
         cfg = config or {}
+        # Support both plain dict and dataclass-style config objects
+        if not isinstance(cfg, dict):
+            cfg = {
+                "include_header": getattr(cfg, "include_header", self.include_header),
+                "generate_sidecar": getattr(cfg, "generate_sidecar", self.generate_sidecar),
+                "atomic_write": getattr(cfg, "atomic_write", self.atomic_write),
+            }
         include_header = cfg.get("include_header", self.include_header)
         generate_sidecar = cfg.get("generate_sidecar", self.generate_sidecar)
         atomic_write = cfg.get("atomic_write", self.atomic_write)
@@ -79,7 +85,7 @@ class Saver(ISaverProtocol):
 
         header = build_metadata_header(ctx, src, dur, input_chars, output_chars) if include_header else ""
 
-        full_text = header + _strip_ui_noise(content)
+        full_text = header + strip_ui_noise(content)
 
         if atomic_write:
             _write_file_atomic(path, full_text)

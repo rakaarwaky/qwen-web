@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.taxonomy_config_vo import AppConfig
+from modules.shared.src.taxonomy_core_vo import HeadlessFlag, TimeoutSec
 
 
 def handle(args: object, core: ICoreAggregate) -> dict[str, object]:
@@ -22,11 +23,11 @@ def handle(args: object, core: ICoreAggregate) -> dict[str, object]:
 
     try:
         if cfg.mode == "watcher":
-            result = core.process_watcher(cfg.interval, cfg.headless)
+            result = core.process_watcher(TimeoutSec(cfg.interval), HeadlessFlag(cfg.headless))
         elif cfg.mode == "single":
-            result = core.process_single_file(cfg.input_path, cfg.output_path, cfg.headless)
+            result = core.process_single_file(cfg.input_path, cfg.output_path, HeadlessFlag(cfg.headless))
         else:
-            result = core.process_batch(cfg.input_path, cfg.output_path, cfg.headless)
+            result = core.process_batch(cfg.input_path, cfg.output_path, HeadlessFlag(cfg.headless))
         return {"success": True, "message": result}
     except Exception as e:
         return {

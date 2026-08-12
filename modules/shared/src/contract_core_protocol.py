@@ -1,6 +1,6 @@
 """Core capability protocols (contract layer).
 
-Taxonomy layer (contract(protocol)): pure ABCs, signatures use VOs where possible.
+Taxonomy layer (contract(protocol)): pure ABCs, signatures use VOs.
 Capabilities implement these; agents/surfaces depend on them via DI.
 """
 
@@ -10,11 +10,28 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-from playwright.sync_api import BrowserContext, ElementHandle, Page
+from playwright.sync_api import ElementHandle, Page
 
-from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
-from modules.shared.src.taxonomy_core_event import LifecycleEmitter
-from modules.shared.src.taxonomy_core_vo import RunContext
+from modules.shared.src.taxonomy_config_vo import InjectorConfig
+from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
+from modules.shared.src.taxonomy_core_vo import (
+    ExitCode,
+    FilePath,
+    FileSizeBytes,
+    HeadlessFlag,
+    LoggerName,
+    MaxFileSizeMb,
+    MessageCount,
+    MinTextLength,
+    OutputChars,
+    PollIntervalSec,
+    PromptText,
+    ResponseText,
+    RunContext,
+    RunId,
+    StabilityChecks,
+    TimeoutSec,
+)
 
 
 class IUploadProtocol(ABC):
@@ -27,12 +44,14 @@ class IUploadProtocol(ABC):
         filepath: Path,
         config: Any | None = None,
         emitter: LifecycleEmitter | None = None,
-        web_loaded: bool = True,
+        web_loaded: HeadlessFlag = HeadlessFlag(True),
     ) -> bool:
         """Attach a file as an attachment. Returns True on success."""
 
     @abstractmethod
-    def validate_file(self, filepath: Path, max_size_mb: float = 100.0) -> int:
+    def validate_file(
+        self, filepath: Path, max_size_mb: MaxFileSizeMb = MaxFileSizeMb(100.0)
+    ) -> FileSizeBytes:
         """Pre-flight validation; returns file size in bytes."""
 
 
@@ -40,11 +59,11 @@ class IInjectionProtocol(ABC):
     """Prompt text injection capability contract."""
 
     @abstractmethod
-    def find_input(self, page: Page, config: Any | None = None) -> ElementHandle:
+    def find_input(self, page: Page, config: InjectorConfig | None = None) -> ElementHandle:
         """Locate the input element; raise if not found."""
 
     @abstractmethod
-    def inject_text(self, page: Page, text: str, config: Any | None = None) -> None:
+    def inject_text(self, page: Page, text: PromptText, config: InjectorConfig | None = None) -> None:
         """Inject prompt text via multi-strategy DOM injection."""
 
 
@@ -57,16 +76,16 @@ class ISendProtocol(ABC):
         page: Page,
         emitter: LifecycleEmitter,
         config: Any | None = None,
-        document_parsed: bool = True,
+        document_parsed: HeadlessFlag = HeadlessFlag(True),
     ) -> None:
         """Trigger the send action."""
 
     @abstractmethod
-    def count_messages(self, page: Page) -> int:
+    def count_messages(self, page: Page) -> MessageCount:
         """Count chat turns."""
 
     @abstractmethod
-    def latest_message_text(self, page: Page) -> str | None:
+    def latest_message_text(self, page: Page) -> ResponseText | None:
         """Return the latest assistant response text."""
 
 
@@ -77,14 +96,14 @@ class IStreamProtocol(ABC):
     def wait_for_response(
         self,
         page: Page,
-        timeout_sec: int,
-        msg_count_before: int,
+        timeout_sec: TimeoutSec,
+        msg_count_before: MessageCount,
         emitter: LifecycleEmitter,
-        polling_interval_sec: float = 1.0,
-        stability_checks: int = 4,
-        min_text_length: int = 1,
-        dispatch_acknowledged: bool = True,
-    ) -> str | None:
+        polling_interval_sec: PollIntervalSec = PollIntervalSec(1.0),
+        stability_checks: StabilityChecks = StabilityChecks(4),
+        min_text_length: MinTextLength = MinTextLength(1),
+        dispatch_acknowledged: HeadlessFlag = HeadlessFlag(True),
+    ) -> ResponseText | None:
         """Wait for a stable assistant response; return its text."""
 
     @abstractmethod
@@ -123,12 +142,12 @@ class ISaverProtocol(ABC):
     def write_output(
         self,
         path: Path,
-        content: str,
+        content: ResponseText,
         ctx: RunContext,
-        src: str,
+        src: FilePath,
         dur: float,
         input_chars: int,
-        output_chars: int,
+        output_chars: OutputChars,
         config: Any | None = None,
     ) -> None:
         """Write processed output with metadata header + sidecar."""
@@ -142,15 +161,15 @@ class IObservabilityProtocol(ABC):
         """Bootstrap Sentry/OTel/structlog + global hooks."""
 
     @abstractmethod
-    def get_logger(self, name: str = "qwen-cli") -> Any:
+    def get_logger(self, name: LoggerName = LoggerName("qwen-cli")) -> Any:
         """Return a bound logger."""
 
     @abstractmethod
-    def start_span(self, name: str) -> Any:
+    def start_span(self, name: LoggerName) -> Any:
         """Return a span context manager (or no-op)."""
 
     @abstractmethod
-    def bind_run_context(self, run_id: str, **extra: Any) -> None:
+    def bind_run_context(self, run_id: RunId, **extra: Any) -> None:
         """Bind run-scoped contextvars."""
 
     @abstractmethod
@@ -158,7 +177,7 @@ class IObservabilityProtocol(ABC):
         """Clear run-scoped contextvars."""
 
     @abstractmethod
-    def exit_code_for(self, exc: BaseException) -> int:
+    def exit_code_for(self, exc: BaseException) -> ExitCode:
         """Map an unhandled exception to a process exit code."""
 
     @abstractmethod
@@ -174,7 +193,7 @@ class IFileSystemProtocol(ABC):
         self,
         ctx: RunContext,
         step: str,
-        src: str,
+        src: FilePath,
         status: str,
         details: dict[str, Any] | None = None,
     ) -> None:
@@ -185,11 +204,11 @@ class IFileSystemProtocol(ABC):
         self,
         status: str,
         ctx: RunContext,
-        src: str,
-        dst: str,
+        src: FilePath,
+        dst: FilePath,
         dur: float,
         in_c: int,
-        out_c: int,
+        out_c: OutputChars,
         err: str = "",
     ) -> None:
         """Log a completed file processing result."""
@@ -199,7 +218,7 @@ class IFileSystemProtocol(ABC):
         """Initialize workspace dirs, SKILL.md, symlinks, and .gitignore."""
 
     @abstractmethod
-    def get_audit_log(self, limit: int = 20) -> str:
+    def get_audit_log(self, limit: MessageCount = MessageCount(20)) -> ResponseText:
         """Return recent audit log entries as JSON text."""
 
 
@@ -233,7 +252,4 @@ __all__ = [
     "IObservabilityProtocol",
     "IFileSystemProtocol",
     "ILinuxProtocol",
-    "BrowserContext",
-    "CircuitBreaker",
-    "RateLimiter",
 ]

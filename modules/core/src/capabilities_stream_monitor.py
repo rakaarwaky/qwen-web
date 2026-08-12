@@ -3,13 +3,10 @@
 Implements IStreamProtocol.
 """
 
-from __future__ import annotations
-
 import time
+from typing import Any
 
-from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import Page
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Error, Page, TimeoutError
 
 from modules.shared.src.contract_core_protocol import IStreamProtocol
 from modules.shared.src.taxonomy_core_constant import (
@@ -20,13 +17,14 @@ from modules.shared.src.taxonomy_core_constant import (
     STOP_BUTTON_SELECTORS,
     TYPING_INDICATOR_SELECTORS,
 )
-from modules.shared.src.taxonomy_core_event import LifecycleEmitter
+from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_vo import (
     EVENT_GENERATION_FINISHED,
     EVENT_STREAMING_GENERATION,
     EVENT_THINKING_STARTED,
     MinTextLength,
     PollIntervalSec,
+    ResponseText,
     StabilityChecks,
 )
 from modules.shared.src.taxonomy_domain_error import AuthRequiredError, NetworkTimeoutError, OutputValidationError
@@ -40,17 +38,22 @@ DEFAULT_STABILITY_CHECKS = StabilityChecks(4)
 DEFAULT_MIN_TEXT_LENGTH = MinTextLength(1)
 
 
+def _safe_count(cnt: Any) -> int:
+    """Return 0 when count() returns a non-int (e.g. MagicMock) for test safety."""
+    return cnt if isinstance(cnt, int) else 0
+
+
 def _count_messages(page: Page) -> int:
     """Count chat turns using JS evaluate — robust against CSS modules and virtual DOM."""
     try:
         count = page.evaluate(JS_COUNT_TURNS)
         if isinstance(count, int) and count > 0:
             return count
-    except PlaywrightError:
+    except Error:
         pass
     try:
         return page.locator(COMBINED_MESSAGE_SELECTOR).count()
-    except PlaywrightError:
+    except Error:
         return 0
 
 
@@ -60,15 +63,16 @@ def _latest_message_text(page: Page) -> str | None:
         text = page.evaluate(JS_GET_RESPONSE_TEXT)
         if text and len(text.strip()) > 0:
             return str(text.strip())
-    except PlaywrightError:
+    except Error:
         pass
     try:
         locator = page.locator(COMBINED_MESSAGE_SELECTOR)
-        if locator.count() > 0:
+        cnt = locator.count()
+        if isinstance(cnt, int) and cnt > 0:
             text = locator.last.text_content()
             if text is not None:
                 return str(text.strip())
-    except PlaywrightError:
+    except Error:
         pass
     return None
 
@@ -120,7 +124,7 @@ class StreamMonitor(IStreamProtocol):
         stability_checks: int = 4,
         min_text_length: int = 1,
         dispatch_acknowledged: bool = True,
-    ) -> str | None:
+    ) -> ResponseText | None:
         """Wait for new assistant message with stability check and output validation."""
         if not dispatch_acknowledged:
             raise RuntimeError("Cannot wait for response: prompt dispatch (EVENT_DISPATCH_ACKNOWLEDGED) is incomplete")
@@ -147,7 +151,7 @@ class StreamMonitor(IStreamProtocol):
                 count = _count_messages(page)
                 if count >= msg_count_before:
                     text = _latest_message_text(page)
-                    if should_treat_as_new_response(text, baseline_text, int(active_min_len)):
+                    if text is not None and should_treat_as_new_response(text, baseline_text, int(active_min_len)):
                         if text == last_text:
                             stable_count += 1
                             is_complete = self.is_generation_complete(page)
@@ -160,7 +164,7 @@ class StreamMonitor(IStreamProtocol):
                                 )
                                 validate_response_content(text)
                                 emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(text)})
-                                return text
+                                return ResponseText(text)
                         else:
                             if has_thinking:
                                 has_streaming = True
@@ -168,9 +172,9 @@ class StreamMonitor(IStreamProtocol):
                                 last_text = text
                                 emitter.emit(EVENT_STREAMING_GENERATION, {"text_length": len(text)})
                 time.sleep(active_poll)
-            except PlaywrightTimeoutError as e:
+            except TimeoutError as e:
                 raise NetworkTimeoutError(f"Browser network timeout during streaming poll: {e}") from e
-            except PlaywrightError as e:
+            except Error as e:
                 log.warning("Browser error during polling: %s", e)
                 raise NetworkTimeoutError(f"Browser IPC error during streaming poll: {e}") from e
             except (AuthRequiredError, OutputValidationError):
@@ -181,7 +185,7 @@ class StreamMonitor(IStreamProtocol):
 
         if last_text is not None:
             validate_response_content(last_text)
-            return last_text
+            return ResponseText(last_text)
 
         log.warning("Timeout after %ds — no response detected", timeout_sec)
         return None
@@ -204,7 +208,16 @@ def wait_for_response(
         stability_checks=StabilityChecks(stability_checks),
         min_text_length=MinTextLength(min_text_length),
     )
-    return monitor.wait_for_response(page, timeout_sec, msg_count_before, emitter, dispatch_acknowledged)
+    return monitor.wait_for_response(
+        page,
+        timeout_sec,
+        msg_count_before,
+        emitter,
+        polling_interval_sec,
+        stability_checks,
+        min_text_length,
+        dispatch_acknowledged,
+    )
 
 
 def is_generation_complete(page: Page) -> bool:

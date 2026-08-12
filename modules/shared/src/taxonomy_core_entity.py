@@ -1,18 +1,38 @@
-"""Stateful domain entities: circuit breaker and rate limiter.
+"""Stateful domain entities: circuit breaker, rate limiter, lifecycle emitter.
 
 Taxonomy layer (taxonomy(entity)): identity-bearing stateful entities, no I/O.
 """
 
 from __future__ import annotations
 
+import logging
 import time
 from collections import deque
+from collections.abc import Callable
+
+from modules.shared.src.taxonomy_core_constant import MAX_ATTEMPTS
+from modules.shared.src.taxonomy_core_vo import (
+    EVENT_DESCRIPTIONS,
+    CallbackRegistry,
+    EventDetails,
+    EventMessage,
+    FailureThreshold,
+    LifecycleCallback,
+    LifecycleEvent,
+    MaxPerMinute,
+    QwenEventType,
+    WindowSec,
+)
 
 
 class CircuitBreaker:
     """Sliding-window circuit breaker for request-level failure tracking."""
 
-    def __init__(self, threshold: int = 5, window_sec: int = 30) -> None:
+    def __init__(
+        self,
+        threshold: FailureThreshold = FailureThreshold(MAX_ATTEMPTS),
+        window_sec: WindowSec = WindowSec(30),
+    ) -> None:
         """Initialize circuit breaker with sliding-window failure threshold.
 
         Args:
@@ -55,7 +75,7 @@ class CircuitBreaker:
 class RateLimiter:
     """Simple token-bucket rate limiter for request throttling."""
 
-    def __init__(self, max_per_minute: int = 60) -> None:
+    def __init__(self, max_per_minute: MaxPerMinute = MaxPerMinute(60)) -> None:
         """Initialize rate limiter with a fixed window of max requests per minute.
 
         Args:
@@ -65,7 +85,7 @@ class RateLimiter:
             ValueError: If max_per_minute < 1.
 
         """
-        if max_per_minute < 1:
+        if max_per_minute < MaxPerMinute(1):
             raise ValueError(f"max_per_minute must be >= 1, got {max_per_minute}")
         self._max_per_minute = max_per_minute
         self._timestamps: deque[float] = deque()
@@ -85,3 +105,43 @@ class RateLimiter:
             now = time.time()
             window_start = now - 60.0
         self._timestamps.append(time.time())
+
+
+class LifecycleEmitter:
+    """Event bus for pipeline lifecycle events with typed dispatcher capability."""
+
+    def __init__(self, logger: Callable[..., object] | None = None) -> None:
+        """Initialize with an empty callback registry and an optional logger."""
+        self._callbacks: CallbackRegistry = {}
+        self._logger = logger or logging.getLogger("lifecycle")
+
+    def on(self, event_name: QwenEventType | str, callback: LifecycleCallback) -> None:
+        """Register a callback for a named lifecycle event."""
+        key = str(event_name)
+        self._callbacks.setdefault(key, []).append(callback)
+
+    def emit(self, event_name: QwenEventType | str, details: EventDetails | None = None) -> LifecycleEvent:
+        """Emit a lifecycle event to all registered callbacks."""
+        key = str(event_name)
+        evt = LifecycleEvent(
+            name=key,
+            timestamp=time.time(),
+            details=details or {},
+        )
+        enum_member = event_name if isinstance(event_name, QwenEventType) else None
+        label = EVENT_DESCRIPTIONS.get(enum_member, key) if enum_member else key
+        detail_str = f" - {details}" if details else ""
+        self._log(EventMessage(f"[{key}] {label}{detail_str}"))
+        for cb in self._callbacks.get(key, []):
+            try:
+                cb(evt)
+            except Exception as exc:
+                self._log(EventMessage(f"lifecycle_callback_error event={key} error={exc}"))
+        return evt
+
+    def _log(self, message: EventMessage) -> None:
+        """Log a message via the injected logger (callable or .info())."""
+        if callable(self._logger):
+            self._logger(message)
+        else:
+            self._logger.info(message)

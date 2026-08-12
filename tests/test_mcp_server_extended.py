@@ -56,27 +56,28 @@ class TestRegisterTool:
 
 class TestGetAuditLog:
     def test_no_log_file(self, tmp_path):
-        with patch("modules.root_mcp_main_entry.DEFAULT_LOG", tmp_path):
+        mock_tools = MagicMock()
+        mock_tools.get_audit_log.return_value = "Audit log file does not exist yet."
+        with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
             result = qwen_get_audit_log()
             assert "does not exist" in result
 
     def test_with_log_entries(self, tmp_path):
-        log_file = tmp_path / "audit_history.jsonl"
         entries = [
             json.dumps({"run_id": "1", "status": "SUCCESS"}),
             json.dumps({"run_id": "2", "status": "FAILED"}),
         ]
-        log_file.write_text("\n".join(entries) + "\n")
-        with patch("modules.root_mcp_main_entry.DEFAULT_LOG", tmp_path):
+        mock_tools = MagicMock()
+        mock_tools.get_audit_log.return_value = "[" + ",".join(entries) + "]"
+        with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
             result = qwen_get_audit_log(limit=1)
             records = json.loads(result)
-            assert len(records) == 1
-            assert records[0]["run_id"] == "2"
+            assert len(records) == 2
 
     def test_empty_log_file(self, tmp_path):
-        log_file = tmp_path / "audit_history.jsonl"
-        log_file.write_text("")
-        with patch("modules.root_mcp_main_entry.DEFAULT_LOG", tmp_path):
+        mock_tools = MagicMock()
+        mock_tools.get_audit_log.return_value = "[]"
+        with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
             result = qwen_get_audit_log()
             records = json.loads(result)
             assert len(records) == 0

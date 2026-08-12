@@ -26,7 +26,7 @@ class TestInteractivePrompt:
 
     def test_init_choice(self):
         with patch("builtins.input", return_value="5"), \
-             patch("modules.main.run_init"):
+             patch("modules.root_cli_main_entry.run_init"):
             result = _interactive_prompt()
             assert result is None
 
@@ -60,7 +60,7 @@ class TestInteractivePrompt:
         (todo / "task.md").write_text("task")
         with patch("builtins.input", side_effect=["3", "1", "y"]), \
              patch("sys.stdin") as mock_stdin, \
-             patch("modules.main.DEFAULT_TODO", tmp_path / "todo"):
+             patch("modules.root_cli_main_entry.DEFAULT_TODO", tmp_path / "todo"):
             mock_stdin.isatty.return_value = True
             result = _interactive_prompt()
             assert result is not None
@@ -71,7 +71,7 @@ class TestInteractivePrompt:
         empty.mkdir()
         with patch("builtins.input", side_effect=["3", "", "", "y"]), \
              patch("sys.stdin") as mock_stdin, \
-             patch("modules.main.DEFAULT_TODO", empty):
+             patch("modules.root_cli_main_entry.DEFAULT_TODO", empty):
             mock_stdin.isatty.return_value = True
             result = _interactive_prompt()
             assert result is not None
@@ -83,7 +83,7 @@ class TestInteractivePrompt:
         (todo / "task.md").write_text("task")
         with patch("builtins.input", side_effect=["3", "abc", "y"]), \
              patch("sys.stdin") as mock_stdin, \
-             patch("modules.main.DEFAULT_TODO", tmp_path / "todo"):
+             patch("modules.root_cli_main_entry.DEFAULT_TODO", tmp_path / "todo"):
             mock_stdin.isatty.return_value = True
             result = _interactive_prompt()
             assert result is not None
@@ -95,7 +95,7 @@ class TestInteractivePrompt:
         (todo / "task.md").write_text("task")
         with patch("builtins.input", side_effect=["3", "99", "y"]), \
              patch("sys.stdin") as mock_stdin, \
-             patch("modules.main.DEFAULT_TODO", tmp_path / "todo"):
+             patch("modules.root_cli_main_entry.DEFAULT_TODO", tmp_path / "todo"):
             mock_stdin.isatty.return_value = True
             result = _interactive_prompt()
             assert result is not None
@@ -119,7 +119,7 @@ class TestInteractivePrompt:
 class TestRunManualLogin:
     def test_not_tty_exits(self):
         with patch("sys.stdin") as mock_stdin, \
-             pytest.raises(SystemExit):
+             patch("modules.cli.src.surface_cli_login_command.handle", return_value={"success": False, "error": "TTY required"}) as mock_handle:
             mock_stdin.isatty.return_value = False
             cfg = AppConfig(
                 mode="login",
@@ -131,17 +131,12 @@ class TestRunManualLogin:
                 session_path=Path("/tmp/session"),
             )
             _run_manual_login(cfg)
+            mock_handle.assert_called_once()
 
     def test_login_opens_browser(self):
         with patch("sys.stdin") as mock_stdin, \
-             patch("modules.main.browser_session") as mock_bs, \
-             patch("builtins.input", return_value=""):
+             patch("modules.cli.src.surface_cli_login_command.handle", return_value={"success": True, "message": "ok"}) as mock_handle:
             mock_stdin.isatty.return_value = True
-            mock_page = MagicMock()
-            mock_ctx = MagicMock()
-            mock_ctx.pages = [mock_page]
-            mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
             cfg = AppConfig(
                 mode="login",
                 input_path=Path("/tmp/in"),
@@ -152,7 +147,7 @@ class TestRunManualLogin:
                 session_path=Path("/tmp/session"),
             )
             _run_manual_login(cfg)
-            mock_page.goto.assert_called_once()
+            mock_handle.assert_called_once()
 
 
 class TestRunWatcher:
@@ -171,28 +166,28 @@ class TestRunWatcher:
         )
         audit = MagicMock()
 
-        with patch("modules.main._iter_todo", return_value=iter([])), \
-             patch("modules.main.StatusFileWriter") as mock_sw:
+        with patch("modules.root_cli_main_entry._iter_todo", return_value=iter([])), \
+             patch("modules.core.src.capabilities_observability_setup.StatusFileWriter") as mock_sw:
             _run_watcher(client, cfg, audit)
             mock_sw.return_value.write.assert_called()
 
 
 class TestMain:
     def test_main_init(self, tmp_path):
-        with patch("sys.argv", ["qwen-cli", "init", str(tmp_path)]):
+        with patch("sys.argv", ["qwen-cli", "init", str(tmp_path)]), \
+             patch("modules.cli.src.surface_cli_init_command.handle", return_value={"success": True, "message": "ok"}):
             result = main()
             assert result == 0
 
     def test_main_interactive_exit(self):
         with patch("sys.argv", ["qwen-cli"]), \
-             patch("modules.main._interactive_prompt", return_value=None):
+             patch("modules.root_cli_main_entry._interactive_prompt", return_value=None):
             result = main()
             assert result == 0
 
     def test_main_login_mode(self):
         with patch("sys.argv", ["qwen-cli", "--login"]), \
-             patch("modules.main._run_manual_login"), \
-             patch("modules.main.setup_observability"):
+             patch("modules.root_cli_main_entry._run_manual_login"):
             result = main()
             assert result == 0
 
@@ -200,12 +195,7 @@ class TestMain:
         in_dir = tmp_path / "in"
         in_dir.mkdir()
         with patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless"]), \
-             patch("modules.main.setup_observability"), \
-             patch("modules.main.browser_session") as mock_bs, \
-             patch("modules.main.QwenClient") as mock_client, \
-             patch("modules.main._iter_todo", return_value=iter([])):
-            mock_bs.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
+             patch("modules.cli.src.surface_cli_run_command.handle", return_value={"success": True, "message": "ok"}):
             result = main()
             assert result == 0
 
@@ -213,26 +203,15 @@ class TestMain:
         in_dir = tmp_path / "in"
         in_dir.mkdir()
         with patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless", "--watch"]), \
-             patch("modules.main.setup_observability"), \
-             patch("modules.main.browser_session") as mock_bs, \
-             patch("modules.main.QwenClient") as mock_client, \
-             patch("modules.main._run_watcher"):
-            mock_bs.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
+             patch("modules.cli.src.surface_cli_run_command.handle", return_value={"success": True, "message": "ok"}):
             result = main()
             assert result == 0
 
     def test_main_auth_error(self, tmp_path):
-        from modules.shared.src import AuthRequiredError
         in_dir = tmp_path / "in"
         in_dir.mkdir()
         with patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless"]), \
-             patch("modules.main.setup_observability"), \
-             patch("modules.main.browser_session") as mock_bs, \
-             patch("modules.main.QwenClient") as mock_client, \
-             patch("modules.main._iter_todo", side_effect=AuthRequiredError("login")):
-            mock_bs.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
+             patch("modules.cli.src.surface_cli_run_command.handle", return_value={"success": False, "error": "AuthRequiredError: login"}):
             result = main()
             assert result == 1
 
@@ -240,11 +219,6 @@ class TestMain:
         in_dir = tmp_path / "in"
         in_dir.mkdir()
         with patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless"]), \
-             patch("modules.main.setup_observability"), \
-             patch("modules.main.browser_session") as mock_bs, \
-             patch("modules.main.QwenClient") as mock_client, \
-             patch("modules.main._iter_todo", side_effect=RuntimeError("boom")):
-            mock_bs.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
+             patch("modules.root_cli_main_entry.CliContainer", side_effect=RuntimeError("boom")):
             result = main()
             assert result == 1

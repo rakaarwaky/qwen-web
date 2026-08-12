@@ -1,4 +1,4 @@
-"""Extended tests for mcp_server.py — async tool functions."""
+"""Extended tests for MCP server tools — async tool functions."""
 
 from __future__ import annotations
 
@@ -18,29 +18,26 @@ from modules.root_mcp_main_entry import (
 )
 
 
+def _mock_tools(**returns: object) -> MagicMock:
+    """Build a mock MCP tool surface."""
+    tools = MagicMock()
+    for name, value in returns.items():
+        getattr(tools, name).return_value = value
+    return tools
+
+
 class TestQwenSendPrompt:
     def test_send_prompt_success(self):
-        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
-             patch("modules.root_mcp_main_entry.QwenClient") as mock_client:
-            mock_ctx = MagicMock()
-            mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
-            mock_client.return_value.send_file.return_value = "AI answer"
-
+        tools = _mock_tools(send_prompt="AI answer")
+        with patch("modules.root_mcp_main_entry._tools", return_value=tools):
             loop = asyncio.new_event_loop()
             result = loop.run_until_complete(qwen_send_prompt("hello", timeout_sec=120))
             loop.close()
             assert "AI answer" in result
 
     def test_send_prompt_auth_error(self):
-        from modules.shared.src import AuthRequiredError
-        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
-             patch("modules.root_mcp_main_entry.QwenClient") as mock_client:
-            mock_ctx = MagicMock()
-            mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
-            mock_client.return_value.send_file.side_effect = AuthRequiredError("login")
-
+        tools = _mock_tools(send_prompt="ERROR [AUTH_REQUIRED]: login")
+        with patch("modules.root_mcp_main_entry._tools", return_value=tools):
             loop = asyncio.new_event_loop()
             result = loop.run_until_complete(qwen_send_prompt("hello"))
             loop.close()
@@ -51,15 +48,8 @@ class TestQwenProcessSingle:
     def test_process_single_success(self, tmp_path):
         task = tmp_path / "task.md"
         task.write_text("task")
-
-        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
-             patch("modules.root_mcp_main_entry.QwenClient") as mock_client, \
-             patch("modules.root_mcp_main_entry._process_file"), \
-             patch("modules.root_mcp_main_entry.AuditLog"):
-            mock_ctx = MagicMock()
-            mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
-
+        tools = _mock_tools(process_single="Successfully processed task.md")
+        with patch("modules.root_mcp_main_entry._tools", return_value=tools):
             loop = asyncio.new_event_loop()
             result = loop.run_until_complete(qwen_process_single(str(task)))
             loop.close()
@@ -74,14 +64,8 @@ class TestQwenProcessSingle:
 
 class TestQwenProcessBatch:
     def test_process_batch_empty(self):
-        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
-             patch("modules.root_mcp_main_entry.QwenClient"), \
-             patch("modules.root_mcp_main_entry._iter_todo", return_value=iter([])), \
-             patch("modules.root_mcp_main_entry.AuditLog"):
-            mock_ctx = MagicMock()
-            mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
-
+        tools = _mock_tools(process_batch="Batch processing complete. Successfully processed: 0, Failed: 0")
+        with patch("modules.root_mcp_main_entry._tools", return_value=tools):
             loop = asyncio.new_event_loop()
             result = loop.run_until_complete(qwen_process_batch())
             loop.close()
@@ -90,13 +74,8 @@ class TestQwenProcessBatch:
 
 class TestQwenSetupSession:
     def test_setup_session(self):
-        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs:
-            mock_ctx = MagicMock()
-            mock_page = MagicMock()
-            mock_ctx.pages = [mock_page]
-            mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
-
+        tools = _mock_tools(setup_session="Browser session saved to 'x'")
+        with patch("modules.root_mcp_main_entry._tools", return_value=tools):
             loop = asyncio.new_event_loop()
             result = loop.run_until_complete(qwen_setup_session())
             loop.close()
@@ -104,19 +83,17 @@ class TestQwenSetupSession:
 
 
 class TestQwenGetAuditLogExtended:
-    def test_with_entries(self, tmp_path):
-        log_file = tmp_path / "audit_history.jsonl"
-        entries = [json.dumps({"run_id": str(i)}) for i in range(5)]
-        log_file.write_text("\n".join(entries) + "\n")
-        with patch("modules.root_mcp_main_entry.DEFAULT_LOG", tmp_path):
+    def test_with_entries(self):
+        entries = json.dumps([{"run_id": str(i)} for i in range(5)])
+        tools = _mock_tools(get_audit_log=entries)
+        with patch("modules.root_mcp_main_entry._tools", return_value=tools):
             result = qwen_get_audit_log(limit=3)
             records = json.loads(result)
-            assert len(records) == 3
+            assert len(records) == 5
 
-    def test_empty_file(self, tmp_path):
-        log_file = tmp_path / "audit_history.jsonl"
-        log_file.write_text("")
-        with patch("modules.root_mcp_main_entry.DEFAULT_LOG", tmp_path):
+    def test_empty_file(self):
+        tools = _mock_tools(get_audit_log="[]")
+        with patch("modules.root_mcp_main_entry._tools", return_value=tools):
             result = qwen_get_audit_log()
             records = json.loads(result)
             assert len(records) == 0

@@ -114,7 +114,7 @@ async def qwen_setup_session() -> str:
 
 def qwen_get_audit_log(limit: int = 20) -> str:
     """Fetch latest entries from the JSONL audit trail log."""
-    return _tools().get_audit_log(limit)
+    return str(_tools().get_audit_log(limit))
 
 
 def _register_tools() -> None:
@@ -132,7 +132,7 @@ def _register_tools() -> None:
 
 def run_mcp_server() -> None:
     """Run the FastMCP server over stdio."""
-    from modules.core.src.capabilities_observability import setup_observability
+    from modules.core.src.capabilities_observability_setup import setup_observability
 
     setup_observability(DEFAULT_LOG)
 

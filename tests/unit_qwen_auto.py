@@ -5,8 +5,8 @@ import unittest
 from pathlib import Path
 
 from modules.root_cli_main_entry import _build_config
-from modules.core.src.capabilities_audit_repository import AuditRepository as AuditLog
-from modules.core.src.capabilities_saver import write_output as _write_output
+from modules.core.src.capabilities_audit_repository import AuditRepository
+from modules.core.src.capabilities_output_saver import write_output
 from modules.shared.src import RunContext
 
 
@@ -17,7 +17,7 @@ class TestQwenAutoUnit(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             out_path = Path(tmp_dir) / "test_out.md"
             ctx = RunContext(run_id="test_run_123")
-            _write_output(
+            write_output(
                 path=out_path,
                 content="Hello Qwen Result",
                 ctx=ctx,
@@ -35,7 +35,7 @@ class TestQwenAutoUnit(unittest.TestCase):
     def test_audit_log_record(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_dir = Path(tmp_dir)
-            audit = AuditLog(output_dir)
+            audit = AuditRepository(output_dir)
             ctx = RunContext(run_id="audit_run_456")
             audit.log("SUCCESS", ctx, "src.md", "dst.md", 2.5, 120, 80)
 

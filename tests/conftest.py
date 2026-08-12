@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from playwright.sync_api import BrowserContext, sync_playwright
@@ -17,8 +18,14 @@ from playwright.sync_api import BrowserContext, sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from modules.core.src.capabilities_audit_repository import AuditRepository as AuditLog
-from modules.core.src.agent_core_orchestrator import QwenClient
+from modules.core.src.capabilities_audit_repository import AuditRepository
+from modules.core.src.agent_core_orchestrator import CoreOrchestrator
+from modules.core.src.capabilities_browser_adapter import BrowserAdapter
+from modules.core.src.capabilities_file_uploader import FileUploader
+from modules.core.src.capabilities_observability_setup import ObservabilitySetup
+from modules.core.src.capabilities_prompt_injector import PromptInjector
+from modules.core.src.capabilities_send_dispatcher import SendDispatcher
+from modules.core.src.capabilities_stream_monitor import StreamMonitor
 from modules.shared.src import AppConfig, RunContext
 from tests.pipeline_fixtures import restore_fixture_state
 
@@ -73,7 +80,7 @@ def page(browser_ctx: BrowserContext):
 
 
 @pytest.fixture
-def client(browser_ctx: BrowserContext, page) -> QwenClient:
+def client(browser_ctx: BrowserContext, page) -> CoreOrchestrator:
     cfg = AppConfig(
         mode="batch",
         input_path=ROOT / "input",
@@ -84,9 +91,16 @@ def client(browser_ctx: BrowserContext, page) -> QwenClient:
         session_path=ROOT / "qwen_session",
         headless=True,
     )
-    c = QwenClient(browser_ctx, cfg)
-    c.page = page
-    return c
+    return CoreOrchestrator(
+        browser=BrowserAdapter(),
+        injector=PromptInjector(),
+        sender=SendDispatcher(),
+        streamer=StreamMonitor(),
+        uploader=FileUploader(),
+        saver=MagicMock(),
+        audit=AuditRepository(cfg.log_path),
+        observability=ObservabilitySetup(cfg.log_path),
+    )
 
 
 @pytest.fixture(scope="session")
@@ -114,7 +128,7 @@ def cfg(fixture_root: Path, tmp_path: Path, reset_fixture_state) -> AppConfig:
 
 @pytest.fixture
 def audit(cfg: AppConfig) -> AuditLog:
-    return AuditLog(cfg.log_path)
+    return AuditRepository(cfg.log_path)
 
 
 @pytest.fixture

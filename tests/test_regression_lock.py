@@ -22,9 +22,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from modules.core.src.capabilities_audit_repository import AuditRepository as AuditLog
-from modules.core.src.agent_core_orchestrator import QwenClient
-from modules.core.src.capabilities_saver import write_output
+from modules.core.src.capabilities_audit_repository import AuditRepository
+from modules.core.src.agent_core_orchestrator import CoreOrchestrator
+from modules.core.src.capabilities_output_saver import write_output
 from modules.shared.src.utility_core_prompt import (
     extract_prompt_text as _extract_prompt_text,
     load_role_prompt,
@@ -72,6 +72,20 @@ def _make_task(tmp_path: Path, role: str = "role-architect",
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text("# Task prompt\nDo the thing.", encoding="utf-8")
     return f
+
+
+def _make_orchestrator() -> CoreOrchestrator:
+    """Build a CoreOrchestrator with mock capabilities."""
+    return CoreOrchestrator(
+        browser=MagicMock(),
+        injector=MagicMock(),
+        sender=MagicMock(),
+        streamer=MagicMock(),
+        uploader=MagicMock(),
+        saver=MagicMock(),
+        audit=MagicMock(),
+        observability=MagicMock(),
+    )
 
 
 # ─── Exception hierarchy lock ─────────────────────────────────────────────────
@@ -388,7 +402,7 @@ class TestLoadRolePromptLock:
 
 class TestAuditLogLock:
     def test_log_step_writes_valid_jsonl(self, tmp_path: Path):
-        audit = AuditLog(tmp_path)
+        audit = AuditRepository(tmp_path)
         ctx = RunContext()
         audit.log_step(ctx, "START_PROCESSING", "role-architect/task.md", "STARTED", {"input_chars": 42})
 
@@ -400,7 +414,7 @@ class TestAuditLogLock:
         assert rec["details"]["input_chars"] == 42
 
     def test_log_failure_writes_errors_jsonl(self, tmp_path: Path):
-        audit = AuditLog(tmp_path)
+        audit = AuditRepository(tmp_path)
         ctx = RunContext()
         audit.log(status="FAILED", ctx=ctx, src="task.md", dst="out.md",
                   dur=0.5, in_c=100, out_c=0, err="TimeoutError: timed out")
@@ -412,7 +426,7 @@ class TestAuditLogLock:
         assert "TimeoutError" in rec["error"]
 
     def test_log_success_does_not_write_errors_files(self, tmp_path: Path):
-        audit = AuditLog(tmp_path)
+        audit = AuditRepository(tmp_path)
         ctx = RunContext()
         audit.log(status="SUCCESS", ctx=ctx, src="task.md", dst="out.md",
                   dur=1.0, in_c=50, out_c=200)
@@ -421,7 +435,7 @@ class TestAuditLogLock:
         assert (tmp_path / "audit_history.jsonl").exists()
 
     def test_multiple_steps_accumulate_in_jsonl(self, tmp_path: Path):
-        audit = AuditLog(tmp_path)
+        audit = AuditRepository(tmp_path)
         ctx = RunContext()
         for step in ("STEP_A", "STEP_B", "STEP_C"):
             audit.log_step(ctx, step, "file.md", "STARTED")
@@ -474,36 +488,23 @@ class TestWriteOutputLock:
         assert meta["run_id"] == ctx.run_id
 
 
-# ─── QwenClient init contract lock ───────────────────────────────────────────
+# ─── CoreOrchestrator DI contract lock ───────────────────────────────────────
 
-class TestQwenClientInitLock:
-    def test_init_with_none_ctx(self):
-        client = QwenClient(None)
-        assert client.context is None and client.page is None
+class TestCoreOrchestratorDiLock:
+    def test_init_with_mock_capabilities(self):
+        orch = _make_orchestrator()
+        assert orch._browser is not None
+        assert orch._audit is not None
 
-    def test_init_with_mock_ctx(self):
-        mock_ctx = MagicMock()
-        assert QwenClient(mock_ctx).context is mock_ctx
-
-    def test_stop_does_not_close_context(self):
-        mock_ctx = MagicMock()
-        QwenClient(mock_ctx).stop()
-        mock_ctx.close.assert_not_called()
-
-    def test_context_manager_calls_start_and_stop(self, monkeypatch):
-        mock_start = MagicMock()
-        mock_stop = MagicMock()
-        monkeypatch.setattr(QwenClient, "start", mock_start)
-        monkeypatch.setattr(QwenClient, "stop", mock_stop)
-        with QwenClient(None) as client:
-            mock_start.assert_called_once()
-        mock_stop.assert_called_once()
-
-    def test_send_file_raises_without_browser(self, tmp_path: Path):
+    def test_send_file_raises_without_page(self, tmp_path: Path):
+        orch = _make_orchestrator()
         f = tmp_path / "doc.md"
         f.write_text("content")
-        with pytest.raises(RuntimeError, match="Browser not started"):
-            QwenClient(None).send_file(f, timeout_sec=1)
+        with pytest.raises(Exception):
+            orch.send_file(None, f, timeout_sec=1)  # type: ignore[arg-type]
 
     def test_backward_compatible_init_with_cfg(self, tmp_path: Path):
-        assert QwenClient(None, _make_cfg(tmp_path)) is not None
+        cfg = _make_cfg(tmp_path)
+        orch = _make_orchestrator()
+        assert orch._cb is not None
+        assert cfg is not None

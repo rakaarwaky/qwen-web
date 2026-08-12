@@ -3,8 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from modules.core.src.capabilities_audit_repository import AuditRepository as AuditLog
-from modules.core.src.agent_core_orchestrator import _iter_todo, _process_file
+from modules.core.src.capabilities_audit_repository import AuditRepository
+from modules.root_cli_main_entry import _iter_todo, _process_file
 from modules.shared.src import AppConfig, RunContext
 
 
@@ -51,7 +51,7 @@ class TestQwenAutoIntegration(unittest.TestCase):
             )
 
             client = MockQwenClient(return_text="Successful response text")
-            audit = AuditLog(out_dir)
+            audit = AuditRepository(out_dir)
             ctx = RunContext()
 
             for proc_file, rel_path in _iter_todo(cfg):
@@ -85,7 +85,7 @@ class TestQwenAutoIntegration(unittest.TestCase):
             )
 
             client = MockQwenClient(raise_error=True)
-            audit = AuditLog(out_dir)
+            audit = AuditRepository(out_dir)
             ctx = RunContext()
 
             for proc_file, rel_path in _iter_todo(cfg):

@@ -6,6 +6,14 @@ Smart surface: 6 tools delegating to the shared core aggregate over stdio JSON-R
 from __future__ import annotations
 
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
+from modules.shared.src.taxonomy_core_vo import (
+    FilePath,
+    HeadlessFlag,
+    MessageCount,
+    PromptText,
+    ResponseText,
+    TimeoutSec,
+)
 
 
 class McpToolCommand:
@@ -15,36 +23,44 @@ class McpToolCommand:
         """Inject the core aggregate."""
         self._core = core
 
-    def send_prompt(self, prompt: str, timeout_sec: int = 120, headless: bool = True) -> str:
+    def send_prompt(self, prompt: str, timeout_sec: int = 120, headless: bool = True) -> ResponseText:
         """Send a direct text prompt to chat.qwen.ai and return the AI answer."""
-        return self._core.send_prompt(prompt, timeout_sec, headless)
+        return self._core.send_prompt(
+            PromptText(prompt), TimeoutSec(timeout_sec), HeadlessFlag(headless)
+        )
 
     def process_single(
         self,
         input_file: str,
         output_file: str | None = None,
         headless: bool = True,
-    ) -> str:
+    ) -> ResponseText:
         """Process a single Markdown prompt file."""
-        return self._core.process_single_file(input_file, output_file, headless)
+        return self._core.process_single_file(
+            FilePath(input_file), FilePath(output_file) if output_file else None, HeadlessFlag(headless)
+        )
 
     def process_batch(
         self,
         input_dir: str | None = None,
         output_dir: str | None = None,
         headless: bool = True,
-    ) -> str:
+    ) -> ResponseText:
         """Process all prompt files inside an input directory."""
-        return self._core.process_batch(input_dir, output_dir, headless)
+        return self._core.process_batch(
+            FilePath(input_dir) if input_dir else None,
+            FilePath(output_dir) if output_dir else None,
+            HeadlessFlag(headless),
+        )
 
-    def start_watcher(self, interval_sec: int = 3, headless: bool = True) -> str:
+    def start_watcher(self, interval_sec: int = 3, headless: bool = True) -> ResponseText:
         """Run the folder watcher loop."""
-        return self._core.process_watcher(interval_sec, headless)
+        return self._core.process_watcher(TimeoutSec(interval_sec), HeadlessFlag(headless))
 
-    def setup_session(self) -> str:
+    def setup_session(self) -> ResponseText:
         """Launch a visible browser for manual login / session setup."""
         return self._core.setup_session()
 
-    def get_audit_log(self, limit: int = 20) -> str:
+    def get_audit_log(self, limit: int = 20) -> ResponseText:
         """Fetch recent entries from the JSONL audit trail log."""
-        return self._core.get_audit_log(limit)
+        return self._core.get_audit_log(MessageCount(limit))

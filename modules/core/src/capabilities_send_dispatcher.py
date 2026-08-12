@@ -5,15 +5,19 @@ Implements ISendProtocol.
 
 from __future__ import annotations
 
-from typing import Any
-
-from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import Page
+from playwright.sync_api import Error, Page
 
 from modules.shared.src.contract_core_protocol import ISendProtocol
+from modules.shared.src.taxonomy_config_vo import SenderConfig
 from modules.shared.src.taxonomy_core_constant import MESSAGE_SELECTORS, SEND_SELECTORS, TEXTAREA_SELECTOR
-from modules.shared.src.taxonomy_core_event import LifecycleEmitter
-from modules.shared.src.taxonomy_core_vo import EVENT_SEND_CLICKED, ClickTimeoutMs, TryEnterKeyFallbackFlag
+from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
+from modules.shared.src.taxonomy_core_vo import (
+    EVENT_SEND_CLICKED,
+    ClickTimeoutMs,
+    MessageCount,
+    ResponseText,
+    TryEnterKeyFallbackFlag,
+)
 from modules.shared.src.taxonomy_domain_error import SendDispatchError
 
 log = __import__("logging").getLogger("capabilities_send_dispatcher")
@@ -94,7 +98,7 @@ class SendDispatcher(ISendProtocol):
         self,
         page: Page,
         emitter: LifecycleEmitter,
-        _config: Any | None = None,
+        config: SenderConfig | None = None,
         document_parsed: bool = True,
     ) -> None:
         """Click the prompt send button using verified selectors with keyboard Enter fallback."""
@@ -102,6 +106,10 @@ class SendDispatcher(ISendProtocol):
             raise SendDispatchError(
                 "Cannot send prompt: document attachment parsing (EVENT_DOCUMENT_PARSED) is incomplete"
             )
+
+        if config:
+            self.click_timeout_ms = ClickTimeoutMs(config.click_timeout_ms)
+            self.try_enter_key_fallback = TryEnterKeyFallbackFlag(config.try_enter_key_fallback)
 
         # Strategy 1: Iterate verified DOM send selectors
         for sel in SEND_SELECTORS:
@@ -112,7 +120,7 @@ class SendDispatcher(ISendProtocol):
                     log.info("Send button clicked via: %s", sel)
                     emitter.emit(EVENT_SEND_CLICKED, {"selector": sel})
                     return
-            except PlaywrightError as e:
+            except Error as e:
                 log.warning("Selector '%s' failed: %s", sel, e)
                 continue
             except Exception as e:
@@ -128,32 +136,32 @@ class SendDispatcher(ISendProtocol):
                     log.info("Enter key pressed (send button not found)")
                     emitter.emit(EVENT_SEND_CLICKED, {"selector": "Enter"})
                     return
-            except PlaywrightError as e:
+            except Error as e:
                 log.warning("Enter fallback failed: %s", e)
 
         raise SendDispatchError("Failed to send: no valid send button and Enter fallback failed")
 
-    def count_messages(self, page: Page) -> int:
+    def count_messages(self, page: Page) -> MessageCount:
         """Count chat turns using JS evaluate."""
         try:
             count = page.evaluate(_JS_COUNT_TURNS)
             if isinstance(count, int) and count > 0:
-                return count
-        except PlaywrightError:
+                return MessageCount(count)
+        except Error:
             pass
         # fallback: CSS selector
         try:
-            return page.locator(COMBINED_MESSAGE_SELECTOR).count()
-        except PlaywrightError:
-            return 0
+            return MessageCount(page.locator(COMBINED_MESSAGE_SELECTOR).count())
+        except Error:
+            return MessageCount(0)
 
-    def latest_message_text(self, page: Page) -> str | None:
+    def latest_message_text(self, page: Page) -> ResponseText | None:
         """Get the longest text block on page excluding input/UI chrome."""
         try:
             text = page.evaluate(_JS_GET_RESPONSE_TEXT)
             if text and len(text.strip()) > 0:
-                return str(text.strip())
-        except PlaywrightError:
+                return ResponseText(str(text.strip()))
+        except Error:
             pass
         # fallback: CSS selector
         try:
@@ -161,17 +169,17 @@ class SendDispatcher(ISendProtocol):
             if locator.count() > 0:
                 text = locator.last.text_content()
                 if text is not None:
-                    return str(text.strip())
-        except PlaywrightError:
+                    return ResponseText(str(text.strip()))
+        except Error:
             pass
         return None
 
 
 # Module-level convenience functions
-def click_send(page: Page, emitter: LifecycleEmitter, _config: dict[str, Any] | None = None, document_parsed: bool = True) -> None:
+def click_send(page: Page, emitter: LifecycleEmitter, config: SenderConfig | None = None, document_parsed: bool = True) -> None:
     """Click send button (module-level convenience)."""
     dispatcher = SendDispatcher()
-    dispatcher.click_send(page, emitter, document_parsed)
+    dispatcher.click_send(page, emitter, config, document_parsed)
 
 
 def count_messages(page: Page) -> int:

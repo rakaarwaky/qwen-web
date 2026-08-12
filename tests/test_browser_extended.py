@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import Error
 
 from modules.core.src.capabilities_browser_adapter import (
     CHAT_URL,
@@ -49,7 +49,7 @@ class TestSessionCheckIsAlive:
 
     def test_not_alive_playwright_error(self):
         page = MagicMock()
-        page.evaluate.side_effect = PlaywrightError("disconnected")
+        page.evaluate.side_effect = Error("disconnected")
 
         checker = SessionCheck(page)
         assert checker.is_alive() is False
@@ -93,7 +93,7 @@ class TestSessionCheckAuth:
     def test_auth_raises_on_browser_error(self):
         page = MagicMock()
         page.url = "https://chat.qwen.ai/"
-        page.query_selector.side_effect = PlaywrightError("crashed")
+        page.query_selector.side_effect = Error("crashed")
 
         checker = SessionCheck(page)
         with pytest.raises(AuthRequiredError, match="Session invalid"):
@@ -165,7 +165,7 @@ class TestResetPage:
 
     def test_handles_playwright_error_gracefully(self):
         page = MagicMock()
-        page.goto.side_effect = PlaywrightError("navigation failed")
+        page.goto.side_effect = Error("navigation failed")
         emitter = MagicMock(spec=LifecycleEmitter)
 
         reset_page(page, emitter)  # should not raise

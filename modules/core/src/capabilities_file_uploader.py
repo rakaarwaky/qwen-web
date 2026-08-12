@@ -11,17 +11,17 @@ import time
 from pathlib import Path
 from typing import Any
 
-from playwright.sync_api import Page
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Page, TimeoutError
 
 from modules.shared.src.contract_core_protocol import IUploadProtocol
-from modules.shared.src.taxonomy_core_event import LifecycleEmitter
+from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_vo import (
     EVENT_DOCUMENT_PARSED,
     BackoffDelaySec,
     CardRenderTimeoutMs,
     DropdownTimeoutMs,
     FileChooserTimeoutMs,
+    FileSizeBytes,
     MaxFileSizeMb,
     MaxRetries,
     OptionTimeoutMs,
@@ -85,13 +85,17 @@ class FileUploader(IUploadProtocol):
         self,
         page: Page,
         filepath: Path,
-        _config: Any | None = None,
+        config: dict[str, Any] | None = None,
         emitter: LifecycleEmitter | None = None,
         web_loaded: bool = True,
     ) -> bool:
         """Upload a file as an attachment via the Qwen Web UI."""
         if not web_loaded:
             raise RuntimeError("Cannot upload attachment: web page loading (EVENT_WEB_LOADED) is incomplete")
+
+        if config:
+            self.max_file_size_mb = MaxFileSizeMb(config.get("max_file_size_mb", float(self.max_file_size_mb)))
+            self.max_retries = MaxRetries(config.get("max_retries", int(self.max_retries)))
 
         try:
             size_bytes = self._validate_file(filepath)
@@ -120,7 +124,7 @@ class FileUploader(IUploadProtocol):
                     if emitter:
                         emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "char_count": size_bytes})
                     return True
-            except PlaywrightTimeoutError as e:
+            except TimeoutError as e:
                 log.warning("Timeout during upload attempt %d/%d: %s", attempt, max_attempts, e)
                 self._close_dropdown_if_open(page)
             except Exception as e:
@@ -155,13 +159,13 @@ class FileUploader(IUploadProtocol):
                 f"of {self.max_file_size_mb:.2f}MB: {filepath}"
             )
 
-        return size_bytes
+        return FileSizeBytes(size_bytes)
 
-    def validate_file(self, filepath: Path, max_size_mb: float = 100.0) -> int:
+    def validate_file(self, filepath: Path, max_size_mb: float = 100.0) -> FileSizeBytes:
         """Public protocol method — pre-flight validation returning size in bytes."""
         if max_size_mb != float(self.max_file_size_mb):
             self.max_file_size_mb = MaxFileSizeMb(max_size_mb)
-        return self._validate_file(filepath)
+        return FileSizeBytes(self._validate_file(filepath))
 
     def _close_dropdown_if_open(self, page: Page) -> None:
         """Send Escape key to close orphaned dropdown menus."""
@@ -229,13 +233,13 @@ class FileUploader(IUploadProtocol):
 def upload_attachment(
     page: Page,
     filepath: Path,
-    _config: dict[str, Any] | None = None,
+    config: dict[str, Any] | None = None,
     emitter: LifecycleEmitter | None = None,
     web_loaded: bool = True,
 ) -> bool:
     """Upload attachment (module-level convenience)."""
     uploader = FileUploader()
-    return uploader.upload_attachment(page, filepath, _config, emitter, web_loaded)
+    return uploader.upload_attachment(page, filepath, config, emitter, web_loaded)
 
 
 def validate_file(filepath: Path, max_size_mb: float = 100.0) -> int:

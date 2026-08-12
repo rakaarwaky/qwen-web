@@ -1,7 +1,7 @@
 """Core domain + cross-cutting constants for qwen-web: XDG paths, chat URL,
 service name, DOM selectors, and auth/challenge keywords.
 
-Taxonomy layer (taxonomy(constant)): pure literals and path resolution only.
+Taxonomy layer (taxonomy(constant)): pure literals and constant values only.
 """
 
 from __future__ import annotations
@@ -11,23 +11,26 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[3]
 
-
-def _get_xdg_dir(env_var: str, default_subpath: str) -> Path:
-    """Resolve an XDG Base Directory Specification path.
-
-    Checks the environment variable first; falls back to ~/default_subpath.
-    Appends 'qwen-web' as the application subdirectory.
-    """
-    env_val = os.getenv(env_var)
-    if env_val:
-        return Path(env_val) / "qwen-web"
-    return Path.home() / default_subpath / "qwen-web"
-
-
-XDG_DATA_HOME = _get_xdg_dir("XDG_DATA_HOME", ".local/share")
-XDG_STATE_HOME = _get_xdg_dir("XDG_STATE_HOME", ".local/state")
-XDG_CACHE_HOME = _get_xdg_dir("XDG_CACHE_HOME", ".cache")
-XDG_CONFIG_HOME = _get_xdg_dir("XDG_CONFIG_HOME", ".config")
+XDG_DATA_HOME = (
+    Path(os.environ["XDG_DATA_HOME"]) / "qwen-web"
+    if os.environ.get("XDG_DATA_HOME")
+    else Path.home() / ".local/share/qwen-web"
+)
+XDG_STATE_HOME = (
+    Path(os.environ["XDG_STATE_HOME"]) / "qwen-web"
+    if os.environ.get("XDG_STATE_HOME")
+    else Path.home() / ".local/state/qwen-web"
+)
+XDG_CACHE_HOME = (
+    Path(os.environ["XDG_CACHE_HOME"]) / "qwen-web"
+    if os.environ.get("XDG_CACHE_HOME")
+    else Path.home() / ".cache/qwen-web"
+)
+XDG_CONFIG_HOME = (
+    Path(os.environ["XDG_CONFIG_HOME"]) / "qwen-web"
+    if os.environ.get("XDG_CONFIG_HOME")
+    else Path.home() / ".config/qwen-web"
+)
 
 DEFAULT_TODO = XDG_DATA_HOME / "input"
 DEFAULT_PROC = XDG_CACHE_HOME / ".processing"

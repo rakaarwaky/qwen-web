@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from modules.core.src.capabilities_saver import write_output
+from modules.core.src.capabilities_output_saver import write_output
 from modules.shared.src import OutputWriteError, RunContext, SaverConfig
 
 

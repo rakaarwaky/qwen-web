@@ -88,7 +88,7 @@ class TestUploadAttachment:
         page.expect_file_chooser.return_value.__enter__ = MagicMock(return_value=mock_fc)
         page.expect_file_chooser.return_value.__exit__ = MagicMock(return_value=False)
 
-        with patch("modules.file_uploader._try_upload_attempt", return_value=True):
+        with patch("modules.core.src.capabilities_file_uploader._try_upload_attempt", return_value=True):
             result = upload_attachment(page, f)
             assert result is True
 
@@ -98,7 +98,7 @@ class TestUploadAttachment:
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
 
-        with patch("modules.file_uploader._try_upload_attempt", return_value=True):
+        with patch("modules.core.src.capabilities_file_uploader._try_upload_attempt", return_value=True):
             upload_attachment(page, f, emitter=emitter)
             emitter.emit.assert_called_once()
 
@@ -107,7 +107,7 @@ class TestUploadAttachment:
         f.write_text("hello")
         page = MagicMock()
 
-        with patch("modules.file_uploader._try_upload_attempt", side_effect=[False, False, True]), \
-             patch("modules.file_uploader.time"):
+        with patch("modules.core.src.capabilities_file_uploader._try_upload_attempt", side_effect=[False, False, True]), \
+             patch("modules.core.src.capabilities_file_uploader.time"):
             result = upload_attachment(page, f, config=None)
             assert result is True

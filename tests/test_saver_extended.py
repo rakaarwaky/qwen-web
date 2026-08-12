@@ -7,44 +7,45 @@ from pathlib import Path
 
 import pytest
 
-from modules.core.src.capabilities_saver import _strip_ui_noise, _write_file_atomic, write_output
+from modules.core.src.capabilities_output_saver import _write_file_atomic, write_output
+from modules.shared.src.utility_core_text import strip_ui_noise
 from modules.shared.src import OutputWriteError, RunContext, SaverConfig
 
 
 class TestStripUiNoise:
     def test_strips_qwen_model_names(self):
         text = "Qwen3\nQwen3.8-Max\nActual content here"
-        result = _strip_ui_noise(text)
+        result = strip_ui_noise(text)
         assert "Qwen3" not in result
         assert "Actual content here" in result
 
     def test_strips_question_mark(self):
         text = "?\nReal answer"
-        result = _strip_ui_noise(text)
+        result = strip_ui_noise(text)
         assert result == "Real answer"
 
     def test_strips_file_size_suffixes(self):
         text = "12.5 KB\nDocument.docx\nReal content"
-        result = _strip_ui_noise(text)
+        result = strip_ui_noise(text)
         assert "12.5 KB" not in result
 
     def test_no_stripping_needed(self):
         text = "# Heading\nSome content"
-        result = _strip_ui_noise(text)
+        result = strip_ui_noise(text)
         assert result == text
 
     def test_all_noise_returns_original(self):
         text = "Qwen3\nQwen Plus\nAuto"
-        result = _strip_ui_noise(text)
+        result = strip_ui_noise(text)
         assert result == text
 
     def test_blank_lines_before_content(self):
         text = "\n\n\nReal content"
-        result = _strip_ui_noise(text)
+        result = strip_ui_noise(text)
         assert "Real content" in result
 
     def test_empty_string(self):
-        assert _strip_ui_noise("") == ""
+        assert strip_ui_noise("") == ""
 
 
 class TestWriteFileAtomic:

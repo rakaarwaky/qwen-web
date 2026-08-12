@@ -11,6 +11,14 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+from modules.shared.src.taxonomy_core_vo import (
+    FilePath,
+    MessageCount,
+    PromptText,
+    ResponseText,
+    TimeoutSec,
+)
+
 
 class ICoreAggregate(ABC):
     """Core processing aggregate consumed by CLI and MCP surfaces."""
@@ -19,40 +27,49 @@ class ICoreAggregate(ABC):
     @abstractmethod
     def process_single_file(
         self,
-        input_file: Path | str,
-        output_file: Path | str | None = None,
+        input_file: Path | FilePath,
+        output_file: Path | FilePath | None = None,
         headless: bool = True,
-    ) -> str:
+    ) -> ResponseText:
         """Process a single prompt file."""
 
     @abstractmethod
     def process_batch(
         self,
-        input_dir: Path | str | None = None,
-        output_dir: Path | str | None = None,
+        input_dir: Path | FilePath | None = None,
+        output_dir: Path | FilePath | None = None,
         headless: bool = True,
-    ) -> str:
+    ) -> ResponseText:
         """Process a directory of prompt files."""
 
     @abstractmethod
-    def process_watcher(self, interval_sec: int = 3, headless: bool = True) -> str:
+    def process_watcher(
+        self,
+        interval_sec: TimeoutSec = TimeoutSec(3),
+        headless: bool = True,
+    ) -> ResponseText:
         """Run the continuous folder watcher."""
 
     @abstractmethod
-    def send_prompt(self, prompt: str, timeout_sec: int = 120, headless: bool = True) -> str:
+    def send_prompt(
+        self,
+        prompt: PromptText,
+        timeout_sec: TimeoutSec = TimeoutSec(120),
+        headless: bool = True,
+    ) -> ResponseText:
         """Send a direct text prompt and return the AI response."""
 
     @abstractmethod
-    def setup_session(self) -> str:
+    def setup_session(self) -> ResponseText:
         """Launch a visible browser for manual login / session setup."""
 
     @abstractmethod
-    def get_audit_log(self, limit: int = 20) -> str:
+    def get_audit_log(self, limit: MessageCount = MessageCount(20)) -> ResponseText:
         """Return recent audit log entries as JSON text."""
 
     # ─── Workspace API (back-end; I/O delegated to capabilities) ─
     @abstractmethod
-    def init_workspace(self, target_dir: Path | str = ".") -> None:
+    def init_workspace(self, target_dir: Path | FilePath = FilePath(".")) -> None:
         """Initialize the workspace (.agents/skills + .qwen-web symlinks)."""
 
 

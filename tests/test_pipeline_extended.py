@@ -9,8 +9,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from modules.core.src.capabilities_audit_repository import AuditRepository as AuditLog
-from modules.core.src.agent_core_orchestrator import (
+from modules.core.src.capabilities_audit_repository import AuditRepository
+from modules.root_cli_main_entry import (
     _iter_todo,
     _iter_todo_batch,
     _iter_todo_retry_failed,
@@ -21,7 +21,7 @@ from modules.core.src.agent_core_orchestrator import (
     is_watcher_shutdown_set,
     request_watcher_shutdown,
 )
-from modules.shared.src.utility_core_path import cleanup_empty_dirs as _cleanup_empty_dirs
+from modules.shared.src.utility_core_path import cleanup_empty_dirs
 from modules.shared.src import (
     AppConfig,
     AuthRequiredError,
@@ -38,7 +38,7 @@ class TestCleanupEmptyDirs:
         root.mkdir()
         child = root / "child"
         child.mkdir()
-        _cleanup_empty_dirs(child, root)
+        cleanup_empty_dirs(child, root)
         assert not child.exists()
 
     def test_stops_at_nonempty_dir(self, tmp_path):
@@ -46,11 +46,11 @@ class TestCleanupEmptyDirs:
         child = root / "child"
         child.mkdir(parents=True)
         (child / "file.txt").write_text("x")
-        _cleanup_empty_dirs(child, root)
+        cleanup_empty_dirs(child, root)
         assert child.exists()
 
     def test_handles_exception(self, tmp_path):
-        _cleanup_empty_dirs(tmp_path / "nonexistent", tmp_path)
+        cleanup_empty_dirs(tmp_path / "nonexistent", tmp_path)
 
 
 class TestIterTodoRetryFailed:
@@ -198,8 +198,24 @@ class TestIterTodoMain:
 
 
 class TestProcessFile:
+    def _make_orchestrator(self, mocker=None, audit=None):
+        from modules.core.src.agent_core_orchestrator import CoreOrchestrator
+        from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
+
+        return CoreOrchestrator(
+            browser=MagicMock(),
+            injector=MagicMock(),
+            sender=MagicMock(),
+            streamer=MagicMock(),
+            uploader=MagicMock(),
+            saver=MagicMock(),
+            audit=audit or MagicMock(),
+            observability=MagicMock(),
+            circuit_breaker=CircuitBreaker(),
+            rate_limiter=RateLimiter(),
+        )
+
     def test_circuit_breaker_open_raises(self, tmp_path):
-        client = MagicMock()
         proc_file = tmp_path / "task.md"
         proc_file.write_text("task")
 
@@ -212,17 +228,17 @@ class TestProcessFile:
             proc_path=tmp_path / "proc",
             session_path=tmp_path / "session",
         )
-        audit = AuditLog(tmp_path / "log")
+        audit = AuditRepository(tmp_path / "log")
         ctx = RunContext()
+        orch = self._make_orchestrator(audit=audit)
         cb = CircuitBreaker(threshold=1, window_sec=30)
         cb.record_failure()  # trip it
+        orch._cb = cb
 
         with pytest.raises(CircuitBreakerOpenError):
-            _process_file(client, proc_file, Path("task.md"), cfg, audit, ctx, cb=cb)
+            orch._process_file(proc_file, Path("task.md"), cfg, ctx)
 
     def test_success_flow(self, tmp_path):
-        client = MagicMock()
-        client.send_file.return_value = "AI response"
         proc_file = tmp_path / "proc" / "task.md"
         proc_file.parent.mkdir(parents=True)
         proc_file.write_text("task")
@@ -236,12 +252,13 @@ class TestProcessFile:
             proc_path=tmp_path / "proc",
             session_path=tmp_path / "session",
         )
-        audit = AuditLog(tmp_path / "log")
+        audit = AuditRepository(tmp_path / "log")
         ctx = RunContext()
-        cb = CircuitBreaker(threshold=5, window_sec=30)
-        rl = RateLimiter(max_per_minute=60)
+        orch = self._make_orchestrator(audit=audit)
+        orch._streamer.wait_for_response.return_value = "AI response"
+        orch._uploader.upload_attachment.return_value = True
 
-        _process_file(client, proc_file, Path("task.md"), cfg, audit, ctx, cb=cb, rl=rl)
+        orch._process_file(proc_file, Path("task.md"), cfg, ctx)
 
         # File should be moved to done or output
         assert not proc_file.exists()
@@ -252,18 +269,18 @@ class TestWatcherSleep:
         request_watcher_shutdown()
         _watcher_sleep(10)  # should return immediately
         # Reset for other tests
-        from modules.core.src.agent_core_orchestrator import _watcher_shutdown
+        from modules.root_cli_main_entry import _watcher_shutdown
         _watcher_shutdown.clear()
 
     def test_normal_sleep(self):
-        from modules.core.src.agent_core_orchestrator import _watcher_shutdown
+        from modules.root_cli_main_entry import _watcher_shutdown
         _watcher_shutdown.clear()
         _watcher_sleep(1)
 
 
 class TestIterTodoWatcher:
     def test_yields_and_shutdown(self, tmp_path):
-        from modules.core.src.agent_core_orchestrator import _watcher_shutdown
+        from modules.root_cli_main_entry import _watcher_shutdown
         _watcher_shutdown.clear()
 
         todo = tmp_path / "todo" / "role-dev" / "todo"

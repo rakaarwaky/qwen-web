@@ -43,6 +43,7 @@ ignore = [
     "S110",     # try-except-pass - intentional for cleanup/guard patterns
     "S112",     # try-except-continue - intentional for element scanning loops
     "PYI034",   # __enter__ return type - Self requires typing_extensions on py310
+    "B008",     # function call in defaults - NewType() calls are identity, safe
 ]
 [tool.mypy]
 strict = true

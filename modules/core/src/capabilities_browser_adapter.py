@@ -17,12 +17,10 @@ from typing import Any
 import structlog
 from playwright.sync_api import (
     BrowserContext,
+    Error,
     Page,
     Playwright,
     sync_playwright,
-)
-from playwright.sync_api import (
-    Error as PlaywrightError,
 )
 from tenacity import RetryCallState, Retrying, stop_after_attempt, wait_fixed
 
@@ -33,7 +31,7 @@ from modules.shared.src.taxonomy_core_constant import (
     LOGIN_FORM_SELECTORS,
     TEXTAREA_SELECTOR,
 )
-from modules.shared.src.taxonomy_core_event import LifecycleEmitter
+from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_vo import (
     EVENT_NETWORK_RECONNECTING,
     EVENT_WEB_LOADED,
@@ -63,7 +61,7 @@ class SessionCheck:
                 return False
 
             return True
-        except PlaywrightError as exc:
+        except Error as exc:
             log.warning("session_check_failed", reason="playwright_error", error=str(exc))
             return False
         except Exception as exc:
@@ -76,7 +74,7 @@ class SessionCheck:
             _assert_on_chat_page(self.page)
         except AuthRequiredError:
             raise
-        except PlaywrightError as exc:
+        except Error as exc:
             raise AuthRequiredError(f"Session invalid (browser error): {exc}") from exc
 
 
@@ -100,7 +98,7 @@ def _assert_on_chat_page(page: Page) -> None:
                     )
             except AuthRequiredError:
                 raise
-            except PlaywrightError:
+            except Error:
                 continue
         log.warning("chat_textarea_missing_but_no_login_form_detected", url=page.url)
 
@@ -114,7 +112,7 @@ class BrowserAdapter(IBrowserProtocol):
             emitter.emit(EVENT_NETWORK_RECONNECTING, {"url": CHAT_URL})
             page.goto(CHAT_URL, wait_until="domcontentloaded", timeout=10_000)
             page.wait_for_load_state("domcontentloaded", timeout=15_000)
-        except PlaywrightError as e:
+        except Error as e:
             log.warning("Failed to reset page: %s", e)
 
     def navigate_to_chat(self, page: Page, emitter: LifecycleEmitter) -> None:
@@ -122,7 +120,7 @@ class BrowserAdapter(IBrowserProtocol):
         page.goto(CHAT_URL, wait_until="domcontentloaded", timeout=30_000)
         try:
             page.wait_for_load_state("domcontentloaded", timeout=15_000)
-        except PlaywrightError as e:
+        except Error as e:
             log.warning("Load state wait failed, proceeding: %s", e)
         _assert_on_chat_page(page)
         emitter.emit(EVENT_WEB_LOADED, {"url": page.url})
@@ -230,7 +228,7 @@ class BrowserAdapter(IBrowserProtocol):
                 finally:
                     try:
                         ctx.close()
-                    except PlaywrightError as e:
+                    except Error as e:
                         log.warning("Error closing browser context: %s", e)
         except AuthRequiredError:
             raise

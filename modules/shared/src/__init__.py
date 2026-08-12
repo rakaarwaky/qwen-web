@@ -82,10 +82,8 @@ from .taxonomy_core_constant import (
 )
 
 # ─── Taxonomy: entities ───────────────────────────────────────
-from .taxonomy_core_entity import CircuitBreaker, RateLimiter
-
 # ─── Taxonomy: events ─────────────────────────────────────────
-from .taxonomy_core_event import LifecycleEmitter
+from .taxonomy_core_entity import CircuitBreaker, LifecycleEmitter, RateLimiter
 
 # ─── Taxonomy: core VOs ───────────────────────────────────────
 from .taxonomy_core_vo import (
@@ -168,11 +166,11 @@ from .taxonomy_domain_error import (
     UploadTimeoutError,
 )
 
-# ─── Utility: error ───────────────────────────────────────────
-from .utility_core_error import exit_code_for
-
 # ─── Utility: events ──────────────────────────────────────────
 from .utility_core_events import is_stability_satisfied, should_treat_as_new_response
+
+# ─── Utility: error ───────────────────────────────────────────
+from .utility_core_exit import exit_code_for
 
 # ─── Utility: path ────────────────────────────────────────────
 from .utility_core_path import (

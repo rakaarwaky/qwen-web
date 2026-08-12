@@ -24,7 +24,7 @@ from modules.core.src.capabilities_file_uploader import (
 )
 from modules.root_cli_main_entry import main
 from modules.root_mcp_main_entry import qwen_process_single, qwen_setup_session, qwen_start_watcher
-from modules.core.src.capabilities_observability import (
+from modules.core.src.capabilities_observability_setup import (
     _configure_logging,
     _configure_sentry,
     _configure_tracing,
@@ -33,9 +33,9 @@ from modules.core.src.capabilities_observability import (
     setup_observability,
 )
 from modules.shared.src.utility_core_path import (
-    cleanup_empty_dirs as _cleanup_empty_dirs,
-    list_input_files as _list_input_files,
-    should_process_file as _should_process_file,
+    cleanup_empty_dirs,
+    list_input_files,
+    should_process_file,
 )
 from modules.shared.src import AppConfig, LifecycleEmitter
 
@@ -152,14 +152,9 @@ class TestFileUploaderCoverage:
 
 class TestMcpServerRemainingAsync:
     def test_qwen_process_single_error(self):
-        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
-             patch("modules.root_mcp_main_entry.QwenClient"), \
-             patch("modules.root_mcp_main_entry._process_file", side_effect=RuntimeError("boom")), \
-             patch("modules.root_mcp_main_entry.AuditLog"), \
-             patch("modules.root_mcp_main_entry.shutil"):
-            mock_ctx = MagicMock()
-            mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
+        mock_tools = MagicMock()
+        mock_tools.process_single.return_value = "ERROR [RuntimeError]: boom"
+        with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
             tmp = Path("/tmp/err_task.md")
             tmp.write_text("x")
             try:
@@ -171,14 +166,9 @@ class TestMcpServerRemainingAsync:
                 tmp.unlink(missing_ok=True)
 
     def test_qwen_start_watcher(self):
-        with patch("modules.root_mcp_main_entry.browser_session") as mock_bs, \
-             patch("modules.root_mcp_main_entry.QwenClient"), \
-             patch("modules.root_mcp_main_entry._iter_todo", return_value=iter([])), \
-             patch("modules.root_mcp_main_entry.AuditLog"), \
-             patch("modules.root_mcp_main_entry._watcher_sleep"):
-            mock_ctx = MagicMock()
-            mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
-            mock_bs.return_value.__exit__ = MagicMock(return_value=False)
+        mock_tools = MagicMock()
+        mock_tools.start_watcher.return_value = "Watcher loop completed."
+        with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
             loop = asyncio.new_event_loop()
             result = loop.run_until_complete(qwen_start_watcher(interval_sec=1))
             loop.close()
@@ -189,21 +179,21 @@ class TestMcpServerRemainingAsync:
 
 class TestObservabilityCoverage:
     def test_configure_logging_structlog(self, tmp_path):
-        with patch("modules.observability.has_structlog", True), \
-             patch("modules.observability.structlog") as mock_slog:
+        with patch("modules.core.src.capabilities_observability_setup.has_structlog", True), \
+             patch("modules.core.src.capabilities_observability_setup.structlog") as mock_slog:
             _configure_logging(tmp_path / "log")
             mock_slog.configure.assert_called()
 
     def test_configure_sentry_no_dsn(self):
         with patch.dict("os.environ", {}, clear=False), \
-             patch("modules.observability.has_sentry", True), \
-             patch("modules.observability.sentry_sdk") as mock_sentry:
+             patch("modules.core.src.capabilities_observability_setup.has_sentry", True), \
+             patch("modules.core.src.capabilities_observability_setup.sentry_sdk") as mock_sentry:
             os.environ.pop("SENTRY_DSN", None)
             _configure_sentry()
 
     def test_configure_tracing_no_endpoint(self):
         with patch.dict("os.environ", {}, clear=False), \
-             patch("modules.observability.has_otel", True):
+             patch("modules.core.src.capabilities_observability_setup.has_otel", True):
             os.environ.pop("OTEL_EXPORTER_OTLP_ENDPOINT", None)
             _configure_tracing()
 
@@ -215,16 +205,16 @@ class TestObservabilityCoverage:
         _thread_excepthook(args)
 
     def test_excepthook_non_keyboard(self):
-        with patch("modules.observability.sys") as mock_sys:
+        with patch("modules.core.src.capabilities_observability_setup.sys") as mock_sys:
             mock_sys.exit = MagicMock()
             _excepthook(RuntimeError, RuntimeError("boom"), None)
 
     def test_setup_observability_with_tracing(self, tmp_path):
-        with patch("modules.observability._configure_logging"), \
-             patch("modules.observability._configure_sentry"), \
-             patch("modules.observability._configure_tracing"), \
-             patch("modules.observability.has_otel", True), \
-             patch("modules.observability.os.environ", {"OTEL_EXPORTER_OTLP_ENDPOINT": "http://x:4318"}):
+        with patch("modules.core.src.capabilities_observability_setup._configure_logging"), \
+             patch("modules.core.src.capabilities_observability_setup._configure_sentry"), \
+             patch("modules.core.src.capabilities_observability_setup._configure_tracing"), \
+             patch("modules.core.src.capabilities_observability_setup.has_otel", True), \
+             patch("modules.core.src.capabilities_observability_setup.os.environ", {"OTEL_EXPORTER_OTLP_ENDPOINT": "http://x:4318"}):
             setup_observability(tmp_path / "log")
 
 
@@ -234,24 +224,24 @@ class TestPipelineCoverage:
     def test_list_input_files_ignores_hidden(self, tmp_path):
         f = tmp_path / ".hidden"
         f.mkdir()
-        files = _list_input_files(tmp_path)
+        files = list_input_files(tmp_path)
         assert len(files) == 0
 
     def test_should_process_file_in_output_dir(self, tmp_path):
         f = tmp_path / "output" / "task.md"
         f.parent.mkdir(parents=True)
         f.write_text("x")
-        assert _should_process_file(f, tmp_path) is False
+        assert should_process_file(f, tmp_path) is False
 
     def test_should_process_file_in_proc_dir(self, tmp_path):
         f = tmp_path / "proc" / "task.md"
         f.parent.mkdir(parents=True)
         f.write_text("x")
-        assert _should_process_file(f, tmp_path) is False
+        assert should_process_file(f, tmp_path) is False
 
     def test_cleanup_empty_dirs_preserves_nonempty(self, tmp_path):
         d = tmp_path / "keep"
         d.mkdir()
         (d / "file.md").write_text("x")
-        _cleanup_empty_dirs(d, tmp_path)
+        cleanup_empty_dirs(d, tmp_path)
         assert d.exists()

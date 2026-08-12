@@ -87,7 +87,7 @@ class TestBrowserSession:
 
     def test_browser_session_close_error_handled(self, tmp_path):
         from modules.core.src.capabilities_browser_adapter import browser_session
-        from playwright.sync_api import Error as PlaywrightError
+        from playwright.sync_api import Error
         cfg = AppConfig(
             mode="batch",
             input_path=tmp_path / "in",
@@ -100,7 +100,7 @@ class TestBrowserSession:
         )
         mock_ctx = MagicMock()
         mock_ctx.pages = [MagicMock()]
-        mock_ctx.close.side_effect = PlaywrightError("already closed")
+        mock_ctx.close.side_effect = Error("already closed")
 
         with patch("modules.core.src.capabilities_browser_adapter.sync_playwright") as mock_pw:
             mock_p = MagicMock()
@@ -114,7 +114,7 @@ class TestBrowserSession:
 
 class TestLaunchContext:
     def test_retries_on_failure(self):
-        from playwright.sync_api import Error as PlaywrightError
+        from playwright.sync_api import Error
         p = MagicMock()
         kwargs = {"user_data_dir": "", "headless": True}
 
@@ -125,7 +125,7 @@ class TestLaunchContext:
         def launch_side_effect(**kw):
             call_count[0] += 1
             if call_count[0] < 3:
-                raise PlaywrightError("crash")
+                raise Error("crash")
             return good_ctx
 
         p.chromium.launch_persistent_context.side_effect = launch_side_effect

@@ -7,11 +7,12 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import Error
 
 from modules.core.src.capabilities_send_dispatcher import click_send, count_messages, latest_message_text
-from modules.core.src.capabilities_saver import _strip_ui_noise, write_output
-from modules.core.src.capabilities_observability import (
+from modules.core.src.capabilities_output_saver import write_output
+from modules.shared.src.utility_core_text import strip_ui_noise
+from modules.core.src.capabilities_observability_setup import (
     MetricsCounter,
     StatusFileWriter,
     add_trace_context,
@@ -79,17 +80,17 @@ class TestSenderRemaining:
 class TestSaverRemaining:
     def test_strip_ui_noise_qwen_max(self):
         text = "Qwen Max\nReal content"
-        result = _strip_ui_noise(text)
+        result = strip_ui_noise(text)
         assert "Qwen Max" not in result
 
     def test_strip_ui_noise_auto(self):
         text = "Auto\nReal content"
-        result = _strip_ui_noise(text)
+        result = strip_ui_noise(text)
         assert result == "Real content"
 
     def test_strip_ui_noise_kb_suffix(self):
         text = "128 KB\nReal content"
-        result = _strip_ui_noise(text)
+        result = strip_ui_noise(text)
         assert result == "Real content"
 
     def test_write_output_with_sidecar_error(self, tmp_path):
@@ -118,9 +119,9 @@ class TestObservabilityRemaining:
             _configure_sentry()
 
     def test_configure_tracing_no_otel(self):
-        with patch("modules.observability.has_otel", False):
+        with patch("modules.core.src.capabilities_observability_setup.has_otel", False):
             _configure_tracing()
 
     def test_configure_logging_no_structlog(self):
-        with patch("modules.observability.has_structlog", False):
+        with patch("modules.core.src.capabilities_observability_setup.has_structlog", False):
             _configure_logging(Path("/tmp/test-log"))

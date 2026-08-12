@@ -15,11 +15,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from modules.shared.src import utility_core_exit
 from modules.shared.src.contract_core_protocol import IObservabilityProtocol
-from modules.shared.src.taxonomy_core_vo import ErrorCategory, ServiceName
-from modules.shared.src.utility_core_error import exit_code_for
+from modules.shared.src.taxonomy_core_vo import ErrorCategory, ExitCode, ServiceName
 
 log = __import__("logging").getLogger("capabilities_observability")
+
+
+def _module_impl() -> Any:
+    """Return this module to call module-level functions from methods."""
+    import importlib
+
+    return importlib.import_module(__name__)
 
 # Optional imports
 structlog: Any = None
@@ -53,64 +60,9 @@ except ImportError:
     has_otlp = False
 
 
-class MetricsCounter:
-    """Thread-safe in-memory metrics collector."""
-
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._counters: dict[str, int] = {}
-        self._start_time = datetime.now(tz=timezone.utc)
-
-    def increment(self, key: str, amount: int = 1) -> None:
-        with self._lock:
-            self._counters[key] = self._counters.get(key, 0) + amount
-
-    def get(self, key: str) -> int:
-        with self._lock:
-            return self._counters.get(key, 0)
-
-    def snapshot(self) -> dict[str, Any]:
-        with self._lock:
-            return dict(self._counters)
-
-
-class StatusFileWriter:
-    """Writes JSON status file for systemd/monitoring tools."""
-
-    def __init__(self, status_path: Path) -> None:
-        self._status_path = status_path
-        self._status_path.parent.mkdir(parents=True, exist_ok=True)
-
-    def write(self, **kwargs: Any) -> None:
-        """Atomically write status to disk."""
-        rec: dict[str, Any] = {
-            "status": kwargs.get("status", "unknown"),
-            "mode": kwargs.get("mode", "unknown"),
-            "headless": kwargs.get("headless", False),
-            "run_id": kwargs.get("run_id"),
-            "files_processed": kwargs.get("files_processed", 0),
-            "files_failed": kwargs.get("files_failed", 0),
-        }
-        if kwargs.get("cpu_sec") is not None:
-            rec["cpu_sec"] = round(kwargs["cpu_sec"], 2)
-        if kwargs.get("error"):
-            rec["error"] = kwargs["error"]
-
-        tmp_path = self._status_path.with_suffix(".tmp")
-        try:
-            tmp_path.write_text(json.dumps(rec, ensure_ascii=False) + "\n", encoding="utf-8")
-            tmp_path.rename(self._status_path)
-        except Exception:
-            pass
-
-    def read(self) -> dict[str, Any] | None:
-        try:
-            result: Any = json.loads(self._status_path.read_text(encoding="utf-8"))
-            return result if isinstance(result, dict) else None
-        except FileNotFoundError:
-            return None
-        except Exception:
-            return None
+# Re-export from dedicated modules (single-concern files)
+from modules.core.src.capabilities_metrics_collector import MetricsCounter  # noqa: F401
+from modules.core.src.capabilities_status_writer import StatusFileWriter  # noqa: F401
 
 
 def get_logger(name: str = "qwen-web") -> Any:
@@ -118,11 +70,6 @@ def get_logger(name: str = "qwen-web") -> Any:
     if has_structlog and structlog:
         return structlog.get_logger(name)
     return logging.getLogger(name)
-
-
-def _get_logger_impl(name: str = "qwen-web") -> Any:
-    """Module-level logger factory (alias to avoid method shadowing recursion)."""
-    return get_logger(name)
 
 
 def get_tracer(name: str = "qwen-web") -> Any:
@@ -261,25 +208,25 @@ class ObservabilitySetup(IObservabilityProtocol):
         threading.excepthook = _thread_excepthook
 
     def get_logger(self, name: str = "qwen-web") -> Any:
-        return _get_logger_impl(name)
+        return _module_impl().get_logger(name)
 
     def get_tracer(self) -> Any:
-        return get_tracer()
+        return _module_impl().get_tracer()
 
     def start_span(self, name: str) -> Any:
-        return start_span(name)
+        return _module_impl().start_span(name)
 
     def bind_run_context(self, run_id: str, **extra: Any) -> None:
-        bind_run_context(run_id, **extra)
+        _module_impl().bind_run_context(run_id, **extra)
 
     def clear_run_context(self) -> None:
-        clear_run_context()
+        _module_impl().clear_run_context()
 
-    def exit_code_for(self, exc: BaseException) -> int:
-        return exit_code_for(exc)
+    def exit_code_for(self, exc: BaseException) -> ExitCode:
+        return ExitCode(utility_core_exit.exit_code_for(exc))
 
     def install_excepthooks(self) -> None:
-        install_excepthooks()
+        _module_impl().install_excepthooks()
 
     def write_status(self, status: str, mode: str, headless: bool, run_id: str | None = None) -> None:
         writer = StatusFileWriter(self._status_path)
@@ -326,6 +273,11 @@ def setup_observability(log_path: Path) -> None:
     inst.setup_observability()
 
 
+def exit_code_for(exc: BaseException) -> ExitCode:
+    """Map an unhandled exception to a process exit code (delegates to utility)."""
+    return ExitCode(utility_core_exit.exit_code_for(exc))
+
+
 def _configure_sentry() -> None:
     """Configure Sentry (module-level convenience)."""
     ObservabilitySetup(Path("/tmp/qwen-web"))._configure_sentry()
@@ -341,6 +293,5 @@ def _configure_logging(log_path: Path) -> None:
     ObservabilitySetup(log_path)._configure_logging(log_path)
 
 
-# Module-level convenience
-def get_status_writer(log_path: Path) -> StatusFileWriter:
-    return StatusFileWriter(log_path / "status.json")
+# Re-export from dedicated module
+from modules.core.src.capabilities_status_writer import get_status_writer  # noqa: F401

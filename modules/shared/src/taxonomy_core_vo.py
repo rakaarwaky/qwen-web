@@ -62,6 +62,18 @@ ServiceName = NewType("ServiceName", str)
 Environment = NewType("Environment", str)
 TryEnterKeyFallbackFlag = NewType("TryEnterKeyFallbackFlag", bool)
 
+# ─── Brand types: circuit breaker & rate limiter config ───────
+FailureThreshold = NewType("FailureThreshold", int)
+WindowSec = NewType("WindowSec", int)
+MaxPerMinute = NewType("MaxPerMinute", int)
+
+# ─── Brand types: stream & file validation config ────────────
+FileSizeBytes = NewType("FileSizeBytes", int)
+
+# ─── Brand types: observability & logging config ─────────────
+LoggerName = NewType("LoggerName", str)
+ExitCode = NewType("ExitCode", int)
+
 
 @dataclass
 class RunContext:
@@ -120,6 +132,10 @@ class LifecycleEvent:
 
 
 LifecycleCallback = Callable[[LifecycleEvent], None]
+
+EventDetails = dict[str, object]
+EventMessage = NewType("EventMessage", str)
+CallbackRegistry = dict[str, list[LifecycleCallback]]
 
 
 @dataclass

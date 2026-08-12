@@ -7,54 +7,44 @@ from __future__ import annotations
 
 from typing import Any
 
-from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import Page
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Error, Page, TimeoutError
 
 from modules.shared.src.contract_core_protocol import IInjectionProtocol
-from modules.shared.src.taxonomy_core_constant import INPUT_SELECTORS
-from modules.shared.src.taxonomy_core_vo import WaitTimeoutMs
+from modules.shared.src.taxonomy_config_vo import DEFAULT_INJECTOR_CONFIG, InjectorConfig
 from modules.shared.src.taxonomy_domain_error import ElementNotFoundError, PromptInjectionError
 
 log = __import__("logging").getLogger("capabilities_prompt_injector")
-
-DEFAULT_WAIT_TIMEOUT_MS = WaitTimeoutMs(10_000)
 
 
 class PromptInjector(IInjectionProtocol):
     """Multi-strategy DOM text injection with verification."""
 
-    def __init__(
-        self,
-        wait_timeout_ms: WaitTimeoutMs = DEFAULT_WAIT_TIMEOUT_MS,
-        typing_delay_ms: int = 10,
-        verify_injection: bool = True,
-    ) -> None:
-        self.wait_timeout_ms = wait_timeout_ms
-        self.typing_delay_ms = typing_delay_ms
-        self.verify_injection = verify_injection
+    def __init__(self, config: InjectorConfig = DEFAULT_INJECTOR_CONFIG) -> None:
+        """Initialize with an InjectorConfig VO."""
+        self.config = config
 
-    def find_input(self, page: Page, config: dict[str, Any] | None = None) -> Any:
+    def find_input(self, page: Page, config: InjectorConfig | None = None) -> Any:
         """Find input element using selector fallbacks."""
-        cfg = config or {}
-        start_timeout = max(1000, cfg.get("wait_timeout_ms", self.wait_timeout_ms) // len(INPUT_SELECTORS))
+        cfg = config or self.config
+        selectors = tuple(cfg.input_selectors)
+        start_timeout = max(1000, int(cfg.wait_timeout_ms) // len(selectors))
 
-        for selector in INPUT_SELECTORS:
+        for selector in selectors:
             try:
                 el = page.wait_for_selector(selector, state="visible", timeout=start_timeout)
                 if el:
                     log.debug("Found input element matching selector: %s", selector)
                     return el
-            except (PlaywrightTimeoutError, PlaywrightError):
+            except (TimeoutError, Error):
                 continue
 
         # Final attempt with full timeout on primary selector
-        primary = INPUT_SELECTORS[0]
+        primary = selectors[0]
         try:
-            el = page.wait_for_selector(primary, timeout=cfg.get("wait_timeout_ms", self.wait_timeout_ms))
+            el = page.wait_for_selector(primary, timeout=int(cfg.wait_timeout_ms))
             if el:
                 return el
-        except (PlaywrightTimeoutError, PlaywrightError) as e:
+        except (TimeoutError, Error) as e:
             raise ElementNotFoundError(
                 f"Timed out waiting for input selector '{primary}' on chat.qwen.ai: {e}"
             ) from e
@@ -63,17 +53,17 @@ class PromptInjector(IInjectionProtocol):
             "Could not locate input element on chat.qwen.ai. UI may have changed."
         )
 
-    def inject_text(self, page: Page, text: str, config: dict[str, Any] | None = None) -> None:
+    def inject_text(self, page: Page, text: str, config: InjectorConfig | None = None) -> None:
         """Inject text into input via multi-tier strategy with automatic validation."""
         if not text or not text.strip():
             raise PromptInjectionError("Cannot inject empty or whitespace-only prompt text.")
 
-        cfg = config or {}
+        cfg = config or self.config
         el = self.find_input(page, cfg)
 
         try:
             el.focus()
-        except PlaywrightError as e:
+        except Error as e:
             log.warning("Element focus failed before injection: %s", e)
 
         # Strategy 1: React value setter for textarea
@@ -97,10 +87,10 @@ class PromptInjector(IInjectionProtocol):
 
         try:
             success = page.evaluate(js_react_inject, text)
-            if success and (not cfg.get("verify_injection", self.verify_injection) or self._verify_injection(el)):
+            if success and (not cfg.verify_injection or self._verify_injection(el)):
                 log.info("Prompt injected via React value-setter (%d chars)", len(text))
                 return
-        except PlaywrightError as e:
+        except Error as e:
             log.debug("React value-setter strategy bypassed/failed: %s", e)
 
         # Strategy 2: ContentEditable innerText injection
@@ -114,30 +104,30 @@ class PromptInjector(IInjectionProtocol):
 
         try:
             success = page.evaluate(js_contenteditable_inject, text)
-            if success and (not cfg.get("verify_injection", self.verify_injection) or self._verify_injection(el)):
+            if success and (not cfg.verify_injection or self._verify_injection(el)):
                 log.info("Prompt injected via ContentEditable setter (%d chars)", len(text))
                 return
-        except PlaywrightError as e:
+        except Error as e:
             log.debug("ContentEditable injection strategy failed: %s", e)
 
         # Strategy 3: Playwright fill()
         try:
             log.debug("Falling back to Playwright fill()")
             el.fill(text)
-            if not cfg.get("verify_injection", self.verify_injection) or self._verify_injection(el):
+            if not cfg.verify_injection or self._verify_injection(el):
                 log.info("Prompt injected via Playwright fill() (%d chars)", len(text))
                 return
-        except PlaywrightError as e:
+        except Error as e:
             log.warning("fill() failed: %s — falling back to type()", e)
 
         # Strategy 4: Playwright type()
         try:
             log.debug("Falling back to Playwright type()")
-            el.type(text, delay=cfg.get("typing_delay_ms", self.typing_delay_ms))
-            if not cfg.get("verify_injection", self.verify_injection) or self._verify_injection(el):
+            el.type(text, delay=cfg.typing_delay_ms)
+            if not cfg.verify_injection or self._verify_injection(el):
                 log.info("Prompt injected via Playwright type() (%d chars)", len(text))
                 return
-        except PlaywrightError as exc:
+        except Error as exc:
             raise PromptInjectionError(f"All injection strategies failed for prompt: {exc}") from exc
 
         raise PromptInjectionError("All injection strategies executed but input verification failed.")
@@ -153,16 +143,14 @@ class PromptInjector(IInjectionProtocol):
             return False
 
 
-def find_input(page: Page, config: dict[str, Any] | None = None) -> Any:
+def find_input(page: Page, config: InjectorConfig | None = None) -> Any:
     """Find input element (module-level convenience function)."""
-    injector = PromptInjector()
-    return injector.find_input(page, config)
+    return PromptInjector().find_input(page, config)
 
 
-def inject_text(page: Page, text: str, config: dict[str, Any] | None = None) -> None:
+def inject_text(page: Page, text: str, config: InjectorConfig | None = None) -> None:
     """Inject text (module-level convenience function)."""
-    injector = PromptInjector()
-    injector.inject_text(page, text, config)
+    PromptInjector().inject_text(page, text, config)
 
 
 def type_slowly(_page: Page, textarea: Any, text: str, delay_ms: int = 30) -> None:
@@ -171,7 +159,7 @@ def type_slowly(_page: Page, textarea: Any, text: str, delay_ms: int = 30) -> No
         return
     try:
         textarea.type(text, delay=delay_ms)
-    except PlaywrightError as e:
+    except Exception as e:
         raise PromptInjectionError(f"Native typing failed: {e}") from e
 
 

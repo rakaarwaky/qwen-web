@@ -1,15 +1,21 @@
-"""Tests for __main__.py — package entry point."""
+"""Tests for the package entry point — `python -m modules` runs the CLI."""
 
 from __future__ import annotations
 
-import importlib
+import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import patch
-
-import pytest
 
 
-def test_main_package_import():
-    mod = importlib.import_module("src.__main__")
-    assert hasattr(mod, "__package__")
+def test_modules_package_runs_cli() -> None:
+    """Running `python -m modules --help` must print usage and exit 0."""
+    root = Path(__file__).resolve().parent.parent
+    result = subprocess.run(
+        [sys.executable, "-m", "modules", "--help"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0
+    assert "usage: qwen-cli" in result.stdout

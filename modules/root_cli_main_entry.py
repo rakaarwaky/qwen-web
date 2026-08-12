@@ -13,11 +13,13 @@ import time
 from pathlib import Path
 from typing import Any
 
+from modules.cli.src import (
+    surface_cli_init_command,
+    surface_cli_interactive_controller,
+    surface_cli_login_command,
+    surface_cli_run_command,
+)
 from modules.cli.src.root_cli_container import CliContainer
-from modules.cli.src.surface_cli_init_command import handle as _surface_init_handle
-from modules.cli.src.surface_cli_interactive_controller import InteractiveController as _InteractiveController
-from modules.cli.src.surface_cli_login_command import handle as _surface_login_handle
-from modules.cli.src.surface_cli_run_command import handle as _surface_run_handle
 from modules.core.src.agent_core_orchestrator import is_watcher_shutdown_set
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
@@ -112,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
     # Init subcommand
     if args and (getattr(args, "command", None) == "init" or getattr(args, "init", False)):
         container = _default_container()
-        result = _surface_init_handle(args, container.core)
+        result = surface_cli_init_command.handle(args, container.core)
         return 0 if result.get("success") else 1
 
     # Interactive mode when no args
@@ -140,7 +142,7 @@ def main(argv: list[str] | None = None) -> int:
     args_with_cfg = args
     if args_with_cfg is not None:
         args_with_cfg._cfg = cfg
-    result = _surface_run_handle(args_with_cfg, container.core)
+    result = surface_cli_run_command.handle(args_with_cfg, container.core)
     if not result.get("success"):
         print(result.get("error", "Unknown error"), file=sys.stderr)
         return 1
@@ -150,18 +152,18 @@ def main(argv: list[str] | None = None) -> int:
 def _interactive_prompt() -> AppConfig | None:
     """Display interactive TUI menu and build AppConfig from user selections."""
     container = _default_container()
-    return _InteractiveController(container.core).interactive_prompt()
+    return surface_cli_interactive_controller.InteractiveController(container.core).interactive_prompt()
 
 
 def _run_manual_login(cfg: AppConfig) -> None:
     """Launch visible browser for interactive login (TTY flow in the surface)."""
     container = _default_container()
-    _surface_login_handle(None, container.core, cfg)
+    surface_cli_login_command.handle(None, container.core, cfg)
 
 
 def _run_watcher(client: Any, cfg: AppConfig, audit: Any) -> None:
     """Watcher loop with graceful shutdown support (legacy-compatible shim)."""
-    from modules.core.src.capabilities_observability import StatusFileWriter
+    from modules.core.src.capabilities_observability_setup import StatusFileWriter
 
     ctx = RunContext()
     status_writer = StatusFileWriter(cfg.status_path)
@@ -207,8 +209,20 @@ def _iter_todo(cfg: AppConfig) -> Any:
     yield from container.core._iter_todo(cfg)
 
 
-def _process_file(_client: Any, proc_file: Path, rel_path: Path, cfg: AppConfig, _audit: Any, ctx: RunContext) -> None:
+def _process_file(
+    _client: Any,
+    proc_file: Path,
+    rel_path: Path,
+    cfg: AppConfig,
+    _audit: Any,
+    ctx: RunContext,
+    cb: Any = None,
+    rl: Any = None,
+) -> None:
     """Legacy-compatible single-file processing — delegate to core orchestrator."""
+    # cb/rl accepted for API compatibility; the wired container owns its own
+    # circuit breaker and rate limiter.
+    _ = (cb, rl)
     container = _default_container()
     container.core._process_file(proc_file, rel_path, cfg, ctx)
 
@@ -218,10 +232,51 @@ def _is_watcher_shutdown_set() -> bool:
     return is_watcher_shutdown_set()
 
 
+_watcher_shutdown = __import__("threading").Event()
+_WATCHER_SLEEP_CHUNK_SECS = 1
+
+
+def request_watcher_shutdown() -> None:
+    """Signal watcher loop to shutdown gracefully."""
+    _watcher_shutdown.set()
+
+
+def _watcher_sleep(interval: int) -> None:
+    """Sleep in small chunks so shutdown remains responsive."""
+    for _ in range(max(1, interval)):
+        if _watcher_shutdown.is_set():
+            return
+        time.sleep(min(_WATCHER_SLEEP_CHUNK_SECS, interval))
+
+
+def _iter_todo_retry_failed(cfg: AppConfig) -> Any:
+    """Yield files for retry-failed mode (root compat shim)."""
+    container = _default_container()
+    yield from container.core._iter_todo_retry_failed(cfg)
+
+
+def _iter_todo_single(cfg: AppConfig) -> Any:
+    """Yield file for single mode (root compat shim)."""
+    container = _default_container()
+    yield from container.core._iter_todo_single(cfg)
+
+
+def _iter_todo_batch(src: Path, cfg: AppConfig) -> Any:
+    """Yield files for batch mode (root compat shim)."""
+    container = _default_container()
+    yield from container.core._iter_todo_batch(src, cfg)
+
+
+def _iter_todo_watcher(src: Path, cfg: AppConfig) -> Any:
+    """Yield files continuously in watcher mode (root compat shim)."""
+    container = _default_container()
+    yield from container.core._iter_todo_watcher(src, cfg)
+
+
 def run_init(target_dir: Path | str = ".") -> None:
     """Initialize workspace (legacy-compatible shim)."""
     container = _default_container()
-    container.cli.init_workspace(target_dir)
+    container.core.init_workspace(target_dir)
 
 
 def install_watcher_signal_handlers() -> None:

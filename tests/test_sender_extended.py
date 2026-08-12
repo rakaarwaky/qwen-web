@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
-from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import Error
 
 from modules.core.src.capabilities_send_dispatcher import click_send, count_messages, latest_message_text
 from modules.shared.src import LifecycleEmitter, SendDispatchError
@@ -55,7 +55,7 @@ class TestClickSendExtended:
             call_count[0] += 1
             loc = MagicMock()
             if call_count[0] == 1:
-                raise PlaywrightError("disconnected")
+                raise Error("disconnected")
             loc.count.return_value = 1
             loc.is_visible.return_value = True
             loc.is_enabled.return_value = True
@@ -78,7 +78,7 @@ class TestCountMessagesExtended:
 
     def test_js_evaluate_exception_fallback(self):
         page = MagicMock()
-        page.evaluate.side_effect = PlaywrightError("crashed")
+        page.evaluate.side_effect = Error("crashed")
         loc = MagicMock()
         loc.count.return_value = 3
         page.locator.return_value = loc
@@ -87,8 +87,8 @@ class TestCountMessagesExtended:
 
     def test_both_methods_fail(self):
         page = MagicMock()
-        page.evaluate.side_effect = PlaywrightError("crashed")
-        page.locator.side_effect = PlaywrightError("crashed")
+        page.evaluate.side_effect = Error("crashed")
+        page.locator.side_effect = Error("crashed")
         result = count_messages(page)
         assert result == 0
 
@@ -105,7 +105,7 @@ class TestLatestMessageTextExtended:
 
     def test_js_evaluate_exception_fallback(self):
         page = MagicMock()
-        page.evaluate.side_effect = PlaywrightError("crashed")
+        page.evaluate.side_effect = Error("crashed")
         loc = MagicMock()
         loc.count.return_value = 1
         loc.last.text_content.return_value = "  answer  "
@@ -115,7 +115,7 @@ class TestLatestMessageTextExtended:
 
     def test_both_methods_fail(self):
         page = MagicMock()
-        page.evaluate.side_effect = PlaywrightError("crashed")
-        page.locator.side_effect = PlaywrightError("crashed")
+        page.evaluate.side_effect = Error("crashed")
+        page.locator.side_effect = Error("crashed")
         result = latest_message_text(page)
         assert result is None

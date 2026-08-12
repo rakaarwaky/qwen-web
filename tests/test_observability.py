@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from modules.core.src.capabilities_observability import MetricsCounter, StatusFileWriter
+from modules.core.src.capabilities_observability_setup import MetricsCounter, StatusFileWriter
 from modules.shared.src import ObservabilityConfig, StatusRecord
 
 

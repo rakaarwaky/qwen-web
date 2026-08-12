@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from modules.core.src.capabilities_observability import (
+from modules.core.src.capabilities_observability_setup import (
     MetricsCounter,
     StatusFileWriter,
     bind_run_context,
@@ -65,7 +65,7 @@ class TestStatusFileWriter:
     def test_write_and_read(self, tmp_path):
         path = tmp_path / "status.json"
         writer = StatusFileWriter(path)
-        writer.write("running", "batch", True, run_id="test_123")
+        writer.write(status="running", mode="batch", headless=True, run_id="test_123")
         result = writer.read()
         assert result is not None
         assert result["status"] == "running"
@@ -88,14 +88,14 @@ class TestStatusFileWriter:
     def test_write_with_error(self, tmp_path):
         path = tmp_path / "status.json"
         writer = StatusFileWriter(path)
-        writer.write("error", "batch", True, error="something broke")
+        writer.write(status="error", mode="batch", headless=True, error="something broke")
         result = writer.read()
         assert result["error"] == "something broke"
 
     def test_write_with_cpu_sec(self, tmp_path):
         path = tmp_path / "status.json"
         writer = StatusFileWriter(path)
-        writer.write("running", "watcher", False, cpu_sec=12.34)
+        writer.write(status="running", mode="watcher", headless=False, cpu_sec=12.34)
         result = writer.read()
         assert result["cpu_sec"] == 12.34
 
@@ -143,7 +143,7 @@ class TestExcepthooks:
 
     def test_thread_excepthook(self):
         install_excepthooks()
-        from modules.core.src.capabilities_observability import _thread_excepthook
+        from modules.core.src.capabilities_observability_setup import _thread_excepthook
         args = MagicMock()
         args.exc_type = RuntimeError
         args.exc_value = RuntimeError("test")

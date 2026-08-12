@@ -2,7 +2,7 @@
 import unittest
 from pathlib import Path
 
-from modules.core.src.agent_core_orchestrator import QwenClient
+from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 from modules.shared.src import AppConfig, AuthRequiredError, PromptInjectionError, RunContext
 
 
@@ -34,17 +34,20 @@ class TestQwenAutoContract(unittest.TestCase):
         self.assertTrue(issubclass(AuthRequiredError, RuntimeError))
         self.assertTrue(issubclass(PromptInjectionError, RuntimeError))
 
-    def test_qwen_client_contract_methods(self) -> None:
+    def test_core_aggregate_contract_methods(self) -> None:
         expected_methods = [
-            "start",
             "send_file",
-            "reset_page",
-            "stop",
-            "_wait_for_response",
+            "process_single_file",
+            "process_batch",
+            "process_watcher",
+            "send_prompt",
+            "setup_session",
+            "get_audit_log",
+            "init_workspace",
         ]
         for m in expected_methods:
             self.assertTrue(
-                hasattr(QwenClient, m), f"QwenClient missing method {m}"
+                hasattr(CoreOrchestrator, m), f"CoreOrchestrator missing method {m}"
             )
 
 

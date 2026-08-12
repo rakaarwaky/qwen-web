@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import Error
 
 from modules.core.src.capabilities_prompt_injector import _verify_injection, inject_text
 from modules.shared.src import PromptInjectionError
@@ -33,8 +33,8 @@ class TestInjectTextExtended:
         page = MagicMock()
         el = MagicMock()
         page.wait_for_selector.return_value = el
-        # React JS raises PlaywrightError
-        page.evaluate.side_effect = PlaywrightError("script error")
+        # React JS raises Error
+        page.evaluate.side_effect = Error("script error")
         # fill works
         inject_text(page, "text via fill")
         el.fill.assert_called_once()
@@ -63,6 +63,6 @@ class TestInjectTextExtended:
         page = MagicMock()
         el = MagicMock()
         page.wait_for_selector.return_value = el
-        el.focus.side_effect = PlaywrightError("disconnected")
+        el.focus.side_effect = Error("disconnected")
         page.evaluate.side_effect = [True, True]  # React succeeds despite focus fail
         inject_text(page, "text after focus fail")
