@@ -1,6 +1,365 @@
-"""qwen-web shared domain types — taxonomy + contract + utility layers."""
+"""qwen-web shared domain — taxonomy + contract + utility layers.
+
+Barrel re-export of all shared types. Layers identified by filename prefix
+(AES101), not directory path.
+"""
 
 from __future__ import annotations
 
-from modules.shared.src.common import *  # noqa: F403
-from modules.shared.src.core import *  # noqa: F403
+# ─── Contract: aggregates ─────────────────────────────────────
+from .contract_cli_aggregate import ICliAggregate
+from .contract_core_aggregate import ICoreAggregate
+
+# ─── Contract: protocols ──────────────────────────────────────
+from .contract_core_protocol import (
+    IBrowserProtocol,
+    IFileSystemProtocol,
+    IInjectionProtocol,
+    ILinuxProtocol,
+    IObservabilityProtocol,
+    ISaverProtocol,
+    ISendProtocol,
+    IStreamProtocol,
+    IUploadProtocol,
+)
+from .contract_mcp_aggregate import IMcpAggregate
+
+# ─── Taxonomy: config VOs ─────────────────────────────────────
+from .taxonomy_config_vo import (
+    DEFAULT_INJECTOR_CONFIG,
+    DEFAULT_SAVER_CONFIG,
+    DEFAULT_SENDER_CONFIG,
+    DEFAULT_UPLOAD_CONFIG,
+    AppConfig,
+    BrowserConfig,
+    InjectorConfig,
+    MCPServerConfig,
+    MCPToolResponse,
+    ObservabilityConfig,
+    OutputMetadata,
+    QwenClientConfig,
+    SaverConfig,
+    SenderConfig,
+    StatusRecord,
+    StreamerConfig,
+    UploadConfig,
+)
+
+# ─── Taxonomy: constants ──────────────────────────────────────
+from .taxonomy_core_constant import (
+    _WATCHER_SLEEP_CHUNK_SECS,
+    AUTH_KEYWORDS,
+    BASE_DIR,
+    CHALLENGE_KEYWORDS,
+    CHAT_URL,
+    COMBINED_MESSAGE_SELECTOR,
+    DEFAULT_DONE,
+    DEFAULT_FAILED,
+    DEFAULT_LOG,
+    DEFAULT_OUTPUT,
+    DEFAULT_PROC,
+    DEFAULT_SESSION,
+    DEFAULT_TODO,
+    INPUT_SELECTORS,
+    JS_COUNT_TURNS,
+    JS_GET_RESPONSE_TEXT,
+    LOGIN_FORM_SELECTORS,
+    MAX_ATTEMPTS,
+    MESSAGE_SELECTORS,
+    NEW_CHAT_SELECTORS,
+    SD_NOTIFY_READY,
+    SD_NOTIFY_RELOADING,
+    SD_NOTIFY_STOPPING,
+    SEND_DISABLED_SELECTORS,
+    SEND_SELECTORS,
+    SERVICE_NAME,
+    STOP_BUTTON_SELECTORS,
+    TEXTAREA_SELECTOR,
+    TYPING_INDICATOR_SELECTORS,
+    XDG_CACHE_HOME,
+    XDG_CONFIG_HOME,
+    XDG_DATA_HOME,
+    XDG_SKILL_MD,
+    XDG_STATE_HOME,
+)
+
+# ─── Taxonomy: entities ───────────────────────────────────────
+from .taxonomy_core_entity import CircuitBreaker, RateLimiter
+
+# ─── Taxonomy: events ─────────────────────────────────────────
+from .taxonomy_core_event import LifecycleEmitter
+
+# ─── Taxonomy: core VOs ───────────────────────────────────────
+from .taxonomy_core_vo import (
+    EVENT_DESCRIPTIONS,
+    EVENT_DISPATCH_ACKNOWLEDGED,
+    EVENT_DOCUMENT_PARSED,
+    EVENT_GENERATION_FINISHED,
+    EVENT_NETWORK_RECONNECTING,
+    EVENT_OUTPUT_COPIED,
+    EVENT_SEND_CLICKED,
+    EVENT_STREAMING_GENERATION,
+    EVENT_THINKING_STARTED,
+    EVENT_WEB_LOADED,
+    AtomicWriteFlag,
+    BackoffDelaySec,
+    CardRenderTimeoutMs,
+    ChromeProfile,
+    ClickTimeoutMs,
+    ConfigPath,
+    DisableSandboxFlag,
+    DropdownTimeoutMs,
+    Environment,
+    ErrorCategory,
+    FileChooserTimeoutMs,
+    FilePath,
+    GenerateSidecarFlag,
+    HeadlessFlag,
+    IncludeHeaderFlag,
+    InputChars,
+    InputPath,
+    LifecycleCallback,
+    LifecycleEvent,
+    MaxFileSizeMb,
+    MaxRetries,
+    MessageCount,
+    MinTextLength,
+    Mode,
+    OptionTimeoutMs,
+    OutputChars,
+    OutputPath,
+    PollIntervalSec,
+    PromptText,
+    QwenEventType,
+    ResponseText,
+    RunContext,
+    RunContextId,
+    RunId,
+    RunIdHex,
+    ServerName,
+    ServiceName,
+    StabilityChecks,
+    StabilityCount,
+    StatusRecordVO,
+    TimeoutSec,
+    TryEnterKeyFallbackFlag,
+    TypingDelayMs,
+    UserAgent,
+    WaitTimeoutMs,
+)
+
+# ─── Taxonomy: domain errors ──────────────────────────────────
+from .taxonomy_domain_error import (
+    AuthRequiredError,
+    BrowserLaunchError,
+    CircuitBreakerOpenError,
+    ElementNotFoundError,
+    FileUploadError,
+    FileValidationError,
+    NetworkTimeoutError,
+    OutputValidationError,
+    OutputWriteError,
+    PipelineError,
+    PromptInjectionError,
+    QuarantineError,
+    QwenCliError,
+    RateLimitError,
+    SendDispatchError,
+    SingleInstanceError,
+    UIInteractionError,
+    UploadTimeoutError,
+)
+
+# ─── Utility: error ───────────────────────────────────────────
+from .utility_core_error import exit_code_for
+
+# ─── Utility: events ──────────────────────────────────────────
+from .utility_core_events import is_stability_satisfied, should_treat_as_new_response
+
+# ─── Utility: path ────────────────────────────────────────────
+from .utility_core_path import (
+    cleanup_empty_dirs,
+    list_input_files,
+    resolve_role_paths,
+    should_process_file,
+)
+
+# ─── Utility: prompt ──────────────────────────────────────────
+from .utility_core_prompt import (
+    extract_prompt_text,
+    get_role_search_directories,
+    load_role_prompt,
+    strip_input_from_output,
+)
+
+# ─── Utility: text ────────────────────────────────────────────
+from .utility_core_text import build_metadata_header, strip_ui_noise
+
+# ─── Utility: validation ──────────────────────────────────────
+from .utility_core_validation import validate_file, validate_response_content
+
+__all__ = [
+    # VOs
+    "AtomicWriteFlag",
+    "BackoffDelaySec",
+    "CardRenderTimeoutMs",
+    "ChromeProfile",
+    "ClickTimeoutMs",
+    "ConfigPath",
+    "DisableSandboxFlag",
+    "DropdownTimeoutMs",
+    "Environment",
+    "ErrorCategory",
+    "FileChooserTimeoutMs",
+    "FilePath",
+    "GenerateSidecarFlag",
+    "HeadlessFlag",
+    "IncludeHeaderFlag",
+    "InputChars",
+    "InputPath",
+    "MaxFileSizeMb",
+    "MaxRetries",
+    "MessageCount",
+    "MinTextLength",
+    "Mode",
+    "OptionTimeoutMs",
+    "OutputChars",
+    "OutputPath",
+    "PollIntervalSec",
+    "PromptText",
+    "ResponseText",
+    "RunContext",
+    "RunContextId",
+    "RunId",
+    "RunIdHex",
+    "ServerName",
+    "ServiceName",
+    "StabilityChecks",
+    "StabilityCount",
+    "StatusRecordVO",
+    "TimeoutSec",
+    "TryEnterKeyFallbackFlag",
+    "TypingDelayMs",
+    "UserAgent",
+    "WaitTimeoutMs",
+    "QwenEventType",
+    "LifecycleEvent",
+    "LifecycleCallback",
+    "EVENT_DESCRIPTIONS",
+    "EVENT_NETWORK_RECONNECTING",
+    "EVENT_WEB_LOADED",
+    "EVENT_DOCUMENT_PARSED",
+    "EVENT_SEND_CLICKED",
+    "EVENT_DISPATCH_ACKNOWLEDGED",
+    "EVENT_THINKING_STARTED",
+    "EVENT_STREAMING_GENERATION",
+    "EVENT_GENERATION_FINISHED",
+    "EVENT_OUTPUT_COPIED",
+    # Config VOs
+    "AppConfig",
+    "BrowserConfig",
+    "InjectorConfig",
+    "UploadConfig",
+    "SenderConfig",
+    "StreamerConfig",
+    "SaverConfig",
+    "QwenClientConfig",
+    "ObservabilityConfig",
+    "MCPServerConfig",
+    "StatusRecord",
+    "MCPToolResponse",
+    "OutputMetadata",
+    "DEFAULT_UPLOAD_CONFIG",
+    "DEFAULT_INJECTOR_CONFIG",
+    "DEFAULT_SENDER_CONFIG",
+    "DEFAULT_SAVER_CONFIG",
+    # Errors
+    "QwenCliError",
+    "AuthRequiredError",
+    "PromptInjectionError",
+    "RateLimitError",
+    "CircuitBreakerOpenError",
+    "BrowserLaunchError",
+    "SingleInstanceError",
+    "ElementNotFoundError",
+    "NetworkTimeoutError",
+    "OutputValidationError",
+    "FileUploadError",
+    "FileValidationError",
+    "UploadTimeoutError",
+    "UIInteractionError",
+    "PipelineError",
+    "QuarantineError",
+    "SendDispatchError",
+    "OutputWriteError",
+    # Constants
+    "BASE_DIR",
+    "CHAT_URL",
+    "SERVICE_NAME",
+    "XDG_DATA_HOME",
+    "XDG_STATE_HOME",
+    "XDG_CACHE_HOME",
+    "XDG_CONFIG_HOME",
+    "DEFAULT_TODO",
+    "DEFAULT_PROC",
+    "DEFAULT_DONE",
+    "DEFAULT_FAILED",
+    "DEFAULT_OUTPUT",
+    "DEFAULT_LOG",
+    "DEFAULT_SESSION",
+    "XDG_SKILL_MD",
+    "MAX_ATTEMPTS",
+    "_WATCHER_SLEEP_CHUNK_SECS",
+    "SD_NOTIFY_READY",
+    "SD_NOTIFY_STOPPING",
+    "SD_NOTIFY_RELOADING",
+    "TEXTAREA_SELECTOR",
+    "NEW_CHAT_SELECTORS",
+    "INPUT_SELECTORS",
+    "SEND_SELECTORS",
+    "MESSAGE_SELECTORS",
+    "AUTH_KEYWORDS",
+    "LOGIN_FORM_SELECTORS",
+    "CHALLENGE_KEYWORDS",
+    "STOP_BUTTON_SELECTORS",
+    "SEND_DISABLED_SELECTORS",
+    "TYPING_INDICATOR_SELECTORS",
+    "COMBINED_MESSAGE_SELECTOR",
+    "JS_GET_RESPONSE_TEXT",
+    "JS_COUNT_TURNS",
+    # Entities
+    "CircuitBreaker",
+    "RateLimiter",
+    # Events
+    "LifecycleEmitter",
+    # Contracts
+    "IUploadProtocol",
+    "IInjectionProtocol",
+    "ISendProtocol",
+    "IStreamProtocol",
+    "IBrowserProtocol",
+    "ISaverProtocol",
+    "IObservabilityProtocol",
+    "IFileSystemProtocol",
+    "ILinuxProtocol",
+    "ICoreAggregate",
+    "ICliAggregate",
+    "IMcpAggregate",
+    # Utilities
+    "extract_prompt_text",
+    "get_role_search_directories",
+    "load_role_prompt",
+    "strip_input_from_output",
+    "resolve_role_paths",
+    "should_process_file",
+    "list_input_files",
+    "cleanup_empty_dirs",
+    "validate_response_content",
+    "validate_file",
+    "strip_ui_noise",
+    "build_metadata_header",
+    "ErrorCategory",
+    "exit_code_for",
+    "should_treat_as_new_response",
+    "is_stability_satisfied",
+]

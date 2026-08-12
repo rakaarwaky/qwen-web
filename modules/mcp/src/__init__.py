@@ -1,1 +1,1 @@
-"""qwen-web MCP surface layer."""
+"""qwen-web MCP surface — tool handlers."""

@@ -24,10 +24,12 @@ dependencies = [
 qwen-web-cli = "modules.root_cli_main_entry:main"
 qwc = "modules.root_cli_main_entry:main"
 
+[tool.setuptools]
+package-dir = {"" = "."}
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["modules*"]
-package-dir = {"modules" = "modules"}
 
 [tool.ruff]
 line-length = 120
@@ -64,7 +66,7 @@ warn_unreachable = true
 strict_equality = true
 
 [[tool.mypy.overrides]]
-module = ["playwright.*", "tenacity.*", "structlog.*", "sentry_sdk.*", "mcp.*"]
+module = ["playwright.*", "tenacity.*", "structlog.*", "sentry_sdk.*", "mcp.*", "fastmcp.*"]
 ignore_missing_imports = true
 disallow_untyped_defs = false
 check_untyped_defs = false

@@ -1,1 +1,1 @@
-"""qwen-web CLI surface layer."""
+"""qwen-web CLI surface — commands and controllers."""

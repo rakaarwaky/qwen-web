@@ -1,1 +1,1 @@
-"""qwen-web core feature — capabilities + agent orchestrators."""
+"""qwen-web core feature — capabilities + agent orchestrators + root container."""
