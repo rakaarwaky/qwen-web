@@ -6,13 +6,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.streamer import validate_response_content
-from src.types import LifecycleEmitter
+from modules.core.src.capabilities_stream_monitor import validate_response_content
+from modules.shared.src import LifecycleEmitter
 
 
 class TestWaitForResponseExtended:
     def test_dispatch_not_acknowledged(self):
-        from src.streamer import wait_for_response
+        from modules.core.src.capabilities_stream_monitor import wait_for_response
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
         with pytest.raises(RuntimeError, match="dispatch"):

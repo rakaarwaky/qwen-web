@@ -22,18 +22,20 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.pipeline import (
-    AuditLog,
-    _extract_prompt_text,
-    _list_input_files,
-    _should_process_file,
-    _strip_input_from_output,
+from modules.core.src.capabilities_audit_repository import AuditRepository as AuditLog
+from modules.core.src.capabilities_qwen_client import QwenClient
+from modules.core.src.capabilities_saver import write_output
+from modules.shared.src.utility_core_prompt import (
+    extract_prompt_text as _extract_prompt_text,
     load_role_prompt,
-    resolve_role_paths,
+    strip_input_from_output as _strip_input_from_output,
 )
-from src.qwen_client import QwenClient
-from src.saver import write_output
-from src.types import (
+from modules.shared.src.utility_core_path import (
+    list_input_files as _list_input_files,
+    resolve_role_paths,
+    should_process_file as _should_process_file,
+)
+from modules.shared.src import (
     AppConfig,
     AuthRequiredError,
     CircuitBreaker,

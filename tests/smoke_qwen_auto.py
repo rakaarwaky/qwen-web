@@ -24,7 +24,7 @@ class TestQwenAutoSmoke(unittest.TestCase):
     def test_module_import_smoke(self) -> None:
         t0 = time.time()
         res = subprocess.run(
-            [sys.executable, "-c", "import src.main as q; print(q.__file__)"],
+            [sys.executable, "-c", "import modules.root_cli_main_entry as q; print(q.__file__)"],
             capture_output=True,
             text=True,
             timeout=5,

@@ -8,12 +8,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.main import (
+from modules.root_cli_main_entry import (
     _build_config,
     _parse_args,
     run_init,
 )
-from src.types import AppConfig
+from modules.shared.src import AppConfig
 
 
 class TestParseArgs:
@@ -168,16 +168,16 @@ class TestBuildConfig:
 
 class TestRunInit:
     def test_creates_skill_md(self, tmp_path):
-        with patch("src.main.BASE_DIR", tmp_path), \
-             patch("src.main.XDG_SKILL_MD", tmp_path / "nonexistent"):
+        with patch("modules.main.BASE_DIR", tmp_path), \
+             patch("modules.main.XDG_SKILL_MD", tmp_path / "nonexistent"):
             skill_dir = tmp_path / ".agents" / "skills" / "qwen-web"
             assert not skill_dir.exists()
             run_init(tmp_path)
             assert (skill_dir / "SKILL.md").exists()
 
     def test_creates_gitignore(self, tmp_path):
-        with patch("src.main.BASE_DIR", tmp_path), \
-             patch("src.main.XDG_SKILL_MD", tmp_path / "nonexistent"):
+        with patch("modules.main.BASE_DIR", tmp_path), \
+             patch("modules.main.XDG_SKILL_MD", tmp_path / "nonexistent"):
             run_init(tmp_path)
             gitignore = tmp_path / ".gitignore"
             assert gitignore.exists()
@@ -186,16 +186,16 @@ class TestRunInit:
     def test_appends_to_existing_gitignore(self, tmp_path):
         gitignore = tmp_path / ".gitignore"
         gitignore.write_text("*.pyc\n")
-        with patch("src.main.BASE_DIR", tmp_path), \
-             patch("src.main.XDG_SKILL_MD", tmp_path / "nonexistent"):
+        with patch("modules.main.BASE_DIR", tmp_path), \
+             patch("modules.main.XDG_SKILL_MD", tmp_path / "nonexistent"):
             run_init(tmp_path)
             content = gitignore.read_text()
             assert ".qwen-web/" in content
             assert "*.pyc" in content
 
     def test_creates_symlinks(self, tmp_path):
-        with patch("src.main.BASE_DIR", tmp_path), \
-             patch("src.main.XDG_SKILL_MD", tmp_path / "nonexistent"):
+        with patch("modules.main.BASE_DIR", tmp_path), \
+             patch("modules.main.XDG_SKILL_MD", tmp_path / "nonexistent"):
             run_init(tmp_path)
             dot_qwen = tmp_path / ".qwen-web"
             assert dot_qwen.exists()

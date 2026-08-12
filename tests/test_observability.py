@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.observability import MetricsCounter, StatusFileWriter
-from src.types import ObservabilityConfig, StatusRecord
+from modules.core.src.capabilities_observability import MetricsCounter, StatusFileWriter
+from modules.shared.src import ObservabilityConfig, StatusRecord
 
 
 def test_metrics_counter():

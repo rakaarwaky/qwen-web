@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.types import (
+from modules.shared.src import (
     AppConfig,
     CircuitBreaker,
     LifecycleEmitter,
@@ -139,7 +139,7 @@ class TestRateLimiterExtended:
         # Pre-seed timestamps inside the mocked window (time=100, window=40..100)
         # so the rate limiter sees the bucket as full from the start of the patch.
         rl._timestamps = deque([70.0, 80.0])
-        with patch("src.types.time") as mock_time:
+        with patch("modules.types.time") as mock_time:
             # After sleep, advance time past the window so the oldest evicts.
             mock_time.time.side_effect = [100.0, 100.0, 100.0, 161.0, 161.0]
             mock_time.sleep = MagicMock()

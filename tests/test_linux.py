@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 import pytest
 
-from src.linux import SingleInstanceLock, sd_notify, sd_notify_ready, sd_notify_stop
-from src.types import SingleInstanceError
+from modules.core.src.capabilities_linux_guard import SingleInstanceLock, sd_notify, sd_notify_ready, sd_notify_stop
+from modules.shared.src import SingleInstanceError
 
 
 class TestSingleInstanceLock:

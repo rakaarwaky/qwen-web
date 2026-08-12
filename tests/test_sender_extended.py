@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from playwright.sync_api import Error as PlaywrightError
 
-from src.sender import click_send, count_messages, latest_message_text
-from src.types import LifecycleEmitter, SendDispatchError
+from modules.core.src.capabilities_send_dispatcher import click_send, count_messages, latest_message_text
+from modules.shared.src import LifecycleEmitter, SendDispatchError
 
 
 class TestClickSendExtended:

@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from src.saver import _strip_ui_noise, _write_file_atomic, write_output
-from src.types import OutputWriteError, RunContext, SaverConfig
+from modules.core.src.capabilities_saver import _strip_ui_noise, _write_file_atomic, write_output
+from modules.shared.src import OutputWriteError, RunContext, SaverConfig
 
 
 class TestStripUiNoise:

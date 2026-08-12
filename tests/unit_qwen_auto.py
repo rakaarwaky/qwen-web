@@ -4,9 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.main import _build_config
-from src.pipeline import AuditLog, _write_output
-from src.types import RunContext
+from modules.root_cli_main_entry import _build_config
+from modules.core.src.capabilities_pipeline_compat import AuditLog, _write_output
+from modules.shared.src import RunContext
 
 
 class TestQwenAutoUnit(unittest.TestCase):
@@ -76,7 +76,7 @@ class TestQwenAutoUnit(unittest.TestCase):
             self.assertEqual(cfg_watch.mode, "watcher")
 
     def test_event_constants_and_emitter(self) -> None:
-        from src.types import (
+        from modules.shared.src import (
             EVENT_DISPATCH_ACKNOWLEDGED,
             EVENT_DOCUMENT_PARSED,
             EVENT_GENERATION_FINISHED,
@@ -131,7 +131,7 @@ class TestQwenAutoUnit(unittest.TestCase):
         )
 
     def test_enum_event_type_and_event_id(self) -> None:
-        from src.types import LifecycleEmitter, QwenEventType
+        from modules.shared.src import LifecycleEmitter, QwenEventType
 
         emitter = LifecycleEmitter()
         received = []

@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from playwright.sync_api import Error as PlaywrightError
 
-from src.browser import (
+from modules.core.src.capabilities_browser_adapter import (
     CHAT_URL,
     LOGIN_FORM_SELECTORS,
     TEXTAREA_SELECTOR,
@@ -17,7 +17,7 @@ from src.browser import (
     _clean_stale_locks,
     reset_page,
 )
-from src.types import AuthRequiredError, LifecycleEmitter
+from modules.shared.src import AuthRequiredError, LifecycleEmitter
 
 
 # ─── SessionCheck.is_alive ──────────────────────────────────────────────────

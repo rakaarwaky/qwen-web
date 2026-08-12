@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from src.saver import write_output
-from src.streamer import validate_response_content
-from src.types import (
+from modules.core.src.capabilities_saver import write_output
+from modules.core.src.capabilities_stream_monitor import validate_response_content
+from modules.shared.src import (
     AuthRequiredError,
     CircuitBreaker,
     OutputValidationError,

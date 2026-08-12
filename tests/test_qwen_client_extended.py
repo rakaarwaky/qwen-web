@@ -9,8 +9,8 @@ import pytest
 
 from playwright.sync_api import ElementHandle
 
-from src.qwen_client import QwenClient
-from src.types import AppConfig, LifecycleEmitter, QwenCliError
+from modules.core.src.capabilities_qwen_client import QwenClient
+from modules.shared.src import AppConfig, LifecycleEmitter, QwenCliError
 
 
 class TestQwenClientSendFile:
@@ -35,14 +35,14 @@ class TestQwenClientSendFile:
         f = tmp_path / "task.md"
         f.write_text("hello")
 
-        with patch("src.qwen_client.navigate_to_chat"), \
-             patch("src.qwen_client._check_auth"), \
-             patch("src.qwen_client.count_messages", return_value=0), \
-             patch("src.qwen_client.find_input"), \
-             patch("src.qwen_client.upload_attachment", return_value=True), \
-             patch("src.qwen_client.inject_text"), \
-             patch("src.qwen_client.click_send"), \
-             patch("src.qwen_client.wait_for_response", return_value=None):
+        with patch("modules.qwen_client.navigate_to_chat"), \
+             patch("modules.qwen_client._check_auth"), \
+             patch("modules.qwen_client.count_messages", return_value=0), \
+             patch("modules.qwen_client.find_input"), \
+             patch("modules.qwen_client.upload_attachment", return_value=True), \
+             patch("modules.qwen_client.inject_text"), \
+             patch("modules.qwen_client.click_send"), \
+             patch("modules.qwen_client.wait_for_response", return_value=None):
             with pytest.raises(TimeoutError, match="Timeout"):
                 client.send_file(f, timeout_sec=10)
 
@@ -69,6 +69,6 @@ class TestQwenClientSendFile:
         page = MagicMock()
         ctx.pages = [page]
         client = QwenClient(ctx)
-        with patch("src.qwen_client.wait_for_response", return_value="response"):
+        with patch("modules.qwen_client.wait_for_response", return_value="response"):
             result = client._wait_for_response(10, 0)
             assert result == "response"

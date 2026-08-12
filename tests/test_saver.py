@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from src.saver import write_output
-from src.types import OutputWriteError, RunContext, SaverConfig
+from modules.core.src.capabilities_saver import write_output
+from modules.shared.src import OutputWriteError, RunContext, SaverConfig
 
 
 def test_write_output_success(tmp_path: Path):

@@ -8,8 +8,8 @@ import pytest
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from src.prompt_injector import find_input, inject_text, type_slowly
-from src.types import (
+from modules.core.src.capabilities_prompt_injector import find_input, inject_text, type_slowly
+from modules.shared.src import (
     ElementNotFoundError,
     PromptInjectionError,
 )

@@ -7,13 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from src.pipeline import (
-    _extract_prompt_text,
-    _list_input_files,
-    _should_process_file,
-    _strip_input_from_output,
+from modules.shared.src.utility_core_prompt import (
+    extract_prompt_text as _extract_prompt_text,
+    strip_input_from_output as _strip_input_from_output,
 )
-from src.types import AppConfig
+from modules.shared.src.utility_core_path import (
+    list_input_files as _list_input_files,
+    should_process_file as _should_process_file,
+)
+from modules.shared.src import AppConfig
 
 
 # ─── _extract_prompt_text ───────────────────────────────────────────────────

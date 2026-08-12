@@ -4,13 +4,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from src.pipeline import (
+from modules.core.src.capabilities_pipeline_compat import (
     _list_input_files,
     load_role_prompt,
     resolve_role_paths,
 )
-from src.qwen_client import QwenClient
-from src.types import AppConfig
+from modules.core.src.capabilities_qwen_client import QwenClient
+from modules.shared.src import AppConfig
 
 
 class TestQwenAutoRegression(unittest.TestCase):

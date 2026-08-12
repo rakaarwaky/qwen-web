@@ -13,15 +13,14 @@ from pathlib import Path
 
 import pytest
 
-# These imports come from src/ via conftest.py sys.path injection
-from src.pipeline import (
-    AuditLog,
-    _should_process_file,
-    _write_output,
-    load_role_prompt,
+from modules.core.src.capabilities_audit_repository import AuditRepository as AuditLog
+from modules.core.src.capabilities_saver import write_output as _write_output
+from modules.shared.src.utility_core_path import (
     resolve_role_paths,
+    should_process_file as _should_process_file,
 )
-from src.types import AppConfig, RunContext
+from modules.shared.src.utility_core_prompt import load_role_prompt
+from modules.shared.src import AppConfig, RunContext
 
 ROLES = ["role-architect", "role-business-analyst", "role-tech-lead"]
 
@@ -194,11 +193,30 @@ def test_audit_log_error_writes_errors_jsonl(audit: AuditLog, run_ctx: RunContex
 
 # ─── _iter_todo (batch mode: file moves to .processing) ─────────────────────
 
+def _make_orchestrator(mocker: Any, audit: Any = None) -> Any:
+    """Build a CoreOrchestrator with mock capabilities for file-state tests."""
+    from modules.core.src.agent_core_orchestrator import CoreOrchestrator
+    from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
+
+    return CoreOrchestrator(
+        browser=mocker.MagicMock(),
+        injector=mocker.MagicMock(),
+        sender=mocker.MagicMock(),
+        streamer=mocker.MagicMock(),
+        uploader=mocker.MagicMock(),
+        saver=mocker.MagicMock(),
+        audit=audit or mocker.MagicMock(),
+        observability=mocker.MagicMock(),
+        circuit_breaker=CircuitBreaker(),
+        rate_limiter=RateLimiter(),
+    )
+
+
 def test_iter_todo_batch_moves_file_to_processing(
-    fixture_root: Path, tmp_path: Path
+    fixture_root: Path, tmp_path: Path, mocker: Any
 ) -> None:
     """_iter_todo in batch mode must physically move the file to .processing/."""
-    from src.pipeline import _iter_todo
+    orchestrator = _make_orchestrator(mocker)
 
     # Use tmp_path as a fully isolated sandbox — copy fixture structure there
     sandbox_input  = tmp_path / "input"
@@ -226,7 +244,7 @@ def test_iter_todo_batch_moves_file_to_processing(
         headless=True,
     )
 
-    collected = list(_iter_todo(sandbox_cfg))
+    collected = list(orchestrator._iter_todo(sandbox_cfg))
 
     assert len(collected) == 1, f"Expected 1 file, got {len(collected)}"
     proc_file, rel_path = collected[0]
@@ -239,13 +257,13 @@ def test_iter_todo_batch_moves_file_to_processing(
 
 def test_file_moves_to_done_on_success(tmp_path: Path, mocker: Any) -> None:
     """When processing succeeds, file moves from .processing to role-architect/done/task_001.md."""
-    from src.pipeline import _execute_single_attempt, resolve_role_paths
-    from src.types import AppConfig, CircuitBreaker, RateLimiter
+    from modules.shared.src.utility_core_path import resolve_role_paths
+    from modules.shared.src import AppConfig, CircuitBreaker, RateLimiter
 
     input_dir = tmp_path / "input"
     out_dir = tmp_path / "output"
     proc_dir = tmp_path / ".processing"
-    
+
     cfg = AppConfig(
         mode="batch",
         input_path=input_dir,
@@ -262,16 +280,16 @@ def test_file_moves_to_done_on_success(tmp_path: Path, mocker: Any) -> None:
     proc_file.parent.mkdir(parents=True, exist_ok=True)
     proc_file.write_text("Test prompt content")
 
-    mock_client = mocker.MagicMock()
-    mock_client.send_file.return_value = "Response text"
+    mock_saver = mocker.MagicMock()
     mock_audit = mocker.MagicMock()
-    ctx = mocker.MagicMock()
-    cb = CircuitBreaker()
-    rl = RateLimiter()
+    orchestrator = _make_orchestrator(mocker, audit=mock_audit)
+    orchestrator._saver = mock_saver
+    orchestrator._rl = RateLimiter()
+    orchestrator._cb = CircuitBreaker()
 
-    _execute_single_attempt(
-        mock_client, proc_file, rel_path, cfg, mock_audit, ctx,
-        cb, rl, time.time(), "Test prompt content", out_path, done_path
+    orchestrator._execute_single_attempt(
+        proc_file, rel_path, cfg, mocker.MagicMock(),
+        time.time(), "Test prompt content", out_path, done_path
     )
 
     assert done_path.exists(), f"File must be moved to {done_path}"
@@ -281,13 +299,13 @@ def test_file_moves_to_done_on_success(tmp_path: Path, mocker: Any) -> None:
 
 def test_file_moves_to_failed_on_failure(tmp_path: Path, mocker: Any) -> None:
     """When processing fails, file moves from .processing to role-architect/failed/task_001.md."""
-    from src.pipeline import _handle_processing_failure, resolve_role_paths
-    from src.types import AppConfig, CircuitBreaker
+    from modules.shared.src.utility_core_path import resolve_role_paths
+    from modules.shared.src import AppConfig, CircuitBreaker
 
     input_dir = tmp_path / "input"
     out_dir = tmp_path / "output"
     proc_dir = tmp_path / ".processing"
-    
+
     cfg = AppConfig(
         mode="batch",
         input_path=input_dir,
@@ -304,15 +322,14 @@ def test_file_moves_to_failed_on_failure(tmp_path: Path, mocker: Any) -> None:
     proc_file.parent.mkdir(parents=True, exist_ok=True)
     proc_file.write_text("Test prompt content")
 
-    mock_client = mocker.MagicMock()
     mock_audit = mocker.MagicMock()
-    ctx = mocker.MagicMock()
-    cb = CircuitBreaker()
+    orchestrator = _make_orchestrator(mocker, audit=mock_audit)
+    orchestrator._cb = CircuitBreaker()
 
-    _handle_processing_failure(
-        mock_client, proc_file, rel_path, mock_audit, ctx,
-        cb, time.time(), "Test prompt content", out_path, fail_path,
-        Exception("Test error"), cfg
+    orchestrator._handle_processing_failure(
+        proc_file, rel_path, cfg, mocker.MagicMock(),
+        time.time(), "Test prompt content", out_path, fail_path,
+        Exception("Test error")
     )
 
     assert fail_path.exists(), f"File must be quarantined at {fail_path}"

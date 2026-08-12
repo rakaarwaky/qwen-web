@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.mcp_server import (
+from modules.root_mcp_main_entry import (
     mcp,
     qwen_get_audit_log,
     qwen_process_single,
@@ -44,7 +44,7 @@ class TestMCPServerTools(unittest.TestCase):
     def test_qwen_get_audit_log_missing(self) -> None:
         """Test qwen_get_audit_log when log file does not exist."""
         dummy_log = Path(tempfile.gettempdir()) / "non_existent_log_dir_12345"
-        with patch("src.mcp_server.DEFAULT_LOG", dummy_log):
+        with patch("modules.mcp_server.DEFAULT_LOG", dummy_log):
             res = qwen_get_audit_log()
             self.assertEqual(res, "Audit log file does not exist yet.")
 
@@ -56,14 +56,14 @@ class TestMCPServerTools(unittest.TestCase):
             rec = {"run_id": "test1234", "status": "SUCCESS", "duration_sec": 1.2}
             audit_file.write_text(json.dumps(rec) + "\n", encoding="utf-8")
 
-            with patch("src.mcp_server.DEFAULT_LOG", log_dir):
+            with patch("modules.mcp_server.DEFAULT_LOG", log_dir):
                 res = qwen_get_audit_log(limit=5)
                 data = json.loads(res)
                 self.assertEqual(len(data), 1)
                 self.assertEqual(data[0]["run_id"], "test1234")
 
-    @patch("src.mcp_server.QwenClient")
-    @patch("src.mcp_server.browser_session")
+    @patch("modules.mcp_server.QwenClient")
+    @patch("modules.mcp_server.browser_session")
     def test_qwen_send_prompt_mock(self, mock_browser_session: MagicMock, mock_qwen_client: MagicMock) -> None:
         """Test qwen_send_prompt tool execution with mocked browser and client."""
         mock_ctx = MagicMock()
@@ -77,9 +77,9 @@ class TestMCPServerTools(unittest.TestCase):
         self.assertEqual(result, "Mocked AI Response")
         client_inst.send_file.assert_called_once()
 
-    @patch("src.mcp_server._process_file")
-    @patch("src.mcp_server.QwenClient")
-    @patch("src.mcp_server.browser_session")
+    @patch("modules.mcp_server._process_file")
+    @patch("modules.mcp_server.QwenClient")
+    @patch("modules.mcp_server.browser_session")
     def test_qwen_process_single_success(self, mock_browser_session: MagicMock, mock_qwen_client: MagicMock, mock_process_file: MagicMock) -> None:
         """Test qwen_process_single with valid file input."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -91,7 +91,7 @@ class TestMCPServerTools(unittest.TestCase):
             self.assertIn("Successfully processed", res)
             mock_process_file.assert_called_once()
 
-    @patch("src.mcp_server.browser_session")
+    @patch("modules.mcp_server.browser_session")
     def test_qwen_setup_session(self, mock_browser_session: MagicMock) -> None:
         """Test qwen_setup_session manual login trigger."""
         mock_bctx = MagicMock()
@@ -103,11 +103,11 @@ class TestMCPServerTools(unittest.TestCase):
         self.assertIn("Browser session saved", res)
         mock_page.goto.assert_called_once()
 
-    @patch("src.mcp_server.QwenClient")
-    @patch("src.mcp_server.browser_session")
+    @patch("modules.mcp_server.QwenClient")
+    @patch("modules.mcp_server.browser_session")
     def test_qwen_send_prompt_auth_required_error(self, mock_browser_session: MagicMock, mock_qwen_client: MagicMock) -> None:
         """Test qwen_send_prompt returns clear error string when AuthRequiredError is raised."""
-        from src.types import AuthRequiredError
+        from modules.shared.src import AuthRequiredError
         mock_ctx = MagicMock()
         mock_browser_session.return_value.__enter__.return_value = mock_ctx
 

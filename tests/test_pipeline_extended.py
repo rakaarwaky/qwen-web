@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.pipeline import (
+from modules.core.src.capabilities_pipeline_compat import (
     AuditLog,
     _cleanup_empty_dirs,
     _iter_todo,
@@ -22,7 +22,7 @@ from src.pipeline import (
     is_watcher_shutdown_set,
     request_watcher_shutdown,
 )
-from src.types import (
+from modules.shared.src import (
     AppConfig,
     AuthRequiredError,
     CircuitBreaker,
@@ -252,18 +252,18 @@ class TestWatcherSleep:
         request_watcher_shutdown()
         _watcher_sleep(10)  # should return immediately
         # Reset for other tests
-        from src.pipeline import _watcher_shutdown
+        from modules.core.src.capabilities_pipeline_compat import _watcher_shutdown
         _watcher_shutdown.clear()
 
     def test_normal_sleep(self):
-        from src.pipeline import _watcher_shutdown
+        from modules.core.src.capabilities_pipeline_compat import _watcher_shutdown
         _watcher_shutdown.clear()
         _watcher_sleep(1)
 
 
 class TestIterTodoWatcher:
     def test_yields_and_shutdown(self, tmp_path):
-        from src.pipeline import _watcher_shutdown
+        from modules.core.src.capabilities_pipeline_compat import _watcher_shutdown
         _watcher_shutdown.clear()
 
         todo = tmp_path / "todo" / "role-dev" / "todo"

@@ -17,9 +17,9 @@ from playwright.sync_api import BrowserContext, sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.pipeline import AuditLog
-from src.qwen_client import QwenClient
-from src.types import AppConfig, RunContext
+from modules.core.src.capabilities_pipeline_compat import AuditLog
+from modules.core.src.capabilities_qwen_client import QwenClient
+from modules.shared.src import AppConfig, RunContext
 from tests.pipeline_fixtures import restore_fixture_state
 
 FIXTURE_ROOT = Path(__file__).resolve().parent / "fixtures"

@@ -8,14 +8,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.main import (
+from modules.root_cli_main_entry import (
     _build_config,
     _interactive_prompt,
     _run_manual_login,
     _run_watcher,
     main,
 )
-from src.types import AppConfig
+from modules.shared.src import AppConfig
 
 
 class TestInteractivePrompt:
@@ -26,7 +26,7 @@ class TestInteractivePrompt:
 
     def test_init_choice(self):
         with patch("builtins.input", return_value="5"), \
-             patch("src.main.run_init"):
+             patch("modules.main.run_init"):
             result = _interactive_prompt()
             assert result is None
 
@@ -60,7 +60,7 @@ class TestInteractivePrompt:
         (todo / "task.md").write_text("task")
         with patch("builtins.input", side_effect=["3", "1", "y"]), \
              patch("sys.stdin") as mock_stdin, \
-             patch("src.main.DEFAULT_TODO", tmp_path / "todo"):
+             patch("modules.main.DEFAULT_TODO", tmp_path / "todo"):
             mock_stdin.isatty.return_value = True
             result = _interactive_prompt()
             assert result is not None
@@ -71,7 +71,7 @@ class TestInteractivePrompt:
         empty.mkdir()
         with patch("builtins.input", side_effect=["3", "", "", "y"]), \
              patch("sys.stdin") as mock_stdin, \
-             patch("src.main.DEFAULT_TODO", empty):
+             patch("modules.main.DEFAULT_TODO", empty):
             mock_stdin.isatty.return_value = True
             result = _interactive_prompt()
             assert result is not None
@@ -83,7 +83,7 @@ class TestInteractivePrompt:
         (todo / "task.md").write_text("task")
         with patch("builtins.input", side_effect=["3", "abc", "y"]), \
              patch("sys.stdin") as mock_stdin, \
-             patch("src.main.DEFAULT_TODO", tmp_path / "todo"):
+             patch("modules.main.DEFAULT_TODO", tmp_path / "todo"):
             mock_stdin.isatty.return_value = True
             result = _interactive_prompt()
             assert result is not None
@@ -95,7 +95,7 @@ class TestInteractivePrompt:
         (todo / "task.md").write_text("task")
         with patch("builtins.input", side_effect=["3", "99", "y"]), \
              patch("sys.stdin") as mock_stdin, \
-             patch("src.main.DEFAULT_TODO", tmp_path / "todo"):
+             patch("modules.main.DEFAULT_TODO", tmp_path / "todo"):
             mock_stdin.isatty.return_value = True
             result = _interactive_prompt()
             assert result is not None
@@ -134,7 +134,7 @@ class TestRunManualLogin:
 
     def test_login_opens_browser(self):
         with patch("sys.stdin") as mock_stdin, \
-             patch("src.main.browser_session") as mock_bs, \
+             patch("modules.main.browser_session") as mock_bs, \
              patch("builtins.input", return_value=""):
             mock_stdin.isatty.return_value = True
             mock_page = MagicMock()
@@ -171,8 +171,8 @@ class TestRunWatcher:
         )
         audit = MagicMock()
 
-        with patch("src.main._iter_todo", return_value=iter([])), \
-             patch("src.main.StatusFileWriter") as mock_sw:
+        with patch("modules.main._iter_todo", return_value=iter([])), \
+             patch("modules.main.StatusFileWriter") as mock_sw:
             _run_watcher(client, cfg, audit)
             mock_sw.return_value.write.assert_called()
 
@@ -185,14 +185,14 @@ class TestMain:
 
     def test_main_interactive_exit(self):
         with patch("sys.argv", ["qwen-cli"]), \
-             patch("src.main._interactive_prompt", return_value=None):
+             patch("modules.main._interactive_prompt", return_value=None):
             result = main()
             assert result == 0
 
     def test_main_login_mode(self):
         with patch("sys.argv", ["qwen-cli", "--login"]), \
-             patch("src.main._run_manual_login"), \
-             patch("src.main.setup_observability"):
+             patch("modules.main._run_manual_login"), \
+             patch("modules.main.setup_observability"):
             result = main()
             assert result == 0
 
@@ -200,10 +200,10 @@ class TestMain:
         in_dir = tmp_path / "in"
         in_dir.mkdir()
         with patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless"]), \
-             patch("src.main.setup_observability"), \
-             patch("src.main.browser_session") as mock_bs, \
-             patch("src.main.QwenClient") as mock_client, \
-             patch("src.main._iter_todo", return_value=iter([])):
+             patch("modules.main.setup_observability"), \
+             patch("modules.main.browser_session") as mock_bs, \
+             patch("modules.main.QwenClient") as mock_client, \
+             patch("modules.main._iter_todo", return_value=iter([])):
             mock_bs.return_value.__enter__ = MagicMock(return_value=MagicMock())
             mock_bs.return_value.__exit__ = MagicMock(return_value=False)
             result = main()
@@ -213,24 +213,24 @@ class TestMain:
         in_dir = tmp_path / "in"
         in_dir.mkdir()
         with patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless", "--watch"]), \
-             patch("src.main.setup_observability"), \
-             patch("src.main.browser_session") as mock_bs, \
-             patch("src.main.QwenClient") as mock_client, \
-             patch("src.main._run_watcher"):
+             patch("modules.main.setup_observability"), \
+             patch("modules.main.browser_session") as mock_bs, \
+             patch("modules.main.QwenClient") as mock_client, \
+             patch("modules.main._run_watcher"):
             mock_bs.return_value.__enter__ = MagicMock(return_value=MagicMock())
             mock_bs.return_value.__exit__ = MagicMock(return_value=False)
             result = main()
             assert result == 0
 
     def test_main_auth_error(self, tmp_path):
-        from src.types import AuthRequiredError
+        from modules.shared.src import AuthRequiredError
         in_dir = tmp_path / "in"
         in_dir.mkdir()
         with patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless"]), \
-             patch("src.main.setup_observability"), \
-             patch("src.main.browser_session") as mock_bs, \
-             patch("src.main.QwenClient") as mock_client, \
-             patch("src.main._iter_todo", side_effect=AuthRequiredError("login")):
+             patch("modules.main.setup_observability"), \
+             patch("modules.main.browser_session") as mock_bs, \
+             patch("modules.main.QwenClient") as mock_client, \
+             patch("modules.main._iter_todo", side_effect=AuthRequiredError("login")):
             mock_bs.return_value.__enter__ = MagicMock(return_value=MagicMock())
             mock_bs.return_value.__exit__ = MagicMock(return_value=False)
             result = main()
@@ -240,10 +240,10 @@ class TestMain:
         in_dir = tmp_path / "in"
         in_dir.mkdir()
         with patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless"]), \
-             patch("src.main.setup_observability"), \
-             patch("src.main.browser_session") as mock_bs, \
-             patch("src.main.QwenClient") as mock_client, \
-             patch("src.main._iter_todo", side_effect=RuntimeError("boom")):
+             patch("modules.main.setup_observability"), \
+             patch("modules.main.browser_session") as mock_bs, \
+             patch("modules.main.QwenClient") as mock_client, \
+             patch("modules.main._iter_todo", side_effect=RuntimeError("boom")):
             mock_bs.return_value.__enter__ = MagicMock(return_value=MagicMock())
             mock_bs.return_value.__exit__ = MagicMock(return_value=False)
             result = main()

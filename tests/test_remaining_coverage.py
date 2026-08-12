@@ -9,9 +9,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from playwright.sync_api import Error as PlaywrightError
 
-from src.sender import click_send, count_messages, latest_message_text
-from src.saver import _strip_ui_noise, write_output
-from src.observability import (
+from modules.core.src.capabilities_send_dispatcher import click_send, count_messages, latest_message_text
+from modules.core.src.capabilities_saver import _strip_ui_noise, write_output
+from modules.core.src.capabilities_observability import (
     MetricsCounter,
     StatusFileWriter,
     add_trace_context,
@@ -25,8 +25,8 @@ from src.observability import (
     _configure_tracing,
     _configure_logging,
 )
-from src.file_uploader import _close_dropdown_if_open, upload_attachment
-from src.types import (
+from modules.core.src.capabilities_file_uploader import _close_dropdown_if_open, upload_attachment
+from modules.shared.src import (
     LifecycleEmitter,
     RunContext,
     SaverConfig,
@@ -40,7 +40,7 @@ class TestSenderRemaining:
     def test_click_send_custom_config(self):
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
-        from src.types import SenderConfig
+        from modules.shared.src import SenderConfig
         cfg = SenderConfig(click_timeout_ms=5000, try_enter_key_fallback=False)
         # No selectors match, no enter fallback
         loc = MagicMock()
@@ -118,9 +118,9 @@ class TestObservabilityRemaining:
             _configure_sentry()
 
     def test_configure_tracing_no_otel(self):
-        with patch("src.observability.has_otel", False):
+        with patch("modules.observability.has_otel", False):
             _configure_tracing()
 
     def test_configure_logging_no_structlog(self):
-        with patch("src.observability.has_structlog", False):
+        with patch("modules.observability.has_structlog", False):
             _configure_logging(Path("/tmp/test-log"))

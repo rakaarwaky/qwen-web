@@ -12,8 +12,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from playwright.sync_api import Error as PlaywrightError
 
-from src.main import _interactive_prompt, _run_manual_login, _run_watcher, main
-from src.mcp_server import (
+from modules.root_cli_main_entry import _interactive_prompt, _run_manual_login, _run_watcher, main
+from modules.root_mcp_main_entry import (
     qwen_get_audit_log,
     qwen_process_batch,
     qwen_process_single,
@@ -21,7 +21,7 @@ from src.mcp_server import (
     qwen_setup_session,
     qwen_start_watcher,
 )
-from src.pipeline import (
+from modules.core.src.capabilities_pipeline_compat import (
     _cleanup_empty_dirs,
     _extract_prompt_text,
     _iter_todo_batch,
@@ -31,8 +31,8 @@ from src.pipeline import (
     _should_process_file,
     _strip_input_from_output,
 )
-from src.browser import _assert_on_chat_page, _clean_stale_locks, navigate_to_chat
-from src.observability import (
+from modules.core.src.capabilities_browser_adapter import _assert_on_chat_page, _clean_stale_locks, navigate_to_chat
+from modules.core.src.capabilities_observability import (
     MetricsCounter,
     StatusFileWriter,
     bind_run_context,
@@ -41,8 +41,8 @@ from src.observability import (
     get_tracer,
     start_span,
 )
-from src.file_uploader import validate_file
-from src.types import AppConfig, AuthRequiredError, LifecycleEmitter, RunContext
+from modules.core.src.capabilities_file_uploader import validate_file
+from modules.shared.src import AppConfig, AuthRequiredError, LifecycleEmitter, RunContext
 
 
 # ─── main.py remaining lines ────────────────────────────────────────────────
@@ -55,8 +55,8 @@ class TestMainRemaining:
 
     def test_main_single_instance_lock_error(self):
         with patch("sys.argv", ["qwen-cli", "-i", "/tmp/in", "-o", "/tmp/out", "--headless"]), \
-             patch("src.main.setup_observability"), \
-             patch("src.main.SingleInstanceLock", side_effect=Exception("lock")):
+             patch("modules.main.setup_observability"), \
+             patch("modules.main.SingleInstanceLock", side_effect=Exception("lock")):
             result = main()
             assert result == 1
 
@@ -64,13 +64,13 @@ class TestMainRemaining:
         in_dir = tmp_path / "in"
         in_dir.mkdir()
         with patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless"]), \
-             patch("src.main.setup_observability"), \
-             patch("src.main.browser_session") as mock_bs, \
-             patch("src.main.QwenClient") as mock_client, \
-             patch("src.main._iter_todo", return_value=iter([(tmp_path / "task.md", Path("task.md"))])):
+             patch("modules.main.setup_observability"), \
+             patch("modules.main.browser_session") as mock_bs, \
+             patch("modules.main.QwenClient") as mock_client, \
+             patch("modules.main._iter_todo", return_value=iter([(tmp_path / "task.md", Path("task.md"))])):
             mock_bs.return_value.__enter__ = MagicMock(return_value=MagicMock())
             mock_bs.return_value.__exit__ = MagicMock(return_value=False)
-            with patch("src.main._process_file"):
+            with patch("modules.main._process_file"):
                 result = main()
                 assert result == 0
 
@@ -78,10 +78,10 @@ class TestMainRemaining:
         in_dir = tmp_path / "in"
         in_dir.mkdir()
         with patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless"]), \
-             patch("src.main.setup_observability", side_effect=Exception("obs")), \
-             patch("src.main.browser_session") as mock_bs, \
-             patch("src.main.QwenClient") as mock_client, \
-             patch("src.main._iter_todo", return_value=iter([])):
+             patch("modules.main.setup_observability", side_effect=Exception("obs")), \
+             patch("modules.main.browser_session") as mock_bs, \
+             patch("modules.main.QwenClient") as mock_client, \
+             patch("modules.main._iter_todo", return_value=iter([])):
             mock_bs.return_value.__enter__ = MagicMock(return_value=MagicMock())
             mock_bs.return_value.__exit__ = MagicMock(return_value=False)
             result = main()
@@ -92,11 +92,11 @@ class TestMainRemaining:
 
 class TestMcpServerRemaining:
     def test_qwen_start_watcher(self):
-        with patch("src.mcp_server.browser_session") as mock_bs, \
-             patch("src.mcp_server.QwenClient"), \
-             patch("src.mcp_server._iter_todo", return_value=iter([])), \
-             patch("src.mcp_server.AuditLog"), \
-             patch("src.mcp_server._watcher_sleep"):
+        with patch("modules.mcp_server.browser_session") as mock_bs, \
+             patch("modules.mcp_server.QwenClient"), \
+             patch("modules.mcp_server._iter_todo", return_value=iter([])), \
+             patch("modules.mcp_server.AuditLog"), \
+             patch("modules.mcp_server._watcher_sleep"):
             mock_ctx = MagicMock()
             mock_bs.return_value.__enter__ = MagicMock(return_value=mock_ctx)
             mock_bs.return_value.__exit__ = MagicMock(return_value=False)
@@ -106,7 +106,7 @@ class TestMcpServerRemaining:
             assert "Watcher loop completed" in result
 
     def test_qwen_get_audit_log_file_not_exist(self, tmp_path):
-        with patch("src.mcp_server.DEFAULT_LOG", tmp_path):
+        with patch("modules.mcp_server.DEFAULT_LOG", tmp_path):
             result = qwen_get_audit_log()
             assert "does not exist" in result
 

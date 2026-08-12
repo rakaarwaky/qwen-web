@@ -6,13 +6,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.streamer import (
+from modules.core.src.capabilities_stream_monitor import (
     CHALLENGE_KEYWORDS,
     is_generation_complete,
     validate_response_content,
     wait_for_response,
 )
-from src.types import (
+from modules.shared.src import (
     AuthRequiredError,
     LifecycleEmitter,
     NetworkTimeoutError,
@@ -190,9 +190,9 @@ class TestWaitForResponseEdgeCases:
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
 
-        with patch("src.streamer.count_messages", return_value=1), \
-             patch("src.streamer.latest_message_text", return_value=None), \
-             patch("src.streamer.time") as mock_time:
+        with patch("modules.streamer.count_messages", return_value=1), \
+             patch("modules.streamer.latest_message_text", return_value=None), \
+             patch("modules.streamer.time") as mock_time:
             mock_time.time.side_effect = [0, 0, 0, 9999]
             mock_time.sleep = MagicMock()
 
@@ -215,10 +215,10 @@ class TestWaitForResponseEdgeCases:
         # and the loop never processes any text, hanging until timeout.
         msg_side_effect = [None] + [stable_text] * 20
 
-        with patch("src.streamer.count_messages", return_value=2), \
-             patch("src.streamer.latest_message_text", side_effect=msg_side_effect), \
-             patch("src.streamer.is_generation_complete", return_value=True), \
-             patch("src.streamer.time") as mock_time:
+        with patch("modules.streamer.count_messages", return_value=2), \
+             patch("modules.streamer.latest_message_text", side_effect=msg_side_effect), \
+             patch("modules.streamer.is_generation_complete", return_value=True), \
+             patch("modules.streamer.time") as mock_time:
             mock_time.time.side_effect = [0] + [0.1] * 50
             mock_time.sleep = MagicMock()
 

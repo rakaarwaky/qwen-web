@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.observability import exit_code_for
-from src.types import (
+from modules.core.src.capabilities_observability import exit_code_for
+from modules.shared.src import (
     AuthRequiredError,
     BrowserConfig,
     ErrorCategory,

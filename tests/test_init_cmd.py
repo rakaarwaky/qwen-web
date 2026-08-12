@@ -3,8 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.main import run_init
-from src.types import DEFAULT_LOG, DEFAULT_OUTPUT, DEFAULT_TODO
+from modules.root_cli_main_entry import run_init
+from modules.shared.src import DEFAULT_LOG, DEFAULT_OUTPUT, DEFAULT_TODO
 
 
 class TestQwcInit(unittest.TestCase):

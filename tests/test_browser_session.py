@@ -7,13 +7,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.browser import _clean_stale_locks, _launch_context
-from src.types import AppConfig
+from modules.core.src.capabilities_browser_adapter import _clean_stale_locks, _launch_context
+from modules.shared.src import AppConfig
 
 
 class TestBrowserSession:
     def test_browser_session_headless(self, tmp_path):
-        from src.browser import browser_session
+        from modules.core.src.capabilities_browser_adapter import browser_session
         cfg = AppConfig(
             mode="batch",
             input_path=tmp_path / "in",
@@ -27,7 +27,7 @@ class TestBrowserSession:
         mock_ctx = MagicMock()
         mock_ctx.pages = [MagicMock()]
 
-        with patch("src.browser.sync_playwright") as mock_pw:
+        with patch("modules.browser.sync_playwright") as mock_pw:
             mock_p = MagicMock()
             mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
@@ -38,7 +38,7 @@ class TestBrowserSession:
             mock_ctx.close.assert_called()
 
     def test_browser_session_filters_assets(self, tmp_path):
-        from src.browser import browser_session
+        from modules.core.src.capabilities_browser_adapter import browser_session
         cfg = AppConfig(
             mode="batch",
             input_path=tmp_path / "in",
@@ -52,7 +52,7 @@ class TestBrowserSession:
         mock_ctx = MagicMock()
         mock_ctx.pages = [MagicMock()]
 
-        with patch("src.browser.sync_playwright") as mock_pw:
+        with patch("modules.browser.sync_playwright") as mock_pw:
             mock_p = MagicMock()
             mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
@@ -62,7 +62,7 @@ class TestBrowserSession:
                 mock_ctx.route.assert_called_once()
 
     def test_browser_session_login_mode_no_route(self, tmp_path):
-        from src.browser import browser_session
+        from modules.core.src.capabilities_browser_adapter import browser_session
         cfg = AppConfig(
             mode="login",
             input_path=tmp_path / "in",
@@ -76,7 +76,7 @@ class TestBrowserSession:
         mock_ctx = MagicMock()
         mock_ctx.pages = [MagicMock()]
 
-        with patch("src.browser.sync_playwright") as mock_pw:
+        with patch("modules.browser.sync_playwright") as mock_pw:
             mock_p = MagicMock()
             mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
@@ -86,7 +86,7 @@ class TestBrowserSession:
                 mock_ctx.route.assert_not_called()
 
     def test_browser_session_close_error_handled(self, tmp_path):
-        from src.browser import browser_session
+        from modules.core.src.capabilities_browser_adapter import browser_session
         from playwright.sync_api import Error as PlaywrightError
         cfg = AppConfig(
             mode="batch",
@@ -102,7 +102,7 @@ class TestBrowserSession:
         mock_ctx.pages = [MagicMock()]
         mock_ctx.close.side_effect = PlaywrightError("already closed")
 
-        with patch("src.browser.sync_playwright") as mock_pw:
+        with patch("modules.browser.sync_playwright") as mock_pw:
             mock_p = MagicMock()
             mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)

@@ -3,8 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.pipeline import AuditLog, _iter_todo, _process_file
-from src.types import AppConfig, RunContext
+from modules.core.src.capabilities_pipeline_compat import AuditLog, _iter_todo, _process_file
+from modules.shared.src import AppConfig, RunContext
 
 
 class MockQwenClient:

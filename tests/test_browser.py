@@ -7,14 +7,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.browser import (
+from modules.core.src.capabilities_browser_adapter import (
     SessionCheck,
     _clean_stale_locks,
     check_auth,
     navigate_to_chat,
     reset_page,
 )
-from src.types import AuthRequiredError, LifecycleEmitter
+from modules.shared.src import AuthRequiredError, LifecycleEmitter
 
 
 def test_session_check_is_alive_success():

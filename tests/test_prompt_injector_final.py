@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 import pytest
 from playwright.sync_api import Error as PlaywrightError
 
-from src.prompt_injector import _verify_injection, inject_text
-from src.types import PromptInjectionError
+from modules.core.src.capabilities_prompt_injector import _verify_injection, inject_text
+from modules.shared.src import PromptInjectionError
 
 
 class TestVerifyInjectionExtended:

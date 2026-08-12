@@ -7,7 +7,6 @@ Barrel re-export of all shared types. Layers identified by filename prefix
 from __future__ import annotations
 
 # ─── Contract: aggregates ─────────────────────────────────────
-from .contract_cli_aggregate import ICliAggregate
 from .contract_core_aggregate import ICoreAggregate
 
 # ─── Contract: protocols ──────────────────────────────────────
@@ -22,7 +21,6 @@ from .contract_core_protocol import (
     IStreamProtocol,
     IUploadProtocol,
 )
-from .contract_mcp_aggregate import IMcpAggregate
 
 # ─── Taxonomy: config VOs ─────────────────────────────────────
 from .taxonomy_config_vo import (
@@ -343,8 +341,6 @@ __all__ = [
     "IFileSystemProtocol",
     "ILinuxProtocol",
     "ICoreAggregate",
-    "ICliAggregate",
-    "IMcpAggregate",
     # Utilities
     "extract_prompt_text",
     "get_role_search_directories",

@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.observability import (
+from modules.core.src.capabilities_observability import (
     MetricsCounter,
     StatusFileWriter,
     bind_run_context,
@@ -22,7 +22,7 @@ from src.observability import (
     setup_observability,
     start_span,
 )
-from src.types import AuthRequiredError, StatusRecord
+from modules.shared.src import AuthRequiredError, StatusRecord
 
 
 class TestMetricsCounter:
@@ -143,7 +143,7 @@ class TestExcepthooks:
 
     def test_thread_excepthook(self):
         install_excepthooks()
-        from src.observability import _thread_excepthook
+        from modules.core.src.capabilities_observability import _thread_excepthook
         args = MagicMock()
         args.exc_type = RuntimeError
         args.exc_value = RuntimeError("test")
