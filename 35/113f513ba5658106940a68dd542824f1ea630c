@@ -1,0 +1,58 @@
+modules/shared/src/__init__.py
+  s_c9eb092532d501::t_acee8be3d86859 1
+pyproject.toml
+  s_c9eb092532d501::t_bc6797519f0c8e 24-25
+modules/shared/src/core/taxonomy_core_vo.py
+  s_c9eb092532d501::t_6f92ea864da165 2,4-12,14-18,20-23,25-28,32-64,66-73,75-87
+modules/shared/src/core/taxonomy_core_event.py
+  s_c9eb092532d501::t_dce4cfecae146e 14,16-17
+  s_c9eb092532d501::t_a0a9d71eec96ae 2,5-12,18-23,29-32,34-35,37-43,45-48,50
+modules/shared/src/common/taxonomy_core_constant.py
+  s_c9eb092532d501::t_2137105e4b58e6 2,4-7
+modules/__init__.py
+  s_c9eb092532d501::t_499b327424464a 1-5
+modules/shared/src/common/__init__.py
+  s_c9eb092532d501::t_68f7d08f4228df 1
+modules/mcp/src/__init__.py
+  s_c9eb092532d501::t_48f2ddd54e8fad 1
+modules/cli/src/__init__.py
+  s_c9eb092532d501::t_614a7a76a437bc 1
+modules/shared/src/common/taxonomy_config_vo.py
+  s_c9eb092532d501::t_28267eec994b09 4-11,21-44,66,113-114,124,127-131,133,136-143,192-200,202-210,216-249
+modules/shared/src/core/taxonomy_core_constant.py
+  s_c9eb092532d501::t_a7fd9922ca4c06 2,4-9,11-48,50,57-58,60-78
+modules/shared/src/core/taxonomy_core_entity.py
+  s_c9eb092532d501::t_7a7a46b01bd424 2,4-87
+modules/core/src/__init__.py
+  s_c9eb092532d501::t_ad32edba65ed4c 1
+modules/shared/src/common/taxonomy_domain_error.py
+  s_c9eb092532d501::t_0c7d44896f3920 4-78
+scripts/verify_modules_import.py
+  s_c9eb092532d501::t_49bae11ab44404 3-8
+  s_c9eb092532d501::t_56dd8e37607e26 1-2,9-35
+modules/shared/src/common/taxonomy_core_vo.py
+  s_c9eb092532d501::t_1fe8a7252656e8 10-17
+.gitignore
+  h_16053b17f89e22 40-109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "35113f513ba5658106940a68dd542824f1ea630c",
+  "prompts": {},
+  "humans": {
+    "h_16053b17f89e22": {
+      "author": "rakaarwaky <arwaky90@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_c9eb092532d501": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_00b84a1b7ffeKoV7QCQbGK1aiw",
+        "model": "deepseek-v4-flash-free"
+      },
+      "human_author": "rakaarwaky <arwaky90@gmail.com>"
+    }
+  }
+}
