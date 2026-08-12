@@ -1,6 +1,7 @@
 """Capabilities: in-memory metrics collector (AES403).
 
-Thread-safe counter for tracking request counts, errors, and other numeric metrics.
+Implements IMetricsProtocol — thread-safe counter for tracking request counts,
+errors, and other numeric metrics.
 """
 
 from __future__ import annotations
@@ -9,15 +10,19 @@ import threading
 from datetime import datetime, timezone
 from typing import Any
 
+from modules.shared.src.contract_metrics_protocol import IMetricsProtocol
 
-class MetricsCounter:
+
+class MetricsCounter(IMetricsProtocol):
     """Thread-safe in-memory metrics collector."""
 
     def __init__(self) -> None:
+        # Block 1: Class Definition & Constructor ──────────────
         self._lock = threading.Lock()
         self._counters: dict[str, int] = {}
         self._start_time = datetime.now(tz=timezone.utc)
 
+    # ─── Block 2: Public Contract (IMetricsProtocol ONLY) ──
     def increment(self, key: str, amount: int = 1) -> None:
         with self._lock:
             self._counters[key] = self._counters.get(key, 0) + amount
@@ -29,6 +34,10 @@ class MetricsCounter:
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
             return dict(self._counters)
+
+    # ─── Block 3: Dunder Methods, Factories & Helpers ─────
+    def __repr__(self) -> str:
+        return "MetricsCounter()"
 
 
 # Module-level convenience

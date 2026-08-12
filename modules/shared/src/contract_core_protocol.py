@@ -185,8 +185,8 @@ class IObservabilityProtocol(ABC):
         """Install global exception handlers."""
 
 
-class IFileSystemProtocol(ABC):
-    """Audit log persistence and workspace-init contract (I/O over the filesystem)."""
+class IAuditProtocol(ABC):
+    """Audit log persistence contract (structured JSONL logging over filesystem)."""
 
     @abstractmethod
     def log_step(
@@ -212,10 +212,6 @@ class IFileSystemProtocol(ABC):
         err: str = "",
     ) -> None:
         """Log a completed file processing result."""
-
-    @abstractmethod
-    def init_workspace(self, target_dir: Path) -> None:
-        """Initialize workspace dirs, SKILL.md, symlinks, and .gitignore."""
 
     @abstractmethod
     def get_audit_log(self, limit: MessageCount = MessageCount(20)) -> ResponseText:
@@ -250,6 +246,6 @@ __all__ = [
     "IBrowserProtocol",
     "ISaverProtocol",
     "IObservabilityProtocol",
-    "IFileSystemProtocol",
+    "IAuditProtocol",
     "ILinuxProtocol",
 ]

@@ -61,8 +61,7 @@ except ImportError:
 
 
 # Re-export from dedicated modules (single-concern files)
-from modules.core.src.capabilities_metrics_collector import MetricsCounter  # noqa: F401
-from modules.core.src.capabilities_status_writer import StatusFileWriter  # noqa: F401
+from modules.core.src.capabilities_status_writer import StatusFileWriter
 
 
 def get_logger(name: str = "qwen-web") -> Any:
@@ -294,4 +293,4 @@ def _configure_logging(log_path: Path) -> None:
 
 
 # Re-export from dedicated module
-from modules.core.src.capabilities_status_writer import get_status_writer  # noqa: F401
+from modules.core.src.capabilities_status_writer import get_status_writer
