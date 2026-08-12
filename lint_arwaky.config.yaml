@@ -409,25 +409,25 @@ architecture:
       exceptions: []
 
     AES501:
-      enabled: false
+      enabled: true
       scope: ["taxonomy"]
 
     AES502:
-      enabled: false
+      enabled: true
       scope: ["contract"]
 
     AES503:
-      enabled: false
+      enabled: true
       scope: ["capabilities"]
 
     AES504:
-      enabled: false
+      enabled: true
       scope: ["utility"]
 
     AES505:
-      enabled: false
+      enabled: true
       scope: ["agent"]
 
     AES506:
-      enabled: false
+      enabled: true
       scope: ["surface"]
