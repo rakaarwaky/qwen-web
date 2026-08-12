@@ -1,109 +1,112 @@
-plan/
+# ==========================================
+# 1. OS & Temporary Files
+# ==========================================
+.DS_Store
+Thumbs.db
+*.swp
+*~
+*.bak
 
-# Python
+# ==========================================
+# 2. IDE & Editors
+# ==========================================
+.idea/
+.vscode/
+.obsidian/
+.zed/settings.json
+
+# ==========================================
+# 3. Python & Environments
+# ==========================================
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
 .eggs/
 *.egg-info/
 dist/
 build/
+
+# Virtual Environments
 .venv/
 venv/
-.env
-.env.*
-
-# Coverage
-.coverage
-htmlcov/
-
-# Playwright / browser artifacts
-qwen_session/
-tests/artifacts/
-tests/fixtures/qwen_session
-# IDE
-.idea/
-.vscode/
-*.swp
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Project-specific
-log/
-*.log
-plan/
-.qwen-web/
-.codegraph/
-
-
-#Ignore vscode AI rules
-.github/instructions/codacy.instructions.md
-__pycache__/
-*.py[cod]
-*$py.class
-.venv/
 env/
-venv/
+
+# Linters & Caches
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
 .pyre/
-*.bak
-.DS_Store
-node_modules/
-dist/
-build/
-.env
-*.egg-info/
-.coverage
-.coverage.*
 .auto_lint_history
-report.json
-coverage.json
-.graph-it/
-scratch/
-output/
-.jj
-target/
 .dsc_cache/
+
+# ==========================================
+# 4. Node.js & Build Artifacts
+# ==========================================
+node_modules/
 .node_modules/
-.obsidian/
-log/
-.mimocode
-mimocode.jsonc
-.qwen
-.cate
-.worktree/
+target/
+
+# ==========================================
+# 5. Secrets & Credentials
+# ==========================================
+.env
+.env.*
 credentials.json
 serviceAccountKey
-.zed/settings.json
-.archive/
-.agents/finding
-.kilo/
-.agents/reports
-.agents/plans
-.agents/graph-loop/
-.worktrees
+
+# ==========================================
+# 6. Testing & Coverage
+# ==========================================
+.coverage
+.coverage.*
+htmlcov/
+coverage.json
+report.json
+
+# Playwright / Browser Artifacts
+qwen_session/
+tests/artifacts/
+tests/fixtures/qwen_session
+
+# ==========================================
+# 7. AI, Agents & Code Analysis Tools
+# ==========================================
+.qwen
 .qwen-web/
-.commandcode
+.cate
 .codacy
-.codegraph
+.codegraph/
+.commandcode
+.graph-it/
+.kilo/
+.mimocode
+mimocode.jsonc
+
+# AI Agents & Rules
+.agents/finding
+.agents/graph-loop/
+.agents/plans
+.agents/reports
 .github/instructions/codacy.instructions.md
 
-# local editor config
-.vscode/
+# ==========================================
+# 8. Project-Specific, Logs & Outputs
+# ==========================================
+plan/
+log/
+*.log
+scratch/
+output/
+.archive/
+.worktree/
+.worktrees
+.jj
 
-# repowise local cache and generated artifacts (.repowise is a local cache,
-# not a source of truth; only the PR-bot config and health rules are committed)
-.repowise/*
-!.repowise/bot.yaml
-!.repowise/health-rules.json
-# repowise API keys (local)
-.repowise/.env
-# repowise cache can appear in any scanned subdirectory (CLI generates per-dir)
+# ==========================================
+# 9. Repowise Local Cache & Artifacts
+# (.repowise is a local cache, not source of truth.
+# Only PR-bot config and health rules are committed)
+# ==========================================
 **/.repowise/*
 !**/.repowise/bot.yaml
 !**/.repowise/health-rules.json

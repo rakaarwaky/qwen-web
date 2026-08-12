@@ -97,9 +97,7 @@ class SendDispatcher(ISendProtocol):
         self.click_timeout_ms = click_timeout_ms
         self.try_enter_key_fallback = try_enter_key_fallback
 
-# Block 2: Public Contract
-
-
+    # ─── Block 2: Public Contract (ISendProtocol ONLY) ──
     def click_send(
         self,
         page: Page,

@@ -32,9 +32,7 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
         """Initialize WorkspaceProvisioner."""
         pass
 
-# Block 2: Public Contract
-
-
+    # ─── Block 2: Public Contract (IWorkspaceProtocol ONLY) ──
     def init_workspace(self, target_dir: Path) -> None:
         """Initialize workspace with .agents/skills/qwen-web/SKILL.md, .qwen-web symlinks, and .gitignore."""
         target_path = target_dir.resolve()

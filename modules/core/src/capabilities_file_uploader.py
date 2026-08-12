@@ -82,9 +82,7 @@ class FileUploader(IUploadProtocol):
             "[class*='fileitem']",
         )
 
-# Block 2: Public Contract
-
-
+    # ─── Block 2: Public Contract (IUploadProtocol ONLY) ──
     def upload_attachment(
         self,
         page: Page,

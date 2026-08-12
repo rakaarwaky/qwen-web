@@ -45,9 +45,7 @@ class Saver(ISaverProtocol):
         self.generate_sidecar = generate_sidecar
         self.atomic_write = atomic_write
 
-# Block 2: Public Contract
-
-
+    # ─── Block 2: Public Contract (ISaverProtocol ONLY) ──
     def write_output(
         self,
         path: Path,

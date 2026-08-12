@@ -55,9 +55,7 @@ class StreamMonitor(IStreamProtocol):
         self.stability_checks = stability_checks
         self.min_text_length = min_text_length
 
-# Block 2: Public Contract
-
-
+    # ─── Block 2: Public Contract (IStreamProtocol ONLY) ──
     def is_generation_complete(self, page: Page) -> bool:
         """Check if Qwen AI is done generating."""
         try:
