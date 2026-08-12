@@ -1,0 +1,436 @@
+# ═══════════════════════════════════════════════════════════════════════
+# lint_arwaky.config.yaml — Unified configuration for qwen-web-arwaky
+# AES architecture rules for the modules/ layered structure.
+# ═══════════════════════════════════════════════════════════════════════
+
+thresholds:
+  score: 100.0
+  complexity: 15
+
+adapters:
+  - name: "ruff"
+    weight: 1.0
+  - name: "mypy"
+    weight: 1.0
+  - name: "bandit"
+    weight: 1.0
+  - name: "architecture"
+    weight: 3.0
+
+ignored_rules: []
+
+ignored_paths:
+  - "src"
+  - "tests"
+  - "scripts"
+  - "deploy"
+  - "log"
+  - "docs"
+  - "fixtures"
+  - "artifacts"
+  - "**/__pycache__/**"
+  - "**/*.pyc"
+
+architecture:
+  enabled: true
+  rules:
+    AES101:
+      enabled: true
+      scope:
+        [
+          "taxonomy",
+          "utility",
+          "contract",
+          "capabilities",
+          "agent",
+          "surface",
+          "root",
+        ]
+      exceptions: []
+
+    AES102:
+      enabled: true
+      scope:
+        [
+          "taxonomy",
+          "utility",
+          "contract",
+          "capabilities",
+          "agent",
+          "surface",
+          "root",
+        ]
+      exceptions: []
+      layers:
+        taxonomy:
+          suffix:
+            - strict: ["vo", "entity", "error", "event", "constant"]
+        contract:
+          suffix:
+            - strict: ["protocol", "aggregate"]
+        utility:
+          suffix:
+            - flexible: []
+            - forbidden:
+                [
+                  "vo",
+                  "entity",
+                  "error",
+                  "event",
+                  "constant",
+                  "protocol",
+                  "aggregate",
+                ]
+        capabilities:
+          suffix:
+            - flexible: []
+            - forbidden:
+                [
+                  "vo",
+                  "entity",
+                  "error",
+                  "event",
+                  "constant",
+                  "constants",
+                  "protocol",
+                  "aggregate",
+                  "utility",
+                ]
+        agent:
+          suffix:
+            - strict: ["orchestrator"]
+        surface:
+          suffix:
+            - strict:
+                [
+                  "command",
+                  "controller",
+                  "page",
+                  "view",
+                  "component",
+                  "router",
+                  "layout",
+                  "hook",
+                  "store",
+                  "action",
+                  "screen",
+                ]
+        root:
+          suffix:
+            - strict: ["entry", "container"]
+
+    AES201:
+      enabled: true
+      scope:
+        [
+          "taxonomy",
+          "utility",
+          "contract",
+          "capabilities",
+          "agent",
+          "surface",
+          "root",
+        ]
+      exceptions: []
+      conditions:
+        - scope: "taxonomy(vo)"
+          allowed: ["taxonomy"]
+          mandatory: null
+          forbidden:
+            ["agent", "surface", "contract", "utility", "capabilities", "root"]
+
+        - scope: "taxonomy(entity,error,event)"
+          allowed: ["taxonomy"]
+          mandatory: ["taxonomy(vo|constant)"]
+          forbidden:
+            ["agent", "surface", "contract", "utility", "capabilities", "root"]
+
+        - scope: "taxonomy(constant)"
+          allowed: ["taxonomy"]
+          mandatory: null
+          forbidden:
+            ["agent", "surface", "contract", "utility", "capabilities", "root"]
+
+        - scope: "utility"
+          allowed: ["taxonomy"]
+          mandatory: null
+          forbidden: ["agent", "surface", "contract", "capabilities", "root", "utility"]
+
+        - scope: "contract(protocol)"
+          allowed: ["taxonomy", "contract"]
+          mandatory: ["taxonomy"]
+          forbidden:
+            ["agent", "surface", "capabilities", "contract(aggregate)", "root"]
+
+        - scope: "contract(aggregate)"
+          allowed: ["taxonomy", "contract"]
+          mandatory: ["taxonomy"]
+          forbidden: ["agent", "surface", "capabilities", "root"]
+          forbidden_inheritance: ["contract(protocol)"]
+
+        - scope: "capabilities"
+          allowed: ["taxonomy", "contract", "utility"]
+          mandatory: ["taxonomy", "contract(protocol)"]
+          forbidden: ["surface", "agent", "capabilities", "root"]
+
+        - scope: "agent(orchestrator)"
+          allowed:
+            ["taxonomy", "contract(aggregate)", "contract(protocol)", "utility"]
+          mandatory: ["taxonomy", "contract(aggregate)"]
+          forbidden: ["surface", "capabilities", "root"]
+
+        - scope: "root"
+          allowed: ["taxonomy", "contract", "capabilities", "agent", "surface"]
+          mandatory: []
+          forbidden: []
+
+        - scope: "surface(command|controller|page)"
+          allowed: ["taxonomy", "contract(aggregate)", "utility"]
+          mandatory: null
+          forbidden: ["agent", "capabilities", "contract(protocol)", "root"]
+
+        - scope: "surface(hook|store|action|screen|router)"
+          allowed: ["taxonomy"]
+          mandatory: null
+          forbidden:
+            [
+              "agent",
+              "capabilities",
+              "contract(protocol)",
+              "surface(command|controller|page|entry)",
+              "root",
+            ]
+
+        - scope: "surface(component|view|layout)"
+          allowed: ["taxonomy"]
+          mandatory: null
+          forbidden:
+            [
+              "agent",
+              "contract",
+              "capabilities",
+              "surface(command|controller|page|entry|hook|store|action|screen|router)",
+              "root",
+            ]
+
+    AES202:
+      enabled: true
+      scope:
+        [
+          "taxonomy",
+          "utility",
+          "contract",
+          "capabilities",
+          "agent",
+          "surface",
+          "root",
+        ]
+      exceptions: []
+      conditions:
+        - scope: "taxonomy(vo)"
+          allowed: ["taxonomy"]
+          mandatory: null
+          forbidden:
+            ["agent", "surface", "contract", "utility", "capabilities", "root"]
+
+        - scope: "taxonomy(entity,error,event)"
+          allowed: ["taxonomy"]
+          mandatory: ["taxonomy(vo|constant)"]
+          forbidden:
+            ["agent", "surface", "contract", "utility", "capabilities", "root"]
+
+        - scope: "taxonomy(constant)"
+          allowed: ["taxonomy"]
+          mandatory: null
+          forbidden:
+            ["agent", "surface", "contract", "utility", "capabilities", "root"]
+
+        - scope: "utility"
+          allowed: ["taxonomy"]
+          mandatory: null
+          forbidden: ["agent", "surface", "contract", "capabilities", "root", "utility"]
+
+        - scope: "contract(protocol)"
+          allowed: ["taxonomy", "contract"]
+          mandatory: ["taxonomy"]
+          forbidden:
+            ["agent", "surface", "capabilities", "contract(aggregate)", "root"]
+
+        - scope: "contract(aggregate)"
+          allowed: ["taxonomy", "contract"]
+          mandatory: ["taxonomy"]
+          forbidden: ["agent", "surface", "capabilities", "root"]
+
+        - scope: "capabilities"
+          allowed: ["taxonomy", "contract", "utility"]
+          mandatory: ["taxonomy", "contract(protocol)"]
+          forbidden: ["surface", "agent", "capabilities", "root"]
+
+        - scope: "agent(orchestrator)"
+          allowed:
+            ["taxonomy", "contract(aggregate)", "contract(protocol)", "utility"]
+          mandatory: ["taxonomy", "contract(aggregate)"]
+          forbidden: ["surface", "capabilities", "root"]
+
+        - scope: "root"
+          allowed: ["taxonomy", "contract", "capabilities", "agent", "surface"]
+          mandatory: []
+          forbidden: []
+
+        - scope: "surface(command|controller|page)"
+          allowed: ["taxonomy", "contract(aggregate)", "utility"]
+          mandatory: null
+          forbidden: ["agent", "capabilities", "contract(protocol)", "root"]
+
+        - scope: "surface(hook|store|action|screen|router)"
+          allowed: ["taxonomy"]
+          mandatory: null
+          forbidden:
+            [
+              "agent",
+              "capabilities",
+              "contract(protocol)",
+              "surface(command|controller|page|entry)",
+              "root",
+            ]
+
+        - scope: "surface(component|view|layout)"
+          allowed: ["taxonomy"]
+          mandatory: null
+          forbidden:
+            [
+              "agent",
+              "contract",
+              "capabilities",
+              "surface(command|controller|page|entry|hook|store|action|screen|router)",
+              "root",
+            ]
+
+    AES203:
+      enabled: true
+      scope:
+        ["taxonomy", "contract", "utility", "capabilities", "agent", "surface"]
+      exceptions: []
+
+    AES204:
+      enabled: true
+      scope:
+        ["taxonomy", "contract", "utility", "capabilities", "agent", "surface"]
+      exceptions: []
+
+    AES301:
+      enabled: true
+      scope:
+        ["taxonomy", "contract", "utility", "capabilities", "agent", "surface"]
+      max_lines: 1000
+      exceptions: []
+
+    AES302:
+      enabled: true
+      scope:
+        ["taxonomy", "contract", "utility", "capabilities", "agent", "surface"]
+      min_lines: 5
+      exceptions: []
+
+    AES303:
+      enabled: true
+      scope:
+        ["taxonomy", "contract", "utility", "capabilities", "agent", "surface"]
+      exceptions: []
+
+    AES304:
+      enabled: true
+      scope:
+        [
+          "taxonomy",
+          "utility",
+          "contract",
+          "capabilities",
+          "agent",
+          "surface",
+          "root",
+        ]
+      forbidden_bypass:
+        [
+          "#[allow(",
+          "unwrap",
+          "expect",
+          "panic",
+          "todo",
+          "unimplemented",
+          "unreachable",
+          "noqa",
+          "type: ignore",
+          "eslint-disable",
+          "// @ts-ignore",
+          "// @ts-expect-error",
+          "// @ts-nocheck",
+        ]
+      exceptions: []
+
+    AES305:
+      enabled: true
+      scope:
+        ["taxonomy", "contract", "utility", "capabilities", "agent", "surface"]
+      exceptions: []
+
+    AES401:
+      enabled: true
+      scope: ["taxonomy(constant)", "taxonomy(entity,error,event)", "taxonomy(vo)"]
+
+    AES402:
+      enabled: true
+      scope: ["contract(aggregate)", "contract(protocol)"]
+      exceptions: []
+
+    AES403:
+      enabled: true
+      scope: ["capabilities"]
+      max_functions: 30
+      max_impl: 5
+      exceptions: []
+
+    AES404:
+      enabled: true
+      scope: ["utility"]
+      exceptions: []
+
+    AES405:
+      enabled: true
+      scope: ["agent(orchestrator)"]
+      max_lines: 1000
+      exceptions: []
+
+    AES406:
+      enabled: true
+      scope:
+        [
+          "surface(command|controller|page|router|entry)",
+          "surface(hook|store|action|screen)",
+          "surface(component|view|layout)",
+        ]
+      exceptions: []
+
+    AES501:
+      enabled: false
+      scope: ["taxonomy"]
+
+    AES502:
+      enabled: false
+      scope: ["contract"]
+
+    AES503:
+      enabled: false
+      scope: ["capabilities"]
+
+    AES504:
+      enabled: false
+      scope: ["utility"]
+
+    AES505:
+      enabled: false
+      scope: ["agent"]
+
+    AES506:
+      enabled: false
+      scope: ["surface"]

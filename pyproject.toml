@@ -21,18 +21,22 @@ dependencies = [
 ]
 
 [project.scripts]
-qwen-web-cli = "src.main:main"
-qwc = "src.main:main"
+qwen-web-cli = "modules.root_cli_main_entry:main"
+qwc = "modules.root_cli_main_entry:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["src*"]
+include = ["modules*"]
+package-dir = {"modules" = "modules"}
 
 [tool.ruff]
+line-length = 120
 target-version = "py310"
 
 [tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "ARG", "RUF100"]
 ignore = [
+    "E501",     # long lines acceptable for DOM selector strings
     "BLE001",   # blind exception - intentional for browser automation safety
     "S110",     # try-except-pass - intentional for cleanup/guard patterns
     "S112",     # try-except-continue - intentional for element scanning loops

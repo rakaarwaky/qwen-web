@@ -37,3 +37,73 @@ log/
 plan/
 .qwen-web/
 .codegraph/
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyre/
+*.bak
+.DS_Store
+node_modules/
+dist/
+build/
+.env
+*.egg-info/
+.coverage
+.coverage.*
+.auto_lint_history
+report.json
+coverage.json
+.graph-it/
+scratch/
+output/
+.jj
+target/
+.dsc_cache/
+.node_modules/
+.obsidian/
+log/
+.mimocode
+mimocode.jsonc
+.qwen
+.cate
+.worktree/
+credentials.json
+serviceAccountKey
+.zed/settings.json
+.archive/
+.agents/finding
+.kilo/
+.agents/reports
+.agents/plans
+.agents/graph-loop/
+.worktrees
+.qwen-web/
+.commandcode
+.codacy
+.codegraph
+.github/instructions/codacy.instructions.md
+
+# local editor config
+.vscode/
+
+# repowise local cache and generated artifacts (.repowise is a local cache,
+# not a source of truth; only the PR-bot config and health rules are committed)
+.repowise/*
+!.repowise/bot.yaml
+!.repowise/health-rules.json
+# repowise API keys (local)
+.repowise/.env
+# repowise cache can appear in any scanned subdirectory (CLI generates per-dir)
+**/.repowise/*
+!**/.repowise/bot.yaml
+!**/.repowise/health-rules.json
