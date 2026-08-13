@@ -86,8 +86,11 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install lint-arwaky-cli
-        run: pip install lint-arwaky-cli
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install lint-arwaky-cli (Rust/Cargo binary)
+        run: cargo install lint_arwaky --locked
 
       - name: Run AES architecture check
         run: lint-arwaky-cli check .
