@@ -137,15 +137,14 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if cfg.mode == "login":
-        _run_manual_login(cfg)
-        return 0
+        return _run_manual_login(cfg)
 
     args_with_cfg = args
     if args_with_cfg is not None:
         args_with_cfg._cfg = cfg
     result = surface_cli_run_command.handle(args_with_cfg, container.core)
     if not result.get("success"):
-        print(result.get("error", "Unknown error"), file=sys.stderr)
+        print(result.get("error") or "Unknown error", file=sys.stderr)
         return 1
     return 0
 
@@ -156,10 +155,17 @@ def _interactive_prompt() -> AppConfig | None:
     return surface_cli_interactive_controller.InteractiveController(container.core).interactive_prompt()
 
 
-def _run_manual_login(cfg: AppConfig) -> None:
-    """Launch visible browser for interactive login (TTY flow in the surface)."""
+def _run_manual_login(cfg: AppConfig) -> int:
+    """Launch visible browser for interactive login (TTY flow in the surface).
+
+    Returns 0 on success, 1 on failure (error printed to stderr).
+    """
     container = _default_container()
-    surface_cli_login_command.handle(None, container.core, cfg)
+    result = surface_cli_login_command.handle(None, container.core, cfg)
+    if not result.get("success"):
+        print(result.get("error") or "Unknown error", file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

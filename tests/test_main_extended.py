@@ -147,8 +147,9 @@ class TestRunManualLogin:
             )
             from modules.root_cli_main_entry import _run_manual_login
 
-            _run_manual_login(cfg)
+            result = _run_manual_login(cfg)
             mock_handle.assert_called_once()
+            assert result == 1
 
     def test_login_opens_browser(self):
         with (
@@ -169,8 +170,30 @@ class TestRunManualLogin:
             )
             from modules.root_cli_main_entry import _run_manual_login
 
-            _run_manual_login(cfg)
+            result = _run_manual_login(cfg)
             mock_handle.assert_called_once()
+            assert result == 0
+
+    def test_failure_prints_error_to_stderr(self, capsys):
+        with patch(
+            "modules.cli.src.surface_cli_login_command.handle",
+            return_value={"success": False, "error": "Manual login requires an interactive terminal (TTY)"},
+        ):
+            cfg = AppConfig(
+                mode="login",
+                input_path=Path("/tmp/in"),
+                output_path=Path("/tmp/out"),
+                done_path=Path("/tmp/done"),
+                failed_path=Path("/tmp/failed"),
+                proc_path=Path("/tmp/proc"),
+                session_path=Path("/tmp/session"),
+            )
+            from modules.root_cli_main_entry import _run_manual_login
+
+            result = _run_manual_login(cfg)
+            captured = capsys.readouterr()
+            assert "Manual login requires an interactive terminal (TTY)" in captured.err
+            assert result == 1
 
 
 class TestMain:
@@ -191,9 +214,20 @@ class TestMain:
             assert result == 0
 
     def test_main_login_mode(self):
-        with patch("sys.argv", ["qwen-cli", "--login"]), patch("modules.root_cli_main_entry._run_manual_login"):
+        with (
+            patch("sys.argv", ["qwen-cli", "--login"]),
+            patch("modules.root_cli_main_entry._run_manual_login", return_value=0),
+        ):
             result = main()
             assert result == 0
+
+    def test_main_login_mode_failure(self):
+        with (
+            patch("sys.argv", ["qwen-cli", "--login"]),
+            patch("modules.root_cli_main_entry._run_manual_login", return_value=1),
+        ):
+            result = main()
+            assert result == 1
 
     def test_main_batch_mode(self, tmp_path):
         in_dir = tmp_path / "in"
