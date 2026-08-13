@@ -198,9 +198,9 @@ class TestRunInit:
         with (
             patch("modules.shared.src.taxonomy_core_constant.BASE_DIR", tmp_path),
             patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"),
-            patch("modules.shared.src.taxonomy_core_constant.DEFAULT_TODO", tmp_path / "xdg" / "input"),
-            patch("modules.shared.src.taxonomy_core_constant.DEFAULT_OUTPUT", tmp_path / "xdg" / "output"),
-            patch("modules.shared.src.taxonomy_core_constant.DEFAULT_LOG", tmp_path / "xdg" / "log"),
+            patch("modules.core.src.capabilities_workspace_provisioner.DEFAULT_TODO", tmp_path / "xdg" / "input"),
+            patch("modules.core.src.capabilities_workspace_provisioner.DEFAULT_OUTPUT", tmp_path / "xdg" / "output"),
+            patch("modules.core.src.capabilities_workspace_provisioner.DEFAULT_LOG", tmp_path / "xdg" / "log"),
         ):
             SharedContainer().core.init_workspace(tmp_path)
             dot_qwen = tmp_path / ".qwen-web"
