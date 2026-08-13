@@ -58,6 +58,8 @@ def first_visible_locator(
 ) -> Locator | None:
     """Return the first visible Locator matching any of the given selectors.
 
+    Uses try_selectors internally to avoid duplicated selector-loop logic.
+
     Parameters
     ----------
     page : Page
@@ -73,14 +75,8 @@ def first_visible_locator(
         First visible locator, or None if none match.
 
     """
-    for selector in selectors:
-        try:
-            loc = page.locator(selector).first
-            if loc.is_visible(timeout=timeout_ms):
-                return loc
-        except Exception:
-            continue
-    return None
+    results = try_selectors(page, selectors, lambda loc: loc, timeout_ms)
+    return results[0] if results else None
 
 
 def click_first_visible_enabled(
