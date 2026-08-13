@@ -135,9 +135,7 @@ def _make_async_tool(spec: dict[str, Any]) -> Callable[..., Any]:
 
 
 # Generate async tool functions from specification table
-GENERATED_TOOLS: dict[str, Callable[..., Any]] = {
-    _spec["name"]: _make_async_tool(_spec) for _spec in MCP_TOOL_SPECS
-}
+GENERATED_TOOLS: dict[str, Callable[..., Any]] = {_spec["name"]: _make_async_tool(_spec) for _spec in MCP_TOOL_SPECS}
 
 
 def qwen_get_audit_log(limit: int = 20) -> str:
