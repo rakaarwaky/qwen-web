@@ -1,0 +1,73 @@
+tests/test_regression_lock.py
+  s_67a72cb292889e::t_9fa70d839f3ac1 453,462,472,481,486
+  s_67a72cb292889e::t_01c6b772438cf4 27
+tests/test_prompt_injector_extended.py
+  s_67a72cb292889e::t_2381d2ef59c023 11,27,32,37,42,47,68,89,98,111,121,130,141,152-153,158,163,188
+modules/core/src/capabilities_output_saver.py
+  s_67a72cb292889e::t_e7d312f1176ca7 83-87
+tests/test_coverage_push.py
+  s_67a72cb292889e::t_07e81e0ad8cc8a 7,13-14,16,20-21,27,34-37,44-46,51,73,90,95,102-103,109,118-119,121,123-124,129,164-166,169-170,172,174-194,196,198-199,214-216,218,247
+tests/test_saver_extended.py
+  s_67a72cb292889e::t_d9a058ab4962d0 55,60-61
+  s_67a72cb292889e::t_9e98075a0717c1 1,11
+  s_67a72cb292889e::t_024172048c7501 69,87,103,118
+  s_67a72cb292889e::t_26871e5ada237b 10
+tests/test_observability.py
+  s_67a72cb292889e::t_28ed5cfaea3654 7-9,50,70
+tests/test_types.py
+  s_67a72cb292889e::t_f6290c6b147356 17
+  s_67a72cb292889e::t_6c566f2e8eea51 61
+  s_67a72cb292889e::t_3bd42ca5721238 69
+  s_67a72cb292889e::t_2911e7be72e31d 7
+  s_67a72cb292889e::t_e30e62ebd06cb6 35-38
+tests/test_pipeline_extended.py
+  s_67a72cb292889e::t_8c3f7b576efad5 275,279,286
+  s_67a72cb292889e::t_1b0415f5465d7c 13-18
+tests/test_saver.py
+  s_67a72cb292889e::t_101875a8dcd654 18,47,71
+  s_67a72cb292889e::t_b521e3d9c0a345 10
+tests/test_final_coverage.py
+  s_67a72cb292889e::t_c57dc75b042763 6
+  s_67a72cb292889e::t_e0e4f110551e81 12-18,25-27,29-33,62,84,170-171,173-174,177-194,196-198,222,244,246
+tests/test_observability_extended.py
+  s_67a72cb292889e::t_cee9c27ec219ad 103,107,111,116,122-123
+  s_67a72cb292889e::t_310eefe0973fe0 12,14,22-23,77,128-129,132-133,136-137,158,163-164
+  s_67a72cb292889e::t_15fde54f3b6020 15-19
+tests/test_streamer.py
+  s_67a72cb292889e::t_cc97cf21e1733e 186
+  s_67a72cb292889e::t_8e1c4304c9de26 217-219,224
+  s_67a72cb292889e::t_d04d73f982535c 10
+  s_67a72cb292889e::t_f3984f8c4fae04 112
+  s_67a72cb292889e::t_3de41b6f4539a2 126
+  s_67a72cb292889e::t_d3d4af1e63798c 148
+  s_67a72cb292889e::t_75b5cd8683b471 170,175
+  s_67a72cb292889e::t_e0e10bd4669134 192-193,198
+tests/test_pipeline_fixtures.py
+  s_67a72cb292889e::t_1edd0aae88b81b 17
+  s_67a72cb292889e::t_2f98b5c2d3a0d2 131
+tests/test_prompt_injector.py
+  s_67a72cb292889e::t_fface3a8b4065c 11,23,32,38,47,56,58-59
+tests/test_prompt_injector_final.py
+  s_67a72cb292889e::t_73e423b815ae64 10,18,23,28,39,48,59-60,68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "cb0e2bd3b57cb49c5c802ae5e4f730d686194fff",
+  "prompts": {},
+  "humans": {
+    "h_16053b17f89e22": {
+      "author": "rakaarwaky <arwaky90@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_67a72cb292889e": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0067953c7ffe9bXUfxn6X71KNJ",
+        "model": "deepseek-v4-flash-free"
+      },
+      "human_author": "rakaarwaky <arwaky90@gmail.com>"
+    }
+  }
+}
