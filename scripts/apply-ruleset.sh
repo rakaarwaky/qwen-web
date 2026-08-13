@@ -14,9 +14,13 @@ cd "${PROJECT_ROOT}"
 RULESET_FILE="${1:-.github/rulesets/ruleset-main.json}"
 API_VERSION="2022-11-28"
 
-if [[ ! -f "${RULESET_FILE}" ]]; then
-  echo "ERROR: ruleset file not found: ${RULESET_FILE}" >&2
+fail() {
+  echo "ERROR: $*" >&2
   exit 1
+}
+
+if [[ ! -f "${RULESET_FILE}" ]]; then
+  fail "ruleset file not found: ${RULESET_FILE}"
 fi
 
 if [[ -z "${REPO:-}" ]]; then
@@ -24,38 +28,63 @@ if [[ -z "${REPO:-}" ]]; then
   REMOTE_URL="${REMOTE_URL%.git}"
   REPO="$(printf '%s' "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]##')"
 fi
-if [[ -z "${REPO}" ]]; then
-  echo "ERROR: cannot determine repo. Set REPO=owner/repo or add an origin remote." >&2
-  exit 1
+if [[ -z "${REPO}" || ! "${REPO}" =~ ^[^/[:space:]]+/[^/[:space:]]+$ ]]; then
+  fail "cannot determine repo. Set REPO=owner/repo or add a GitHub origin remote."
 fi
 
-RULESET_NAME="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["name"])' "${RULESET_FILE}")"
+if ! command -v python3 >/dev/null 2>&1; then
+  fail "python3 is required to validate the ruleset JSON."
+fi
+
+if ! RULESET_NAME="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["name"])' "${RULESET_FILE}" 2>/dev/null)"; then
+  fail "invalid ruleset JSON or missing name: ${RULESET_FILE}"
+fi
 
 echo "Repo:        ${REPO}"
 echo "Ruleset:     ${RULESET_NAME}"
 echo "Source file: ${RULESET_FILE}"
+echo "JSON OK"
 
-python3 -c 'import json,sys; json.load(open(sys.argv[1])); print("JSON OK")' "${RULESET_FILE}"
+if ! command -v gh >/dev/null 2>&1; then
+  fail "gh CLI is required. Install it and authenticate with a repository Admin account."
+fi
+if ! gh auth status >/dev/null 2>&1; then
+  fail "gh is not authenticated. Run 'gh auth login' with a repository Admin account."
+fi
 
-EXISTING_ID="$(gh api "repos/${REPO}/rulesets?per_page=100" \
-  --jq ".[] | select(.name==\"${RULESET_NAME}\") | .id" | head -n1)"
+if ! RULESETS_JSON="$(gh api "repos/${REPO}/rulesets?per_page=100" \
+  -H "Accept: application/vnd.github+json" \
+  -H "X-GitHub-Api-Version: ${API_VERSION}")"; then
+  fail "cannot inspect repository rulesets. Verify the repo name and repository Admin role."
+fi
+
+EXISTING_ID="$(python3 -c '
+import json, sys
+name = sys.argv[1]
+rulesets = json.load(sys.stdin)
+print(next((item["id"] for item in rulesets if item.get("name") == name), ""))
+' "${RULESET_NAME}" <<<"${RULESETS_JSON}")"
 
 if [[ -n "${EXISTING_ID}" ]]; then
   echo "Updating existing ruleset (id=${EXISTING_ID})..."
-  gh api "repos/${REPO}/rulesets/${EXISTING_ID}" \
+  if ! gh api "repos/${REPO}/rulesets/${EXISTING_ID}" \
     -X PUT \
     -H "Accept: application/vnd.github+json" \
     -H "X-GitHub-Api-Version: ${API_VERSION}" \
     -H "Content-Type: application/json" \
-    --input "${RULESET_FILE}"
+    --input "${RULESET_FILE}"; then
+    fail "failed to update ruleset. Repository Admin access is required."
+  fi
 else
   echo "Creating new ruleset..."
-  gh api "repos/${REPO}/rulesets" \
+  if ! gh api "repos/${REPO}/rulesets" \
     -X POST \
     -H "Accept: application/vnd.github+json" \
     -H "X-GitHub-Api-Version: ${API_VERSION}" \
     -H "Content-Type: application/json" \
-    --input "${RULESET_FILE}"
+    --input "${RULESET_FILE}"; then
+    fail "failed to create ruleset. Repository Admin access is required."
+  fi
 fi
 
 echo ""

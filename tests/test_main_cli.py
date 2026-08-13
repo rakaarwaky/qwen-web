@@ -164,8 +164,8 @@ class TestBuildConfig:
 class TestRunInit:
     def test_creates_skill_md(self, tmp_path):
         with (
-            patch("modules.shared.src.taxonomy_core_constant.BASE_DIR", tmp_path),
-            patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"),
+            patch("modules.core.src.capabilities_workspace_provisioner.BASE_DIR", tmp_path),
+            patch("modules.core.src.capabilities_workspace_provisioner.XDG_SKILL_MD", tmp_path / "nonexistent"),
         ):
             skill_dir = tmp_path / ".agents" / "skills" / "qwen-web"
             assert not skill_dir.exists()
@@ -174,8 +174,8 @@ class TestRunInit:
 
     def test_creates_gitignore(self, tmp_path):
         with (
-            patch("modules.shared.src.taxonomy_core_constant.BASE_DIR", tmp_path),
-            patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"),
+            patch("modules.core.src.capabilities_workspace_provisioner.BASE_DIR", tmp_path),
+            patch("modules.core.src.capabilities_workspace_provisioner.XDG_SKILL_MD", tmp_path / "nonexistent"),
         ):
             SharedContainer().core.init_workspace(tmp_path)
             gitignore = tmp_path / ".gitignore"
@@ -186,8 +186,8 @@ class TestRunInit:
         gitignore = tmp_path / ".gitignore"
         gitignore.write_text("*.pyc\n")
         with (
-            patch("modules.shared.src.taxonomy_core_constant.BASE_DIR", tmp_path),
-            patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"),
+            patch("modules.core.src.capabilities_workspace_provisioner.BASE_DIR", tmp_path),
+            patch("modules.core.src.capabilities_workspace_provisioner.XDG_SKILL_MD", tmp_path / "nonexistent"),
         ):
             SharedContainer().core.init_workspace(tmp_path)
             content = gitignore.read_text()
@@ -201,11 +201,11 @@ class TestRunInit:
         for d in (xdg_input, xdg_output, xdg_log):
             d.mkdir(parents=True, exist_ok=True)
         with (
-            patch("modules.shared.src.taxonomy_core_constant.BASE_DIR", tmp_path),
-            patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"),
-            patch("modules.shared.src.taxonomy_core_constant.DEFAULT_TODO", xdg_input),
-            patch("modules.shared.src.taxonomy_core_constant.DEFAULT_OUTPUT", xdg_output),
-            patch("modules.shared.src.taxonomy_core_constant.DEFAULT_LOG", xdg_log),
+            patch("modules.core.src.capabilities_workspace_provisioner.BASE_DIR", tmp_path),
+            patch("modules.core.src.capabilities_workspace_provisioner.XDG_SKILL_MD", tmp_path / "nonexistent"),
+            patch("modules.core.src.capabilities_workspace_provisioner.DEFAULT_TODO", xdg_input),
+            patch("modules.core.src.capabilities_workspace_provisioner.DEFAULT_OUTPUT", xdg_output),
+            patch("modules.core.src.capabilities_workspace_provisioner.DEFAULT_LOG", xdg_log),
         ):
             SharedContainer().core.init_workspace(tmp_path)
             dot_qwen = tmp_path / ".qwen-web"

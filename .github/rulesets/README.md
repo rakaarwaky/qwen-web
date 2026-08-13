@@ -21,7 +21,7 @@ Applying a ruleset requires an authenticated `gh` CLI session and the repository
 # Require a PR, one approval, and successful CI gates.
 bash scripts/apply-ruleset.sh
 
-# Enforce the same gates and also require the branch to be up to date before merging.
+# Enforce the same gates, require the branch to be up to date, and require all review threads to be resolved.
 bash scripts/apply-ruleset.sh .github/rulesets/ruleset-main-strict.json
 ```
 
