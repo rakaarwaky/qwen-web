@@ -235,25 +235,23 @@ class CoreOrchestrator(ICoreAggregate):
 
     def send_prompt(self, prompt: str, timeout_sec: int = 120, headless: bool = True) -> ResponseText:
         """Send a direct text prompt and return the AI response."""
-        with tempfile.NamedTemporaryFile(mode="w+", suffix=".txt", delete=False, encoding="utf-8") as tmp:
-            tmp.write(prompt)
-            tmp_path = Path(tmp.name)
+        tmp_path = Path(tempfile.NamedTemporaryFile(mode="w+", suffix=".txt", delete=False, encoding="utf-8").name)
 
-        cfg = build_app_config(
-            mode="single",
-            input_path=tmp_path,
-            output_path=DEFAULT_OUTPUT,
-            headless=headless,
-        )
-
-        try:
+        def _fn() -> ResponseText:
+            cfg = build_app_config(
+                mode="single",
+                input_path=tmp_path,
+                output_path=DEFAULT_OUTPUT,
+                headless=headless,
+            )
             with self._browser.browser_session(cfg):
                 return ResponseText(self._send_file(tmp_path, timeout_sec, None, None, cfg))
-        except Exception as e:
-            return to_error_response(e)
-        finally:
+
+        def _cleanup() -> None:
             if tmp_path.exists():
                 tmp_path.unlink()
+
+        return self._execute_with_cleanup(_fn, _cleanup)
 
     def setup_session(self) -> ResponseText:
         """Launch a visible browser for manual login / session setup."""
@@ -338,6 +336,23 @@ class CoreOrchestrator(ICoreAggregate):
             return fn()
         except Exception as exc:
             return to_error_response(exc)
+
+    def _execute_with_cleanup(
+        self,
+        fn: Callable[[], ResponseText],
+        cleanup: Callable[[], None] | None = None,
+    ) -> ResponseText:
+        """Wrap a callable with try/except → error response envelope and optional cleanup.
+
+        Eliminates duplicated try/except/finally across public aggregate methods.
+        """
+        try:
+            return fn()
+        except Exception as exc:
+            return to_error_response(exc)
+        finally:
+            if cleanup is not None:
+                cleanup()
 
     def _send_file(
         self,
