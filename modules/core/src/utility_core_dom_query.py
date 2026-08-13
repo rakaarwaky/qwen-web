@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from playwright.sync_api import Error, Locator, Page
+from playwright.sync_api import Error, Page
 
 from modules.shared.src.taxonomy_core_constant import (
     COMBINED_MESSAGE_SELECTOR,
