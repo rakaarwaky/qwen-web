@@ -64,7 +64,8 @@ class TestMainRemainingPaths:
                 proc_path=tmp_path / "proc",
                 session_path=tmp_path / "session",
             )
-            _run_manual_login(cfg)
+            result = _run_manual_login(cfg)
+            assert result == 0
 
 
 # ─── mcp_server.py remaining async functions ────────────────────────────────
