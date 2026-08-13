@@ -25,7 +25,6 @@ from tenacity import RetryCallState, Retrying, stop_after_attempt, wait_fixed
 from modules.core.src.utility_core_async_loop import isolate_thread_event_loop
 from modules.core.src.utility_core_browser_binary import find_chrome_binary
 from modules.core.src.utility_core_dom_helper import is_any_visible
-from modules.core.src.utility_core_io_writer import ensure_dir
 from modules.shared.src.contract_core_protocol import IBrowserProtocol
 from modules.shared.src.taxonomy_core_constant import (
     AUTH_KEYWORDS,
@@ -69,7 +68,7 @@ class SessionCheck:
         except Error as exc:
             log.warning("session_check_failed", reason="playwright_error", error=str(exc))
             return False
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — defensive fallback beyond playwright Error
             log.warning("session_check_failed", reason="unexpected_error", error=str(exc))
             return False
 
@@ -201,7 +200,7 @@ class BrowserAdapter(IBrowserProtocol):
     @contextmanager
     def browser_session(self, cfg: Any) -> Iterator[BrowserContext]:
         """Manage persistent Chromium browser context with session caching and asset optimization."""
-        ensure_dir(cfg.session_path)
+        cfg.session_path.mkdir(parents=True, exist_ok=True)
         try:
             os.chmod(cfg.session_path, 0o644)
         except OSError as e:
@@ -224,7 +223,10 @@ class BrowserAdapter(IBrowserProtocol):
             "user_data_dir": str(cfg.session_path),
             "headless": cfg.headless,
             "permissions": ["clipboard-read", "clipboard-write"],
-            "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "user_agent": (
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/131.0.0.0 Safari/537.36"
+            ),
             "args": chrome_args,
             "viewport": {"width": 1280, "height": 800},
         }

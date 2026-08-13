@@ -34,7 +34,7 @@ class TestRegisterTool:
             @_register_tool
             async def my_func():
                 return "ok"
-            result = asyncio.get_event_loop().run_until_complete(my_func())
+            result = asyncio.run(my_func())
             assert result == "ok"
 
     def test_returns_fn_when_mcp_none(self):
@@ -42,7 +42,7 @@ class TestRegisterTool:
             @_register_tool
             async def my_func():
                 return "ok"
-            result = asyncio.get_event_loop().run_until_complete(my_func())
+            result = asyncio.run(my_func())
             assert result == "ok"
 
 

@@ -282,6 +282,8 @@ def test_file_moves_to_done_on_success(tmp_path: Path, mocker: Any) -> None:
     out_path, done_path, fail_path, proc_file = resolve_role_paths(rel_path, cfg)
 
     proc_file.parent.mkdir(parents=True, exist_ok=True)
+    done_path.parent.mkdir(parents=True, exist_ok=True)
+    fail_path.parent.mkdir(parents=True, exist_ok=True)
     proc_file.write_text("Test prompt content")
 
     mock_saver = mocker.MagicMock()
@@ -325,6 +327,8 @@ def test_file_moves_to_failed_on_failure(tmp_path: Path, mocker: Any) -> None:
     out_path, done_path, fail_path, proc_file = resolve_role_paths(rel_path, cfg)
 
     proc_file.parent.mkdir(parents=True, exist_ok=True)
+    done_path.parent.mkdir(parents=True, exist_ok=True)
+    fail_path.parent.mkdir(parents=True, exist_ok=True)
     proc_file.write_text("Test prompt content")
 
     mock_audit = mocker.MagicMock()

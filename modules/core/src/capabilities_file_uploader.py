@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from playwright.sync_api import Page
+from playwright.sync_api import Error, Page
 
 from modules.core.src.utility_core_dom_helper import first_visible_locator
 from modules.core.src.utility_core_logger_factory import get_logger
@@ -103,7 +103,7 @@ class FileUploader(IUploadProtocol):
             except TimeoutError as e:
                 log.warning("Timeout during upload attempt %d/%d: %s", attempt, max_attempts, e)
                 self._close_dropdown_if_open(page)
-            except Exception as e:
+            except Error as e:
                 log.warning("Unexpected error during upload attempt %d/%d: %s", attempt, max_attempts, e)
                 self._close_dropdown_if_open(page)
 
@@ -126,7 +126,7 @@ class FileUploader(IUploadProtocol):
         """Send Escape key to close orphaned dropdown menus."""
         try:
             page.keyboard.press("Escape")
-        except Exception as e:
+        except Error as e:
             log.debug("Cleanup keypress failed (page may be closed or unnavigated): %s", e)
 
     def _try_upload_attempt(self, page: Page, filepath: Path) -> bool:

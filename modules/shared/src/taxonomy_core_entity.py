@@ -135,7 +135,7 @@ class LifecycleEmitter:
         for cb in self._callbacks.get(key, []):
             try:
                 cb(evt)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — third-party callbacks may raise anything; must not break emission
                 self._log(EventMessage(f"lifecycle_callback_error event={key} error={exc}"))
         return evt
 

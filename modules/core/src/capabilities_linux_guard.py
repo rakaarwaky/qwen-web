@@ -15,6 +15,8 @@ import types
 from pathlib import Path
 from typing import Any
 
+from typing_extensions import Self
+
 from modules.shared.src.contract_core_protocol import ILinuxProtocol
 from modules.shared.src.taxonomy_domain_error import SingleInstanceError
 
@@ -28,7 +30,7 @@ class SingleInstanceLock:
         self._lock_path = lock_path or Path(tempfile.gettempdir()) / "qwen-cli.lock"
         self._lock_fd: Any = None
 
-    def __enter__(self) -> SingleInstanceLock:
+    def __enter__(self) -> Self:
         """Acquire the file lock; raise SingleInstanceError if already held."""
         self._lock_fd = open(self._lock_path, "w")
         try:

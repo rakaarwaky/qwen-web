@@ -193,8 +193,10 @@ def click_send(page: Page, _config: object = None) -> None:
     """
     clicked = click_first_visible_enabled(page, SEND_SELECTORS, timeout_ms=3000)
     if not clicked:
-        with suppress(Error):
+        try:
             page.keyboard.press("Enter")
+        except Exception:
+            pass
 
 
 def is_any_visible(page: Page, selector: str) -> bool:

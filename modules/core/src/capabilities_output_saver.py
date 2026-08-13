@@ -98,7 +98,7 @@ class Saver(ISaverProtocol):
                     "output_chars": output_chars,
                 }
                 write_json_file(sidecar_path, meta_dict, atomic=bool(atomic_write))
-            except Exception as e:
+            except (OSError, TypeError, ValueError) as e:
                 log.error("Failed to write metadata sidecar for %s: %s", path, e)
 
         log.info("output_file_written: %s", path.name)

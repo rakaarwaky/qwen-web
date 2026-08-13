@@ -142,7 +142,7 @@ class PromptInjector(IInjectionProtocol):
                 "(el) => el.value !== undefined ? el.value : (el.innerText || el.textContent || '')"
             )
             return bool(val and len(str(val).strip()) > 0)
-        except Exception:
+        except Error:
             return False
 
     def __repr__(self) -> str:

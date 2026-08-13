@@ -63,7 +63,7 @@ class StatusFileWriter(IStatusProtocol):
             return result if isinstance(result, dict) else None
         except FileNotFoundError:
             return None
-        except Exception:
+        except (OSError, ValueError):
             return None
 
     # ─── Block 3: Dunder Methods, Factories & Helpers ─────

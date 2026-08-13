@@ -50,7 +50,7 @@ python3 -m playwright install chromium
 ## Quick Start
 
 ```bash
-python3 src/main.py
+qwen-web-cli
 ```
 
 ### Interactive Menu
@@ -75,31 +75,31 @@ Run headless? [y/N, default=N]:
 ### Workspace Initialization
 
 ```bash
-python3 src/main.py init
+qwen-web-cli init
 ```
 
 ### File Watcher Mode
 
 ```bash
-python3 src/main.py --watch --headless
+qwen-web-cli --watch --headless
 ```
 
 ### Batch Folder Mode
 
 ```bash
-python3 src/main.py -i input -o output --headless
+qwen-web-cli -i input -o output --headless
 ```
 
 ### Single File Mode
 
 ```bash
-python3 src/main.py -i my_prompt.md -o output/result.md --headless
+qwen-web-cli -i my_prompt.md -o output/result.md --headless
 ```
 
 ### Manual Login
 
 ```bash
-python3 src/main.py --login
+qwen-web-cli --login
 ```
 
 > First run requires `--login` or interactive mode for manual authentication. Subsequent runs can use `--headless`.
@@ -107,7 +107,7 @@ python3 src/main.py --login
 ### MCP Server Mode
 
 ```bash
-python3 src/main.py --mcp
+qwen-web-mcp
 ```
 
 ---

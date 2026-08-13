@@ -13,14 +13,17 @@ from pathlib import Path
 def move_file(source: Path, destination: Path) -> None:
     """Move a file from source to destination.
 
+    Creates the parent directory if needed.
+
     Parameters
     ----------
     source : Path
         Source file path.
     destination : Path
-        Destination file path (parent must exist).
+        Destination file path.
 
     """
+    destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(source), str(destination))
 
 

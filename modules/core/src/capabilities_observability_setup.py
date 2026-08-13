@@ -36,7 +36,7 @@ class ObservabilitySetup(IObservabilityProtocol):
     def setup_observability(self, log_path: Path | None = None) -> None:
         """Bootstrap observability stack."""
         target_path = log_path or self._log_path
-        ensure_dir(target_path)
+        target_path.mkdir(parents=True, exist_ok=True)
         self._configure_sentry()
         self._configure_tracing()
         self._configure_logging(target_path)
@@ -63,7 +63,9 @@ class ObservabilitySetup(IObservabilityProtocol):
         if otel is None:
             return
         try:
-            resource = otel["Resource"].create({"service.name": os.getenv("OTEL_SERVICE_NAME", ServiceName("qwen-web"))})
+            resource = otel["Resource"].create(
+                {"service.name": os.getenv("OTEL_SERVICE_NAME", ServiceName("qwen-web"))}
+            )
             provider = otel["TracerProvider"](resource=resource)
             endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
             try:

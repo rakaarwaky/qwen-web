@@ -172,12 +172,13 @@ class ErrorCategory:
         exc_type = type(exc).__name__.lower()
         msg = str(exc).lower()
 
-        if isinstance(exc, (OSError, IOError)):
-            return "file_io"
-
+        # Check keyword rules first (before generic OSError catches TimeoutError)
         for keywords, category in _ERROR_CATEGORY_RULES:
             if any(k in msg or k in exc_type for k in keywords):
                 return category
+
+        if isinstance(exc, (OSError, IOError)):
+            return "file_io"
 
         return "other"
 

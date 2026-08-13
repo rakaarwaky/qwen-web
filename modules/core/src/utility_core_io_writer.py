@@ -70,6 +70,7 @@ def append_jsonl(target: Path, record: Mapping[str, Any]) -> None:
         Dict-like object to serialize as one JSON line.
 
     """
+    target.parent.mkdir(parents=True, exist_ok=True)
     with open(target, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 

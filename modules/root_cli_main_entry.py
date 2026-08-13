@@ -36,7 +36,11 @@ def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(prog="qwen-cli", description="Automate chat.qwen.ai")
     p.add_argument("command", nargs="?", default=None, help="Subcommand (e.g. init)")
     p.add_argument("target_dir", nargs="?", default=None, help="Target directory for init subcommand")
-    p.add_argument("--init", action="store_true", help="Initialize workspace with .agents/skills and .qwen-web symlinks")
+    p.add_argument(
+        "--init",
+        action="store_true",
+        help="Initialize workspace with .agents/skills and .qwen-web symlinks",
+    )
     p.add_argument("-i", "--input", default=str(DEFAULT_TODO))
     p.add_argument("-o", "--output", default=str(DEFAULT_OUTPUT))
     p.add_argument("-d", "--done-dir", default=str(DEFAULT_DONE))
@@ -127,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
     # Observability first
     try:
         container = _default_container()
-    except Exception:
+    except Exception:  # noqa: BLE001 — boundary: container init failure → user-facing error + exit 1
         print("[ERROR] Failed to initialize qwen-web. Run 'qwen-web-cli init' first.", file=sys.stderr)
         return 1
 
