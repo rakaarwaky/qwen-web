@@ -1,0 +1,73 @@
+# GitHub Labeler configuration (actions/labeler v7 format).
+# Labels are applied to PRs based on which files they change.
+
+# Python
+python:
+  - changed-files:
+      - any-glob-to-any-file: modules/**/*.py
+      - any-glob-to-any-file: tests/**/*.py
+
+# Module areas
+cli:
+  - changed-files:
+      - any-glob-to-any-file: modules/cli/**
+
+mcp:
+  - changed-files:
+      - any-glob-to-any-file: modules/mcp/**
+      - any-glob-to-any-file: .mcp.json
+      - any-glob-to-any-file: mcp.local.json
+
+core:
+  - changed-files:
+      - any-glob-to-any-file: modules/core/**
+      - any-glob-to-any-file: modules/shared/**
+
+# CI / Workflows
+ci:
+  - changed-files:
+      - any-glob-to-any-file: .github/workflows/**
+      - any-glob-to-any-file: .github/labeler.yml
+      - any-glob-to-any-file: .github/dependabot.yml
+
+# Documentation
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: "**/*.md"
+
+# Configuration
+configuration:
+  - changed-files:
+      - any-glob-to-any-file: "*.yaml"
+      - any-glob-to-any-file: "*.yml"
+      - any-glob-to-any-file: "*.toml"
+      - any-glob-to-any-file: "*.ini"
+      - any-glob-to-any-file: "*.json"
+      - any-glob-to-any-file: .codacy.yaml
+      - any-glob-to-any-file: lint_arwaky.config.yaml
+      - any-glob-to-any-file: pyrightconfig.json
+
+# Dependencies
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file: pyproject.toml
+      - any-glob-to-any-file: uv.lock
+      - any-glob-to-any-file: requirements.txt
+      - any-glob-to-any-file: modules/**/pyproject.toml
+
+# Tests
+tests:
+  - changed-files:
+      - any-glob-to-any-file: tests/**
+
+# Fixtures (test inputs / recorded artifacts)
+fixtures:
+  - changed-files:
+      - any-glob-to-any-file: tests/fixtures/**
+      - any-glob-to-any-file: tests/artifacts/**
+
+# Deployment / ops
+deployment:
+  - changed-files:
+      - any-glob-to-any-file: deploy/**
+      - any-glob-to-any-file: scripts/**

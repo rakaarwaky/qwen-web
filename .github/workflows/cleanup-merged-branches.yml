@@ -1,0 +1,82 @@
+name: Cleanup merged branches
+
+# Automatically deletes branches after their PR is merged, keeping the
+# remote branch list tidy.
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    name: Delete merged branch
+    runs-on: ubuntu-latest
+    # Only delete branches from this repository — never a fork. A fork PR's
+    # head.ref names a branch in the fork, which must not be deleted here
+    # (and could otherwise collide with a same-named branch in this repo).
+    if: >
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Delete remote branch
+        run: |
+          # The branch name arrives via an environment variable (safely
+          # escaped by the runner) instead of inline interpolation.
+          BRANCH="$BRANCH_NAME"
+          MERGED_SHA="$MERGED_SHA"
+
+          # Never delete protected branches
+          if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "develop" ]; then
+            echo "Skipping protected branch: ${BRANCH}"
+            exit 0
+          fi
+
+          # Validate the branch name with git's own ref rules — this rejects
+          # anything that could be shell-injected or is not a legal ref name,
+          # while still allowing legal names (e.g. feature@v2). The --allow-onelevel
+          # default is fine here; release/v* style names pass as-is.
+          if ! git check-ref-format --branch "$BRANCH"; then
+            echo "Skipping invalid git ref name: ${BRANCH}"
+            exit 0
+          fi
+
+          # Only delete the exact branch state that was merged. If the branch
+          # was force-pushed or recreated after the merge while this job was
+          # queued, deleting would remove unmerged work — bail out instead.
+          CURRENT_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/${BRANCH}" \
+            --jq '.object.sha' 2>/dev/null || true)
+          if [ -z "$CURRENT_SHA" ]; then
+            echo "Branch ${BRANCH} already deleted."
+            exit 0
+          fi
+          if [ "$CURRENT_SHA" != "$MERGED_SHA" ]; then
+            echo "Branch ${BRANCH} moved since merge (${CURRENT_SHA:0:8} != ${MERGED_SHA:0:8}) — skipping."
+            exit 0
+          fi
+
+          # Delete the branch. GitHub's Delete a reference endpoint returns
+          # 204 on success, 422 when the ref no longer exists, and 409/other
+          # on conflicts. Treat 422 as "already deleted" (idempotent); any
+          # other failure fails the job so it is not silently swallowed.
+          RESPONSE=$(gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/${BRANCH}" \
+            --include --silent 2>&1 || true)
+          STATUS=$(printf '%s' "$RESPONSE" | head -1 | grep -oE '[0-9]{3}' | head -1)
+          if [ -z "$STATUS" ]; then
+            echo "Failed to delete branch ${BRANCH}: no HTTP status returned."
+            exit 1
+          fi
+          if [ "$STATUS" = "204" ]; then
+            echo "Deleted branch ${BRANCH}."
+          elif [ "$STATUS" = "422" ]; then
+            echo "Branch ${BRANCH} already deleted."
+          else
+            echo "Failed to delete branch ${BRANCH} (HTTP ${STATUS})."
+            exit 1
+          fi
+        env:
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+          MERGED_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
