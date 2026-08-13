@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from modules.core.src.utility_core_io_writer import append_jsonl, ensure_dir
+from modules.core.src.utility_core_io_writer import append_jsonl, ensure_directory
 from modules.shared.src.contract_core_protocol import IAuditProtocol
 from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
@@ -20,13 +20,14 @@ from modules.shared.src.utility_core_text import utc_now_iso
 
 # Block 1: Class Definition & Constructor
 
+
 class AuditRepository(IAuditProtocol):
     """Structured JSONL audit log with error traces and step-level context."""
 
     def __init__(self, log_dir: Path | None = None, workspace: IWorkspaceProtocol | None = None) -> None:
         """Initialize audit log files in the target directory."""
         target_dir = log_dir or DEFAULT_LOG
-        ensure_dir(target_dir)
+        ensure_directory(target_dir)
         self._audit = target_dir / "audit_history.jsonl"
         self._errors = target_dir / "errors.log"
         self._errors_jsonl = target_dir / "errors.jsonl"
@@ -112,8 +113,7 @@ class AuditRepository(IAuditProtocol):
         records: list[Any] = [json.loads(line) for line in recent if line.strip()]
         return ResponseText(json.dumps(records, indent=2))
 
-# Block 3: Dunder Methods, Factories & Helpers
-
+    # Block 3: Dunder Methods, Factories & Helpers
 
     def __repr__(self) -> str:
         """Return string representation of AuditRepository."""

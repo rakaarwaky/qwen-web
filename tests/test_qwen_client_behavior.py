@@ -6,6 +6,7 @@ adaptive polling, and the send_file pipeline against regressions.
 
 Run: python3 -m pytest tests/test_qwen_client_behavior.py -v
 """
+
 from __future__ import annotations
 
 from pathlib import Path

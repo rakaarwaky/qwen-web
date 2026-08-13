@@ -150,7 +150,9 @@ def restore_fixture_state(fixture_root: Path, force: bool = False) -> None:
         try:
             last_run = float(ts_file.read_text(encoding="utf-8").strip())
             if now - last_run < _MIN_RUN_INTERVAL_SECS:
-                print(f"\n\U0001f504  [FIXTURE RESET] Light restore (last run {now - last_run:.1f}s ago — output preserved)")
+                print(
+                    f"\n\U0001f504  [FIXTURE RESET] Light restore (last run {now - last_run:.1f}s ago — output preserved)"
+                )
                 _restore_todo_files(fixture_root)
                 return
         except ValueError:

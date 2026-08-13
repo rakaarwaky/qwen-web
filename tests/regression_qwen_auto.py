@@ -1,4 +1,5 @@
 """Regression test suite for qwen_auto.py to prevent recurrence of fixed issues."""
+
 import tempfile
 import unittest
 from pathlib import Path
@@ -26,9 +27,7 @@ class TestQwenAutoRegression(unittest.TestCase):
             role_dir.mkdir(parents=True, exist_ok=True)
 
             prompt_file = base / "role-architect" / "PROMPT.md"
-            prompt_file.write_text(
-                "---\nname: role-architect\n---\n# Architect Custom Role Prompt Instructions"
-            )
+            prompt_file.write_text("---\nname: role-architect\n---\n# Architect Custom Role Prompt Instructions")
 
             file_path = role_dir / "gateway_v1.7.0.md"
             file_path.write_text("Document body content")
@@ -80,10 +79,19 @@ class TestQwenAutoRegression(unittest.TestCase):
 
     def test_regression_core_orchestrator_di(self) -> None:
         """Verifies CoreOrchestrator accepts DI'd capabilities."""
-        mock_caps = {k: MagicMock() for k in (
-            "browser", "injector", "sender", "streamer",
-            "uploader", "saver", "audit", "observability",
-        )}
+        mock_caps = {
+            k: MagicMock()
+            for k in (
+                "browser",
+                "injector",
+                "sender",
+                "streamer",
+                "uploader",
+                "saver",
+                "audit",
+                "observability",
+            )
+        }
         orch = CoreOrchestrator(**mock_caps)  # type: ignore[arg-type]
         self.assertIsNotNone(orch)
         self.assertIs(orch._browser, mock_caps["browser"])

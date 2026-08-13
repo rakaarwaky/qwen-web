@@ -108,6 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     # MCP server mode
     if args and getattr(args, "mcp", False):
         from modules.root_mcp_main_entry import run_mcp_server
+
         run_mcp_server()
         return 0
 

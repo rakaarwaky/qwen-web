@@ -45,6 +45,7 @@ class TestClickSendExtended:
         emitter = MagicMock(spec=LifecycleEmitter)
 
         call_count = [0]
+
         def locator_factory(sel):
             call_count[0] += 1
             loc = MagicMock()

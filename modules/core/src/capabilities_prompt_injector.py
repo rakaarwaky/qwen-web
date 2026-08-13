@@ -46,12 +46,8 @@ class PromptInjector(IInjectionProtocol):
             if el:
                 return el
         except (TimeoutError, Error) as e:
-            raise ElementNotFoundError(
-                f"Timed out waiting for input selector '{primary}' on chat.qwen.ai: {e}"
-            ) from e
-        raise ElementNotFoundError(
-            "Could not locate input element on chat.qwen.ai. UI may have changed."
-        )
+            raise ElementNotFoundError(f"Timed out waiting for input selector '{primary}' on chat.qwen.ai: {e}") from e
+        raise ElementNotFoundError("Could not locate input element on chat.qwen.ai. UI may have changed.")
 
     def inject_text(self, page: Page, text: str, config: InjectorConfig | None = None) -> None:
         """Inject text into input via multi-tier strategy with automatic validation."""
@@ -132,15 +128,12 @@ class PromptInjector(IInjectionProtocol):
 
         raise PromptInjectionError("All strategies executed but input verification failed.")
 
-# Block 3: Dunder Methods, Factories & Helpers
-
+    # Block 3: Dunder Methods, Factories & Helpers
 
     def _verify_injection(self, el: Any) -> bool:
         """Verify that text is non-empty inside the input element."""
         try:
-            val = el.evaluate(
-                "(el) => el.value !== undefined ? el.value : (el.innerText || el.textContent || '')"
-            )
+            val = el.evaluate("(el) => el.value !== undefined ? el.value : (el.innerText || el.textContent || '')")
             return bool(val and len(str(val).strip()) > 0)
         except Exception:
             return False

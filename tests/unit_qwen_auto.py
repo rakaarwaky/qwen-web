@@ -1,4 +1,5 @@
 """Unit test suite for qwen_auto.py testing utility functions and core logic."""
+
 import json
 import tempfile
 import unittest
@@ -143,7 +144,6 @@ class TestQwenAutoUnit(unittest.TestCase):
         self.assertEqual(received[0].name, "EVENT_THINKING_STARTED")
         self.assertIsNotNone(received[0].event_id)
         self.assertEqual(received[0].details, {"mode": "realtime"})
-
 
 
 if __name__ == "__main__":

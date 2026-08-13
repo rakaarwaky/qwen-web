@@ -63,6 +63,7 @@ class TestSdNotify:
 
     def test_with_real_socket(self, tmp_path):
         import socket
+
         socket_path = str(tmp_path / "notify.sock")
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         sock.bind(socket_path)

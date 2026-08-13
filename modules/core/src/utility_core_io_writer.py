@@ -114,3 +114,25 @@ def ensure_dir(path: Path) -> Path:
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def ensure_directory(path: Path) -> Path:
+    """Create the directory *path* itself (and any missing ancestors).
+
+    Unlike :func:`ensure_dir`, which only guarantees the *parent* of a
+    file path, this guarantees the directory named by *path* exists.
+    Used for XDG data/state/log directories and other directory targets.
+
+    Parameters
+    ----------
+    path : Path
+        Directory path that must exist.
+
+    Returns
+    -------
+    Path
+        The original *path* (unchanged).
+
+    """
+    path.mkdir(parents=True, exist_ok=True)
+    return path

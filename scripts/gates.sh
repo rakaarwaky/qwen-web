@@ -60,10 +60,11 @@ fi
 
 # Gate 3: Bandit security scan (source code only, exclude tests) — always runs (not optional)
 info "Gate 3/5 — Bandit security scan..."
-if uv run bandit modules/root_cli_main_entry.py modules/root_mcp_main_entry.py -r modules/ -s B110,B112 2>&1 | grep -q "No issues"; then
+if uv run bandit -r modules/ -s B110,B112 -q >/tmp/gates_bandit.log 2>&1; then
     ok "Bandit clean"
 else
     warn "Bandit found potential issues"
+    tail -15 /tmp/gates_bandit.log
     FAILURES=$((FAILURES + 1))
 fi
 

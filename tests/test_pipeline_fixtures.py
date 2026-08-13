@@ -4,6 +4,7 @@ Every test calls a REAL production function from pipeline.py / config.py
 directly against the tests/fixtures/ environment. No mocks, no invented logic.
 The fixture environment is a 1:1 mirror of the production runtime structure.
 """
+
 from __future__ import annotations
 
 import json
@@ -30,6 +31,7 @@ ROLES = ["role-architect", "role-business-analyst", "role-tech-lead"]
 
 # ─── _should_process_file ───────────────────────────────────────────────────
 
+
 def test_should_process_file_valid(cfg: AppConfig) -> None:
     """_should_process_file must return True for task_001.md in role todo folders."""
     task_file = cfg.input_path / "role-architect" / "todo" / "task_001.md"
@@ -51,6 +53,7 @@ def test_should_process_file_skips_done_failed_processing(cfg: AppConfig) -> Non
 
 # ─── resolve_role_paths ──────────────────────────────────────────────────────
 
+
 @pytest.mark.parametrize("role", ROLES)
 def test_resolve_role_paths_structure(cfg: AppConfig, role: str) -> None:
     """resolve_role_paths must return paths rooted under the correct role folder.
@@ -61,9 +64,7 @@ def test_resolve_role_paths_structure(cfg: AppConfig, role: str) -> None:
     out_path, done_path, fail_path, proc_file = resolve_role_paths(rel_path, cfg)
 
     # output goes flat under cfg.output_path
-    assert out_path == cfg.output_path / "task_001.md", (
-        f"out_path {out_path} must be flat under output/"
-    )
+    assert out_path == cfg.output_path / "task_001.md", f"out_path {out_path} must be flat under output/"
     # done/failed stay inside input/<role>/, .processing inside cfg.proc_path
     assert role in str(done_path), f"done_path {done_path} must contain role folder"
     assert role in str(fail_path), f"fail_path {fail_path} must contain role folder"
@@ -106,6 +107,7 @@ def test_resolve_role_paths_single_mode_no_duplicate(tmp_path: Path) -> None:
 
 # ─── load_role_prompt ────────────────────────────────────────────────────────
 
+
 @pytest.mark.parametrize("role", ROLES)
 def test_load_role_prompt_strips_frontmatter(fixture_root: Path, role: str) -> None:
     """load_role_prompt must strip YAML frontmatter (---) and return body only.
@@ -116,13 +118,12 @@ def test_load_role_prompt_strips_frontmatter(fixture_root: Path, role: str) -> N
 
     # PROMPT.md is in the parent dir — load_role_prompt will discover it
     # The frontmatter block starts/ends with --- so result must NOT start with ---
-    assert not result.startswith("---"), (
-        "Frontmatter must be stripped from PROMPT.md body"
-    )
+    assert not result.startswith("---"), "Frontmatter must be stripped from PROMPT.md body"
     assert len(result) > 0, "Loaded prompt must not be empty"
 
 
 # ─── _write_output ───────────────────────────────────────────────────────────
+
 
 def test_write_output_creates_file_with_traceability_header(
     cfg: AppConfig, run_ctx: RunContext, tmp_path: Path
@@ -149,6 +150,7 @@ def test_write_output_creates_file_with_traceability_header(
 
 
 # ─── AuditLog ────────────────────────────────────────────────────────────────
+
 
 def test_audit_log_step_writes_valid_jsonl(audit: AuditRepository, run_ctx: RunContext, cfg: AppConfig) -> None:
     """AuditLog.log_step must write a parseable JSONL line to audit_history.jsonl."""
@@ -181,12 +183,12 @@ def test_audit_log_error_writes_errors_jsonl(audit: AuditRepository, run_ctx: Ru
     )
 
     errors_jsonl = cfg.log_path / "errors.jsonl"
-    errors_log   = cfg.log_path / "errors.log"
-    audit_file   = cfg.log_path / "audit_history.jsonl"
+    errors_log = cfg.log_path / "errors.log"
+    audit_file = cfg.log_path / "audit_history.jsonl"
 
     assert errors_jsonl.exists(), "errors.jsonl must be created on failure"
-    assert errors_log.exists(),   "errors.log must be created on failure"
-    assert audit_file.exists(),   "audit_history.jsonl must still be written"
+    assert errors_log.exists(), "errors.log must be created on failure"
+    assert audit_file.exists(), "audit_history.jsonl must still be written"
 
     err_rec = json.loads(errors_jsonl.read_text(encoding="utf-8").strip().splitlines()[-1])
     assert err_rec["run_id"] == run_ctx.run_id
@@ -195,6 +197,7 @@ def test_audit_log_error_writes_errors_jsonl(audit: AuditRepository, run_ctx: Ru
 
 
 # ─── _iter_todo (batch mode: file moves to .processing) ─────────────────────
+
 
 def _make_orchestrator(mocker: Any, audit: Any = None) -> Any:
     """Build a CoreOrchestrator with mock capabilities for file-state tests."""
@@ -216,14 +219,12 @@ def _make_orchestrator(mocker: Any, audit: Any = None) -> Any:
     )
 
 
-def test_iter_todo_batch_moves_file_to_processing(
-    fixture_root: Path, tmp_path: Path, mocker: Any
-) -> None:
+def test_iter_todo_batch_moves_file_to_processing(fixture_root: Path, tmp_path: Path, mocker: Any) -> None:
     """_iter_todo in batch mode must physically move the file to .processing/."""
     orchestrator = _make_orchestrator(mocker)
 
     # Use tmp_path as a fully isolated sandbox — copy fixture structure there
-    sandbox_input  = tmp_path / "input"
+    sandbox_input = tmp_path / "input"
     sandbox_output = tmp_path / "output"
     role_dir = sandbox_input / "role-architect"
     role_dir.mkdir(parents=True)
@@ -295,8 +296,7 @@ def test_file_moves_to_done_on_success(tmp_path: Path, mocker: Any) -> None:
     orchestrator._send_file = mocker.MagicMock(return_value="Response text")
 
     orchestrator._execute_single_attempt(
-        proc_file, rel_path, cfg, mocker.MagicMock(),
-        time.time(), "Test prompt content", out_path, done_path
+        proc_file, rel_path, cfg, mocker.MagicMock(), time.time(), "Test prompt content", out_path, done_path
     )
 
     assert done_path.exists(), f"File must be moved to {done_path}"
@@ -336,9 +336,15 @@ def test_file_moves_to_failed_on_failure(tmp_path: Path, mocker: Any) -> None:
     orchestrator._cb = CircuitBreaker()
 
     orchestrator._handle_processing_failure(
-        proc_file, rel_path, cfg, mocker.MagicMock(),
-        time.time(), "Test prompt content", out_path, fail_path,
-        Exception("Test error")
+        proc_file,
+        rel_path,
+        cfg,
+        mocker.MagicMock(),
+        time.time(),
+        "Test prompt content",
+        out_path,
+        fail_path,
+        Exception("Test error"),
     )
 
     assert fail_path.exists(), f"File must be quarantined at {fail_path}"

@@ -85,13 +85,11 @@ class InteractiveController:
                 except ValueError:
                     chosen_abs, _chosen_rel = available_files[0]
 
-                return build_app_config(
-                    mode=mode, input_path=chosen_abs, output_path=DEFAULT_OUTPUT, headless=headless
-                )
+                return build_app_config(mode=mode, input_path=chosen_abs, output_path=DEFAULT_OUTPUT, headless=headless)
             else:
                 input_file = input(f"Enter input file path [default: {DEFAULT_TODO}]: ").strip() or str(DEFAULT_TODO)
-                output_file = (
-                    input(f"Enter output file path [default: {DEFAULT_OUTPUT}]: ").strip() or str(DEFAULT_OUTPUT)
+                output_file = input(f"Enter output file path [default: {DEFAULT_OUTPUT}]: ").strip() or str(
+                    DEFAULT_OUTPUT
                 )
                 return build_app_config(
                     mode=mode, input_path=Path(input_file), output_path=Path(output_file), headless=headless

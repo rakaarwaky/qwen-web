@@ -1,4 +1,5 @@
 """Unit tests for qwc init command and workspace initialization logic."""
+
 import tempfile
 import unittest
 from pathlib import Path

@@ -55,7 +55,9 @@ class TestSendFile:
         el = MagicMock()
         el.fill.side_effect = Error("fill failed")
         injector = PromptInjector()
-        with patch.object(PromptInjector, "find_input", return_value=el), \
-             patch.object(PromptInjector, "_verify_injection", return_value=True):
+        with (
+            patch.object(PromptInjector, "find_input", return_value=el),
+            patch.object(PromptInjector, "_verify_injection", return_value=True),
+        ):
             injector.inject_text(page, "text")
         el.type.assert_called_once_with("text", delay=10)

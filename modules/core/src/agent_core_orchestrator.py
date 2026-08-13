@@ -22,7 +22,7 @@ from playwright.sync_api import Page
 from modules.core.src.utility_core_config_factory import build_app_config
 from modules.core.src.utility_core_error_mapping import to_error_response
 from modules.core.src.utility_core_file_mover import move_file, move_to_processing
-from modules.core.src.utility_core_io_writer import ensure_dir
+from modules.core.src.utility_core_io_writer import ensure_dir, ensure_directory
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.contract_core_protocol import (
     IAuditProtocol,
@@ -188,9 +188,7 @@ class CoreOrchestrator(ICoreAggregate):
                         processed += 1
                     except Exception as e:  # per-file isolation: a failure must not abort the batch
                         failed += 1
-                        self._observability.get_logger().error(
-                            "batch_file_failed", file=str(rel_path), error=str(e)
-                        )
+                        self._observability.get_logger().error("batch_file_failed", file=str(rel_path), error=str(e))
             return ResponseText(f"Batch processing complete. Successfully processed: {processed}, Failed: {failed}")
 
         return self._execute(_fn)
@@ -325,7 +323,10 @@ class CoreOrchestrator(ICoreAggregate):
         emitter.emit(EVENT_DISPATCH_ACKNOWLEDGED, {"file": str(filepath)})
 
         response = self._streamer.wait_for_response(
-            page, TimeoutSec(timeout_sec), MessageCount(msg_count_before), emitter,
+            page,
+            TimeoutSec(timeout_sec),
+            MessageCount(msg_count_before),
+            emitter,
             dispatch_acknowledged=HeadlessFlag(True),
         )
 
@@ -445,7 +446,10 @@ class CoreOrchestrator(ICoreAggregate):
             "SUCCESS", ctx, FilePath(str(rel_path)), FilePath(str(out_path)), dur, len(prompt), OutputChars(len(text))
         )
         self._audit.log_step(
-            ctx, "PROCESS_SUCCESS", FilePath(str(rel_path)), "SUCCESS",
+            ctx,
+            "PROCESS_SUCCESS",
+            FilePath(str(rel_path)),
+            "SUCCESS",
             {"duration_sec": dur, "output_chars": len(text)},
         )
 
@@ -499,8 +503,8 @@ class CoreOrchestrator(ICoreAggregate):
     def _iter_todo(self, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
         """Yield (proc_file, relative_path) tuples for the processing queue."""
         src = cfg.input_path if cfg.input_path.is_dir() else DEFAULT_TODO
-        ensure_dir(src)
-        ensure_dir(cfg.proc_path)
+        ensure_directory(src)
+        ensure_directory(cfg.proc_path)
 
         if cfg.retry_failed:
             yield from self._iter_todo_retry_failed(cfg)

@@ -28,7 +28,6 @@ from modules.shared.src.utility_core_text import build_metadata_header, strip_ui
 log = get_logger("capabilities_saver")
 
 
-
 # Block 1: Class Definition & Constructor
 
 
@@ -125,5 +124,3 @@ class Saver(ISaverProtocol):
     def __repr__(self) -> str:
         """Return string representation of Saver."""
         return f"Saver(header={self.include_header}, sidecar={self.generate_sidecar}, atomic={self.atomic_write})"
-
-

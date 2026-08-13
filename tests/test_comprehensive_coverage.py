@@ -40,6 +40,7 @@ from tests.helpers import (
 
 # ─── main.py remaining lines ────────────────────────────────────────────────
 
+
 class TestMainRemaining:
     def test_main_with_init_flag(self, tmp_path):
         with patch("sys.argv", ["qwen-cli", "--init", str(tmp_path)]):
@@ -47,29 +48,36 @@ class TestMainRemaining:
             assert result == 0
 
     def test_main_single_instance_lock_error(self):
-        with patch("sys.argv", ["qwen-cli", "-i", "/tmp/in", "-o", "/tmp/out", "--headless"]), \
-             patch("modules.root_cli_main_entry._default_container", side_effect=Exception("lock")):
+        with (
+            patch("sys.argv", ["qwen-cli", "-i", "/tmp/in", "-o", "/tmp/out", "--headless"]),
+            patch("modules.root_cli_main_entry._default_container", side_effect=Exception("lock")),
+        ):
             result = main()
             assert result == 1
 
     def test_main_batch_processes_files(self, tmp_path):
         in_dir = tmp_path / "in"
         in_dir.mkdir()
-        with patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless"]), \
-             patch("modules.cli.src.surface_cli_run_command.handle", return_value={"success": True, "message": "ok"}):
+        with (
+            patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless"]),
+            patch("modules.cli.src.surface_cli_run_command.handle", return_value={"success": True, "message": "ok"}),
+        ):
             result = main()
             assert result == 0
 
     def test_main_setup_observability_error(self, tmp_path):
         in_dir = tmp_path / "in"
         in_dir.mkdir()
-        with patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless"]), \
-             patch("modules.cli.src.surface_cli_run_command.handle", return_value={"success": False, "error": "boom"}):
+        with (
+            patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless"]),
+            patch("modules.cli.src.surface_cli_run_command.handle", return_value={"success": False, "error": "boom"}),
+        ):
             result = main()
             assert result == 1
 
 
 # ─── mcp_server.py remaining lines ──────────────────────────────────────────
+
 
 class TestMcpServerRemaining:
     def test_qwen_start_watcher(self):
@@ -90,6 +98,7 @@ class TestMcpServerRemaining:
 
 
 # ─── pipeline.py remaining lines ────────────────────────────────────────────
+
 
 class TestPipelineRemaining:
     def test_extract_prompt_text_multiline(self):
@@ -146,6 +155,7 @@ class TestPipelineRemaining:
 
 # ─── browser.py remaining lines ─────────────────────────────────────────────
 
+
 class TestBrowserRemaining:
     def test_assert_on_chat_page_transient(self):
         page = MagicMock()
@@ -171,6 +181,7 @@ class TestBrowserRemaining:
 
 # ─── observability.py remaining lines ───────────────────────────────────────
 
+
 class TestObservabilityRemaining:
     def test_get_logger_default(self):
         logger = get_logger()
@@ -190,10 +201,13 @@ class TestObservabilityRemaining:
 
     def test_metrics_counter_thread_safety(self):
         import threading
+
         m = MetricsCounter()
+
         def worker():
             for _ in range(100):
                 m.increment("x")
+
         threads = [threading.Thread(target=worker) for _ in range(5)]
         for t in threads:
             t.start()
@@ -215,6 +229,7 @@ class TestObservabilityRemaining:
 
 
 # ─── file_uploader.py remaining lines ───────────────────────────────────────
+
 
 class TestFileUploaderRemaining:
     def test_validate_file_valid(self, tmp_path):
