@@ -9,8 +9,6 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from modules.core.src.utility_core_io_writer import ensure_dir
-
 
 def move_file(source: Path, destination: Path) -> None:
     """Move a file from source to destination.
