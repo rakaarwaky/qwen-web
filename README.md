@@ -117,25 +117,12 @@ qwen-web-mcp
 | Flag / Option          | Argument | Description                                              | Default                     |
 | :--------------------- | :------- | :------------------------------------------------------- | :-------------------------- |
 | `init`, `--init`       | `[DIR]`  | Initialize workspace with `.agents/skills` & `.qwen-web` | Current directory (`.`)     |
-| `-w, --watch`          | None     | Enable continuous File Watcher mode                      | disabled                    |
-| `--interval`           | `INT`    | Polling interval in seconds for watcher mode             | `3`                         |
 | `-i, --input`          | `PATH`   | Input markdown file or directory                         | `~/.local/share/qwen-web/input` |
 | `-o, --output`         | `PATH`   | Output markdown file or directory                        | `~/.local/share/qwen-web/output` |
-| `-d, --done-dir`       | `PATH`   | Directory to move completed input files                  | `~/.local/share/qwen-web/input/done` |
-| `--failed-dir`         | `PATH`   | Directory to move failed input files                     | `~/.local/share/qwen-web/input/failed` |
-| `--proc-dir`           | `PATH`   | Temporary lock directory during processing               | `~/.cache/qwen-web/.processing` |
-| `--log-dir`            | `PATH`   | Directory for structured logs and audit trail            | `~/.local/state/qwen-web/log` |
-| `--data-dir`           | `PATH`   | Browser profile & session cookies directory              | `~/.local/share/qwen-web/qwen_session` |
+| `-w, --watch`          | None     | Enable continuous File Watcher mode                      | disabled                    |
 | `--headless`           | None     | Run browser in background without GUI window             | false                       |
 | `--login`              | None     | Open browser to log in manually and save session         | disabled                    |
 | `--mcp`                | None     | Run as MCP server over stdio                             | disabled                    |
-| `--timeout`            | `INT`    | Max wait time in seconds for AI response                 | `300`                       |
-| `--request-timeout`    | `INT`    | Max seconds to wait for network response                 | `120`                       |
-| `--poll-interval`      | `FLOAT`  | Seconds between message-poll DOM checks                  | `1.0`                       |
-| `--streaming-timeout`  | `INT`    | Max streaming duration in seconds                        | `180`                       |
-| `--rate-limit`         | `INT`    | Max prompt requests per minute                           | `60`                        |
-| `--cb-threshold`       | `INT`    | Consecutive failures before tripping circuit breaker     | `5`                         |
-| `--cb-window`          | `INT`    | Circuit breaker sliding window in seconds                | `30`                        |
 | `--retry-failed`       | None     | Re-process files in `failed/` directory on next run      | disabled                    |
 
 ---

@@ -39,11 +39,6 @@ class TestParseArgs:
             args = _parse_args()
             assert args.mcp is True
 
-    def test_timeout_override(self):
-        with patch("sys.argv", ["qwen-cli", "--timeout", "60"]):
-            args = _parse_args()
-            assert args.timeout == 60
-
     def test_retry_failed(self):
         with patch("sys.argv", ["qwen-cli", "--retry-failed"]):
             args = _parse_args()
