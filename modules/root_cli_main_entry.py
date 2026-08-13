@@ -159,7 +159,9 @@ def _interactive_prompt() -> AppConfig | None:
 def _run_manual_login(cfg: AppConfig) -> None:
     """Launch visible browser for interactive login (TTY flow in the surface)."""
     container = _default_container()
-    surface_cli_login_command.handle(None, container.core, cfg)
+    result = surface_cli_login_command.handle(None, container.core, cfg)
+    if not result.get("success"):
+        print(result.get("error", "Unknown error"), file=sys.stderr)
 
 
 if __name__ == "__main__":
