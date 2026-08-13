@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from modules.root_cli_main_entry import run_init
+from modules.core.src.root_core_container import SharedContainer
 from modules.shared.src import DEFAULT_LOG, DEFAULT_OUTPUT, DEFAULT_TODO
 
 
@@ -14,8 +14,9 @@ class TestQwcInit(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             target_path = Path(tmp_dir)
 
-            # Execute run_init
-            run_init(target_path)
+            # Execute init via core aggregate directly
+            container = SharedContainer()
+            container.core.init_workspace(target_path)
 
             # 1. Verify .agents/skills/qwen-web/SKILL.md
             skill_md = target_path / ".agents" / "skills" / "qwen-web" / "SKILL.md"
@@ -52,13 +53,14 @@ class TestQwcInit(unittest.TestCase):
             gitignore.write_text("existing_file.txt\n", encoding="utf-8")
 
             # First run
-            run_init(target_path)
+            container = SharedContainer()
+            container.core.init_workspace(target_path)
             gi_content = gitignore.read_text(encoding="utf-8")
             self.assertIn("existing_file.txt", gi_content)
             self.assertIn(".qwen-web/", gi_content)
 
             # Second run (idempotency check)
-            run_init(target_path)
+            container.core.init_workspace(target_path)
             gi_content_2 = gitignore.read_text(encoding="utf-8")
             self.assertEqual(gi_content_2.count(".qwen-web/"), 1)
 

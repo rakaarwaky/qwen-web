@@ -94,10 +94,10 @@ def click_send(page: Page, config: object = None) -> None:
                 loc.click()
                 clicked = True
                 break
-        except Exception:
+        except Error:
             continue
     if not clicked:
         try:
             page.keyboard.press("Enter")
-        except Exception:
+        except Error:
             pass
