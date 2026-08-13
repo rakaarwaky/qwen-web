@@ -111,3 +111,4 @@ output/
 **/.repowise/*
 !**/.repowise/bot.yaml
 !**/.repowise/health-rules.json
+tests/fixtures/.last_run_ts
