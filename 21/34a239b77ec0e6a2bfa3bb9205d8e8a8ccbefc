@@ -1,0 +1,21 @@
+tests/test_qwen_client_behavior.py
+  s_3afbec7dcd339d::t_577ecaa1f6b1e5 81
+tests/test_pipeline_fixtures.py
+  s_3afbec7dcd339d::t_cd2b4a422cc7dd 210
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "2134a239b77ec0e6a2bfa3bb9205d8e8a8ccbefc",
+  "prompts": {},
+  "sessions": {
+    "s_3afbec7dcd339d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_005b8dbbcffeDe4CQ6Xosd8fgy",
+        "model": "deepseek-v4-flash-free"
+      },
+      "human_author": "rakaarwaky <arwaky90@gmail.com>"
+    }
+  }
+}
