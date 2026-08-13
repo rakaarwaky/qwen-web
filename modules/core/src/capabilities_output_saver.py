@@ -80,7 +80,11 @@ class Saver(ISaverProtocol):
         full_text = header + strip_ui_noise(content)
 
         # Hoist mkdir before conditional branches (deduplication)
-        ensure_dir(path)
+        try:
+            ensure_dir(path)
+        except OSError as e:
+            log.error("Failed to create parent dirs for %s (I/O error): %s", path, e)
+            raise OutputWriteError(f"Failed to write output file {path}: {e}") from e
         self._write_text_file(path, full_text, atomic_write)
 
         if generate_sidecar:

@@ -17,6 +17,7 @@ from modules.shared.src import utility_core_exit
 from modules.shared.src.contract_core_protocol import IObservabilityProtocol
 from modules.shared.src.contract_status_protocol import IStatusProtocol
 from modules.shared.src.taxonomy_core_vo import ErrorCategory, ExitCode, ServiceName
+from modules.core.src.utility_core_io_writer import ensure_dir
 from modules.core.src.utility_core_logger_factory import get_logger
 
 log = get_logger("capabilities_observability")
@@ -35,7 +36,7 @@ class ObservabilitySetup(IObservabilityProtocol):
     def setup_observability(self, log_path: Path | None = None) -> None:
         """Bootstrap observability stack."""
         target_path = log_path or self._log_path
-        target_path.mkdir(parents=True, exist_ok=True)
+        ensure_dir(target_path)
         self._configure_sentry()
         self._configure_tracing()
         self._configure_logging(target_path)
@@ -244,10 +245,24 @@ def _excepthook(exc_type: type[BaseException], exc_value: BaseException, exc_tb:
     if issubclass(exc_type, KeyboardInterrupt):
         logger.warning("interrupted")
         sys.exit(130)
+    _report_critical(logger, exc_value, "unhandled_exception")
+    sys.exit(1)
+
+
+def _thread_excepthook(args: Any) -> None:
+    logger = _get_logger("qwen-web")
+    _report_critical(logger, args.exc_value, "unhandled_exception_in_thread")
+
+
+def _report_critical(logger: Any, exc_value: BaseException, event_name: str) -> None:
+    """Log a critical exception and attempt Sentry capture.
+
+    Shared helper for _excepthook and _thread_excepthook.
+    """
     logger.critical(
-        "unhandled_exception",
-        exc_info=(exc_type, exc_value, exc_tb),
-        exc_type=exc_type.__name__,
+        event_name,
+        exc_info=(type(exc_value), exc_value, exc_value.__traceback__),
+        exc_type=type(exc_value).__name__,
         category=ErrorCategory.categorize(exc_value),
     )
     try:
@@ -256,23 +271,6 @@ def _excepthook(exc_type: type[BaseException], exc_value: BaseException, exc_tb:
         pass
     else:
         sentry_sdk.capture_exception(exc_value)
-    sys.exit(1)
-
-
-def _thread_excepthook(args: Any) -> None:
-    logger = _get_logger("qwen-web")
-    logger.critical(
-        "unhandled_exception_in_thread",
-        exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
-        exc_type=args.exc_type.__name__,
-        category=ErrorCategory.categorize(args.exc_value),
-    )
-    try:
-        import sentry_sdk
-    except ImportError:
-        pass
-    else:
-        sentry_sdk.capture_exception(args.exc_value)
 
 
 def install_excepthooks() -> None:

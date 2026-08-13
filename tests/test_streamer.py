@@ -7,9 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from modules.core.src.capabilities_stream_monitor import (
-    is_generation_complete,
+    StreamMonitor,
     validate_response_content,
-    wait_for_response,
 )
 from modules.shared.src import (
     CHALLENGE_KEYWORDS,
@@ -110,7 +109,7 @@ class TestIsGenerationComplete:
             return MagicMock(count=0)
 
         page.locator.side_effect = locator_factory
-        assert is_generation_complete(page) is True
+        assert StreamMonitor().is_generation_complete(page) is True
 
     def test_incomplete_when_stop_visible(self):
         page = MagicMock()
@@ -124,7 +123,7 @@ class TestIsGenerationComplete:
             return MagicMock(count=0)
 
         page.locator.side_effect = locator_factory
-        assert is_generation_complete(page) is False
+        assert StreamMonitor().is_generation_complete(page) is False
 
     def test_incomplete_when_send_disabled(self):
         page = MagicMock()
@@ -146,7 +145,7 @@ class TestIsGenerationComplete:
             return MagicMock(count=0)
 
         page.locator.side_effect = locator_factory
-        assert is_generation_complete(page) is False
+        assert StreamMonitor().is_generation_complete(page) is False
 
     def test_incomplete_when_typing_visible(self):
         page = MagicMock()
@@ -168,12 +167,12 @@ class TestIsGenerationComplete:
             return MagicMock(count=0)
 
         page.locator.side_effect = locator_factory
-        assert is_generation_complete(page) is False
+        assert StreamMonitor().is_generation_complete(page) is False
 
     def test_exception_returns_false(self):
         page = MagicMock()
         page.locator.side_effect = Exception("browser crash")
-        assert is_generation_complete(page) is False
+        assert StreamMonitor().is_generation_complete(page) is False
 
 
 # ─── wait_for_response edge cases ───────────────────────────────────────────
@@ -184,19 +183,19 @@ class TestWaitForResponseEdgeCases:
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
         with pytest.raises(RuntimeError, match="dispatch"):
-            wait_for_response(page, timeout_sec=10, msg_count_before=0, emitter=emitter, dispatch_acknowledged=False)
+            StreamMonitor().wait_for_response(page, timeout_sec=10, msg_count_before=0, emitter=emitter, dispatch_acknowledged=False)
 
     def test_timeout_returns_none(self):
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
 
-        with patch("modules.core.src.capabilities_stream_monitor._count_messages", return_value=1), \
-             patch("modules.core.src.capabilities_stream_monitor._latest_message_text", return_value=None), \
+        with patch.object(StreamMonitor, "_count_messages", return_value=1), \
+             patch.object(StreamMonitor, "_latest_message_text", return_value=None), \
              patch("modules.core.src.capabilities_stream_monitor.time") as mock_time:
             mock_time.time.side_effect = [0, 0, 0, 9999]
             mock_time.sleep = MagicMock()
 
-            result = wait_for_response(
+            result = StreamMonitor().wait_for_response(
                 page,
                 timeout_sec=1,
                 msg_count_before=1,
@@ -215,14 +214,14 @@ class TestWaitForResponseEdgeCases:
         # and the loop never processes any text, hanging until timeout.
         msg_side_effect = [None] + [stable_text] * 20
 
-        with patch("modules.core.src.capabilities_stream_monitor._count_messages", return_value=2), \
-             patch("modules.core.src.capabilities_stream_monitor._latest_message_text", side_effect=msg_side_effect), \
-             patch("modules.core.src.capabilities_stream_monitor.is_generation_complete", return_value=True), \
+        with patch.object(StreamMonitor, "_count_messages", return_value=2), \
+             patch.object(StreamMonitor, "_latest_message_text", side_effect=msg_side_effect), \
+             patch.object(StreamMonitor, "is_generation_complete", return_value=True), \
              patch("modules.core.src.capabilities_stream_monitor.time") as mock_time:
             mock_time.time.side_effect = [0] + [0.1] * 50
             mock_time.sleep = MagicMock()
 
-            result = wait_for_response(
+            result = StreamMonitor().wait_for_response(
                 page,
                 timeout_sec=5,
                 msg_count_before=1,

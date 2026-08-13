@@ -13,6 +13,7 @@ from typing import Any
 
 from modules.shared.src.contract_core_protocol import IAuditProtocol
 from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
+from modules.core.src.utility_core_io_writer import ensure_dir
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
 from modules.shared.src.taxonomy_core_vo import FilePath, ResponseText, RunContext
 from modules.core.src.utility_core_io_writer import append_jsonl
@@ -26,7 +27,7 @@ class AuditRepository(IAuditProtocol):
     def __init__(self, log_dir: Path | None = None, workspace: IWorkspaceProtocol | None = None) -> None:
         """Initialize audit log files in the target directory."""
         target_dir = log_dir or DEFAULT_LOG
-        target_dir.mkdir(parents=True, exist_ok=True)
+        ensure_dir(target_dir)
         self._audit = target_dir / "audit_history.jsonl"
         self._errors = target_dir / "errors.log"
         self._errors_jsonl = target_dir / "errors.jsonl"

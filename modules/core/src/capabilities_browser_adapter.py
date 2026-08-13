@@ -37,6 +37,7 @@ from modules.shared.src.taxonomy_core_vo import (
     EVENT_WEB_LOADED,
 )
 from modules.shared.src.taxonomy_domain_error import AuthRequiredError, BrowserLaunchError
+from modules.core.src.utility_core_io_writer import ensure_dir
 
 log = structlog.get_logger("browser")
 
@@ -192,7 +193,7 @@ class BrowserAdapter(IBrowserProtocol):
     @contextmanager
     def browser_session(self, cfg: Any) -> Iterator[BrowserContext]:
         """Manage persistent Chromium browser context with session caching and asset optimization."""
-        cfg.session_path.mkdir(parents=True, exist_ok=True)
+        ensure_dir(cfg.session_path)
         try:
             os.chmod(cfg.session_path, 0o644)
         except OSError as e:

@@ -34,7 +34,8 @@ from modules.shared.src.taxonomy_domain_error import AuthRequiredError, NetworkT
 from modules.shared.src.utility_core_events import is_stability_satisfied, should_treat_as_new_response
 from modules.shared.src.utility_core_validation import validate_response_content
 
-from modules.core.src.utility_core_dom_query import count_messages as _dom_count, latest_message_text as _dom_latest
+from modules.core.src.utility_core_dom_action import is_selector_visible
+from modules.core.src.utility_core_dom_query import count_messages, latest_message_text as _dom_latest
 from modules.core.src.utility_core_logger_factory import get_logger
 
 log = get_logger("capabilities_stream_monitor")
@@ -80,8 +81,8 @@ class StreamMonitor(IStreamProtocol):
     def is_thinking_active(self, page: Page) -> bool:
         """Check if thinking indicator is active."""
         try:
-            typing_indicator = page.locator(".thinking:not([style*='display: none']), [class*='thinking']")
-            return typing_indicator.count() > 0 and typing_indicator.first.is_visible()
+            typing_selector = ".thinking:not([style*='display: none']), [class*='thinking']"
+            return is_selector_visible(page, typing_selector)
         except Exception:
             return False
 
@@ -111,7 +112,7 @@ class StreamMonitor(IStreamProtocol):
         emitter.emit(EVENT_THINKING_STARTED)
         has_thinking = True
 
-        baseline_text: str | None = self._latest_message_text(page)
+        baseline_text: str | None = _dom_latest(page)
 
         start = time.time()
         last_text: str | None = None
@@ -119,9 +120,9 @@ class StreamMonitor(IStreamProtocol):
 
         while time.time() - start < timeout_sec:
             try:
-                count = self._count_messages(page)
+                count = count_messages(page)
                 if count >= msg_count_before:
-                    text = self._latest_message_text(page)
+                    text = _dom_latest(page)
                     if text is not None and should_treat_as_new_response(text, baseline_text, int(active_min_len)):
                         if text == last_text:
                             stable_count += 1
@@ -160,15 +161,6 @@ class StreamMonitor(IStreamProtocol):
 
         log.warning("Timeout after %ds — no response detected", timeout_sec)
         return None
-
-    def _count_messages(self, page: Page) -> int:
-        """Count chat turns using JS evaluate — delegates to utility."""
-        return _dom_count(page)
-
-    def _latest_message_text(self, page: Page) -> str | None:
-        """Get the latest message text — delegates to utility."""
-        result = _dom_latest(page)
-        return str(result) if result else None
 
     def __repr__(self) -> str:
         """Return string representation of StreamMonitor."""

@@ -5,9 +5,8 @@ Taxonomy layer (utility): stateless functions, taxonomy imports only.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 from modules.shared.src.taxonomy_core_vo import RunContext
+from modules.shared.src.utility_core_time_formatter import utc_now_iso
 
 UI_NOISE_TOKENS = (
     "?",
@@ -43,8 +42,7 @@ def build_metadata_header(
     output_chars: int,
 ) -> str:
     """Build the METADATA TRACEABILITY header block for saved output."""
-    processed_at = datetime.now(tz=timezone.utc)
-    iso_timestamp = processed_at.isoformat()
+    iso_timestamp = utc_now_iso()
     return (
         "<!--\n"
         "--- METADATA TRACEABILITY ---\n"

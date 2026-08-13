@@ -24,7 +24,7 @@ import pytest
 
 from modules.core.src.capabilities_audit_repository import AuditRepository
 from modules.core.src.agent_core_orchestrator import CoreOrchestrator
-from modules.core.src.capabilities_output_saver import write_output
+from modules.core.src.capabilities_output_saver import Saver
 from modules.shared.src.utility_core_prompt import (
     extract_prompt_text as _extract_prompt_text,
     load_role_prompt,
@@ -450,7 +450,7 @@ class TestWriteOutputLock:
     def test_creates_file_with_traceability_header(self, tmp_path: Path):
         out = tmp_path / "result.md"
         ctx = RunContext()
-        write_output(out, "AI response content", ctx, "input.md", 1.23, 10, 19)
+        Saver().write_output(out, "AI response content", ctx, "input.md", 1.23, 10, 19)
         text = out.read_text()
         assert "METADATA TRACEABILITY" in text
         assert ctx.run_id in text
@@ -459,7 +459,7 @@ class TestWriteOutputLock:
     def test_creates_json_sidecar(self, tmp_path: Path):
         out = tmp_path / "result.md"
         ctx = RunContext()
-        write_output(out, "Content", ctx, "src.md", 2.5, 5, 7)
+        Saver().write_output(out, "Content", ctx, "src.md", 2.5, 5, 7)
         meta = json.loads(out.with_suffix(".meta.json").read_text())
         assert meta["run_id"] == ctx.run_id
         assert meta["source_file"] == "src.md"
@@ -469,7 +469,7 @@ class TestWriteOutputLock:
         out = tmp_path / "plain.md"
         cfg = SaverConfig(include_header=False, generate_sidecar=False)
         ctx = RunContext()
-        write_output(out, "Raw content", ctx, "src.md", 0.1, 3, 11, config=cfg)
+        Saver().write_output(out, "Raw content", ctx, "src.md", 0.1, 3, 11, config=cfg)
         assert out.read_text() == "Raw content"
         assert not out.with_suffix(".meta.json").exists()
 
@@ -478,12 +478,12 @@ class TestWriteOutputLock:
         blocked.write_text("i am a file")
         out = blocked / "child.md"
         with pytest.raises(OutputWriteError):
-            write_output(out, "test", RunContext(), "src.md", 0.1, 4, 4)
+            Saver().write_output(out, "test", RunContext(), "src.md", 0.1, 4, 4)
 
     def test_run_id_in_sidecar_matches_context(self, tmp_path: Path):
         out = tmp_path / "match.md"
         ctx = RunContext()
-        write_output(out, "text", ctx, "file.md", 1.0, 4, 4)
+        Saver().write_output(out, "text", ctx, "file.md", 1.0, 4, 4)
         meta = json.loads(out.with_suffix(".meta.json").read_text())
         assert meta["run_id"] == ctx.run_id
 

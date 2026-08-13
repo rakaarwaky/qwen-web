@@ -8,7 +8,7 @@ import pytest
 from playwright.sync_api import Error
 from playwright.sync_api import TimeoutError
 
-from modules.core.src.capabilities_prompt_injector import _verify_injection, find_input, inject_text
+from modules.core.src.capabilities_prompt_injector import PromptInjector
 from modules.shared.src import (
     DEFAULT_INJECTOR_CONFIG,
     ElementNotFoundError,
@@ -24,27 +24,27 @@ class TestVerifyInjection:
     def test_verify_with_value_attribute(self):
         el = MagicMock()
         el.evaluate.return_value = "injected text"
-        assert _verify_injection(el) is True
+        assert PromptInjector()._verify_injection(el) is True
 
     def test_verify_empty_value(self):
         el = MagicMock()
         el.evaluate.return_value = ""
-        assert _verify_injection(el) is False
+        assert PromptInjector()._verify_injection(el) is False
 
     def test_verify_none_value(self):
         el = MagicMock()
         el.evaluate.return_value = None
-        assert _verify_injection(el) is False
+        assert PromptInjector()._verify_injection(el) is False
 
     def test_verify_whitespace_only(self):
         el = MagicMock()
         el.evaluate.return_value = "   "
-        assert _verify_injection(el) is False
+        assert PromptInjector()._verify_injection(el) is False
 
     def test_verify_exception(self):
         el = MagicMock()
         el.evaluate.side_effect = Exception("disconnected")
-        assert _verify_injection(el) is False
+        assert PromptInjector()._verify_injection(el) is False
 
 
 # ─── find_input with custom config ─────────────────────────────────────────
@@ -65,7 +65,7 @@ class TestFindInputCustomConfig:
 
         page.wait_for_selector.side_effect = wait_side_effect
 
-        result = find_input(page, config=cfg)
+        result = PromptInjector().find_input(page, config=cfg)
         assert result == el
 
     def test_all_custom_selectors_fail_uses_primary(self):
@@ -86,7 +86,7 @@ class TestFindInputCustomConfig:
             raise TimeoutError("not found")
 
         page.wait_for_selector.side_effect = wait_side_effect
-        result = find_input(page, config=cfg)
+        result = PromptInjector().find_input(page, config=cfg)
         assert result == el
 
     def test_all_selectors_fail_raises(self):
@@ -95,7 +95,7 @@ class TestFindInputCustomConfig:
 
         cfg = InjectorConfig(input_selectors=["#x"], wait_timeout_ms=50)
         with pytest.raises(ElementNotFoundError):
-            find_input(page, config=cfg)
+            PromptInjector().find_input(page, config=cfg)
 
 
 # ─── inject_text with strategy fallbacks ────────────────────────────────────
@@ -108,7 +108,7 @@ class TestInjectTextStrategies:
         page.wait_for_selector.return_value = el
         page.evaluate.side_effect = [True, True]  # react inject + verify
 
-        inject_text(page, "Hello Qwen")
+        PromptInjector().inject_text(page, "Hello Qwen")
         assert page.evaluate.call_count >= 1
 
     def test_contenteditable_strategy_success(self):
@@ -118,7 +118,7 @@ class TestInjectTextStrategies:
         # React returns False, contenteditable returns True
         page.evaluate.side_effect = [False, True, True]
 
-        inject_text(page, "Content editable text")
+        PromptInjector().inject_text(page, "Content editable text")
 
     def test_fallback_to_fill(self):
         page = MagicMock()
@@ -127,7 +127,7 @@ class TestInjectTextStrategies:
         # Both JS strategies fail
         page.evaluate.side_effect = [False, False]
 
-        inject_text(page, "Fill fallback text")
+        PromptInjector().inject_text(page, "Fill fallback text")
         el.fill.assert_called_once_with("Fill fallback text")
 
     def test_fallback_to_type(self):
@@ -138,7 +138,7 @@ class TestInjectTextStrategies:
         page.evaluate.side_effect = [False, False]
         el.fill.side_effect = Error("fill broken")
 
-        inject_text(page, "Type fallback text")
+        PromptInjector().inject_text(page, "Type fallback text")
         el.type.assert_called_once()
 
     def test_all_strategies_fail_raises(self):
@@ -149,18 +149,18 @@ class TestInjectTextStrategies:
         el.fill.side_effect = Error("broken")
         el.type.side_effect = Error("broken")
 
-        with pytest.raises(PromptInjectionError, match="All injection strategies"):
-            inject_text(page, "failing")
+        with pytest.raises(PromptInjectionError, match="All strategies failed for prompt"):
+            PromptInjector().inject_text(page, "failing")
 
     def test_empty_text_raises(self):
         page = MagicMock()
         with pytest.raises(PromptInjectionError, match="empty"):
-            inject_text(page, "")
+            PromptInjector().inject_text(page, "")
 
     def test_whitespace_only_raises(self):
         page = MagicMock()
         with pytest.raises(PromptInjectionError, match="empty"):
-            inject_text(page, "   \n  ")
+            PromptInjector().inject_text(page, "   \n  ")
 
 
 # ─── InjectorConfig defaults ───────────────────────────────────────────────

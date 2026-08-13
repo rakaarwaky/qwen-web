@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from modules.core.src.capabilities_observability_setup import MetricsCounter, StatusFileWriter
-from modules.shared.src import ObservabilityConfig, StatusRecord
+from modules.core.src.capabilities_metrics_collector import MetricsCounter
+from modules.core.src.capabilities_status_writer import StatusFileWriter
+from modules.shared.src import ObservabilityConfig, StatusRecordVO
 
 
 def test_metrics_counter():
@@ -46,7 +47,7 @@ def test_status_file_writer_record(tmp_path: Path):
     status_file = tmp_path / "status_record.json"
     writer = StatusFileWriter(status_file)
 
-    rec = StatusRecord(
+    rec = StatusRecordVO(
         status="COMPLETED",
         mode="single",
         headless=False,

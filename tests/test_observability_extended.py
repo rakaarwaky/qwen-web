@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import sys
 import threading
 from pathlib import Path
@@ -10,19 +9,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from modules.core.src.capabilities_metrics_collector import MetricsCounter
 from modules.core.src.capabilities_observability_setup import (
-    MetricsCounter,
-    StatusFileWriter,
-    bind_run_context,
-    clear_run_context,
-    exit_code_for,
-    get_logger,
-    get_tracer,
+    ObservabilitySetup,
+    _bind_run_context,
+    _clear_run_context,
+    _get_logger,
+    _get_tracer,
+    _start_span,
     install_excepthooks,
-    setup_observability,
-    start_span,
 )
-from modules.shared.src import AuthRequiredError, StatusRecord
+from modules.core.src.capabilities_status_writer import StatusFileWriter
+from modules.shared.src import AuthRequiredError, StatusRecordVO
 
 
 class TestMetricsCounter:
@@ -76,7 +74,7 @@ class TestStatusFileWriter:
     def test_write_record(self, tmp_path):
         path = tmp_path / "status.json"
         writer = StatusFileWriter(path)
-        rec = StatusRecord(status="done", mode="single", headless=False, run_id="abc")
+        rec = StatusRecordVO(status="done", mode="single", headless=False, run_id="abc")
         writer.write_record(rec)
         result = writer.read()
         assert result["status"] == "done"
@@ -102,38 +100,41 @@ class TestStatusFileWriter:
 
 class TestLoggerTracer:
     def test_get_logger(self):
-        logger = get_logger("test")
+        logger = _get_logger("test")
         assert logger is not None
 
     def test_get_logger_default(self):
-        logger = get_logger()
+        logger = _get_logger()
         assert logger is not None
 
     def test_get_tracer(self):
-        tracer = get_tracer("test")
+        tracer = _get_tracer("test")
         # May be None if OTel not installed
         assert tracer is None or tracer is not None
 
     def test_start_span(self):
-        with start_span("test") as span:
+        with _start_span("test") as span:
             pass  # should not raise
 
 
 class TestBindContext:
     def test_bind_and_clear(self):
-        bind_run_context(run_id="test_123", mode="batch")
-        clear_run_context()
+        _bind_run_context(run_id="test_123", mode="batch")
+        _clear_run_context()
 
 
 class TestExitCodeFor:
     def test_keyboard_interrupt(self):
-        assert exit_code_for(KeyboardInterrupt()) == 130
+        obs = ObservabilitySetup(Path("/tmp/qwen-test-log"))
+        assert obs.exit_code_for(KeyboardInterrupt()) == 130
 
     def test_auth_required(self):
-        assert exit_code_for(AuthRequiredError("login")) == 2
+        obs = ObservabilitySetup(Path("/tmp/qwen-test-log"))
+        assert obs.exit_code_for(AuthRequiredError("login")) == 2
 
     def test_general_error(self):
-        assert exit_code_for(RuntimeError("oops")) == 1
+        obs = ObservabilitySetup(Path("/tmp/qwen-test-log"))
+        assert obs.exit_code_for(RuntimeError("oops")) == 1
 
 
 class TestExcepthooks:
@@ -154,10 +155,10 @@ class TestExcepthooks:
 class TestSetupObservability:
     def test_setup_creates_log_dir(self, tmp_path):
         log_dir = tmp_path / "logs"
-        setup_observability(log_dir)
+        ObservabilitySetup(log_dir).setup_observability()
         assert log_dir.exists()
 
     def test_setup_idempotent(self, tmp_path):
         log_dir = tmp_path / "logs"
-        setup_observability(log_dir)
-        setup_observability(log_dir)  # no error
+        ObservabilitySetup(log_dir).setup_observability()
+        ObservabilitySetup(log_dir).setup_observability()  # no error

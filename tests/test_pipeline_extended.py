@@ -10,6 +10,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from modules.core.src.capabilities_audit_repository import AuditRepository
+from modules.core.src.agent_core_orchestrator import (
+    _watcher_shutdown,
+    _watcher_sleep,
+    is_watcher_shutdown_set,
+    request_watcher_shutdown,
+)
 from modules.root_cli_main_entry import (
     _iter_todo,
     _iter_todo_batch,
@@ -17,9 +23,6 @@ from modules.root_cli_main_entry import (
     _iter_todo_single,
     _iter_todo_watcher,
     _process_file,
-    _watcher_sleep,
-    is_watcher_shutdown_set,
-    request_watcher_shutdown,
 )
 from modules.shared.src.utility_core_path import cleanup_empty_dirs
 from modules.shared.src import (
@@ -269,18 +272,18 @@ class TestWatcherSleep:
         request_watcher_shutdown()
         _watcher_sleep(10)  # should return immediately
         # Reset for other tests
-        from modules.root_cli_main_entry import _watcher_shutdown
+        from modules.core.src.agent_core_orchestrator import _watcher_shutdown
         _watcher_shutdown.clear()
 
     def test_normal_sleep(self):
-        from modules.root_cli_main_entry import _watcher_shutdown
+        from modules.core.src.agent_core_orchestrator import _watcher_shutdown
         _watcher_shutdown.clear()
         _watcher_sleep(1)
 
 
 class TestIterTodoWatcher:
     def test_yields_and_shutdown(self, tmp_path):
-        from modules.root_cli_main_entry import _watcher_shutdown
+        from modules.core.src.agent_core_orchestrator import _watcher_shutdown
         _watcher_shutdown.clear()
 
         todo = tmp_path / "todo" / "role-dev" / "todo"

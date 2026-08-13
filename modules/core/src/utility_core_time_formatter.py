@@ -1,21 +1,11 @@
-"""Time formatter utility.
+"""Time formatter utility (core re-export).
 
-Utility layer (utility_core_time_formatter): UTC timestamp formatting.
-Stateless function consumed by AuditRepository, Saver, and other Capabilities.
+Re-export from shared layer to avoid import breakage.
+The canonical implementation lives in modules/shared/src/utility_core_time_formatter.py.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from modules.shared.src.utility_core_time_formatter import utc_now_iso
 
-
-def utc_now_iso() -> str:
-    """Return current UTC time as an ISO-format string.
-
-    Returns
-    -------
-    str
-        ISO 8601 formatted timestamp with UTC timezone.
-
-    """
-    return datetime.now(tz=timezone.utc).isoformat()
+__all__ = ["utc_now_iso"]

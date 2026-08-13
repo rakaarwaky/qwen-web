@@ -1,4 +1,4 @@
-"""Tests for saver.py — remaining uncovered lines in _strip_ui_noise, _write_file_atomic, write_output."""
+"""Tests for saver.py — remaining uncovered lines in strip_ui_noise, _write_text_file, write_output."""
 
 from __future__ import annotations
 
@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from modules.core.src.capabilities_output_saver import _write_file_atomic, write_output
+from modules.core.src.capabilities_output_saver import Saver
+from modules.core.src.utility_core_io_writer import ensure_dir
 from modules.shared.src.utility_core_text import strip_ui_noise
 from modules.shared.src import OutputWriteError, RunContext, SaverConfig
 
@@ -51,12 +52,13 @@ class TestStripUiNoise:
 class TestWriteFileAtomic:
     def test_atomic_write(self, tmp_path):
         target = tmp_path / "output.md"
-        _write_file_atomic(target, "hello world")
+        Saver()._write_text_file(target, "hello world", atomic=True)
         assert target.read_text() == "hello world"
 
     def test_creates_parent_dirs(self, tmp_path):
         target = tmp_path / "sub" / "dir" / "file.md"
-        _write_file_atomic(target, "nested")
+        ensure_dir(target)
+        Saver()._write_text_file(target, "nested", atomic=True)
         assert target.read_text() == "nested"
 
 
@@ -64,7 +66,7 @@ class TestWriteOutputExtended:
     def test_with_sidecar(self, tmp_path):
         out_file = tmp_path / "result.md"
         ctx = RunContext()
-        write_output(
+        Saver().write_output(
             path=out_file,
             content="AI answer",
             ctx=ctx,
@@ -82,7 +84,7 @@ class TestWriteOutputExtended:
         out_file = tmp_path / "plain.md"
         ctx = RunContext()
         cfg = SaverConfig(generate_sidecar=False)
-        write_output(
+        Saver().write_output(
             path=out_file,
             content="plain",
             ctx=ctx,
@@ -98,7 +100,7 @@ class TestWriteOutputExtended:
         out_file = tmp_path / "result.md"
         ctx = RunContext()
         cfg = SaverConfig(atomic_write=False)
-        write_output(
+        Saver().write_output(
             path=out_file,
             content="data",
             ctx=ctx,
@@ -113,7 +115,7 @@ class TestWriteOutputExtended:
     def test_strips_ui_noise(self, tmp_path):
         out_file = tmp_path / "result.md"
         ctx = RunContext()
-        write_output(
+        Saver().write_output(
             path=out_file,
             content="Qwen3\nReal content here",
             ctx=ctx,

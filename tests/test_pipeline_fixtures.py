@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from modules.core.src.capabilities_audit_repository import AuditRepository
-from modules.core.src.capabilities_output_saver import write_output
+from modules.core.src.capabilities_output_saver import Saver
 from modules.shared.src.utility_core_path import (
     resolve_role_paths,
     should_process_file as _should_process_file,
@@ -128,7 +128,7 @@ def test_write_output_creates_file_with_traceability_header(
     out_file = tmp_path / "output" / "role-architect" / "task_001_result.md"
     content = "# Result\nThis is the Qwen response."
 
-    write_output(
+    Saver().write_output(
         path=out_file,
         content=content,
         ctx=run_ctx,

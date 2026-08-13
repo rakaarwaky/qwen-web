@@ -34,7 +34,6 @@ from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
     _WATCHER_SLEEP_CHUNK_SECS,
     CHAT_URL,
-    DEFAULT_DONE,
     DEFAULT_FAILED,
     DEFAULT_LOG,
     DEFAULT_OUTPUT,
@@ -70,6 +69,7 @@ from modules.shared.src.utility_core_prompt import load_role_prompt, strip_input
 from modules.core.src.utility_core_config_factory import build_app_config
 from modules.core.src.utility_core_error_mapping import to_error_response
 from modules.core.src.utility_core_file_mover import move_to_processing, move_file
+from modules.core.src.utility_core_io_writer import ensure_dir
 
 _watcher_shutdown: threading.Event = threading.Event()
 
@@ -151,7 +151,7 @@ class CoreOrchestrator(ICoreAggregate):
         self._audit.log_step(ctx, "START_PROCESSING", FilePath(str(in_p.name)), "STARTED", {"input_chars": 0})
 
         proc_file = cfg.proc_path / in_p.name
-        proc_file.parent.mkdir(parents=True, exist_ok=True)
+        ensure_dir(proc_file)
         shutil.copy2(in_p, proc_file)
 
         try:
@@ -438,8 +438,8 @@ class CoreOrchestrator(ICoreAggregate):
     def _iter_todo(self, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
         """Yield (proc_file, relative_path) tuples for the processing queue."""
         src = cfg.input_path if cfg.input_path.is_dir() else DEFAULT_TODO
-        src.mkdir(parents=True, exist_ok=True)
-        cfg.proc_path.mkdir(parents=True, exist_ok=True)
+        ensure_dir(src)
+        ensure_dir(cfg.proc_path)
 
         if cfg.retry_failed:
             yield from self._iter_todo_retry_failed(cfg)
@@ -462,9 +462,8 @@ class CoreOrchestrator(ICoreAggregate):
         for f in sorted(f for f in src.rglob("*") if should_process_file(f, src)):
             rel_path = f.resolve().relative_to(src.resolve())
             _, _, _, proc_dest = resolve_role_paths(rel_path, cfg)
-            proc_dest.parent.mkdir(parents=True, exist_ok=True)
             try:
-                shutil.move(str(f), str(proc_dest))
+                move_to_processing(f, proc_dest)
                 yield proc_dest, rel_path
             except OSError:
                 continue
@@ -489,8 +488,7 @@ class CoreOrchestrator(ICoreAggregate):
             rel_path = Path(*parts[role_idx:]) if role_idx is not None else Path(cfg.input_path.name)
 
         _, _, _, proc_file = resolve_role_paths(rel_path, cfg)
-        proc_file.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(cfg.input_path), str(proc_file))
+        move_to_processing(cfg.input_path, proc_file)
         yield proc_file, rel_path
 
     def _iter_todo_batch(self, src: Path, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
@@ -507,14 +505,7 @@ class CoreOrchestrator(ICoreAggregate):
                 yield proc_dest, rel_path
             if _watcher_shutdown.is_set():
                 return
-            self._watcher_sleep(cfg.interval)
-
-    def _watcher_sleep(self, interval: int) -> None:
-        """Sleep in small chunks so shutdown remains responsive."""
-        for _ in range(max(1, interval)):
-            if _watcher_shutdown.is_set():
-                return
-            time.sleep(min(_WATCHER_SLEEP_CHUNK_SECS, interval))
+            _watcher_sleep(cfg.interval)
 
     def _install_watcher_signal_handlers(self) -> None:
         """Register SIGINT/SIGTERM handlers that request watcher shutdown."""

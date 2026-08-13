@@ -11,7 +11,7 @@ from typing import Any
 
 from modules.shared.src.contract_status_protocol import IStatusProtocol
 from modules.shared.src.taxonomy_core_vo import StatusRecordVO
-from modules.core.src.utility_core_io_writer import atomic_write_text
+from modules.core.src.utility_core_io_writer import atomic_write_text, ensure_dir
 
 # Block 1: Class Definition & Constructor ──────────────
 class StatusFileWriter(IStatusProtocol):
@@ -20,7 +20,7 @@ class StatusFileWriter(IStatusProtocol):
     def __init__(self, status_path: Path) -> None:
 
         self._status_path = status_path
-        self._status_path.parent.mkdir(parents=True, exist_ok=True)
+        ensure_dir(self._status_path)
 
     # ─── Block 2: Public Contract (IStatusProtocol ONLY) ──
     def write(self, **kwargs: Any) -> None:

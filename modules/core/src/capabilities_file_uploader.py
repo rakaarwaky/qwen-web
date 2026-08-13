@@ -18,6 +18,7 @@ from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_vo import (
     BackoffDelaySec,
     CardRenderTimeoutMs,
+    EVENT_DOCUMENT_PARSED,
     DropdownTimeoutMs,
     FileChooserTimeoutMs,
     FileSizeBytes,
@@ -73,7 +74,7 @@ class FileUploader(IUploadProtocol):
             self.max_retries = MaxRetries(config.get("max_retries", int(self.max_retries)))
 
         try:
-            size_bytes = self._validate_file(filepath)
+            size_bytes = FileSizeBytes(_validate_file_util(filepath, float(self.max_file_size_mb)))
         except FileValidationError as e:
             log.error("Pre-flight validation failed: %s", e)
             return False
@@ -115,18 +116,11 @@ class FileUploader(IUploadProtocol):
         )
         return False
 
-    def _validate_file(self, filepath: Path) -> int:
-        """Perform pre-flight sanity and security validation.
-
-        Delegates to shared utility_core_validation.validate_file.
-        """
-        return FileSizeBytes(_validate_file_util(filepath, float(self.max_file_size_mb)))
-
     def validate_file(self, filepath: Path, max_size_mb: float = 100.0) -> FileSizeBytes:
         """Public protocol method — pre-flight validation returning size in bytes."""
         if max_size_mb != float(self.max_file_size_mb):
             self.max_file_size_mb = MaxFileSizeMb(max_size_mb)
-        return FileSizeBytes(self._validate_file(filepath))
+        return FileSizeBytes(_validate_file_util(filepath, float(self.max_file_size_mb)))
 
     def _close_dropdown_if_open(self, page: Page) -> None:
         """Send Escape key to close orphaned dropdown menus."""

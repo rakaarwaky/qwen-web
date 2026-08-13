@@ -3,35 +3,35 @@
 from __future__ import annotations
 
 import asyncio
-import json
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from modules.root_cli_main_entry import _run_manual_login, _run_watcher, main
-from modules.root_mcp_main_entry import (
-    qwen_process_batch,
-    qwen_process_single,
-    qwen_send_prompt,
-    qwen_start_watcher,
+from modules.core.src.agent_core_orchestrator import _watcher_shutdown, request_watcher_shutdown
+from modules.core.src.capabilities_browser_adapter import BrowserAdapter
+from modules.core.src.capabilities_file_uploader import FileUploader
+from modules.core.src.capabilities_observability_setup import (
+    ObservabilitySetup,
+    _excepthook,
+    _thread_excepthook,
 )
 from modules.root_cli_main_entry import (
     _iter_todo_retry_failed,
     _iter_todo_single,
     _iter_todo_watcher,
     _process_file,
-    request_watcher_shutdown,
+    _run_manual_login,
+    _run_watcher,
+    main,
 )
-from modules.core.src.capabilities_observability_setup import (
-    _configure_sentry,
-    _configure_tracing,
-    _configure_logging,
-    _excepthook,
-    _thread_excepthook,
+from modules.root_mcp_main_entry import (
+    qwen_process_batch,
+    qwen_process_single,
+    qwen_send_prompt,
+    qwen_start_watcher,
 )
-from modules.core.src.capabilities_browser_adapter import _launch_context, browser_session
-from modules.core.src.capabilities_file_uploader import _close_dropdown_if_open, _try_upload_attempt, upload_attachment
 from modules.shared.src import AppConfig, CircuitBreaker, LifecycleEmitter, RunContext
 
 
@@ -59,13 +59,12 @@ class TestMainWatcherError:
 
         with patch("modules.root_cli_main_entry._iter_todo", side_effect=iter_with_error), \
              patch("modules.root_cli_main_entry._process_file"), \
-             patch("modules.core.src.capabilities_observability_setup.StatusFileWriter") as mock_sw:
+             patch("modules.core.src.capabilities_status_writer.StatusFileWriter") as mock_sw:
             _run_watcher(client, cfg, audit)
             calls = mock_sw.return_value.write.call_args_list
             assert any("error" in str(c) for c in calls)
 
     def test_watcher_shutdown_breaks_loop(self, tmp_path):
-        from modules.root_cli_main_entry import _watcher_shutdown
         _watcher_shutdown.set()
         client = MagicMock()
         cfg = AppConfig(
@@ -82,7 +81,7 @@ class TestMainWatcherError:
         audit = MagicMock()
 
         with patch("modules.root_cli_main_entry._iter_todo", return_value=iter([])), \
-             patch("modules.core.src.capabilities_observability_setup.StatusFileWriter"):
+             patch("modules.core.src.capabilities_status_writer.StatusFileWriter"):
             _run_watcher(client, cfg, audit)
         _watcher_shutdown.clear()
 
@@ -168,20 +167,35 @@ class TestPipelineRemainingPaths:
 # ─── observability.py remaining paths ───────────────────────────────────────
 
 class TestObservabilityRemainingPaths:
-    def test_configure_sentry_with_dsn(self):
+    def test_configure_sentry_with_dsn(self, tmp_path):
+        mock_sentry = MagicMock()
         with patch.dict("os.environ", {"SENTRY_DSN": "https://key@sentry.io/1"}), \
-             patch("modules.core.src.capabilities_observability_setup.has_sentry", True), \
-             patch("modules.core.src.capabilities_observability_setup.sentry_sdk") as mock_sentry:
-            _configure_sentry()
+             patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
+            ObservabilitySetup(tmp_path / "log")._configure_sentry()
             mock_sentry.init.assert_called_once()
 
-    def test_configure_tracing_with_endpoint(self):
+    def test_configure_tracing_with_endpoint(self, tmp_path):
+        mock_otel = MagicMock()
+        mock_sdk_resources = MagicMock()
+        mock_sdk_trace = MagicMock()
+        mock_sdk_trace_export = MagicMock()
+        mock_otlp_exporter = MagicMock()
+        otel_modules = {
+            "opentelemetry": mock_otel,
+            "opentelemetry.sdk": MagicMock(),
+            "opentelemetry.sdk.resources": mock_sdk_resources,
+            "opentelemetry.sdk.trace": mock_sdk_trace,
+            "opentelemetry.sdk.trace.export": mock_sdk_trace_export,
+            "opentelemetry.exporter": MagicMock(),
+            "opentelemetry.exporter.otlp": MagicMock(),
+            "opentelemetry.exporter.otlp.proto": MagicMock(),
+            "opentelemetry.exporter.otlp.proto.http": MagicMock(),
+            "opentelemetry.exporter.otlp.proto.http.trace_exporter": mock_otlp_exporter,
+        }
         with patch.dict("os.environ", {"OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318"}), \
-             patch("modules.core.src.capabilities_observability_setup.has_otel", True), \
-             patch("modules.core.src.capabilities_observability_setup.has_otlp", True), \
-             patch("modules.core.src.capabilities_observability_setup.trace") as mock_trace, \
-             patch("modules.core.src.capabilities_observability_setup.TracerProvider") as mock_tp:
-            _configure_tracing()
+             patch.dict(sys.modules, otel_modules):
+            ObservabilitySetup(tmp_path / "log")._configure_tracing()
+            mock_otlp_exporter.OTLPSpanExporter.assert_called_once_with(endpoint="http://localhost:4318")
 
     def test_excepthook_keyboard_interrupt(self):
         with patch("modules.core.src.capabilities_observability_setup.sys") as mock_sys:
@@ -205,7 +219,7 @@ class TestBrowserRemainingPaths:
         kwargs = {"user_data_dir": "", "headless": True}
         mock_ctx = MagicMock()
         p.chromium.launch_persistent_context.return_value = mock_ctx
-        ctx = _launch_context(p, kwargs)
+        ctx = BrowserAdapter()._launch_context(p, kwargs)
         assert ctx == mock_ctx
 
     def test_browser_session_creates_dirs(self, tmp_path):
@@ -227,6 +241,6 @@ class TestBrowserRemainingPaths:
             mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
             mock_p.chromium.launch_persistent_context.return_value = mock_ctx
-            with browser_session(cfg) as ctx:
+            with BrowserAdapter().browser_session(cfg) as ctx:
                 pass
             assert cfg.session_path.exists()

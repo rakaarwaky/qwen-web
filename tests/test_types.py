@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from modules.core.src.capabilities_observability_setup import exit_code_for
+from modules.core.src.capabilities_observability_setup import ObservabilitySetup
 from modules.shared.src import (
     AuthRequiredError,
     BrowserConfig,
@@ -14,7 +14,7 @@ from modules.shared.src import (
     MCPToolResponse,
     RunContext,
     SenderConfig,
-    StatusRecord,
+    StatusRecordVO,
     StreamerConfig,
     UploadConfig,
 )
@@ -32,9 +32,10 @@ def test_error_category_classification():
 
 
 def test_exit_code_for_mapping():
-    assert exit_code_for(KeyboardInterrupt()) == 130
-    assert exit_code_for(AuthRequiredError("login")) == 2
-    assert exit_code_for(RuntimeError("general error")) == 1
+    obs = ObservabilitySetup(Path("/tmp/qwen-test-log"))
+    assert obs.exit_code_for(KeyboardInterrupt()) == 130
+    assert obs.exit_code_for(AuthRequiredError("login")) == 2
+    assert obs.exit_code_for(RuntimeError("general error")) == 1
 
 
 def test_run_context_uniqueness():
@@ -57,7 +58,7 @@ def test_config_defaults(tmp_path: Path):
     assert sender_cfg.click_timeout_ms == 3000
 
     streamer_cfg = StreamerConfig()
-    assert streamer_cfg.stability_checks == 3
+    assert streamer_cfg.stability_checks == 4
 
     mcp_cfg = MCPServerConfig()
     assert mcp_cfg.server_name == "Qwen-Web"
@@ -65,5 +66,5 @@ def test_config_defaults(tmp_path: Path):
     mcp_resp = MCPToolResponse(success=True, data="ok")
     assert mcp_resp.success is True
 
-    status_rec = StatusRecord(status="RUNNING", mode="single", headless=True)
+    status_rec = StatusRecordVO(status="RUNNING", mode="single", headless=True)
     assert status_rec.status == "RUNNING"

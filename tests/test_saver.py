@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from modules.core.src.capabilities_output_saver import write_output
+from modules.core.src.capabilities_output_saver import Saver
 from modules.shared.src import OutputWriteError, RunContext, SaverConfig
 
 
@@ -15,7 +15,7 @@ def test_write_output_success(tmp_path: Path):
     out_file = tmp_path / "result.md"
     ctx = RunContext()
 
-    write_output(
+    Saver().write_output(
         path=out_file,
         content="This is the AI response.",
         ctx=ctx,
@@ -44,7 +44,7 @@ def test_write_output_no_header_no_sidecar(tmp_path: Path):
     ctx = RunContext()
     cfg = SaverConfig(include_header=False, generate_sidecar=False)
 
-    write_output(
+    Saver().write_output(
         path=out_file,
         content="Plain content",
         ctx=ctx,
@@ -68,7 +68,7 @@ def test_write_output_invalid_dir(tmp_path: Path):
 
     ctx = RunContext()
     with pytest.raises(OutputWriteError, match="Failed to write output file"):
-        write_output(
+        Saver().write_output(
             path=out_file,
             content="test",
             ctx=ctx,
