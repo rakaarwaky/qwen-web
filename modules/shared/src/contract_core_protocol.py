@@ -129,6 +129,10 @@ class IBrowserProtocol(ABC):
         """Raise AuthRequiredError if not authenticated."""
 
     @abstractmethod
+    def check_session(self, page: Page) -> bool:
+        """Return True when the page contains the authenticated chat UI."""
+
+    @abstractmethod
     def reset_page(self, page: Page, emitter: LifecycleEmitter) -> None:
         """Reset the page to a clean chat state."""
 

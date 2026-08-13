@@ -104,8 +104,18 @@ class InteractiveController:
         if cfg is None:
             return success_response("Exited.")
         if cfg.mode == "login":
-            self._core.setup_session()
-            return success_response("Login session saved.")
+
+            def _wait_for_login() -> None:
+                """Keep the headed browser alive while the user completes login."""
+                print("Please log in or resolve CAPTCHA in the browser window.")
+                print("Press [ENTER] here once the chat page is ready:")
+                input()
+
+            result = self._core.setup_session(
+                wait_for_confirmation=_wait_for_login,
+                session_path=cfg.session_path,
+            )
+            return success_response(result)
 
         result = self._core.process_mode(cfg)
         return success_response(result)

@@ -260,18 +260,87 @@ class CoreOrchestrator(ICoreAggregate):
 
         return self._execute_with_cleanup(_fn, _cleanup)
 
-    def setup_session(self) -> ResponseText:
-        """Launch a visible browser for manual login / session setup."""
+    def setup_session(
+        self,
+        wait_for_confirmation: Callable[[], None] | None = None,
+        session_path: Path | None = None,
+    ) -> ResponseText:
+        """Validate or establish a persistent manual login session.
+
+        An existing profile is checked in a temporary headless context first.
+        Only a missing or invalid session starts the visible login flow. When a
+        CLI surface supplies ``wait_for_confirmation``, that callback runs
+        while the visible browser context is still open; this is important for
+        manual login and CAPTCHA completion.
+        """
         cfg = build_app_config(
             mode="login",
             input_path=DEFAULT_TODO,
             output_path=DEFAULT_OUTPUT,
+            session_path=session_path,
             headless=False,
         )
+
+        if cfg.session_path.is_dir() and self._validate_saved_session(cfg):
+            return ResponseText("An existing saved Qwen session is already valid. No visible browser was opened.")
+
         with self._browser.browser_session(cfg) as bctx:
             page = bctx.pages[0] if bctx.pages else bctx.new_page()
             page.goto(CHAT_URL, wait_until="domcontentloaded")
-        return ResponseText(f"Browser session saved to '{cfg.session_path}'. You can now run tasks in headless mode.")
+
+            if wait_for_confirmation is not None:
+                # The callback blocks inside this context, keeping the headed
+                # browser alive while the user logs in or resolves CAPTCHA.
+                wait_for_confirmation()
+            else:
+                # Non-CLI callers (for example MCP) have no ENTER prompt. Wait
+                # until the page becomes authenticated instead of closing the
+                # browser immediately after navigation.
+                self._wait_for_session(page, cfg.timeout)
+
+            if not self._browser.check_session(page):
+                raise AuthRequiredError(
+                    "Manual login did not produce a valid Qwen session. "
+                    "Please run 'qwen-web-cli --login' again and finish the login or CAPTCHA."
+                )
+
+        return ResponseText("Manual login completed successfully. The Qwen session is valid for headless tasks.")
+
+    def _validate_saved_session(self, cfg: AppConfig) -> bool:
+        """Check an existing profile without opening a visible login window."""
+        validation_cfg = build_app_config(
+            mode="session-check",
+            input_path=DEFAULT_TODO,
+            output_path=DEFAULT_OUTPUT,
+            session_path=cfg.session_path,
+            headless=True,
+        )
+        try:
+            with self._browser.browser_session(validation_cfg) as bctx:
+                page = bctx.pages[0] if bctx.pages else bctx.new_page()
+                emitter = self._emitter()
+                self._browser.navigate_to_chat(page, emitter)
+                return self._browser.check_session(page)
+        except Exception as exc:  # an expired/corrupt profile should enter manual login
+            self._observability.get_logger().debug("saved_session_validation_failed", error=str(exc))
+            return False
+
+    def _wait_for_session(self, page: Page, timeout_sec: int) -> None:
+        """Wait for a non-CLI manual login flow to become authenticated."""
+        deadline = time.monotonic() + timeout_sec
+        while not self._browser.check_session(page):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise AuthRequiredError(
+                    f"Manual login was not completed within {timeout_sec}s. "
+                    "Run the login flow again and finish the login or CAPTCHA."
+                )
+            try:
+                page.wait_for_timeout(min(1000, max(1, int(remaining * 1000))))
+            except Exception as exc:  # the user may close the browser during manual setup
+                raise AuthRequiredError(
+                    "The manual-login browser was closed before the Qwen session was verified."
+                ) from exc
 
     def get_audit_log(self, limit: int = 20) -> ResponseText:
         """Return recent audit log entries as JSON text (delegated to audit capability)."""

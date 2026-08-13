@@ -93,7 +93,11 @@ qwen-web-cli -i my_prompt.md -o output/result.md --headless
 qwen-web-cli --login
 ```
 
-> First run requires `--login` or interactive mode for manual authentication. Subsequent runs can use `--headless`.
+The login command first validates the saved session. If it is already valid, the
+CLI reports that state and does not open a visible browser. Otherwise, it opens
+a headed browser and keeps it open while you complete login or CAPTCHA; press `ENTER`
+only after the chat page is ready. The CLI verifies the resulting session before
+reporting success. Subsequent runs can use `--headless`.
 
 ### MCP Server Mode
 

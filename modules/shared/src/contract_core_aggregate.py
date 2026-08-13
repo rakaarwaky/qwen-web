@@ -9,6 +9,7 @@ aggregate; surfaces only handle front-end concerns (arg parsing, TUI, JSON-RPC).
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from pathlib import Path
 
 from modules.shared.src.taxonomy_config_vo import AppConfig
@@ -65,8 +66,16 @@ class ICoreAggregate(ABC):
         """Send a direct text prompt and return the AI response."""
 
     @abstractmethod
-    def setup_session(self) -> ResponseText:
-        """Launch a visible browser for manual login / session setup."""
+    def setup_session(
+        self,
+        wait_for_confirmation: Callable[[], None] | None = None,
+        session_path: Path | None = None,
+    ) -> ResponseText:
+        """Validate or establish a persistent manual login session.
+
+        ``wait_for_confirmation`` is supplied by interactive surfaces so the
+        browser context remains open while the user completes login or CAPTCHA.
+        """
 
     @abstractmethod
     def get_audit_log(self, limit: MessageCount = MessageCount(20)) -> ResponseText:
