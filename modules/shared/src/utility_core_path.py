@@ -14,6 +14,25 @@ from modules.shared.src.taxonomy_core_constant import (
     SKIP_DIRS,
 )
 
+STATUS_FILENAME = "status.json"
+
+
+def status_path_for(log_path: Path) -> Path:
+    """Return the canonical path to the status JSON file for a given log directory.
+
+    Parameters
+    ----------
+    log_path : Path
+        Log directory path.
+
+    Returns
+    -------
+    Path
+        log_path / STATUS_FILENAME
+
+    """
+    return log_path / STATUS_FILENAME
+
 
 def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> tuple[Path, Path, Path, Path]:
     """Resolve role-based paths for output, done, failed, and processing.

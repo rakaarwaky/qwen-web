@@ -18,6 +18,7 @@ from modules.shared.src import utility_core_exit
 from modules.shared.src.contract_core_protocol import IObservabilityProtocol
 from modules.shared.src.contract_status_protocol import IStatusProtocol
 from modules.shared.src.taxonomy_core_vo import ErrorCategory, ExitCode, ServiceName
+from modules.shared.src.utility_core_path import status_path_for
 from modules.core.src.utility_core_io_writer import ensure_dir
 from modules.core.src.utility_core_logger_factory import get_logger
 
@@ -41,7 +42,7 @@ class ObservabilitySetup(IObservabilityProtocol):
 
     def __init__(self, log_path: Path, status_writer: IStatusProtocol | None = None) -> None:
         self._log_path = log_path
-        self._status_path = log_path / "status.json"
+        self._status_path = status_path_for(log_path)
         self._status_writer = status_writer
 
     # ─── Block 2: Public Contract (IObservabilityProtocol ONLY) ──

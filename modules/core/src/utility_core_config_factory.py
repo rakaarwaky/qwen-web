@@ -64,20 +64,3 @@ def build_app_config(
     }
     kwargs.update(overrides)
     return AppConfig(**kwargs)
-
-
-def status_path_for(log_path: Path) -> Path:
-    """Derive the status file path from a log directory.
-
-    Parameters
-    ----------
-    log_path : Path
-        Application log directory.
-
-    Returns
-    -------
-    Path
-        Path to the JSON status file.
-
-    """
-    return log_path / "status.json"

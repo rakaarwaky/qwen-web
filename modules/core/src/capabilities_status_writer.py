@@ -11,6 +11,7 @@ from typing import Any
 
 from modules.shared.src.contract_status_protocol import IStatusProtocol
 from modules.shared.src.taxonomy_core_vo import StatusRecordVO
+from modules.shared.src.utility_core_path import status_path_for
 from modules.core.src.utility_core_io_writer import atomic_write_text, ensure_dir
 
 # Block 1: Class Definition & Constructor ──────────────
@@ -71,10 +72,10 @@ class StatusFileWriter(IStatusProtocol):
 
     @classmethod
     def create_default(cls, log_path: Path) -> "StatusFileWriter":
-        return cls(log_path / "status.json")
+        return cls(status_path_for(log_path))
 
 
 # Module-level convenience function
 def get_status_writer(log_path: Path) -> StatusFileWriter:
     """Create a status writer at log_path/status.json (module-level convenience)."""
-    return StatusFileWriter(log_path / "status.json")
+    return StatusFileWriter(status_path_for(log_path))

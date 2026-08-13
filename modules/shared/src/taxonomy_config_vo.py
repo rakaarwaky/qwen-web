@@ -12,6 +12,7 @@ from pathlib import Path
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_LOG,
 )
+from modules.shared.src.utility_core_path import status_path_for
 
 
 @dataclass(frozen=True)
@@ -208,7 +209,7 @@ class AppConfig:
     @property
     def status_path(self) -> Path:
         """Path to the JSON status file for monitoring."""
-        return self.log_path / "status.json"
+        return status_path_for(self.log_path)
 
     def validate(self) -> None:
         """Validate configuration before execution.
