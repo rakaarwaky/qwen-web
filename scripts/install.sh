@@ -13,7 +13,7 @@ cd "${PROJECT_ROOT}"
 # 0. Clean uninstall of any previous install so stale copies (with old code) do not linger
 echo "🧹 [install] Removing any previous qwen-web installation..."
 pip uninstall -y qwen-web 2>/dev/null || true
-/usr/bin/python3 -m pip uninstall -y qwen-web 2>/dev/null || true
+python3 -m pip uninstall -y qwen-web 2>/dev/null || true
 rm -f "${HOME}/.local/bin/qwen-web-cli" "${HOME}/.local/bin/qwc" 2>/dev/null || true
 
 # 1. Virtual environment setup
