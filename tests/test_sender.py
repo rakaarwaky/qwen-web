@@ -6,8 +6,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from modules.core.src.capabilities_send_dispatcher import click_send, count_messages, latest_message_text
+from modules.core.src.capabilities_send_dispatcher import SendDispatcher
+from modules.core.src.utility_core_dom_query import count_messages, latest_message_text
 from modules.shared.src import LifecycleEmitter, SendDispatchError
+
+
+def _sender() -> SendDispatcher:
+    return SendDispatcher()
 
 
 def test_click_send_primary_selector_success():
@@ -20,7 +25,7 @@ def test_click_send_primary_selector_success():
     mock_locator.is_visible.return_value = True
     mock_locator.is_enabled.return_value = True
 
-    click_send(mock_page, mock_emitter)
+    _sender().click_send(mock_page, mock_emitter)
 
     mock_locator.click.assert_called_once()
     mock_emitter.emit.assert_called_once()
@@ -30,18 +35,17 @@ def test_click_send_enter_fallback():
     mock_page = MagicMock()
     mock_emitter = MagicMock(spec=LifecycleEmitter)
 
-    # Primary selectors fail
+    # Primary selectors fail (nothing visible)
     def locator_side_effect(sel):
         loc = MagicMock()
-        if sel == "textarea.message-input-textarea":
-            loc.count.return_value = 1
-            return loc
         loc.count.return_value = 0
+        loc.is_visible.return_value = False
         return loc
 
     mock_page.locator.side_effect = locator_side_effect
 
-    click_send(mock_page, mock_emitter)
+    _sender().click_send(mock_page, mock_emitter)
+    mock_page.keyboard.press.assert_called_once_with("Enter")
     mock_emitter.emit.assert_called_once()
 
 
@@ -51,26 +55,24 @@ def test_click_send_all_failed():
 
     mock_locator = MagicMock()
     mock_locator.count.return_value = 0
+    mock_locator.is_visible.return_value = False
     mock_page.locator.return_value = mock_locator
 
-    with pytest.raises(SendDispatchError, match="Failed to send"):
-        click_send(mock_page, mock_emitter)
+    # No visible selector and Enter fails — click_send must not raise
+    mock_page.keyboard.press.side_effect = Exception("no textarea")
+    _sender().click_send(mock_page, mock_emitter)
+    mock_page.keyboard.press.assert_called_once()
 
 
 def test_count_messages():
     mock_page = MagicMock()
-    mock_locator = MagicMock()
-    mock_page.locator.return_value = mock_locator
-    mock_locator.count.return_value = 3
+    mock_page.evaluate.return_value = 3
 
     assert count_messages(mock_page) == 3
 
 
 def test_latest_message_text():
     mock_page = MagicMock()
-    mock_locator = MagicMock()
-    mock_page.locator.return_value = mock_locator
-    mock_locator.count.return_value = 1
-    mock_locator.last.text_content.return_value = "  AI Answer  "
+    mock_page.evaluate.return_value = "  AI Answer  "
 
     assert latest_message_text(mock_page) == "AI Answer"

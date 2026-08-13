@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -97,8 +98,9 @@ def _build_config(args: argparse.Namespace) -> AppConfig:
     )
 
 
+@lru_cache(maxsize=1)
 def _default_container() -> SharedContainer:
-    """Build the default auto-wired DI container."""
+    """Build the default auto-wired DI container (cached singleton)."""
     return SharedContainer()
 
 

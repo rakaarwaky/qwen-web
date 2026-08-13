@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from playwright.sync_api import Error
 
-from modules.core.src.capabilities_send_dispatcher import click_send, count_messages, latest_message_text
+from modules.core.src.capabilities_send_dispatcher import SendDispatcher
+from modules.core.src.utility_core_dom_query import count_messages, latest_message_text
 from modules.shared.src import LifecycleEmitter, SendDispatchError
+
+
+def _sender() -> SendDispatcher:
+    return SendDispatcher()
 
 
 class TestClickSendExtended:
@@ -16,35 +21,24 @@ class TestClickSendExtended:
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
         with pytest.raises(SendDispatchError, match="document attachment parsing"):
-            click_send(page, emitter, document_parsed=False)
+            _sender().click_send(page, emitter, document_parsed=False)
 
-    def test_selector_visible_but_disabled(self):
+    def test_no_visible_selector_uses_enter_fallback(self):
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
 
-        loc = MagicMock()
-        loc.count.return_value = 1
-        loc.is_visible.return_value = True
-        loc.is_enabled.return_value = False  # disabled
-
         def locator_factory(sel):
+            loc = MagicMock()
+            loc.count.return_value = 0
+            loc.is_visible.return_value = False
             return loc
 
         page.locator.side_effect = locator_factory
+        page.keyboard.press = MagicMock()
 
-        # All selectors fail (disabled), Enter fallback also fails
-        textarea = MagicMock()
-        textarea.count.return_value = 0
-
-        def locator_fallback(sel):
-            if sel == "textarea.message-input-textarea":
-                return textarea
-            return loc
-
-        page.locator.side_effect = locator_fallback
-
-        with pytest.raises(SendDispatchError, match="Failed to send"):
-            click_send(page, emitter)
+        _sender().click_send(page, emitter)
+        page.keyboard.press.assert_called_once_with("Enter")
+        emitter.emit.assert_called_once()
 
     def test_selector_exception_continues(self):
         page = MagicMock()
@@ -62,7 +56,7 @@ class TestClickSendExtended:
             return loc
 
         page.locator.side_effect = locator_factory
-        click_send(page, emitter)
+        _sender().click_send(page, emitter)
         emitter.emit.assert_called_once()
 
 

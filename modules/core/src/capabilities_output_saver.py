@@ -81,15 +81,7 @@ class Saver(ISaverProtocol):
 
         # Hoist mkdir before conditional branches (deduplication)
         ensure_dir(path)
-
-        if atomic_write:
-            atomic_write_text(path, full_text)
-        else:
-            try:
-                path.write_text(full_text, encoding="utf-8")
-            except OSError as e:
-                log.error("Failed to write output file %s (I/O error): %s", path, e)
-                raise OutputWriteError(f"Failed to write output file {path}: {e}") from e
+        self._write_text_file(path, full_text, atomic_write)
 
         if generate_sidecar:
             sidecar_path = path.with_suffix(".meta.json")
@@ -103,18 +95,34 @@ class Saver(ISaverProtocol):
                     "input_chars": input_chars,
                     "output_chars": output_chars,
                 }
-                if atomic_write:
-                    atomic_write_text(sidecar_path, json.dumps(meta_dict, ensure_ascii=False) + "\n")
-                else:
-                    sidecar_path.write_text(
-                        json.dumps(meta_dict, ensure_ascii=False) + "\n", encoding="utf-8"
-                    )
+                self._write_text_file(
+                    sidecar_path,
+                    json.dumps(meta_dict, ensure_ascii=False) + "\n",
+                    atomic_write,
+                )
             except Exception as e:
                 log.error("Failed to write metadata sidecar for %s: %s", path, e)
 
         log.info("output_file_written: %s", path.name)
 
     # ─── Block 3: Dunder Methods, Factories & Helpers ─────
+
+    def _write_text_file(self, path: Path, content: str, atomic: bool) -> None:
+        """Write *content* to *path*, atomically or directly.
+
+        Raises
+        ------
+        OutputWriteError
+            When an I/O error occurs on the non-atomic write path.
+        """
+        if atomic:
+            atomic_write_text(path, content)
+            return
+        try:
+            path.write_text(content, encoding="utf-8")
+        except OSError as e:
+            log.error("Failed to write output file %s (I/O error): %s", path, e)
+            raise OutputWriteError(f"Failed to write output file {path}: {e}") from e
 
     def __repr__(self) -> str:
         """Return string representation of Saver."""

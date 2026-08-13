@@ -9,6 +9,12 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from modules.shared.src.taxonomy_core_vo import (
+    AtomicWriteFlag,
+    GenerateSidecarFlag,
+    IncludeHeaderFlag,
+)
+
 BASE_DIR = Path(__file__).resolve().parents[3]
 
 # ─── Role path skip sets ──────────────────────────────────────
