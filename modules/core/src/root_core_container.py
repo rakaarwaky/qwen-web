@@ -83,7 +83,8 @@ class SharedContainer:
         )
 
         # LinuxGuard is CLI-only
-        self.linux = LinuxGuard() if use_linux_guard else None  # type: ignore[assignment]
+        linux: LinuxGuard | None = LinuxGuard() if use_linux_guard else None
+        self.linux = linux
 
     def wire(self) -> None:
         """Wire the container (idempotent — attributes already composed)."""

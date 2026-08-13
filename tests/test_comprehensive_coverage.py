@@ -34,17 +34,53 @@ from modules.shared.src.utility_core_prompt import (
     extract_prompt_text,
     strip_input_from_output,
 )
-from modules.core.src.capabilities_browser_adapter import _assert_on_chat_page, _clean_stale_locks, navigate_to_chat
+from modules.core.src.capabilities_browser_adapter import _assert_on_chat_page, BrowserAdapter
+
+
+def _clean_stale_locks(user_data_dir: str) -> None:
+    """Standalone wrapper for BrowserAdapter._clean_stale_locks."""
+    BrowserAdapter()._clean_stale_locks(user_data_dir)
+
+
+def navigate_to_chat(page: MagicMock, emitter: MagicMock) -> None:
+    """Standalone wrapper for BrowserAdapter.navigate_to_chat."""
+    BrowserAdapter().navigate_to_chat(page, emitter)
 from modules.core.src.capabilities_observability_setup import (
-    MetricsCounter,
-    StatusFileWriter,
-    bind_run_context,
-    clear_run_context,
-    get_logger,
-    get_tracer,
-    start_span,
+    _bind_run_context as _obs_bind,
+    _clear_run_context as _obs_clear,
+    _get_logger as _obs_get_logger,
+    _get_tracer as _obs_get_tracer,
+    _start_span as _obs_start_span,
 )
-from modules.core.src.capabilities_file_uploader import validate_file
+
+
+def bind_run_context(run_id: str, **extra) -> None:
+    """Standalone wrapper for private module function."""
+    _obs_bind(run_id, **extra)
+
+
+def clear_run_context() -> None:
+    """Standalone wrapper for private module function."""
+    _obs_clear()
+
+
+def get_logger(name="qwen-web"):
+    """Standalone wrapper for private module function."""
+    return _obs_get_logger(name)
+
+
+def get_tracer(name="qwen-web"):
+    """Standalone wrapper for private module function."""
+    return _obs_get_tracer(name)
+
+
+def start_span(name):
+    """Standalone wrapper for private module function."""
+    return _obs_start_span(name)
+from modules.core.src.capabilities_metrics_collector import MetricsCounter
+from modules.core.src.capabilities_status_writer import StatusFileWriter
+from modules.core.src.capabilities_file_uploader import FileUploader
+from modules.shared.src.utility_core_validation import validate_file
 from modules.shared.src import AppConfig, AuthRequiredError, LifecycleEmitter, RunContext
 
 
@@ -58,7 +94,7 @@ class TestMainRemaining:
 
     def test_main_single_instance_lock_error(self):
         with patch("sys.argv", ["qwen-cli", "-i", "/tmp/in", "-o", "/tmp/out", "--headless"]), \
-             patch("modules.root_cli_main_entry.CliContainer", side_effect=Exception("lock")):
+             patch("modules.root_cli_main_entry._default_container", side_effect=Exception("lock")):
             result = main()
             assert result == 1
 

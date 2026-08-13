@@ -9,7 +9,6 @@ from playwright.sync_api import Page
 
 from modules.shared.src.contract_core_protocol import ISendProtocol
 from modules.shared.src.taxonomy_config_vo import SenderConfig
-from modules.shared.src.taxonomy_core_constant import SEND_SELECTORS
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_vo import (
     EVENT_SEND_CLICKED,

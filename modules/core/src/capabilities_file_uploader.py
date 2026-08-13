@@ -29,7 +29,7 @@ from modules.shared.src.taxonomy_core_vo import (
 from modules.shared.src.taxonomy_domain_error import FileValidationError
 from modules.shared.src.utility_core_validation import validate_file as _validate_file_util
 from modules.core.src.utility_core_logger_factory import get_logger
-from modules.core.src.utility_core_dom_action import first_visible_locator
+from modules.core.src.utility_core_dom_helper import first_visible_locator
 
 log = get_logger("capabilities_file_uploader")
 

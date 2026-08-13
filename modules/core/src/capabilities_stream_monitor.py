@@ -6,16 +6,12 @@ Implements IStreamProtocol.
 from __future__ import annotations
 
 import time
-from typing import Any
 
 from playwright.sync_api import Error, Page
 
 from modules.shared.src.contract_core_protocol import IStreamProtocol
 from modules.shared.src.taxonomy_config_vo import StreamerConfig
 from modules.shared.src.taxonomy_core_constant import (
-    COMBINED_MESSAGE_SELECTOR,
-    JS_COUNT_TURNS,
-    JS_GET_RESPONSE_TEXT,
     SEND_DISABLED_SELECTORS,
     STOP_BUTTON_SELECTORS,
     TYPING_INDICATOR_SELECTORS,
@@ -34,7 +30,7 @@ from modules.shared.src.taxonomy_domain_error import AuthRequiredError, NetworkT
 from modules.shared.src.utility_core_events import is_stability_satisfied, should_treat_as_new_response
 from modules.shared.src.utility_core_validation import validate_response_content
 
-from modules.core.src.utility_core_dom_action import is_selector_visible
+from modules.core.src.utility_core_dom_helper import is_selector_visible
 from modules.core.src.utility_core_dom_query import count_messages, latest_message_text as _dom_latest
 from modules.core.src.utility_core_logger_factory import get_logger
 

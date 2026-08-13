@@ -13,12 +13,7 @@ from typing import Literal
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
-    DEFAULT_DONE,
-    DEFAULT_FAILED,
-    DEFAULT_LOG,
     DEFAULT_OUTPUT,
-    DEFAULT_PROC,
-    DEFAULT_SESSION,
     DEFAULT_TODO,
 )
 from modules.shared.src.taxonomy_core_vo import HeadlessFlag, TimeoutSec

@@ -1,6 +1,6 @@
-"""DOM action utilities for Playwright pages.
+"""DOM helper utilities for Playwright pages.
 
-Utility layer (utility_core_dom_action): stateless functions for DOM interaction —
+Utility layer (utility_core_dom_helper): stateless functions for DOM interaction —
 visibility checks, click helpers, locator selection.
 """
 

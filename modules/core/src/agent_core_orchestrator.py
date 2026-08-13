@@ -34,11 +34,7 @@ from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
     _WATCHER_SLEEP_CHUNK_SECS,
     CHAT_URL,
-    DEFAULT_FAILED,
-    DEFAULT_LOG,
     DEFAULT_OUTPUT,
-    DEFAULT_PROC,
-    DEFAULT_SESSION,
     DEFAULT_TODO,
 )
 from modules.shared.src.taxonomy_core_entity import CircuitBreaker, LifecycleEmitter, RateLimiter

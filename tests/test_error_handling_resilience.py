@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from modules.core.src.capabilities_output_saver import write_output
+from modules.core.src.capabilities_output_saver import Saver
 from modules.core.src.capabilities_stream_monitor import validate_response_content
 from modules.shared.src import (
     AuthRequiredError,
@@ -16,6 +16,13 @@ from modules.shared.src import (
     RateLimiter,
     RunContext,
 )
+
+
+def write_output(
+    path, content: str, ctx, src: str, dur: float, input_chars: int, output_chars: int, config=None
+) -> None:
+    """Standalone wrapper for Saver.write_output."""
+    Saver().write_output(path, content, ctx, src, dur, input_chars, output_chars, config)
 
 
 def test_validate_response_content_valid():
@@ -64,5 +71,6 @@ def test_saver_error_handling(tmp_path: Path):
     dir_as_file = tmp_path / "dir_target"
     dir_as_file.mkdir()
 
+    # atomic_write=False so the non-atomic path wraps OSError in OutputWriteError
     with pytest.raises(OutputWriteError, match="Failed to write output file"):
-        write_output(dir_as_file, "test content", ctx, "src.md", 1.0, 10, 12)
+        write_output(dir_as_file, "test content", ctx, "src.md", 1.0, 10, 12, config={"atomic_write": False})
