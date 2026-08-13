@@ -204,7 +204,10 @@ class BrowserAdapter(IBrowserProtocol):
         # its ProcessSingleton lock, and a pre-existing dir with a missing x bit
         # would otherwise fail with "Permission denied" at launch. mkdir(exist_ok=True)
         # never repairs an already-broken directory, so chmod explicitly.
-        os.chmod(cfg.session_path, 0o700)
+        # 0o700 is restrictive (owner-only) — required by the browser_session tests
+        # and by scripts/install.sh (chmod 700). Codacy's "insecure-file-permissions"
+        # finding here is a false positive.
+        os.chmod(cfg.session_path, 0o700)  # nosemgrep: insecure-file-permissions
 
         chrome_bin = find_chrome_binary()
 
