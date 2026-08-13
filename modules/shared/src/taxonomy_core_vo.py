@@ -152,6 +152,23 @@ class StatusRecordVO:
     error: str | None = None
 
 
+ERROR_CATEGORY_RULES: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("auth", "login", "captcha", "signin"), "auth"),
+    (("network", "connection", "timeout", "dns", "socket"), "network"),
+    (("rate", "limit", "throttl", "429"), "rate_limit"),
+    (("browser", "launch", "dom", "playwright", "chromium"), "browser"),
+    (("injection", "paste", "clipboard", "fill"), "injection"),
+    (("parse", "empty", "no response", "timeout"), "parsing"),
+)
+
+FILE_IO_KEYWORDS = ("file", "ioerror", "disk", "read", "write")
+
+
+def _matches_any(exc_type: str, msg: str, keywords: tuple[str, ...]) -> bool:
+    """Return True when any keyword appears in the message or exception type."""
+    return any(k in msg or k in exc_type.lower() for k in keywords)
+
+
 class ErrorCategory:
     """Categorize errors for dashboards and alerting."""
 
@@ -161,22 +178,11 @@ class ErrorCategory:
         exc_type = type(exc).__name__
         msg = str(exc).lower()
 
-        if any(k in msg or k in exc_type.lower() for k in ("auth", "login", "captcha", "signin")):
-            return "auth"
-        if any(k in msg or k in exc_type.lower() for k in ("network", "connection", "timeout", "dns", "socket")):
-            return "network"
-        if any(k in msg or k in exc_type.lower() for k in ("rate", "limit", "throttl", "429")):
-            return "rate_limit"
-        if any(k in msg or k in exc_type.lower() for k in ("browser", "launch", "dom", "playwright", "chromium")):
-            return "browser"
-        if any(k in msg or k in exc_type.lower() for k in ("injection", "paste", "clipboard", "fill")):
-            return "injection"
-        if any(k in msg or k in exc_type.lower() for k in ("parse", "empty", "no response", "timeout")):
-            return "parsing"
-        if isinstance(exc, (OSError, IOError)) or any(
-            k in msg or (exc_type.lower() if exc_type.lower() != "exception" else "")
-            for k in ("file", "ioerror", "disk", "read", "write")
-        ):
+        for keywords, category in ERROR_CATEGORY_RULES:
+            if _matches_any(exc_type, msg, keywords):
+                return category
+
+        if isinstance(exc, (OSError, IOError)) or _matches_any(exc_type, msg, FILE_IO_KEYWORDS):
             return "file_io"
         return "other"
 

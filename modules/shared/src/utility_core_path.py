@@ -15,6 +15,21 @@ from modules.shared.src.taxonomy_core_constant import (
 )
 
 
+def _normalize_sub_parts(parts: tuple[str, ...], fallback_name: str) -> Path:
+    """Strip leading skip dirs and rebuild the sub-path, falling back to the file name."""
+    sub_parts = parts
+    if sub_parts and sub_parts[0] in ROLE_PATH_SKIP_DIRS:
+        sub_parts = sub_parts[1:]
+    return Path(*sub_parts) if sub_parts else Path(fallback_name)
+
+
+def _compute_output_path(cfg: AppConfig, sub_path: Path) -> Path:
+    """Resolve the output destination for a sub-path (single-file file-target or dir join)."""
+    if cfg.mode == "single" and cfg.output_path.suffix:
+        return cfg.output_path
+    return cfg.output_path / sub_path.name
+
+
 def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> tuple[Path, Path, Path, Path]:
     """Resolve role-based paths for output, done, failed, and processing.
 
@@ -27,30 +42,14 @@ def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> tuple[Path, Path, Path
     role_idx = next((i for i, p in enumerate(parts) if p.startswith("role-")), None)
     if role_idx is not None:
         role_folder = parts[role_idx]
-        sub_parts = parts[role_idx + 1:]
-        if sub_parts and sub_parts[0] in ROLE_PATH_SKIP_DIRS:
-            sub_parts = sub_parts[1:]
-        sub_path = Path(*sub_parts) if sub_parts else Path(rel_path.name)
-
-        out_path = (
-            cfg.output_path / sub_path.name
-            if not (cfg.mode == "single" and cfg.output_path.suffix)
-            else cfg.output_path
-        )
+        sub_path = _normalize_sub_parts(parts[role_idx + 1:], rel_path.name)
+        out_path = _compute_output_path(cfg, sub_path)
         done_path = base / role_folder / "done" / sub_path
         fail_path = base / role_folder / "failed" / sub_path
         proc_file = cfg.proc_path / role_folder / sub_path
     else:
-        sub_parts = parts
-        if sub_parts and sub_parts[0] in ROLE_PATH_SKIP_DIRS:
-            sub_parts = sub_parts[1:]
-        sub_path = Path(*sub_parts) if sub_parts else Path(rel_path.name)
-
-        out_path = (
-            cfg.output_path / sub_path.name
-            if not (cfg.mode == "single" and cfg.output_path.suffix)
-            else cfg.output_path
-        )
+        sub_path = _normalize_sub_parts(parts, rel_path.name)
+        out_path = _compute_output_path(cfg, sub_path)
         done_path = cfg.done_path / sub_path
         fail_path = cfg.failed_path / sub_path
         proc_file = cfg.proc_path / sub_path

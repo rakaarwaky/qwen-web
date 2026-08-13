@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import TypeVar
 
-from playwright.sync_api import Locator, Page
+from playwright.sync_api import Error, Locator, Page
 
 T = TypeVar("T")
 
@@ -123,8 +123,40 @@ def is_selector_visible(page: Page, selector: str, timeout_ms: int = 1000) -> bo
         True if a matching element is visible within the timeout.
 
     """
-    try:
-        loc = page.locator(selector).first
-        return loc.is_visible(timeout=timeout_ms)
-    except Exception:
-        return False
+    return any_visible_locator(page, selector, timeout_ms)
+
+
+def any_visible_locator(
+    page: Page,
+    selectors: str | Sequence[str],
+    timeout_ms: int = 1000,
+) -> bool:
+    """Return True if any of the given selectors matches a visible element.
+
+    Only Playwright ``Error`` is swallowed per selector; unexpected
+    exceptions propagate so callers can treat browser failures explicitly.
+
+    Parameters
+    ----------
+    page : Page
+        Active Playwright page.
+    selectors : str | Sequence[str]
+        One selector or a sequence of CSS/XPath selectors to try in order.
+    timeout_ms : int
+        Visibility timeout in milliseconds.
+
+    Returns
+    -------
+    bool
+        True when at least one selector resolves to a visible element.
+
+    """
+    if isinstance(selectors, str):
+        selectors = (selectors,)
+    for selector in selectors:
+        try:
+            if page.locator(selector).first.is_visible(timeout=timeout_ms):
+                return True
+        except Error:
+            continue
+    return False

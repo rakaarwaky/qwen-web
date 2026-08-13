@@ -25,7 +25,7 @@ class TestValidateFile:
 
     def test_directory_not_file(self, tmp_path):
         with pytest.raises(FileValidationError, match="not a regular file"):
-            validate_file(tmp_path)
+            FileUploader().validate_file(tmp_path)
 
     def test_unreadable_file(self, tmp_path):
         f = tmp_path / "locked.md"

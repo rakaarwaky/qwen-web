@@ -20,8 +20,7 @@ from modules.root_mcp_main_entry import (
     qwen_setup_session,
     qwen_start_watcher,
 )
-from modules.core.src.agent_core_orchestrator import CoreOrchestrator
-from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
+from modules.core.src.capabilities_browser_adapter import _assert_on_chat_page
 from modules.shared.src.utility_core_path import (
     cleanup_empty_dirs,
     list_input_files,
@@ -31,33 +30,28 @@ from modules.shared.src.utility_core_prompt import (
     extract_prompt_text,
     strip_input_from_output,
 )
-from modules.core.src.capabilities_browser_adapter import _assert_on_chat_page, BrowserAdapter
 
 
-def _clean_stale_locks(user_data_dir: str) -> None:
-    """Standalone wrapper for BrowserAdapter._clean_stale_locks."""
-    BrowserAdapter()._clean_stale_locks(user_data_dir)
-
-
-def navigate_to_chat(page: MagicMock, emitter: MagicMock) -> None:
-    """Standalone wrapper for BrowserAdapter.navigate_to_chat."""
-    BrowserAdapter().navigate_to_chat(page, emitter)
 from modules.core.src.capabilities_observability_setup import (
     _bind_run_context as _obs_bind,
     _clear_run_context as _obs_clear,
 )
 from tests.helpers import (
     bind_run_context,
+    clean_stale_locks,
     clear_run_context,
     get_logger,
     get_tracer,
+    make_app_config,
+    make_test_orchestrator,
+    navigate_to_chat,
     start_span,
 )
 from modules.core.src.capabilities_metrics_collector import MetricsCounter
 from modules.core.src.capabilities_status_writer import StatusFileWriter
 from modules.core.src.capabilities_file_uploader import FileUploader
 from modules.shared.src.utility_core_validation import validate_file
-from modules.shared.src import AppConfig, AuthRequiredError, LifecycleEmitter, RunContext
+from modules.shared.src import AuthRequiredError, LifecycleEmitter, RunContext
 
 
 # ─── main.py remaining lines ────────────────────────────────────────────────
@@ -145,8 +139,8 @@ class TestPipelineRemaining:
         todo = tmp_path / "todo" / "role-dev" / "todo"
         todo.mkdir(parents=True)
         (todo / "a.md").write_text("a")
-        cfg = AppConfig(
-            mode="batch",
+        cfg = make_app_config(
+            tmp_path,
             input_path=tmp_path / "todo",
             output_path=tmp_path / "out",
             done_path=tmp_path / "todo" / "done",
@@ -154,19 +148,7 @@ class TestPipelineRemaining:
             proc_path=tmp_path / "todo" / "proc",
             session_path=tmp_path / "session",
         )
-        orch = CoreOrchestrator(
-            browser=MagicMock(),
-            injector=MagicMock(),
-            sender=MagicMock(),
-            streamer=MagicMock(),
-            uploader=MagicMock(),
-            saver=MagicMock(),
-            audit=MagicMock(),
-            observability=MagicMock(get_logger=MagicMock(return_value=MagicMock())),
-            workspace=MagicMock(),
-            circuit_breaker=CircuitBreaker(),
-            rate_limiter=RateLimiter(),
-        )
+        orch = make_test_orchestrator()
         files = list(orch._iter_todo_batch(tmp_path / "todo", cfg))
         assert len(files) == 1
 
@@ -187,6 +169,7 @@ class TestBrowserRemaining:
         page.query_selector.return_value = None
         loc = MagicMock()
         loc.count.return_value = 0
+        loc.first.is_visible.return_value = False
         page.locator.return_value = loc
         _assert_on_chat_page(page)
 
@@ -199,7 +182,7 @@ class TestBrowserRemaining:
         emitter.emit.assert_called_once()
 
     def test_clean_stale_locks_nonexistent(self):
-        _clean_stale_locks("/nonexistent/path")
+        clean_stale_locks("/nonexistent/path")
 
 
 # ─── observability.py remaining lines ───────────────────────────────────────
@@ -239,6 +222,7 @@ class TestObservabilityRemaining:
         writer = StatusFileWriter(path)
         writer.write(status="running", mode="batch", headless=True)
         result = writer.read()
+        assert result is not None
         assert result["status"] == "running"
 
     def test_status_file_read_nonexistent(self, tmp_path):

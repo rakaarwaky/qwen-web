@@ -26,6 +26,8 @@ from modules.core.src.capabilities_observability_setup import ObservabilitySetup
 from modules.core.src.capabilities_prompt_injector import PromptInjector
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.core.src.capabilities_stream_monitor import StreamMonitor
+from modules.core.src.capabilities_workspace_provisioner import WorkspaceProvisioner
+from modules.core.src.utility_core_async_loop import isolate_thread_event_loop
 from modules.shared.src import AppConfig, RunContext
 from tests.pipeline_fixtures import restore_fixture_state
 
@@ -54,17 +56,7 @@ def browser_ctx() -> BrowserContext:
 def _reset_event_loop_at_session_end():
     """Reset asyncio event loop after session to prevent cross-module contamination."""
     yield
-    import asyncio
-    try:
-        if hasattr(asyncio, "_set_running_loop"):
-            asyncio._set_running_loop(None)
-    except Exception:
-        pass
-    try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    except Exception:
-        pass
+    isolate_thread_event_loop()
 
 
 @pytest.fixture
@@ -100,6 +92,7 @@ def client(browser_ctx: BrowserContext, page) -> CoreOrchestrator:
         saver=MagicMock(),
         audit=AuditRepository(cfg.log_path),
         observability=ObservabilitySetup(cfg.log_path),
+        workspace=WorkspaceProvisioner(),
     )
 
 

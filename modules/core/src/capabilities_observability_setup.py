@@ -264,17 +264,6 @@ def install_excepthooks() -> None:
 log = get_logger("capabilities_observability")
 
 
-def _try_import(module_name: str) -> Any:
-    """Import a module by name, returning None on ImportError.
-
-    Shared helper for optional dependency guards across observability config.
-    """
-    try:
-        return importlib.import_module(module_name)
-    except ImportError:
-        return None
-
-
 def _import_sentry() -> Any | None:
     """Import sentry_sdk if available."""
     try:

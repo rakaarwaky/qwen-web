@@ -29,10 +29,12 @@ def _try_selectors(page: Page, selectors: Sequence[str], action, timeout_ms: int
     for selector in selectors:
         try:
             loc = page.locator(selector).first
-            if loc.is_visible(timeout=timeout_ms):
-                results.append(action(loc))
+            visible = loc.is_visible(timeout=timeout_ms)
         except Exception:
+            visible = False
+        if not visible:
             continue
+        results.append(action(loc))
     return results
 
 

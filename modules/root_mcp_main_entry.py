@@ -22,6 +22,7 @@ except ImportError:
         FastMCP = None
 
 from modules.core.src.root_core_container import SharedContainer
+from modules.core.src.utility_core_async_loop import isolate_thread_event_loop
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
 
 # ─── MCP tool specification table ────────────────────────────────────────
@@ -101,16 +102,7 @@ def _register_tool(fn: Any) -> Any:
 
 def _isolate_thread_event_loop() -> None:
     """Ensure the worker thread has an isolated event loop for Playwright sync_api."""
-    try:
-        if hasattr(asyncio, "_set_running_loop"):
-            asyncio._set_running_loop(None)
-    except (RuntimeError, AttributeError):
-        pass
-    try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    except RuntimeError:
-        pass
+    isolate_thread_event_loop()
 
 
 def _tools() -> Any:

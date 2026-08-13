@@ -210,7 +210,7 @@ class CoreOrchestrator(ICoreAggregate):
             with self._browser.browser_session(cfg):
                 for proc_file, rel_path in self._iter_todo(cfg):
                     self._process_file(proc_file, rel_path, cfg, ctx)
-                    self._watcher_sleep(cfg.interval)
+                    _watcher_sleep(cfg.interval)
             return ResponseText("Watcher loop completed.")
 
         return self._execute(_fn)

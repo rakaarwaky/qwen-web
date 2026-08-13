@@ -144,6 +144,7 @@ class TestAssertOnChatPage:
         page.query_selector.return_value = None
         mock_loc = MagicMock()
         mock_loc.count.return_value = 0
+        mock_loc.first.is_visible.return_value = False
         page.locator.return_value = mock_loc
         # Should not raise — just logs a warning
         _assert_on_chat_page(page)
@@ -191,7 +192,7 @@ class TestCleanStaleLocks:
         assert not lock.exists()
 
     def test_no_error_on_missing_dir(self):
-        _clean_stale_locks("/nonexistent/path/that/does/not/exist")
+        BrowserAdapter()._clean_stale_locks("/nonexistent/path/that/does/not/exist")
 
     def test_no_error_on_empty_dir(self, tmp_path):
         BrowserAdapter()._clean_stale_locks(str(tmp_path))  # no locks to clean

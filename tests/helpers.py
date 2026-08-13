@@ -7,7 +7,9 @@ output — the underlying class/function is what actually matters.
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
+from modules.core.src.capabilities_browser_adapter import BrowserAdapter
 from modules.core.src.capabilities_output_saver import Saver
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.core.src.capabilities_observability_setup import (
@@ -19,8 +21,10 @@ from modules.core.src.capabilities_observability_setup import (
     _start_span as _obs_start_span,
 )
 from modules.core.src.capabilities_file_uploader import FileUploader
+from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 from modules.shared.src.utility_core_validation import validate_file as _util_validate_file
-from modules.shared.src import RunContext
+from modules.shared.src import AppConfig, RunContext
+from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
 
 
 def write_output(
@@ -88,3 +92,47 @@ def upload_attachment(page, filepath) -> bool:
 def validate_file(filepath, max_size_mb=100.0):
     """Standalone wrapper for utility function."""
     return _util_validate_file(filepath, max_size_mb)
+
+
+def clean_stale_locks(user_data_dir: str) -> None:
+    """Standalone wrapper for BrowserAdapter._clean_stale_locks."""
+    BrowserAdapter()._clean_stale_locks(user_data_dir)
+
+
+def navigate_to_chat(page, emitter) -> None:
+    """Standalone wrapper for BrowserAdapter.navigate_to_chat."""
+    BrowserAdapter().navigate_to_chat(page, emitter)
+
+
+def make_app_config(tmp_path: Path, **overrides) -> AppConfig:
+    """Build an AppConfig rooted at tmp_path with a default test layout."""
+    defaults = dict(
+        mode="batch",
+        input_path=tmp_path / "input",
+        output_path=tmp_path / "output",
+        done_path=tmp_path / "input" / "done",
+        failed_path=tmp_path / "input" / "failed",
+        proc_path=tmp_path / "input" / ".processing",
+        session_path=tmp_path / "session",
+    )
+    defaults.update(overrides)
+    return AppConfig(**defaults)
+
+
+def make_test_orchestrator(**overrides) -> CoreOrchestrator:
+    """Build a CoreOrchestrator with all dependencies mocked."""
+    defaults = dict(
+        browser=MagicMock(),
+        injector=MagicMock(),
+        sender=MagicMock(),
+        streamer=MagicMock(),
+        uploader=MagicMock(),
+        saver=MagicMock(),
+        audit=MagicMock(),
+        observability=MagicMock(get_logger=MagicMock(return_value=MagicMock())),
+        workspace=MagicMock(),
+        circuit_breaker=CircuitBreaker(),
+        rate_limiter=RateLimiter(),
+    )
+    defaults.update(overrides)
+    return CoreOrchestrator(**defaults)  # type: ignore[arg-type]

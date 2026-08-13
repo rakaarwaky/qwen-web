@@ -6,9 +6,7 @@ utility only. Logger obtained via structlog (external), not via another capabili
 
 from __future__ import annotations
 
-import asyncio
 import os
-import shutil
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -37,6 +35,9 @@ from modules.shared.src.taxonomy_core_vo import (
     EVENT_WEB_LOADED,
 )
 from modules.shared.src.taxonomy_domain_error import AuthRequiredError, BrowserLaunchError
+from modules.core.src.utility_core_async_loop import isolate_thread_event_loop
+from modules.core.src.utility_core_browser_binary import find_chrome_binary
+from modules.core.src.utility_core_dom_helper import any_visible_locator
 from modules.core.src.utility_core_io_writer import ensure_dir
 
 log = structlog.get_logger("browser")
@@ -100,17 +101,11 @@ def _assert_on_chat_page(page: Page) -> None:
         )
 
     if not page.query_selector(TEXTAREA_SELECTOR):
-        for sel in LOGIN_FORM_SELECTORS:
-            try:
-                if page.locator(sel).count() > 0:
-                    raise AuthRequiredError(
-                        f"Not authenticated — login form detected ({sel}). "
-                        "Run 'python3 src/main.py --login' to save your session first."
-                    )
-            except AuthRequiredError:
-                raise
-            except Error:
-                continue
+        if any_visible_locator(page, LOGIN_FORM_SELECTORS):
+            raise AuthRequiredError(
+                f"Not authenticated — login form detected ({LOGIN_FORM_SELECTORS}). "
+                "Run 'python3 src/main.py --login' to save your session first."
+            )
         log.warning("chat_textarea_missing_but_no_login_form_detected", url=page.url)
 
 
@@ -127,22 +122,34 @@ class BrowserAdapter(IBrowserProtocol):
 # Block 2: Public Contract
 
 
+    def _goto_chat(
+        self,
+        page: Page,
+        navigation_timeout_ms: int,
+        load_timeout_ms: int,
+    ) -> None:
+        """Navigate to chat.qwen.ai and wait for the DOM to load."""
+        page.goto(
+            CHAT_URL,
+            wait_until="domcontentloaded",
+            timeout=navigation_timeout_ms,
+        )
+        try:
+            page.wait_for_load_state("domcontentloaded", timeout=load_timeout_ms)
+        except Error as e:
+            log.warning("Load state wait failed, proceeding: %s", e)
+
     def reset_page(self, page: Page, emitter: LifecycleEmitter) -> None:
         """Reset the page to a clean state by navigating back to chat.qwen.ai."""
         try:
             emitter.emit(EVENT_NETWORK_RECONNECTING, {"url": CHAT_URL})
-            page.goto(CHAT_URL, wait_until="domcontentloaded", timeout=10_000)
-            page.wait_for_load_state("domcontentloaded", timeout=15_000)
+            self._goto_chat(page, 10_000, 15_000)
         except Error as e:
             log.warning("Failed to reset page: %s", e)
 
     def navigate_to_chat(self, page: Page, emitter: LifecycleEmitter) -> None:
         """Navigate to chat.qwen.ai, emit WEB_LOADED, and verify authenticated session."""
-        page.goto(CHAT_URL, wait_until="domcontentloaded", timeout=30_000)
-        try:
-            page.wait_for_load_state("domcontentloaded", timeout=15_000)
-        except Error as e:
-            log.warning("Load state wait failed, proceeding: %s", e)
+        self._goto_chat(page, 30_000, 15_000)
         _assert_on_chat_page(page)
         emitter.emit(EVENT_WEB_LOADED, {"url": page.url})
 
@@ -199,13 +206,7 @@ class BrowserAdapter(IBrowserProtocol):
         except OSError as e:
             log.debug("failed_setting_session_permissions", error=str(e))
 
-        chrome_bin = (
-            shutil.which("google-chrome")
-            or shutil.which("google-chrome-stable")
-            or shutil.which("chromium")
-            or shutil.which("chromium-browser")
-            or ""
-        )
+        chrome_bin = find_chrome_binary()
 
         chrome_args = [
             "--disable-blink-features=AutomationControlled",
@@ -230,11 +231,7 @@ class BrowserAdapter(IBrowserProtocol):
         if chrome_bin and Path(chrome_bin).exists():
             kwargs["executable_path"] = chrome_bin
 
-        try:
-            if hasattr(asyncio, "_set_running_loop"):
-                asyncio._set_running_loop(None)
-        except (RuntimeError, AttributeError):
-            pass
+        isolate_thread_event_loop()
 
         try:
             with sync_playwright() as p:

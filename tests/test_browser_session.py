@@ -85,7 +85,6 @@ class TestBrowserSession:
                 mock_ctx.route.assert_not_called()
 
     def test_browser_session_close_error_handled(self, tmp_path):
-        from modules.core.src.capabilities_browser_adapter import browser_session
         from playwright.sync_api import Error
         cfg = AppConfig(
             mode="batch",

@@ -18,12 +18,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
 from modules.core.src.capabilities_audit_repository import AuditRepository
-from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 from modules.core.src.capabilities_output_saver import Saver
 from modules.shared.src.utility_core_prompt import (
     extract_prompt_text as _extract_prompt_text,
@@ -74,18 +72,7 @@ def _make_task(tmp_path: Path, role: str = "role-architect",
     return f
 
 
-def _make_orchestrator() -> CoreOrchestrator:
-    """Build a CoreOrchestrator with mock capabilities."""
-    return CoreOrchestrator(
-        browser=MagicMock(),
-        injector=MagicMock(),
-        sender=MagicMock(),
-        streamer=MagicMock(),
-        uploader=MagicMock(),
-        saver=MagicMock(),
-        audit=MagicMock(),
-        observability=MagicMock(),
-    )
+from tests.helpers import make_test_orchestrator as _make_orchestrator
 
 
 # ─── Exception hierarchy lock ─────────────────────────────────────────────────
