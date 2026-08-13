@@ -6,7 +6,6 @@ utility only. Logger obtained via structlog (external), not via another capabili
 
 from __future__ import annotations
 
-import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -207,7 +206,7 @@ class BrowserAdapter(IBrowserProtocol):
         # 0o700 is restrictive (owner-only) — required by the browser_session tests
         # and by scripts/install.sh (chmod 700). Codacy's "insecure-file-permissions"
         # finding here is a false positive.
-        os.chmod(cfg.session_path, 0o700)  # nosemgrep: insecure-file-permissions
+        cfg.session_path.chmod(0o700)  # nosemgrep: insecure-file-permissions
 
         chrome_bin = find_chrome_binary()
 

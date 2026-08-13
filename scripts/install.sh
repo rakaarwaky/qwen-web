@@ -54,7 +54,13 @@ mkdir -p "${XDG_CONFIG}"
 # 4b. Ensure the real browser session directory used by the app has correct
 #     permissions. Chromium needs the execute bit on the profile dir; a missing
 #     bit causes "Failed to create a ProcessSingleton ... Permission denied".
-APP_SESSION_DIR="${XDG_DATA_HOME:-${HOME}/.local/share}/qwen-web/qwen_session"
+#     Derive the path from the app config (DEFAULT_SESSION) so it stays in sync
+#     with cfg.session_path; fall back to the documented default if the venv
+#     python is not available yet.
+APP_SESSION_DIR="$("${VENV_DIR}/bin/python" -c 'from modules.shared.src.taxonomy_core_constant import DEFAULT_SESSION; print(DEFAULT_SESSION)' 2>/dev/null || true)"
+if [ -z "${APP_SESSION_DIR}" ]; then
+    APP_SESSION_DIR="${XDG_DATA_HOME:-${HOME}/.local/share}/qwen-web/qwen_session"
+fi
 echo "🔐 [install] Repairing browser session dir permissions: ${APP_SESSION_DIR}"
 mkdir -p "${APP_SESSION_DIR}"
 chmod 700 "${APP_SESSION_DIR}" 2>/dev/null || true

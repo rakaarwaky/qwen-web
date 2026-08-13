@@ -5,6 +5,8 @@ from __future__ import annotations
 import stat
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
 from modules.shared.src import AppConfig
 
@@ -23,6 +25,41 @@ class TestBrowserSession:
             session_path=tmp_path / "session",
             headless=True,
         )
+        mock_ctx = MagicMock()
+        mock_ctx.pages = [MagicMock()]
+
+        with patch("modules.core.src.capabilities_browser_adapter.sync_playwright") as mock_pw:
+            mock_p = MagicMock()
+            mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
+            mock_pw.return_value.__exit__ = MagicMock(return_value=False)
+            mock_p.chromium.launch_persistent_context.return_value = mock_ctx
+
+            with _browser.browser_session(cfg):
+                mode = cfg.session_path.stat().st_mode
+                assert stat.S_ISDIR(mode)
+                assert stat.S_IMODE(mode) == 0o700
+
+    @pytest.mark.parametrize(
+        "initial_mode",
+        [0o644, 0o755],
+        ids=["missing-execute-bit", "world-readable"],
+    )
+    def test_browser_session_repairs_existing_dir_permissions(self, tmp_path, initial_mode: int):
+        """A pre-existing session dir with non-0700 perms is repaired to 0o700."""
+        cfg = AppConfig(
+            mode="batch",
+            input_path=tmp_path / "in",
+            output_path=tmp_path / "out",
+            done_path=tmp_path / "done",
+            failed_path=tmp_path / "failed",
+            proc_path=tmp_path / "proc",
+            session_path=tmp_path / "session",
+            headless=True,
+        )
+        cfg.session_path.mkdir(parents=True, exist_ok=True)
+        cfg.session_path.chmod(initial_mode)
+        assert stat.S_IMODE(cfg.session_path.stat().st_mode) == initial_mode
+
         mock_ctx = MagicMock()
         mock_ctx.pages = [MagicMock()]
 

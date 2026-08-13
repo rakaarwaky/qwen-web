@@ -193,7 +193,7 @@ class TestBrowserRemainingPaths:
         mock_ctx.pages = [MagicMock()]
         with (
             patch("modules.core.src.capabilities_browser_adapter.sync_playwright") as mock_pw,
-            patch("modules.core.src.capabilities_browser_adapter.os.chmod"),
+            patch("pathlib.Path.chmod"),
         ):
             mock_p = MagicMock()
             mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
