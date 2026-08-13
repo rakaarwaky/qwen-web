@@ -4,9 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from modules.root_cli_main_entry import _build_config
 from modules.core.src.capabilities_audit_repository import AuditRepository
 from modules.core.src.capabilities_output_saver import write_output
+from modules.root_cli_main_entry import _build_config
 from modules.shared.src import RunContext
 
 
@@ -138,7 +138,7 @@ class TestQwenAutoUnit(unittest.TestCase):
         received = []
         emitter.on(QwenEventType.THINKING_STARTED, lambda evt: received.append(evt))
 
-        evt = emitter.emit(QwenEventType.THINKING_STARTED, {"mode": "realtime"})
+        emitter.emit(QwenEventType.THINKING_STARTED, {"mode": "realtime"})
         self.assertEqual(len(received), 1)
         self.assertEqual(received[0].name, "EVENT_THINKING_STARTED")
         self.assertIsNotNone(received[0].event_id)

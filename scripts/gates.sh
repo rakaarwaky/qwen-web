@@ -38,18 +38,18 @@ python3 -m playwright install --with-deps chromium 2>/dev/null || true
 # ─── Gates ──────────────────────────────────────────────────────────────────
 FAILURES=0
 
-# Gate 1: Ruff lint + format check
+# Gate 1: Ruff lint + format check (root_*.py removed — file is at modules/root_cli_main_entry.py)
 info "Gate 1/5 — Ruff lint & format..."
-if ! ruff check modules/ tests/ root_*.py 2>&1 | grep -q "All checks passed"; then
+if ! ruff check modules/ tests/ 2>&1 | grep -q "All checks passed"; then
     warn "Ruff found issues (see output above)"
     FAILURES=$((FAILURES + 1))
 else
     ok "Ruff clean"
 fi
 
-# Gate 2: Mypy type checking
+# Gate 2: Mypy type checking (modules/ covers root_cli_main_entry.py)
 info "Gate 2/5 — Mypy type check..."
-if ! mypy modules/ tests/ root_*.py --ignore-missing-imports 2>&1 | tail -1; then
+if ! mypy modules/ --ignore-missing-imports 2>&1 | tail -1; then
     warn "Mypy found type errors"
     FAILURES=$((FAILURES + 1))
 else

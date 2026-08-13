@@ -13,13 +13,14 @@ from contextlib import nullcontext, suppress
 from pathlib import Path
 from typing import Any
 
+from modules.core.src.utility_core_io_writer import ensure_dir
+from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src import utility_core_exit
 from modules.shared.src.contract_core_protocol import IObservabilityProtocol
 from modules.shared.src.contract_status_protocol import IStatusProtocol
 from modules.shared.src.taxonomy_core_vo import ErrorCategory, ExitCode, ServiceName
 from modules.shared.src.utility_core_status import status_path_for
-from modules.core.src.utility_core_io_writer import ensure_dir
-from modules.core.src.utility_core_logger_factory import get_logger
+
 
 # Block 1: Class Definition & Constructor
 class ObservabilitySetup(IObservabilityProtocol):
@@ -220,7 +221,7 @@ def _clear_run_context() -> None:
     structlog.contextvars.clear_contextvars()
 
 
-def _excepthook(exc_type: type[BaseException], exc_value: BaseException, exc_tb: Any) -> None:
+def _excepthook(exc_type: type[BaseException], exc_value: BaseException, _exc_tb: Any) -> None:
     logger = _get_logger("qwen-web")
     if issubclass(exc_type, KeyboardInterrupt):
         logger.warning("interrupted")

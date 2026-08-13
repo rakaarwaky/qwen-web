@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-
-import pytest
 
 from modules.core.src.capabilities_output_saver import Saver
 from modules.core.src.utility_core_io_writer import ensure_dir
+from modules.shared.src import RunContext, SaverConfig
 from modules.shared.src.utility_core_text import strip_ui_noise
-from modules.shared.src import OutputWriteError, RunContext, SaverConfig
 
 
 class TestStripUiNoise:

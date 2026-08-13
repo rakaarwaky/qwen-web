@@ -111,14 +111,15 @@ def click_first_visible_enabled(
         True if a matching button was clicked, False otherwise.
 
     """
-    results = try_selectors(
-        page,
-        selectors,
-        lambda loc: (loc.click(), True)[1],
-        timeout_ms,
-        first_only=True,
-    )
-    return len(results) > 0 and results[0] is True
+    for selector in selectors:
+        try:
+            loc = page.locator(selector).first
+            if loc.is_visible(timeout=timeout_ms):
+                loc.click()
+                return True
+        except Error:
+            continue
+    return False
 
 
 def is_selector_visible(page: Page, selector: str, timeout_ms: int = 1000) -> bool:
@@ -179,7 +180,7 @@ def any_visible_locator(
     return False
 
 
-def click_send(page: Page, config: object = None) -> None:
+def click_send(page: Page, _config: object = None) -> None:
     """Click send button via selector fallback, Enter key as last resort.
 
     Parameters

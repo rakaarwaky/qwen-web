@@ -14,10 +14,8 @@ from modules.shared.src import (
     CHALLENGE_KEYWORDS,
     AuthRequiredError,
     LifecycleEmitter,
-    NetworkTimeoutError,
     OutputValidationError,
 )
-
 
 # ─── validate_response_content ──────────────────────────────────────────────
 

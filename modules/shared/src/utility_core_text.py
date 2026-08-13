@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 
 from modules.shared.src.taxonomy_core_vo import RunContext
 
-
 UI_NOISE_TOKENS = (
     "?",
     "Qwen3",

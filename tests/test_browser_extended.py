@@ -2,22 +2,18 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from playwright.sync_api import Error
 
 from modules.core.src.capabilities_browser_adapter import (
     CHAT_URL,
-    LOGIN_FORM_SELECTORS,
-    TEXTAREA_SELECTOR,
     BrowserAdapter,
     SessionCheck,
     _assert_on_chat_page,
 )
 from modules.shared.src import AuthRequiredError, LifecycleEmitter
-
 
 # ─── SessionCheck.is_alive ──────────────────────────────────────────────────
 

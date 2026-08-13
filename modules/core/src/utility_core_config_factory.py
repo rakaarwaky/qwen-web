@@ -25,7 +25,11 @@ def build_app_config(
     output_path: Path | None = None,
     headless: bool = True,
     interval: int = 3,
-    **overrides,
+    done_path: Path | None = None,
+    failed_path: Path | None = None,
+    proc_path: Path | None = None,
+    session_path: Path | None = None,
+    log_path: Path | None = None,
 ) -> AppConfig:
     """Build an AppConfig with sensible defaults.
 
@@ -41,8 +45,16 @@ def build_app_config(
         Whether to run the browser in headless mode.
     interval : int
         Polling interval in seconds (watcher mode).
-    **overrides
-        Additional AppConfig field overrides.
+    done_path : optional
+        Override for the done directory path.
+    failed_path : optional
+        Override for the failed directory path.
+    proc_path : optional
+        Override for the processing directory path.
+    session_path : optional
+        Override for the session directory path.
+    log_path : optional
+        Override for the log directory path.
 
     Returns
     -------
@@ -50,17 +62,15 @@ def build_app_config(
         Fully constructed application configuration.
 
     """
-    kwargs = {
-        "mode": mode,
-        "input_path": input_path or DEFAULT_SESSION,
-        "output_path": output_path or DEFAULT_OUTPUT,
-        "done_path": DEFAULT_DONE,
-        "failed_path": DEFAULT_FAILED,
-        "proc_path": DEFAULT_PROC,
-        "session_path": DEFAULT_SESSION,
-        "log_path": DEFAULT_LOG,
-        "interval": interval,
-        "headless": headless,
-    }
-    kwargs.update(overrides)
-    return AppConfig(**kwargs)
+    return AppConfig(
+        mode=mode,
+        input_path=input_path or DEFAULT_SESSION,
+        output_path=output_path or DEFAULT_OUTPUT,
+        done_path=done_path or DEFAULT_DONE,
+        failed_path=failed_path or DEFAULT_FAILED,
+        proc_path=proc_path or DEFAULT_PROC,
+        session_path=session_path or DEFAULT_SESSION,
+        log_path=log_path or DEFAULT_LOG,
+        interval=interval,
+        headless=headless,
+    )

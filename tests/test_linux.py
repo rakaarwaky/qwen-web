@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import os
-import tempfile
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -21,10 +19,9 @@ class TestSingleInstanceLock:
 
     def test_second_instance_raises(self, tmp_path):
         lock_path = tmp_path / "test.lock"
-        with SingleInstanceLock(lock_path):
-            with pytest.raises(SingleInstanceError, match="already running"):
-                with SingleInstanceLock(lock_path):
-                    pass
+        with SingleInstanceLock(lock_path), pytest.raises(SingleInstanceError, match="already running"):
+            with SingleInstanceLock(lock_path):
+                pass
 
     def test_default_lock_path(self):
         with SingleInstanceLock():

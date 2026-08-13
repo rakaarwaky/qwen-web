@@ -7,6 +7,9 @@ from __future__ import annotations
 
 from playwright.sync_api import Page
 
+from modules.core.src.utility_core_dom_helper import click_send as _dom_click_send
+from modules.core.src.utility_core_dom_query import count_messages, latest_message_text
+from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src.contract_core_protocol import ISendProtocol
 from modules.shared.src.taxonomy_config_vo import SenderConfig
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
@@ -18,9 +21,6 @@ from modules.shared.src.taxonomy_core_vo import (
     TryEnterKeyFallbackFlag,
 )
 from modules.shared.src.taxonomy_domain_error import SendDispatchError
-from modules.core.src.utility_core_dom_helper import click_send as _dom_click_send
-from modules.core.src.utility_core_dom_query import count_messages, latest_message_text
-from modules.core.src.utility_core_logger_factory import get_logger
 
 log = get_logger("capabilities_send_dispatcher")
 
@@ -44,7 +44,7 @@ class SendDispatcher(ISendProtocol):
         self,
         page: Page,
         emitter: LifecycleEmitter,
-        config: SenderConfig | None = None,
+        _config: SenderConfig | None = None,
         document_parsed: bool = True,
     ) -> None:
         """Click the prompt send button using verified selectors with keyboard Enter fallback."""

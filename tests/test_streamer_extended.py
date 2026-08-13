@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from modules.core.src.capabilities_stream_monitor import StreamMonitor, validate_response_content
+from modules.core.src.capabilities_stream_monitor import StreamMonitor
 from modules.shared.src import LifecycleEmitter
 
 

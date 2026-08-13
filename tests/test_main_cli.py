@@ -2,18 +2,13 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
+from modules.core.src.root_core_container import SharedContainer
 from modules.root_cli_main_entry import (
     _build_config,
     _parse_args,
 )
-from modules.core.src.root_core_container import SharedContainer
-from modules.shared.src import AppConfig
 
 
 class TestParseArgs:

@@ -18,6 +18,7 @@ from typing import Any
 from modules.shared.src.contract_core_protocol import ILinuxProtocol
 from modules.shared.src.taxonomy_domain_error import SingleInstanceError
 
+
 # Block 1: Class Definition & Constructor
 class SingleInstanceLock:
     """File-based single-instance lock using fcntl.flock()."""

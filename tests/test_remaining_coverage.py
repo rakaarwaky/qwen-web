@@ -2,37 +2,23 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-from playwright.sync_api import Error
-
-from modules.shared.src.utility_core_text import strip_ui_noise
 from modules.core.src.utility_core_dom_query import count_messages, latest_message_text
-from tests.helpers import (
-    _close_dropdown_if_open,
-    _configure_logging,
-    _configure_sentry,
-    _configure_tracing,
-    bind_run_context,
-    clear_run_context,
-    click_send,
-    get_logger,
-    get_tracer,
-    start_span,
-    upload_attachment,
-    validate_file,
-    write_output,
-)
 from modules.shared.src import (
     LifecycleEmitter,
     RunContext,
     SaverConfig,
-    SendDispatchError,
 )
-
+from modules.shared.src.utility_core_text import strip_ui_noise
+from tests.helpers import (
+    _configure_logging,
+    _configure_sentry,
+    _configure_tracing,
+    click_send,
+    write_output,
+)
 
 # ─── sender.py remaining lines ─────────────────────────────────────────────
 

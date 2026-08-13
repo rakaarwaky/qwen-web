@@ -11,11 +11,8 @@ import pytest
 
 from modules.core.src.agent_core_orchestrator import (
     CoreOrchestrator,
-    _watcher_shutdown,
-    request_watcher_shutdown,
 )
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
-from modules.core.src.capabilities_file_uploader import FileUploader
 from modules.core.src.capabilities_observability_setup import (
     ObservabilitySetup,
     _excepthook,
@@ -23,15 +20,13 @@ from modules.core.src.capabilities_observability_setup import (
 )
 from modules.root_cli_main_entry import (
     _run_manual_login,
-    main,
 )
 from modules.root_mcp_main_entry import (
     qwen_process_batch,
     qwen_process_single,
     qwen_send_prompt,
-    qwen_start_watcher,
 )
-from modules.shared.src import AppConfig, CircuitBreaker, LifecycleEmitter, RunContext
+from modules.shared.src import AppConfig, CircuitBreaker
 from modules.shared.src.taxonomy_core_entity import RateLimiter
 
 
@@ -191,6 +186,6 @@ class TestBrowserRemainingPaths:
             mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
             mock_p.chromium.launch_persistent_context.return_value = mock_ctx
-            with BrowserAdapter().browser_session(cfg) as ctx:
+            with BrowserAdapter().browser_session(cfg):
                 pass
             assert cfg.session_path.exists()

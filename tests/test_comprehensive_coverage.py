@@ -3,24 +3,19 @@
 from __future__ import annotations
 
 import asyncio
-import json
-import os
-import socket
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from modules.root_cli_main_entry import _interactive_prompt, _run_manual_login, main
+from modules.core.src.capabilities_browser_adapter import _assert_on_chat_page
+from modules.core.src.capabilities_metrics_collector import MetricsCounter
+from modules.core.src.capabilities_status_writer import StatusFileWriter
+from modules.root_cli_main_entry import main
 from modules.root_mcp_main_entry import (
     qwen_get_audit_log,
-    qwen_process_batch,
-    qwen_process_single,
-    qwen_send_prompt,
-    qwen_setup_session,
     qwen_start_watcher,
 )
-from modules.core.src.capabilities_browser_adapter import _assert_on_chat_page
+from modules.shared.src import LifecycleEmitter
 from modules.shared.src.utility_core_path import (
     cleanup_empty_dirs,
     list_input_files,
@@ -30,12 +25,7 @@ from modules.shared.src.utility_core_prompt import (
     extract_prompt_text,
     strip_input_from_output,
 )
-
-
-from modules.core.src.capabilities_observability_setup import (
-    _bind_run_context as _obs_bind,
-    _clear_run_context as _obs_clear,
-)
+from modules.shared.src.utility_core_validation import validate_file
 from tests.helpers import (
     bind_run_context,
     clean_stale_locks,
@@ -47,12 +37,6 @@ from tests.helpers import (
     navigate_to_chat,
     start_span,
 )
-from modules.core.src.capabilities_metrics_collector import MetricsCounter
-from modules.core.src.capabilities_status_writer import StatusFileWriter
-from modules.core.src.capabilities_file_uploader import FileUploader
-from modules.shared.src.utility_core_validation import validate_file
-from modules.shared.src import AuthRequiredError, LifecycleEmitter, RunContext
-
 
 # ─── main.py remaining lines ────────────────────────────────────────────────
 

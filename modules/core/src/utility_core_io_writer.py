@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -26,10 +27,8 @@ def _atomic_write(target: Path, content: str) -> None:
     """
     tmp_path = target.with_suffix(".tmp")
     tmp_path.write_text(content, encoding="utf-8")
-    try:
+    with suppress(OSError):
         tmp_path.rename(target)
-    except OSError:
-        pass
 
 
 def atomic_write_text(target: Path, data: str) -> None:
@@ -114,23 +113,3 @@ def ensure_dir(path: Path) -> Path:
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
-
-
-def write_json_file(target: Path, payload: Mapping[str, Any], atomic: bool = True) -> None:
-    """Write JSON to file, atomically or directly.
-
-    Parameters
-    ----------
-    target : Path
-        Destination file path.
-    payload : Mapping[str, Any]
-        Dict-like object to serialize as JSON.
-    atomic : bool
-        If True, use atomic write (temp + rename). If False, write directly.
-
-    """
-    content = json.dumps(payload, ensure_ascii=False) + "\n"
-    if atomic:
-        _atomic_write(target, content)
-    else:
-        target.write_text(content, encoding="utf-8")

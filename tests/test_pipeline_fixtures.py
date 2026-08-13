@@ -10,17 +10,20 @@ import json
 import shutil
 import time
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from modules.core.src.capabilities_audit_repository import AuditRepository
 from modules.core.src.capabilities_output_saver import Saver
+from modules.shared.src import AppConfig, RunContext
 from modules.shared.src.utility_core_path import (
     resolve_role_paths,
+)
+from modules.shared.src.utility_core_path import (
     should_process_file as _should_process_file,
 )
 from modules.shared.src.utility_core_prompt import load_role_prompt
-from modules.shared.src import AppConfig, RunContext
 
 ROLES = ["role-architect", "role-business-analyst", "role-tech-lead"]
 
@@ -258,8 +261,8 @@ def test_iter_todo_batch_moves_file_to_processing(
 
 def test_file_moves_to_done_on_success(tmp_path: Path, mocker: Any) -> None:
     """When processing succeeds, file moves from .processing to role-architect/done/task_001.md."""
-    from modules.shared.src.utility_core_path import resolve_role_paths
     from modules.shared.src import AppConfig, CircuitBreaker, RateLimiter
+    from modules.shared.src.utility_core_path import resolve_role_paths
 
     input_dir = tmp_path / "input"
     out_dir = tmp_path / "output"
@@ -301,8 +304,8 @@ def test_file_moves_to_done_on_success(tmp_path: Path, mocker: Any) -> None:
 
 def test_file_moves_to_failed_on_failure(tmp_path: Path, mocker: Any) -> None:
     """When processing fails, file moves from .processing to role-architect/failed/task_001.md."""
-    from modules.shared.src.utility_core_path import resolve_role_paths
     from modules.shared.src import AppConfig, CircuitBreaker
+    from modules.shared.src.utility_core_path import resolve_role_paths
 
     input_dir = tmp_path / "input"
     out_dir = tmp_path / "output"

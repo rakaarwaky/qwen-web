@@ -23,16 +23,6 @@ import pytest
 
 from modules.core.src.capabilities_audit_repository import AuditRepository
 from modules.core.src.capabilities_output_saver import Saver
-from modules.shared.src.utility_core_prompt import (
-    extract_prompt_text as _extract_prompt_text,
-    load_role_prompt,
-    strip_input_from_output as _strip_input_from_output,
-)
-from modules.shared.src.utility_core_path import (
-    list_input_files as _list_input_files,
-    resolve_role_paths,
-    should_process_file as _should_process_file,
-)
 from modules.shared.src import (
     AppConfig,
     AuthRequiredError,
@@ -47,7 +37,24 @@ from modules.shared.src import (
     RunContext,
     SaverConfig,
 )
-
+from modules.shared.src.utility_core_path import (
+    list_input_files as _list_input_files,
+)
+from modules.shared.src.utility_core_path import (
+    resolve_role_paths,
+)
+from modules.shared.src.utility_core_path import (
+    should_process_file as _should_process_file,
+)
+from modules.shared.src.utility_core_prompt import (
+    extract_prompt_text as _extract_prompt_text,
+)
+from modules.shared.src.utility_core_prompt import (
+    load_role_prompt,
+)
+from modules.shared.src.utility_core_prompt import (
+    strip_input_from_output as _strip_input_from_output,
+)
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -73,7 +80,6 @@ def _make_task(tmp_path: Path, role: str = "role-architect",
 
 
 from tests.helpers import make_test_orchestrator as _make_orchestrator
-
 
 # ─── Exception hierarchy lock ─────────────────────────────────────────────────
 

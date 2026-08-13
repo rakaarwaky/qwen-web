@@ -18,6 +18,8 @@ from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 
 def _make_orchestrator() -> CoreOrchestrator:
     """Build an orchestrator with real capabilities wired for fixture testing."""
+    from pathlib import Path as _P
+
     from modules.core.src.capabilities_audit_repository import AuditRepository
     from modules.core.src.capabilities_browser_adapter import BrowserAdapter
     from modules.core.src.capabilities_file_uploader import FileUploader
@@ -26,7 +28,6 @@ def _make_orchestrator() -> CoreOrchestrator:
     from modules.core.src.capabilities_send_dispatcher import SendDispatcher
     from modules.core.src.capabilities_stream_monitor import StreamMonitor
     from modules.core.src.capabilities_workspace_provisioner import WorkspaceProvisioner
-    from pathlib import Path as _P
 
     return CoreOrchestrator(
         browser=BrowserAdapter(),

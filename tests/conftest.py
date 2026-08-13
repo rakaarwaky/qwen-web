@@ -18,8 +18,10 @@ from playwright.sync_api import BrowserContext, sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from modules.core.src.capabilities_audit_repository import AuditRepository
+import contextlib
+
 from modules.core.src.agent_core_orchestrator import CoreOrchestrator
+from modules.core.src.capabilities_audit_repository import AuditRepository
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
 from modules.core.src.capabilities_file_uploader import FileUploader
 from modules.core.src.capabilities_observability_setup import ObservabilitySetup
@@ -46,10 +48,8 @@ def browser_ctx() -> BrowserContext:
             viewport={"width": 1280, "height": 800},
         )
         yield ctx
-        try:
+        with contextlib.suppress(Exception):
             ctx.close()
-        except Exception:
-            pass
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -65,10 +65,8 @@ def page(browser_ctx: BrowserContext):
     pg.goto(FIXTURE, wait_until="domcontentloaded")
     pg.wait_for_timeout(200)
     yield pg
-    try:
+    with contextlib.suppress(Exception):
         pg.close()
-    except Exception:
-        pass
 
 
 @pytest.fixture
@@ -120,7 +118,7 @@ def cfg(fixture_root: Path, tmp_path: Path, reset_fixture_state) -> AppConfig:
 
 
 @pytest.fixture
-def audit(cfg: AppConfig) -> AuditLog:
+def audit(cfg: AppConfig) -> AuditRepository:
     return AuditRepository(cfg.log_path)
 
 

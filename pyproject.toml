@@ -38,13 +38,17 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "ARG", "RUF100"]
 ignore = [
-    "E501",     # long lines acceptable for DOM selector strings
+    "E501",     # long lines acceptable for DOM selector strings and f-strings
     "BLE001",   # blind exception - intentional for browser automation safety
     "S110",     # try-except-pass - intentional for cleanup/guard patterns
     "S112",     # try-except-continue - intentional for element scanning loops
     "PYI034",   # __enter__ return type - Self requires typing_extensions on py310
     "B008",     # function call in defaults - NewType() calls are identity, safe
 ]
+
+# Per-file ignores for tests/ — intentional patterns (fixtures, mocks, callbacks)
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["E402", "ARG001", "ARG002", "ARG005", "B017", "SIM117", "E741", "N814"]
 [tool.mypy]
 strict = true
 python_version = "3.10"

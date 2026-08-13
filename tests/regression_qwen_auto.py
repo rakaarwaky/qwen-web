@@ -4,13 +4,15 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
 
+from modules.core.src.agent_core_orchestrator import CoreOrchestrator
+from modules.shared.src import AppConfig
 from modules.shared.src.utility_core_path import (
     list_input_files as _list_input_files,
+)
+from modules.shared.src.utility_core_path import (
     resolve_role_paths,
 )
 from modules.shared.src.utility_core_prompt import load_role_prompt
-from modules.core.src.agent_core_orchestrator import CoreOrchestrator
-from modules.shared.src import AppConfig
 
 
 class TestQwenAutoRegression(unittest.TestCase):
@@ -64,7 +66,7 @@ class TestQwenAutoRegression(unittest.TestCase):
 
             (role_dir / "PROMPT.md").write_text("Prompt config")
             (role_dir / "doc1.md").write_text("Doc 1")
-            
+
             done_dir = role_dir / "done"
             done_dir.mkdir(parents=True, exist_ok=True)
             (done_dir / "old.md").write_text("Old completed doc")

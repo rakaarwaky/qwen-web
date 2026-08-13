@@ -5,8 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from playwright.sync_api import Error
-from playwright.sync_api import TimeoutError
+from playwright.sync_api import Error, TimeoutError
 
 from modules.core.src.capabilities_prompt_injector import PromptInjector
 from modules.shared.src import (
@@ -15,7 +14,6 @@ from modules.shared.src import (
     InjectorConfig,
     PromptInjectionError,
 )
-
 
 # ─── _verify_injection ─────────────────────────────────────────────────────
 

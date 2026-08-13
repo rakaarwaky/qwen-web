@@ -15,6 +15,8 @@ from playwright.sync_api import Page, sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+import contextlib
+
 from src.types import (
     DEFAULT_SESSION,
     INPUT_SELECTORS,
@@ -139,7 +141,7 @@ def _probe_send_and_response(page: Page, live: dict) -> None:
     if not send:
         return
 
-    try:
+    with contextlib.suppress(Exception):
         page.wait_for_function("""() => {
             const wait=['parsing','uploading','processing','please wait'];
             for(const el of document.querySelectorAll('*')){
@@ -150,8 +152,6 @@ def _probe_send_and_response(page: Page, live: dict) -> None:
             }
             return true;
         }""", timeout=120000)
-    except Exception:
-        pass
 
     baseline = page.evaluate("""() => document.querySelectorAll(
         '.markdown-body,[class*="message-content"],[class*="response"]').length""")
@@ -226,10 +226,8 @@ def main() -> int:
             input("\nProbe finished. ENTER to close the browser window: ")
             return 0
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 ctx.close()
-            except Exception:
-                pass
 
 
 def _dump(live: dict) -> None:

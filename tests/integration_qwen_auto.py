@@ -1,4 +1,5 @@
 """Integration test suite for qwen_auto.py testing queue pipeline and file system workflow."""
+import contextlib
 import tempfile
 import unittest
 from pathlib import Path
@@ -97,10 +98,8 @@ class TestQwenAutoIntegration(unittest.TestCase):
 
             ctx = RunContext()
             for proc_file, rel_path in orch._iter_todo(cfg):
-                try:
+                with contextlib.suppress(RuntimeError):
                     orch._process_file(proc_file, rel_path, cfg, ctx)
-                except RuntimeError:
-                    pass
 
             # Quarantined file in failed folder
             quarantined = fail_dir / "failing.md"

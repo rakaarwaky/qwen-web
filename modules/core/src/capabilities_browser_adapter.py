@@ -22,6 +22,10 @@ from playwright.sync_api import (
 )
 from tenacity import RetryCallState, Retrying, stop_after_attempt, wait_fixed
 
+from modules.core.src.utility_core_async_loop import isolate_thread_event_loop
+from modules.core.src.utility_core_browser_binary import find_chrome_binary
+from modules.core.src.utility_core_dom_helper import is_any_visible
+from modules.core.src.utility_core_io_writer import ensure_dir
 from modules.shared.src.contract_core_protocol import IBrowserProtocol
 from modules.shared.src.taxonomy_core_constant import (
     AUTH_KEYWORDS,
@@ -35,10 +39,6 @@ from modules.shared.src.taxonomy_core_vo import (
     EVENT_WEB_LOADED,
 )
 from modules.shared.src.taxonomy_domain_error import AuthRequiredError, BrowserLaunchError
-from modules.core.src.utility_core_async_loop import isolate_thread_event_loop
-from modules.core.src.utility_core_browser_binary import find_chrome_binary
-from modules.core.src.utility_core_dom_helper import is_any_visible
-from modules.core.src.utility_core_io_writer import ensure_dir
 
 log = structlog.get_logger("browser")
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -23,9 +22,8 @@ class TestGetMcpApp:
             assert app is not None
 
     def test_raises_when_mcp_none(self):
-        with patch("modules.root_mcp_main_entry.mcp", None):
-            with pytest.raises(ImportError, match="mcp"):
-                _get_mcp_app()
+        with patch("modules.root_mcp_main_entry.mcp", None), pytest.raises(ImportError, match="mcp"):
+            _get_mcp_app()
 
 
 class TestRegisterTool:

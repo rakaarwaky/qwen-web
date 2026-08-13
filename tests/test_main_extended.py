@@ -2,20 +2,15 @@
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 from modules.root_cli_main_entry import (
-    _build_config,
     _interactive_prompt,
     main,
 )
 from modules.shared.src import AppConfig
-from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
 
 
 class TestInteractivePrompt:

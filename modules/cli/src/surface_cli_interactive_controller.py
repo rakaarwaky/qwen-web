@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from typing import Literal
 
+from modules.core.src.utility_core_config_factory import build_app_config
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
@@ -18,7 +19,6 @@ from modules.shared.src.taxonomy_core_constant import (
 )
 from modules.shared.src.utility_core_path import list_input_files
 from modules.shared.src.utility_core_response import safe_handle, success_response
-from modules.core.src.utility_core_config_factory import build_app_config
 
 
 def _base_config(mode: str, headless: bool = False) -> AppConfig:

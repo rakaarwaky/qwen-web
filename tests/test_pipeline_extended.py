@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import shutil
 import threading
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -13,18 +12,16 @@ from modules.core.src.agent_core_orchestrator import (
     CoreOrchestrator,
     _watcher_shutdown,
     _watcher_sleep,
-    is_watcher_shutdown_set,
     request_watcher_shutdown,
 )
-from modules.shared.src.utility_core_path import cleanup_empty_dirs
 from modules.shared.src import (
     AppConfig,
-    AuthRequiredError,
     CircuitBreaker,
     CircuitBreakerOpenError,
     RateLimiter,
     RunContext,
 )
+from modules.shared.src.utility_core_path import cleanup_empty_dirs
 
 
 class TestCleanupEmptyDirs:

@@ -5,9 +5,7 @@ from __future__ import annotations
 import sys
 import threading
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from modules.core.src.capabilities_metrics_collector import MetricsCounter
 from modules.core.src.capabilities_observability_setup import (
@@ -113,7 +111,7 @@ class TestLoggerTracer:
         assert tracer is None or tracer is not None
 
     def test_start_span(self):
-        with _start_span("test") as span:
+        with _start_span("test"):
             pass  # should not raise
 
 

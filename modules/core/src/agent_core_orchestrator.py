@@ -8,6 +8,7 @@ ICoreAggregate, consumed by the CLI/MCP surfaces.
 from __future__ import annotations
 
 import contextlib
+import os
 import shutil
 import signal
 import tempfile
@@ -18,10 +19,14 @@ from pathlib import Path
 
 from playwright.sync_api import Page
 
+from modules.core.src.utility_core_config_factory import build_app_config
+from modules.core.src.utility_core_error_mapping import to_error_response
+from modules.core.src.utility_core_file_mover import move_file, move_to_processing
+from modules.core.src.utility_core_io_writer import ensure_dir
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.contract_core_protocol import (
-    IBrowserProtocol,
     IAuditProtocol,
+    IBrowserProtocol,
     IInjectionProtocol,
     IObservabilityProtocol,
     ISaverProtocol,
@@ -62,10 +67,6 @@ from modules.shared.src.utility_core_path import (
     should_process_file,
 )
 from modules.shared.src.utility_core_prompt import load_role_prompt, strip_input_from_output
-from modules.core.src.utility_core_config_factory import build_app_config
-from modules.core.src.utility_core_error_mapping import to_error_response
-from modules.core.src.utility_core_file_mover import move_to_processing, move_file
-from modules.core.src.utility_core_io_writer import ensure_dir
 
 _watcher_shutdown: threading.Event = threading.Event()
 
@@ -233,23 +234,30 @@ class CoreOrchestrator(ICoreAggregate):
             cfg.headless,
         )
 
-    def send_prompt(self, prompt: str, timeout_sec: int = 120, headless: bool = True) -> ResponseText:
+    def send_prompt(self, _prompt: str, timeout_sec: int = 120, headless: bool = True) -> ResponseText:
         """Send a direct text prompt and return the AI response."""
-        tmp_path = Path(tempfile.NamedTemporaryFile(mode="w+", suffix=".txt", delete=False, encoding="utf-8").name)
+        fd, tmp_path = tempfile.mkstemp(suffix=".txt")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(_prompt)
+        except Exception:
+            os.close(fd)
+            raise
 
         def _fn() -> ResponseText:
             cfg = build_app_config(
                 mode="single",
-                input_path=tmp_path,
+                input_path=Path(tmp_path),
                 output_path=DEFAULT_OUTPUT,
                 headless=headless,
             )
             with self._browser.browser_session(cfg):
-                return ResponseText(self._send_file(tmp_path, timeout_sec, None, None, cfg))
+                return ResponseText(self._send_file(Path(tmp_path), timeout_sec, None, None, cfg))
 
         def _cleanup() -> None:
-            if tmp_path.exists():
-                tmp_path.unlink()
+            p = Path(tmp_path)
+            if p.exists():
+                p.unlink()
 
         return self._execute_with_cleanup(_fn, _cleanup)
 

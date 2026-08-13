@@ -33,7 +33,7 @@ class TestValidateFile:
         os.chmod(f, 0o000)
         try:
             with pytest.raises(FileValidationError, match="not readable"):
-                validate_file(f)
+                FileUploader().validate_file(f)
         finally:
             os.chmod(f, 0o644)
 

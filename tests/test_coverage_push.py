@@ -17,15 +17,13 @@ from modules.core.src.capabilities_observability_setup import (
     _excepthook,
     _thread_excepthook,
 )
-from modules.root_cli_main_entry import main
-from modules.root_mcp_main_entry import qwen_process_single, qwen_setup_session, qwen_start_watcher
+from modules.root_mcp_main_entry import qwen_process_single, qwen_start_watcher
+from modules.shared.src import AppConfig, AuthRequiredError, LifecycleEmitter
 from modules.shared.src.utility_core_path import (
     cleanup_empty_dirs,
     list_input_files,
     should_process_file,
 )
-from modules.shared.src import AppConfig, AuthRequiredError, LifecycleEmitter
-
 
 # ─── browser.py coverage push ───────────────────────────────────────────────
 
@@ -70,7 +68,7 @@ class TestBrowserCoverage:
             mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
             mock_p.chromium.launch_persistent_context.return_value = mock_ctx
-            with BrowserAdapter().browser_session(cfg) as ctx:
+            with BrowserAdapter().browser_session(cfg):
                 pass
 
     def test_browser_session_headed(self, tmp_path):
@@ -92,7 +90,7 @@ class TestBrowserCoverage:
             mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
             mock_p.chromium.launch_persistent_context.return_value = mock_ctx
-            with BrowserAdapter().browser_session(cfg) as ctx:
+            with BrowserAdapter().browser_session(cfg):
                 pass
 
     def test_launch_context_with_user_data_dir(self):

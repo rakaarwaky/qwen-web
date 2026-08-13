@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.core.src.utility_core_dom_query import count_messages, latest_message_text
-from modules.shared.src import LifecycleEmitter, SendDispatchError
+from modules.shared.src import LifecycleEmitter
 
 
 def _sender() -> SendDispatcher:

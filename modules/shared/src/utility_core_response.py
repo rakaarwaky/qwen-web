@@ -6,8 +6,8 @@ standardized success/error response dicts used by CLI/MCP surfaces.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable
 
 
 def safe_handle(

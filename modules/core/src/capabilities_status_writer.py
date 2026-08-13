@@ -6,13 +6,15 @@ Implements IStatusProtocol — atomic JSON status files for systemd/monitoring t
 from __future__ import annotations
 
 import json
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
+from modules.core.src.utility_core_io_writer import atomic_write_json, ensure_dir
 from modules.shared.src.contract_status_protocol import IStatusProtocol
 from modules.shared.src.taxonomy_core_vo import StatusRecordVO
 from modules.shared.src.utility_core_status import status_path_for
-from modules.core.src.utility_core_io_writer import atomic_write_json, ensure_dir
+
 
 # Block 1: Class Definition & Constructor ──────────────
 class StatusFileWriter(IStatusProtocol):
@@ -39,10 +41,8 @@ class StatusFileWriter(IStatusProtocol):
         if kwargs.get("error"):
             rec["error"] = kwargs["error"]
 
-        try:
+        with suppress(OSError):
             atomic_write_json(self._status_path, rec)
-        except OSError:
-            pass
 
     def write_record(self, record: StatusRecordVO) -> None:
         """Atomically write a StatusRecordVO to disk."""
@@ -71,7 +71,7 @@ class StatusFileWriter(IStatusProtocol):
         return "StatusFileWriter()"
 
     @classmethod
-    def create_default(cls, log_path: Path) -> "StatusFileWriter":
+    def create_default(cls, log_path: Path) -> StatusFileWriter:
         return cls(status_path_for(log_path))
 
 

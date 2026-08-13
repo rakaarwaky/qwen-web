@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
 from modules.shared.src import AppConfig
@@ -58,7 +55,7 @@ class TestBrowserSession:
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
             mock_p.chromium.launch_persistent_context.return_value = mock_ctx
 
-            with _browser.browser_session(cfg) as ctx:
+            with _browser.browser_session(cfg):
                 mock_ctx.route.assert_called_once()
 
     def test_browser_session_login_mode_no_route(self, tmp_path):
@@ -81,7 +78,7 @@ class TestBrowserSession:
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
             mock_p.chromium.launch_persistent_context.return_value = mock_ctx
 
-            with _browser.browser_session(cfg) as ctx:
+            with _browser.browser_session(cfg):
                 mock_ctx.route.assert_not_called()
 
     def test_browser_session_close_error_handled(self, tmp_path):
@@ -106,7 +103,7 @@ class TestBrowserSession:
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
             mock_p.chromium.launch_persistent_context.return_value = mock_ctx
 
-            with _browser.browser_session(cfg) as ctx:
+            with _browser.browser_session(cfg):
                 pass
 
 
