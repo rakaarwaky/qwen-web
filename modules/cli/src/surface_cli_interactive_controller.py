@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from typing import Literal
 
+from modules.cli.src.surface_cli_login_command import wait_for_login_confirmation
 from modules.core.src.utility_core_config_factory import build_app_config
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.taxonomy_config_vo import AppConfig
@@ -98,24 +99,23 @@ class InteractiveController:
         return _base_config(mode, headless=headless)
 
     @safe_handle
-    def run(self) -> dict[str, object]:
-        """Present the TUI menu and execute the selected mode."""
-        cfg = self.interactive_prompt()
-        if cfg is None:
+    def run(self, cfg: AppConfig | None = None, *, prompt: bool = True) -> dict[str, object]:
+        """Present the TUI menu and execute the selected mode.
+
+        ``main`` supplies a previously selected configuration with
+        ``prompt=False`` so the interactive selection has exactly one owner.
+        The optional arguments preserve the controller's original public API
+        for callers that want menu selection and execution in one call.
+        """
+        selected = self.interactive_prompt() if prompt else cfg
+        if selected is None:
             return success_response("Exited.")
-        if cfg.mode == "login":
-
-            def _wait_for_login() -> None:
-                """Keep the headed browser alive while the user completes login."""
-                print("Please log in or resolve CAPTCHA in the browser window.")
-                print("Press [ENTER] here once the chat page is ready:")
-                input()
-
+        if selected.mode == "login":
             result = self._core.setup_session(
-                wait_for_confirmation=_wait_for_login,
-                session_path=cfg.session_path,
+                wait_for_confirmation=wait_for_login_confirmation,
+                session_path=selected.session_path,
             )
             return success_response(result)
 
-        result = self._core.process_mode(cfg)
+        result = self._core.process_mode(selected)
         return success_response(result)

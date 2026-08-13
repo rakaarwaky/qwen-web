@@ -1,16 +1,17 @@
-#!/usr/bin/env python3
 """qwen-cli v4: Production-grade automation for chat.qwen.ai.
 
-Root layer: CLI entry point — argparse parsing, config building, and dispatch
-to the CLI surface commands via the auto-wired DI container.
+Root layer: CLI entry point — argument parsing, validation, lifecycle guards,
+and dispatch to the CLI surface commands via the auto-wired DI container.
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 from modules.cli.src import (
     surface_cli_init_command,
@@ -29,9 +30,12 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_SESSION,
     DEFAULT_TODO,
 )
+from modules.shared.src.taxonomy_domain_error import SingleInstanceError
+
+_ERROR_PREFIX = "[ERROR]"
 
 
-def _parse_args() -> argparse.Namespace:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments for qwen-cli subcommands and options."""
     p = argparse.ArgumentParser(prog="qwen-cli", description="Automate chat.qwen.ai")
     p.add_argument("command", nargs="?", default=None, help="Subcommand (e.g. init)")
@@ -61,22 +65,37 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--cb-threshold", type=int, default=5, help="Consecutive failures to trip circuit breaker")
     p.add_argument("--cb-window", type=int, default=30, help="Circuit breaker sliding window in seconds")
     p.add_argument("--retry-failed", action="store_true", help="Process files in failed/ directory on next run")
-    return p.parse_args()
+    return p.parse_args(argv)
 
 
 def _build_config(args: argparse.Namespace) -> AppConfig:
-    """Build AppConfig from parsed CLI arguments."""
-    if args.login:
-        mode_val: str = "login"
-    elif args.watch:
+    """Build and validate AppConfig using the documented mode precedence.
+
+    The mode precedence is explicit: ``login > init > watch > is_dir()``.
+    ``init`` is dispatched as a command by :func:`main`, so this function
+    resolves the remaining execution modes and validates their input path.
+    """
+    login = bool(getattr(args, "login", False))
+    watch = bool(getattr(args, "watch", False))
+    input_path = Path(getattr(args, "input", str(DEFAULT_TODO)))
+
+    if login:
+        mode_val = "login"
+    elif watch:
+        if not input_path.is_dir():
+            raise ValueError(f"Watcher input path must be an existing directory: {input_path}")
         mode_val = "watcher"
+    elif input_path.is_dir():
+        mode_val = "batch"
+    elif input_path.is_file():
+        mode_val = "single"
     else:
-        input_path = Path(args.input)
-        mode_val = "batch" if (input_path.is_dir() or not input_path.suffix) else "single"
+        raise ValueError(f"Input path must be an existing file or directory: {input_path}")
+
     return AppConfig(
         mode=mode_val,
-        input_path=Path(args.input),
-        output_path=Path(args.output),
+        input_path=input_path,
+        output_path=Path(getattr(args, "output", str(DEFAULT_OUTPUT))),
         done_path=Path(getattr(args, "done_dir", str(DEFAULT_DONE))),
         failed_path=Path(getattr(args, "failed_dir", str(DEFAULT_FAILED))),
         proc_path=Path(getattr(args, "proc_dir", str(DEFAULT_PROC))),
@@ -84,7 +103,7 @@ def _build_config(args: argparse.Namespace) -> AppConfig:
         log_path=Path(getattr(args, "log_dir", str(DEFAULT_LOG))),
         interval=getattr(args, "interval", 3),
         timeout=getattr(args, "timeout", 300),
-        headless=bool(getattr(args, "headless", False)),
+        headless=False if login else bool(getattr(args, "headless", False)),
         request_timeout=getattr(args, "request_timeout", 120),
         poll_interval=float(getattr(args, "poll_interval", 1.0)),
         streaming_timeout=getattr(args, "streaming_timeout", 180),
@@ -101,75 +120,116 @@ def _default_container() -> SharedContainer:
     return SharedContainer()
 
 
+def _result_exit_code(result: dict[str, object]) -> int:
+    """Convert a surface response envelope to a CLI exit code."""
+    if result.get("success"):
+        return 0
+    print(str(result.get("error") or "Unknown error"), file=sys.stderr)
+    return 1
+
+
+def _run_cli_lifecycle(dispatch: Callable[[SharedContainer], int]) -> int:
+    """Own the CLI-only LinuxGuard lifecycle.
+
+    MCP does not call this function and constructs its container with
+    ``use_linux_guard=False``. A CLI lock is acquired before dispatch, READY is
+    emitted after container initialization, and STOPPING plus lock release are
+    guaranteed by the finalizer.
+    """
+    container = _default_container()
+    linux = container.linux
+    lock: Any = None
+    try:
+        if linux is not None:
+            lock = linux.acquire_lock()
+            linux.sd_notify_ready()
+        return dispatch(container)
+    finally:
+        if linux is not None and lock is not None:
+            try:
+                linux.sd_notify_stop()
+            finally:
+                linux.release_lock(lock)
+
+
+def _dispatch(
+    container: SharedContainer, raw_argv: list[str], args: argparse.Namespace | None, cfg: AppConfig | None
+) -> int:
+    """Dispatch one already-parsed CLI invocation."""
+    # Explicit precedence: login wins over init, including --login --init.
+    if args is not None and bool(getattr(args, "login", False)):
+        assert cfg is not None
+        return _run_manual_login(cfg, container)
+
+    # Init is an action rather than an AppConfig mode. It wins over watcher
+    # and path inference when login is absent.
+    if args is not None and (getattr(args, "command", None) == "init" or bool(getattr(args, "init", False))):
+        result = surface_cli_init_command.handle(args, container.core)
+        return _result_exit_code(result)
+
+    if not raw_argv:
+        cfg_interactive = _interactive_prompt(container.core)
+        if cfg_interactive is None:
+            return 0
+        result = surface_cli_interactive_controller.InteractiveController(container.core).run(
+            cfg_interactive,
+            prompt=False,
+        )
+        return _result_exit_code(result)
+
+    if args is None or cfg is None:
+        print(f"{_ERROR_PREFIX} Missing CLI configuration.", file=sys.stderr)
+        return 1
+    args._cfg = cfg
+    result = surface_cli_run_command.handle(args, container.core)
+    return _result_exit_code(result)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the main entrypoint for qwen-cli."""
-    args = _parse_args() if (argv is not None or len(sys.argv) > 1) else None
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    args = _parse_args(raw_argv) if raw_argv else None
 
-    # MCP server mode
+    # MCP is a separate runtime and must never enter the CLI LinuxGuard path.
     if args and getattr(args, "mcp", False):
         from modules.root_mcp_main_entry import run_mcp_server
 
         run_mcp_server()
         return 0
 
-    # Init subcommand
-    if args and (getattr(args, "command", None) == "init" or getattr(args, "init", False)):
-        container = _default_container()
-        result = surface_cli_init_command.handle(args, container.core)
-        return 0 if result.get("success") else 1
+    cfg: AppConfig | None = None
+    if args is not None:
+        is_init = getattr(args, "command", None) == "init" or bool(getattr(args, "init", False))
+        if not is_init or bool(getattr(args, "login", False)):
+            try:
+                cfg = _build_config(args)
+            except (OSError, ValueError) as exc:
+                print(f"{_ERROR_PREFIX} {exc}", file=sys.stderr)
+                return 1
 
-    # Interactive mode when no args
-    if len(sys.argv) == 1 and argv is None:
-        cfg = _interactive_prompt()
-        if cfg is None:
-            return 0
-        # Run command reads the built config from args._cfg; interactive mode
-        # never parsed argv, so synthesize a namespace carrying the config.
-        args = argparse.Namespace()
-        args._cfg = cfg
-    else:
-        if args is None:
-            print("ERROR: missing CLI arguments", file=sys.stderr)
-            return 1
-        cfg = _build_config(args)
-
-    # Observability first
     try:
+        return _run_cli_lifecycle(lambda container: _dispatch(container, raw_argv, args, cfg))
+    except SingleInstanceError as exc:
+        print(f"{_ERROR_PREFIX} {exc}", file=sys.stderr)
+        return 1
+    except Exception as exc:  # boundary: user-facing error after lifecycle cleanup
+        print(f"{_ERROR_PREFIX} {exc}", file=sys.stderr)
+        return 1
+
+
+def _interactive_prompt(core: Any | None = None) -> AppConfig | None:
+    """Display the interactive menu and build AppConfig from user selections."""
+    if core is None:
+        core = _default_container().core
+    return surface_cli_interactive_controller.InteractiveController(core).interactive_prompt()
+
+
+def _run_manual_login(cfg: AppConfig, container: SharedContainer | None = None) -> int:
+    """Launch visible browser for interactive login."""
+    if container is None:
         container = _default_container()
-    except Exception:  # boundary: container init failure → user-facing error + exit 1
-        print("[ERROR] Failed to initialize qwen-web. Run 'qwen-web-cli init' first.", file=sys.stderr)
-        return 1
-
-    if cfg.mode == "login":
-        return _run_manual_login(cfg)
-
-    args_with_cfg = args
-    if args_with_cfg is not None:
-        args_with_cfg._cfg = cfg
-    result = surface_cli_run_command.handle(args_with_cfg, container.core)
-    if not result.get("success"):
-        print(result.get("error") or "Unknown error", file=sys.stderr)
-        return 1
-    return 0
-
-
-def _interactive_prompt() -> AppConfig | None:
-    """Display interactive TUI menu and build AppConfig from user selections."""
-    container = _default_container()
-    return surface_cli_interactive_controller.InteractiveController(container.core).interactive_prompt()
-
-
-def _run_manual_login(cfg: AppConfig) -> int:
-    """Launch visible browser for interactive login (TTY flow in the surface).
-
-    Returns 0 on success, 1 on failure (error printed to stderr).
-    """
-    container = _default_container()
     result = surface_cli_login_command.handle(None, container.core, cfg)
-    if not result.get("success"):
-        print(result.get("error") or "Unknown error", file=sys.stderr)
-        return 1
-    return 0
+    return _result_exit_code(result)
 
 
 if __name__ == "__main__":
