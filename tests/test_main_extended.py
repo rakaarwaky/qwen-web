@@ -194,6 +194,6 @@ class TestMain:
         in_dir = tmp_path / "in"
         in_dir.mkdir()
         with patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless"]), \
-             patch("modules.root_cli_main_entry.SharedContainer", side_effect=RuntimeError("boom")):
+             patch("modules.root_cli_main_entry._default_container", side_effect=RuntimeError("boom")):
             result = main()
             assert result == 1

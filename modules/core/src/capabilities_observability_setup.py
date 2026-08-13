@@ -13,7 +13,6 @@ from contextlib import nullcontext, suppress
 from pathlib import Path
 from typing import Any
 
-from modules.core.src.utility_core_io_writer import ensure_dir
 from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src import utility_core_exit
 from modules.shared.src.contract_core_protocol import IObservabilityProtocol
