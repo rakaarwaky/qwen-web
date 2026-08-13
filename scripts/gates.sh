@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # scripts/gates.sh — Local quality gates mirror CI for qwen-web-cli.
-# Usage: bash scripts/gates.sh [fast]
-#   fast  = skip codacy, bandit (full run defaults)
+# Usage: bash scripts/gates.sh
+#   Runs all 5 gates: Ruff, Mypy, Bandit, AES lint, and Pytest.
+#   Bandit security scan is always enforced (not optional).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -56,17 +57,13 @@ else
     ok "Mypy clean"
 fi
 
-# Gate 3: Bandit security scan (source code only, exclude tests)
+# Gate 3: Bandit security scan (source code only, exclude tests) — always runs (not optional)
 info "Gate 3/5 — Bandit security scan..."
-if [ "${1:-}" = "fast" ]; then
-    info "Skipping bandit (fast mode)"
+if ! bandit -r modules/ -s B110,B112 2>&1 | grep -q "No issues"; then
+    warn "Bandit found potential issues"
+    FAILURES=$((FAILURES + 1))
 else
-    if ! bandit -r modules/ -s B110,B112 2>&1 | grep -q "No issues"; then
-        warn "Bandit found potential issues"
-        FAILURES=$((FAILURES + 1))
-    else
-        ok "Bandit clean"
-    fi
+    ok "Bandit clean"
 fi
 
 # Gate 4: AES architecture self-lint (lint-arwaky-cli)
@@ -96,8 +93,8 @@ fi
 # ─── Summary ────────────────────────────────────────────────────────────────
 echo ""
 if [ "${FAILURES}" -eq 0 ]; then
-    ok "All gates passed ✅"
+    ok "All gates passed"
     exit 0
 else
-    fail "${FAILURES} gate(s) failed ❌"
+    fail "${FAILURES} gate(s) failed"
 fi

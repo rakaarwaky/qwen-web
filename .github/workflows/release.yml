@@ -51,7 +51,7 @@ jobs:
           python -m build
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@d1e66170d32c9ec7bbcb7fae044d3d686ce304d3
         with:
           files: dist/*
           generate_release_notes: true
