@@ -1,15 +1,6 @@
 <div align="center">
 
-# Qwen AI Web Automation CLI
-
-**Automate Markdown-based prompt processing via Qwen AI Web (`chat.qwen.ai`)**
-
-[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Playwright](https://img.shields.io/badge/playwright-1.62%2B-green.svg)](https://playwright.dev/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Headless Mode](https://img.shields.io/badge/browser-headless%20supported-purple.svg)]()
-
-[Features](#key-features) • [Installation](#installation) • [Quick Start](#quick-start) • [Usage Modes](#usage-modes) • [CLI Reference](#cli-reference)
+# Qwen AI Web Automation CLI & MCP Server
 
 </div>
 
@@ -30,7 +21,7 @@
 - **Persistent Session Login**: Log in once, then run in `--headless` mode indefinitely.
 - **Smart Response Detection**: Polls AI generation progress dynamically until completion.
 - **Output Validation**: Detects CAPTCHA challenges and server error pages before accepting output.
-- **2-Tier Prompt Injection**: Handles large prompts (100k+ chars) via React setter + clipboard fallback.
+- **Multi-Tier Prompt Injection**: Handles large prompts (100k+ chars) via React setter, ContentEditable, and Playwright fallbacks.
 - **Structured Observability**: `structlog`, OpenTelemetry, Sentry, JSONL audit trail.
 - **Fault Recovery**: Automatic retry with circuit breaker and rate limiting.
 
@@ -114,29 +105,19 @@ qwen-web-mcp
 
 ## CLI Reference
 
-| Flag / Option          | Argument | Description                                              | Default                     |
-| :--------------------- | :------- | :------------------------------------------------------- | :-------------------------- |
-| `init`, `--init`       | `[DIR]`  | Initialize workspace with `.agents/skills` & `.qwen-web` | Current directory (`.`)     |
-| `-w, --watch`          | None     | Enable continuous File Watcher mode                      | disabled                    |
-| `--interval`           | `INT`    | Polling interval in seconds for watcher mode             | `3`                         |
-| `-i, --input`          | `PATH`   | Input markdown file or directory                         | `~/.local/share/qwen-web/input` |
-| `-o, --output`         | `PATH`   | Output markdown file or directory                        | `~/.local/share/qwen-web/output` |
-| `-d, --done-dir`       | `PATH`   | Directory to move completed input files                  | `~/.local/share/qwen-web/input/done` |
-| `--failed-dir`         | `PATH`   | Directory to move failed input files                     | `~/.local/share/qwen-web/input/failed` |
-| `--proc-dir`           | `PATH`   | Temporary lock directory during processing               | `~/.cache/qwen-web/.processing` |
-| `--log-dir`            | `PATH`   | Directory for structured logs and audit trail            | `~/.local/state/qwen-web/log` |
-| `--data-dir`           | `PATH`   | Browser profile & session cookies directory              | `~/.local/share/qwen-web/qwen_session` |
-| `--headless`           | None     | Run browser in background without GUI window             | false                       |
-| `--login`              | None     | Open browser to log in manually and save session         | disabled                    |
-| `--mcp`                | None     | Run as MCP server over stdio                             | disabled                    |
-| `--timeout`            | `INT`    | Max wait time in seconds for AI response                 | `300`                       |
-| `--request-timeout`    | `INT`    | Max seconds to wait for network response                 | `120`                       |
-| `--poll-interval`      | `FLOAT`  | Seconds between message-poll DOM checks                  | `1.0`                       |
-| `--streaming-timeout`  | `INT`    | Max streaming duration in seconds                        | `180`                       |
-| `--rate-limit`         | `INT`    | Max prompt requests per minute                           | `60`                        |
-| `--cb-threshold`       | `INT`    | Consecutive failures before tripping circuit breaker     | `5`                         |
-| `--cb-window`          | `INT`    | Circuit breaker sliding window in seconds                | `30`                        |
-| `--retry-failed`       | None     | Re-process files in `failed/` directory on next run      | disabled                    |
+Only the flags below are needed for daily use. All tuning values (timeouts, poll interval, rate limit, circuit-breaker thresholds, and directory paths) are **hardcoded to safe defaults** in `modules/root_cli_main_entry.py` and follow the XDG Base Directory spec — you normally never pass them.
+
+| Command / Flag   | Argument | Description                                            |
+| :--------------- | :------- | :----------------------------------------------------- |
+| `qwen-web-cli init` | `[DIR]` | Provision workspace (`.agents/skills`, `.qwen-web`). Run once. |
+| `qwen-web-cli --login` | None | Open a visible browser to log in and save the session. Run once. |
+| `-i, --input`   | `PATH`   | Input markdown file or directory (required each run).  |
+| `-o, --output`  | `PATH`   | Output markdown file or directory (required each run). |
+| `-w, --watch`   | None     | Enable continuous File Watcher mode.                   |
+| `--headless`    | None     | Run the browser in the background without a GUI window.|
+| `qwen-web-mcp`  | None     | Run as a Model Context Protocol (MCP) server over stdio. |
+
+> All other options (polling interval, done/failed/proc/log/data directories, timeout, request-timeout, streaming-timeout, poll-interval, rate-limit, circuit-breaker threshold/window, `--retry-failed`) are pre-configured defaults and omitted from the CLI surface for simplicity.
 
 ---
 
