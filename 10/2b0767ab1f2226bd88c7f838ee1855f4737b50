@@ -1,0 +1,54 @@
+tests/test_file_uploader.py
+  s_bf05f8ba6f9deb::t_0c6c32879f3edc 98
+  s_bf05f8ba6f9deb::t_42d318c319d43d 44,108
+  s_bf05f8ba6f9deb::t_69727d083fe0f4 50,56,68,88
+  s_bf05f8ba6f9deb::t_5c56666f03a720 87,97
+  s_bf05f8ba6f9deb::t_2b6bbe226018ea 106
+  s_bf05f8ba6f9deb::t_531f33e60fc267 11
+  s_bf05f8ba6f9deb::t_27491b1455f297 63
+  s_bf05f8ba6f9deb::t_2d73c213371a39 19,24
+tests/test_linux.py
+  s_bf05f8ba6f9deb::t_d2b1f9883412d8 12
+  s_bf05f8ba6f9deb::t_66c38a10543d9d 61
+  s_bf05f8ba6f9deb::t_28d8931fb3a867 56,84
+  s_bf05f8ba6f9deb::t_9efacf13c68c78 43,48,52,74,80
+  s_bf05f8ba6f9deb::t_d449e93b5a0fd7 65
+tests/test_browser.py
+  s_bf05f8ba6f9deb::t_7776449b4ff3ed 52
+  s_bf05f8ba6f9deb::t_2217c286629647 60
+  s_bf05f8ba6f9deb::t_d6929d99b98414 10
+  s_bf05f8ba6f9deb::t_e03cf318a089c9 77
+  s_bf05f8ba6f9deb::t_62799ef304a065 67
+  s_bf05f8ba6f9deb::t_2f783c3d987ff9 87
+tests/test_browser_session.py
+  s_bf05f8ba6f9deb::t_7a65f3b660798d 10,13
+  s_bf05f8ba6f9deb::t_7633968bfc00c2 146
+  s_bf05f8ba6f9deb::t_25b60d0898615b 132
+  s_bf05f8ba6f9deb::t_43fbdeafc1d9f0 37,61,84,110
+tests/test_browser_extended.py
+  s_bf05f8ba6f9deb::t_bbfcf3390f1349 197
+  s_bf05f8ba6f9deb::t_cf0bfcf8979804 181,190
+  s_bf05f8ba6f9deb::t_cb4578b272ac1b 15
+  s_bf05f8ba6f9deb::t_5ef68260e38ecf 160,170
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "102b0767ab1f2226bd88c7f838ee1855f4737b50",
+  "prompts": {},
+  "humans": {
+    "h_16053b17f89e22": {
+      "author": "rakaarwaky <arwaky90@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_bf05f8ba6f9deb": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0065d0f94ffeeY1gtlUu4epmUj",
+        "model": "deepseek-v4-flash-free"
+      },
+      "human_author": "rakaarwaky <arwaky90@gmail.com>"
+    }
+  }
+}
