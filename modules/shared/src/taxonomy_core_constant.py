@@ -17,6 +17,8 @@ from modules.shared.src.taxonomy_core_vo import (
 
 BASE_DIR = Path(__file__).resolve().parents[3]
 
+STATUS_FILENAME: str = "status.json"
+
 # ─── Role path skip sets ──────────────────────────────────────
 SKIP_DIRS: frozenset[str] = frozenset({
     "done",
