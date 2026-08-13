@@ -83,6 +83,7 @@ class TestBrowserSession:
 
     def test_browser_session_close_error_handled(self, tmp_path):
         from playwright.sync_api import Error
+
         cfg = AppConfig(
             mode="batch",
             input_path=tmp_path / "in",
@@ -110,6 +111,7 @@ class TestBrowserSession:
 class TestLaunchContext:
     def test_retries_on_failure(self):
         from playwright.sync_api import Error
+
         p = MagicMock()
         kwargs = {"user_data_dir": "", "headless": True}
 
@@ -117,6 +119,7 @@ class TestLaunchContext:
         good_ctx.pages = [MagicMock()]
 
         call_count = [0]
+
         def launch_side_effect(**kw):
             call_count[0] += 1
             if call_count[0] < 3:

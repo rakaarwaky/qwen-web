@@ -370,6 +370,7 @@ class TestIterTodoWatcher:
 
         orch = self._make_orchestrator()
         results = []
+
         def consume():
             for item in orch._iter_todo_watcher(tmp_path / "todo", cfg):
                 results.append(item)

@@ -42,7 +42,7 @@ def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> tuple[Path, Path, Path
     role_idx = next((i for i, p in enumerate(parts) if p.startswith("role-")), None)
     if role_idx is not None:
         role_folder = parts[role_idx]
-        sub_path = _normalize_sub_parts(parts[role_idx + 1:], rel_path.name)
+        sub_path = _normalize_sub_parts(parts[role_idx + 1 :], rel_path.name)
         out_path = _compute_output_path(cfg, sub_path)
         done_path = base / role_folder / "done" / sub_path
         fail_path = base / role_folder / "failed" / sub_path

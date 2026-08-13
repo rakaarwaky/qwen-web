@@ -20,6 +20,7 @@ from modules.shared.src.utility_core_text import utc_now_iso
 
 # Block 1: Class Definition & Constructor
 
+
 class AuditRepository(IAuditProtocol):
     """Structured JSONL audit log with error traces and step-level context."""
 
@@ -112,8 +113,7 @@ class AuditRepository(IAuditProtocol):
         records: list[Any] = [json.loads(line) for line in recent if line.strip()]
         return ResponseText(json.dumps(records, indent=2))
 
-# Block 3: Dunder Methods, Factories & Helpers
-
+    # Block 3: Dunder Methods, Factories & Helpers
 
     def __repr__(self) -> str:
         """Return string representation of AuditRepository."""

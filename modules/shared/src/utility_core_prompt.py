@@ -73,7 +73,7 @@ def strip_input_from_output(text: str, full_prompt: str) -> str:
     text_stripped = text.strip()
 
     if text_stripped.startswith(prompt_stripped):
-        candidate = text_stripped[len(prompt_stripped):].lstrip("\n")
+        candidate = text_stripped[len(prompt_stripped) :].lstrip("\n")
         if len(candidate.strip()) > 20:
             return candidate
 

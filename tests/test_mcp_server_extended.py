@@ -31,17 +31,21 @@ class TestRegisterTool:
         mock_mcp = MagicMock()
         mock_mcp.tool.return_value = lambda fn: fn
         with patch("modules.root_mcp_main_entry.mcp", mock_mcp):
+
             @_register_tool
             async def my_func():
                 return "ok"
+
             result = asyncio.run(my_func())
             assert result == "ok"
 
     def test_returns_fn_when_mcp_none(self):
         with patch("modules.root_mcp_main_entry.mcp", None):
+
             @_register_tool
             async def my_func():
                 return "ok"
+
             result = asyncio.run(my_func())
             assert result == "ok"
 
@@ -81,5 +85,6 @@ class TestRunMcpServer:
             mock_app = MagicMock()
             mock_get.return_value = mock_app
             from modules.root_mcp_main_entry import run_mcp_server
+
             run_mcp_server()
             mock_app.run.assert_called_once()

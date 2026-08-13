@@ -87,8 +87,7 @@ class RunContext:
     """
 
     run_id: str = field(
-        default_factory=lambda: datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S_")
-        + uuid.uuid4().hex[:6]
+        default_factory=lambda: datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S_") + uuid.uuid4().hex[:6]
     )
 
 

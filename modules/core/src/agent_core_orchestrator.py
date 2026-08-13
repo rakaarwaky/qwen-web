@@ -188,9 +188,7 @@ class CoreOrchestrator(ICoreAggregate):
                         processed += 1
                     except Exception as e:  # per-file isolation: a failure must not abort the batch
                         failed += 1
-                        self._observability.get_logger().error(
-                            "batch_file_failed", file=str(rel_path), error=str(e)
-                        )
+                        self._observability.get_logger().error("batch_file_failed", file=str(rel_path), error=str(e))
             return ResponseText(f"Batch processing complete. Successfully processed: {processed}, Failed: {failed}")
 
         return self._execute(_fn)
@@ -325,7 +323,10 @@ class CoreOrchestrator(ICoreAggregate):
         emitter.emit(EVENT_DISPATCH_ACKNOWLEDGED, {"file": str(filepath)})
 
         response = self._streamer.wait_for_response(
-            page, TimeoutSec(timeout_sec), MessageCount(msg_count_before), emitter,
+            page,
+            TimeoutSec(timeout_sec),
+            MessageCount(msg_count_before),
+            emitter,
             dispatch_acknowledged=HeadlessFlag(True),
         )
 
@@ -445,7 +446,10 @@ class CoreOrchestrator(ICoreAggregate):
             "SUCCESS", ctx, FilePath(str(rel_path)), FilePath(str(out_path)), dur, len(prompt), OutputChars(len(text))
         )
         self._audit.log_step(
-            ctx, "PROCESS_SUCCESS", FilePath(str(rel_path)), "SUCCESS",
+            ctx,
+            "PROCESS_SUCCESS",
+            FilePath(str(rel_path)),
+            "SUCCESS",
             {"duration_sec": dur, "output_chars": len(text)},
         )
 

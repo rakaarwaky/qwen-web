@@ -103,7 +103,9 @@ class TestUploadAttachment:
         f.write_text("hello")
         page = MagicMock()
 
-        with patch.object(FileUploader, "_try_upload_attempt", side_effect=[False, False, True]), \
-             patch("modules.core.src.capabilities_file_uploader.time"):
+        with (
+            patch.object(FileUploader, "_try_upload_attempt", side_effect=[False, False, True]),
+            patch("modules.core.src.capabilities_file_uploader.time"),
+        ):
             result = FileUploader().upload_attachment(page, f, config=None)
             assert result is True

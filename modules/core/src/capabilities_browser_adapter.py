@@ -43,6 +43,7 @@ log = structlog.get_logger("browser")
 
 # Block 1: Class Definition & Constructor
 
+
 class SessionCheck:
     """Validates that the browser session and Qwen chat UI are alive."""
 
@@ -81,8 +82,7 @@ class SessionCheck:
         except Error as exc:
             raise AuthRequiredError(f"Session invalid (browser error): {exc}") from exc
 
-# Block 3: Dunder Methods, Factories & Helpers
-
+    # Block 3: Dunder Methods, Factories & Helpers
 
     def __repr__(self) -> str:
         """Return string representation of SessionCheck."""
@@ -119,8 +119,7 @@ class BrowserAdapter(IBrowserProtocol):
         """Initialize BrowserAdapter."""
         pass
 
-# Block 2: Public Contract
-
+    # Block 2: Public Contract
 
     def _goto_chat(
         self,
@@ -214,18 +213,19 @@ class BrowserAdapter(IBrowserProtocol):
         ]
 
         if cfg.headless:
-            chrome_args.extend([
-                "--disable-gpu",
-                "--disable-software-compositing",
-            ])
+            chrome_args.extend(
+                [
+                    "--disable-gpu",
+                    "--disable-software-compositing",
+                ]
+            )
 
         kwargs: dict[str, Any] = {
             "user_data_dir": str(cfg.session_path),
             "headless": cfg.headless,
             "permissions": ["clipboard-read", "clipboard-write"],
             "user_agent": (
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/131.0.0.0 Safari/537.36"
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
             ),
             "args": chrome_args,
             "viewport": {"width": 1280, "height": 800},
@@ -257,8 +257,7 @@ class BrowserAdapter(IBrowserProtocol):
             log.critical("browser_launch_failed", error=str(e))
             raise BrowserLaunchError(f"Failed to launch browser: {e}") from e
 
-# Block 3: Dunder Methods, Factories & Helpers
-
+    # Block 3: Dunder Methods, Factories & Helpers
 
     def __repr__(self) -> str:
         """Return string representation of BrowserAdapter."""

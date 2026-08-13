@@ -1,4 +1,5 @@
 """Smoke test suite for qwen_auto.py verifying fast startup and CLI argument execution in under 5s."""
+
 import subprocess
 import sys
 import time

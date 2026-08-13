@@ -37,7 +37,6 @@ from modules.shared.src.utility_core_validation import validate_response_content
 log = get_logger("capabilities_stream_monitor")
 
 
-
 # Block 1: Class Definition & Constructor
 
 
@@ -122,8 +121,7 @@ class StreamMonitor(IStreamProtocol):
                                 stable_count, int(active_checks), has_thinking, has_streaming, is_complete
                             ):
                                 log.info(
-                                    "Response stabilized after %d checks (is_complete=%s)",
-                                    stable_count, is_complete
+                                    "Response stabilized after %d checks (is_complete=%s)", stable_count, is_complete
                                 )
                                 validate_response_content(text)
                                 emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(text)})
@@ -159,4 +157,3 @@ class StreamMonitor(IStreamProtocol):
             f"StreamMonitor(poll={self.polling_interval_sec}, checks={self.stability_checks}, "
             f"min_len={self.min_text_length})"
         )
-

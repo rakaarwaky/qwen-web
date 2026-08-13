@@ -27,6 +27,7 @@ from modules.shared.src.utility_core_path import (
 
 # ─── browser.py coverage push ───────────────────────────────────────────────
 
+
 class TestBrowserCoverage:
     def test_check_auth_no_tabs(self):
         page = MagicMock()
@@ -39,7 +40,9 @@ class TestBrowserCoverage:
         page.url = "https://chat.qwen.ai/"
         page.query_selector.return_value = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
-        with patch("modules.core.src.capabilities_browser_adapter._assert_on_chat_page", side_effect=AuthRequiredError("login")):
+        with patch(
+            "modules.core.src.capabilities_browser_adapter._assert_on_chat_page", side_effect=AuthRequiredError("login")
+        ):
             with pytest.raises(AuthRequiredError):
                 BrowserAdapter().navigate_to_chat(page, emitter)
 
@@ -62,8 +65,10 @@ class TestBrowserCoverage:
         )
         mock_ctx = MagicMock()
         mock_ctx.pages = [MagicMock()]
-        with patch("modules.core.src.capabilities_browser_adapter.sync_playwright") as mock_pw, \
-             patch("modules.core.src.capabilities_browser_adapter.os.chmod"):
+        with (
+            patch("modules.core.src.capabilities_browser_adapter.sync_playwright") as mock_pw,
+            patch("modules.core.src.capabilities_browser_adapter.os.chmod"),
+        ):
             mock_p = MagicMock()
             mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
@@ -84,8 +89,10 @@ class TestBrowserCoverage:
         )
         mock_ctx = MagicMock()
         mock_ctx.pages = [MagicMock()]
-        with patch("modules.core.src.capabilities_browser_adapter.sync_playwright") as mock_pw, \
-             patch("modules.core.src.capabilities_browser_adapter.os.chmod"):
+        with (
+            patch("modules.core.src.capabilities_browser_adapter.sync_playwright") as mock_pw,
+            patch("modules.core.src.capabilities_browser_adapter.os.chmod"),
+        ):
             mock_p = MagicMock()
             mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
@@ -110,6 +117,7 @@ class TestBrowserCoverage:
 
 # ─── file_uploader.py coverage push ─────────────────────────────────────────
 
+
 class TestFileUploaderCoverage:
     def test_close_dropdown_if_open_no_dropdown(self):
         page = MagicMock()
@@ -129,6 +137,7 @@ class TestFileUploaderCoverage:
 
 
 # ─── mcp_server.py remaining async ──────────────────────────────────────────
+
 
 class TestMcpServerRemainingAsync:
     def test_qwen_process_single_error(self):
@@ -157,6 +166,7 @@ class TestMcpServerRemainingAsync:
 
 # ─── observability.py remaining paths ───────────────────────────────────────
 
+
 class TestObservabilityCoverage:
     def test_configure_logging_structlog(self, tmp_path):
         mock_slog = MagicMock()
@@ -166,8 +176,7 @@ class TestObservabilityCoverage:
 
     def test_configure_sentry_no_dsn(self, tmp_path):
         mock_sentry = MagicMock()
-        with patch.dict("os.environ", {}, clear=False), \
-             patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
+        with patch.dict("os.environ", {}, clear=False), patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
             os.environ.pop("SENTRY_DSN", None)
             ObservabilitySetup(tmp_path / "log")._configure_sentry()
             mock_sentry.init.assert_not_called()
@@ -190,8 +199,7 @@ class TestObservabilityCoverage:
             "opentelemetry.exporter.otlp.proto.http": MagicMock(),
             "opentelemetry.exporter.otlp.proto.http.trace_exporter": mock_otlp_exporter,
         }
-        with patch.dict("os.environ", {}, clear=False), \
-             patch.dict(sys.modules, otel_modules):
+        with patch.dict("os.environ", {}, clear=False), patch.dict(sys.modules, otel_modules):
             os.environ.pop("OTEL_EXPORTER_OTLP_ENDPOINT", None)
             ObservabilitySetup(tmp_path / "log")._configure_tracing()
             mock_otel.trace.set_tracer_provider.assert_called()
@@ -209,14 +217,20 @@ class TestObservabilityCoverage:
             _excepthook(RuntimeError, RuntimeError("boom"), None)
 
     def test_setup_observability_with_tracing(self, tmp_path):
-        with patch.object(ObservabilitySetup, "_configure_logging"), \
-             patch.object(ObservabilitySetup, "_configure_sentry"), \
-             patch.object(ObservabilitySetup, "_configure_tracing"), \
-             patch("modules.core.src.capabilities_observability_setup.os.environ", {"OTEL_EXPORTER_OTLP_ENDPOINT": "http://x:4318"}):
+        with (
+            patch.object(ObservabilitySetup, "_configure_logging"),
+            patch.object(ObservabilitySetup, "_configure_sentry"),
+            patch.object(ObservabilitySetup, "_configure_tracing"),
+            patch(
+                "modules.core.src.capabilities_observability_setup.os.environ",
+                {"OTEL_EXPORTER_OTLP_ENDPOINT": "http://x:4318"},
+            ),
+        ):
             ObservabilitySetup(tmp_path / "log").setup_observability()
 
 
 # ─── pipeline.py remaining paths ────────────────────────────────────────────
+
 
 class TestPipelineCoverage:
     def test_list_input_files_ignores_hidden(self, tmp_path):
