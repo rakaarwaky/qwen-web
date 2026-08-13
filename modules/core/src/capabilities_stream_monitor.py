@@ -30,7 +30,7 @@ from modules.shared.src.taxonomy_domain_error import AuthRequiredError, NetworkT
 from modules.shared.src.utility_core_events import is_stability_satisfied, should_treat_as_new_response
 from modules.shared.src.utility_core_validation import validate_response_content
 
-from modules.core.src.utility_core_dom_helper import any_visible_locator, is_selector_visible
+from modules.core.src.utility_core_dom_helper import is_any_visible, is_selector_visible
 from modules.core.src.utility_core_dom_query import count_messages, latest_message_text as _dom_latest
 from modules.core.src.utility_core_logger_factory import get_logger
 
@@ -61,13 +61,11 @@ class StreamMonitor(IStreamProtocol):
     def is_generation_complete(self, page: Page) -> bool:
         """Check if Qwen AI is done generating."""
         try:
-            if any_visible_locator(page, STOP_BUTTON_SELECTORS):
+            if is_any_visible(page, STOP_BUTTON_SELECTORS):
                 return False
-
-            if any_visible_locator(page, SEND_DISABLED_SELECTORS):
+            if is_any_visible(page, SEND_DISABLED_SELECTORS):
                 return False
-
-            return not any_visible_locator(page, TYPING_INDICATOR_SELECTORS)
+            return not is_any_visible(page, TYPING_INDICATOR_SELECTORS)
         except Exception:
             return False
 

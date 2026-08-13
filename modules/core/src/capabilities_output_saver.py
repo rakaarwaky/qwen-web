@@ -21,7 +21,7 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_INCLUDE_HEADER,
 )
 from modules.shared.src.taxonomy_domain_error import OutputWriteError
-from modules.core.src.utility_core_io_writer import ensure_dir, write_json_file
+from modules.core.src.utility_core_io_writer import atomic_write_text, ensure_dir, write_json_file
 from modules.shared.src.utility_core_text import build_metadata_header, strip_ui_noise, utc_now_iso
 from modules.core.src.utility_core_logger_factory import get_logger
 

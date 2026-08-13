@@ -9,7 +9,6 @@ import logging
 import os
 import sys
 import threading
-import importlib
 from contextlib import nullcontext, suppress
 from pathlib import Path
 from typing import Any

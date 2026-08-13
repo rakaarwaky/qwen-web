@@ -22,12 +22,12 @@ def test_click_send_primary_selector_success():
     mock_locator = MagicMock()
     mock_page.locator.return_value = mock_locator
     mock_locator.count.return_value = 1
-    mock_locator.is_visible.return_value = True
+    mock_locator.first.is_visible.return_value = True
     mock_locator.is_enabled.return_value = True
 
     _sender().click_send(mock_page, mock_emitter)
 
-    mock_locator.click.assert_called_once()
+    mock_locator.first.click.assert_called_once()
     mock_emitter.emit.assert_called_once()
 
 
@@ -39,7 +39,7 @@ def test_click_send_enter_fallback():
     def locator_side_effect(sel):
         loc = MagicMock()
         loc.count.return_value = 0
-        loc.is_visible.return_value = False
+        loc.first.is_visible.return_value = False
         return loc
 
     mock_page.locator.side_effect = locator_side_effect
@@ -55,7 +55,7 @@ def test_click_send_all_failed():
 
     mock_locator = MagicMock()
     mock_locator.count.return_value = 0
-    mock_locator.is_visible.return_value = False
+    mock_locator.first.is_visible.return_value = False
     mock_page.locator.return_value = mock_locator
 
     # No visible selector and Enter fails — click_send must not raise

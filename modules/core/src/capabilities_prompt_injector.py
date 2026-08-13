@@ -14,6 +14,7 @@ from modules.shared.src.taxonomy_config_vo import DEFAULT_INJECTOR_CONFIG, Injec
 from modules.shared.src.taxonomy_domain_error import ElementNotFoundError, PromptInjectionError
 from modules.core.src.utility_core_dom_helper import first_visible_element_handle
 from modules.core.src.utility_core_logger_factory import get_logger
+from modules.core.src.utility_core_dom_helper import first_visible_element_handle
 
 log = get_logger("capabilities_prompt_injector")
 

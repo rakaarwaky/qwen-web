@@ -189,8 +189,8 @@ class TestWaitForResponseEdgeCases:
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
 
-        with patch.object(StreamMonitor, "_count_messages", return_value=1), \
-             patch.object(StreamMonitor, "_latest_message_text", return_value=None), \
+        with patch("modules.core.src.capabilities_stream_monitor.count_messages", return_value=1), \
+             patch("modules.core.src.capabilities_stream_monitor._dom_latest", return_value=None), \
              patch("modules.core.src.capabilities_stream_monitor.time") as mock_time:
             mock_time.time.side_effect = [0, 0, 0, 9999]
             mock_time.sleep = MagicMock()
@@ -214,8 +214,8 @@ class TestWaitForResponseEdgeCases:
         # and the loop never processes any text, hanging until timeout.
         msg_side_effect = [None] + [stable_text] * 20
 
-        with patch.object(StreamMonitor, "_count_messages", return_value=2), \
-             patch.object(StreamMonitor, "_latest_message_text", side_effect=msg_side_effect), \
+        with patch("modules.core.src.capabilities_stream_monitor.count_messages", return_value=2), \
+             patch("modules.core.src.capabilities_stream_monitor._dom_latest", side_effect=msg_side_effect), \
              patch.object(StreamMonitor, "is_generation_complete", return_value=True), \
              patch("modules.core.src.capabilities_stream_monitor.time") as mock_time:
             mock_time.time.side_effect = [0] + [0.1] * 50

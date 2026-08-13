@@ -21,6 +21,7 @@ def try_selectors(
     selectors: Sequence[str],
     action: Callable[[Locator], T | None],
     timeout_ms: int = 1000,
+    first_only: bool = False,
 ) -> list[T]:
     """Iterate selectors, applying *action* to each visible locator.
 
@@ -36,6 +37,8 @@ def try_selectors(
         Function applied to the first matching locator for each selector.
     timeout_ms : int
         Visibility timeout in milliseconds.
+    first_only : bool
+        Stop iteration after the first successful action call.
 
     Returns
     -------
@@ -48,6 +51,8 @@ def try_selectors(
             loc = page.locator(selector).first
             if loc.is_visible(timeout=timeout_ms):
                 results.append(action(loc))
+                if first_only:
+                    break
         except Exception:
             continue
     return results
@@ -77,7 +82,7 @@ def first_visible_locator(
         First visible locator, or None if none match.
 
     """
-    results = try_selectors(page, selectors, lambda loc: loc, timeout_ms)
+    results = try_selectors(page, selectors, lambda loc: loc, timeout_ms, first_only=True)
     return results[0] if results else None
 
 
@@ -103,7 +108,13 @@ def click_first_visible_enabled(
         True if a matching button was clicked, False otherwise.
 
     """
-    results = try_selectors(page, selectors, lambda loc: (loc.click(), True)[1], timeout_ms)
+    results = try_selectors(
+        page,
+        selectors,
+        lambda loc: (loc.click(), True)[1],
+        timeout_ms,
+        first_only=True,
+    )
     return len(results) > 0 and results[0] is True
 
 
@@ -200,11 +211,7 @@ def is_any_visible(page: Page, selector: str) -> bool:
         True when at least one matching element is visible.
 
     """
-    try:
-        loc = page.locator(selector)
-        return loc.count() > 0 and loc.first.is_visible()
-    except Exception:
-        return False
+    return any_visible_locator(page, selector)
 
 
 def first_visible_element_handle(

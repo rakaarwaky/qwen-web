@@ -37,7 +37,7 @@ from modules.shared.src.taxonomy_core_vo import (
 from modules.shared.src.taxonomy_domain_error import AuthRequiredError, BrowserLaunchError
 from modules.core.src.utility_core_async_loop import isolate_thread_event_loop
 from modules.core.src.utility_core_browser_binary import find_chrome_binary
-from modules.core.src.utility_core_dom_helper import any_visible_locator
+from modules.core.src.utility_core_dom_helper import is_any_visible
 from modules.core.src.utility_core_io_writer import ensure_dir
 
 log = structlog.get_logger("browser")
@@ -101,7 +101,8 @@ def _assert_on_chat_page(page: Page) -> None:
         )
 
     if not page.query_selector(TEXTAREA_SELECTOR):
-        if any_visible_locator(page, LOGIN_FORM_SELECTORS):
+        combined_login = ", ".join(LOGIN_FORM_SELECTORS)
+        if is_any_visible(page, combined_login):
             raise AuthRequiredError(
                 f"Not authenticated — login form detected ({LOGIN_FORM_SELECTORS}). "
                 "Run 'python3 src/main.py --login' to save your session first."

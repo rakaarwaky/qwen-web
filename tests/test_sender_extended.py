@@ -30,7 +30,7 @@ class TestClickSendExtended:
         def locator_factory(sel):
             loc = MagicMock()
             loc.count.return_value = 0
-            loc.is_visible.return_value = False
+            loc.first.is_visible.return_value = False
             return loc
 
         page.locator.side_effect = locator_factory
