@@ -1,0 +1,60 @@
+modules/root_cli_main_entry.py
+  s_8c0c23317ce06e::t_1dbe2ce69d4d1e 134
+  s_8c0c23317ce06e::t_24adb078ebecc9 39-43
+modules/core/src/capabilities_browser_adapter.py
+  s_8c0c23317ce06e::t_51de80073e8ced 226-229
+  s_8c0c23317ce06e::t_82f7cfbf5108f4 71
+modules/shared/src/taxonomy_core_entity.py
+  s_8c0c23317ce06e::t_8a92cb08c7328e 138
+modules/core/src/agent_core_orchestrator.py
+  s_8c0c23317ce06e::t_21e1082eea3d6a 243-245
+  s_8c0c23317ce06e::t_3f8921405fbadd 444-446
+  s_8c0c23317ce06e::t_032985d6aaaddb 415
+  s_8c0c23317ce06e::t_f011266a3d1af5 189
+  s_8c0c23317ce06e::t_9b086fccdea93c 478-487
+  s_8c0c23317ce06e::t_c2e67f8af8b61d 346
+  s_8c0c23317ce06e::t_a2c874c1963588 360
+modules/core/src/capabilities_linux_guard.py
+  s_8c0c23317ce06e::t_9ff5ecbb3d73d7 33
+  s_8c0c23317ce06e::t_09173ebe357762 18-19
+modules/core/src/capabilities_stream_monitor.py
+  s_8c0c23317ce06e::t_b8215c33d5f3d1 69
+  s_8c0c23317ce06e::t_3f5dde0431192b 77
+modules/core/src/capabilities_file_uploader.py
+  s_8c0c23317ce06e::t_79918b4dfa83f8 106
+  s_8c0c23317ce06e::t_5098042ac8493f 129
+  s_8c0c23317ce06e::t_16dbf2a5582781 13
+modules/core/src/capabilities_output_saver.py
+  s_8c0c23317ce06e::t_b15cc81dd2c0bc 101
+modules/shared/src/utility_core_response.py
+  s_8c0c23317ce06e::t_5736568888e857 42
+modules/core/src/capabilities_status_writer.py
+  s_8c0c23317ce06e::t_32d43e5b80fe8a 66
+pyproject.toml
+  s_8c0c23317ce06e::t_a255c1b5e5d7f4 42-44
+  s_8c0c23317ce06e::t_6176340836d369 21
+modules/cli/src/surface_cli_interactive_controller.py
+  s_8c0c23317ce06e::t_929d237de06290 93-95
+modules/core/src/capabilities_prompt_injector.py
+  s_8c0c23317ce06e::t_79db093230cc8d 145
+requirements.txt
+  s_8c0c23317ce06e::t_ea440b4541e9d0 9
+modules/core/src/capabilities_observability_setup.py
+  s_8c0c23317ce06e::t_0909aee36ff41f 66-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b61cc86a94401553699c3a93b904b932f4c733c8",
+  "prompts": {},
+  "sessions": {
+    "s_8c0c23317ce06e": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_00551b44affe6Zae6aZmOcLv0F",
+        "model": "deepseek-v4-flash-free"
+      },
+      "human_author": "rakaarwaky <arwaky90@gmail.com>"
+    }
+  }
+}
