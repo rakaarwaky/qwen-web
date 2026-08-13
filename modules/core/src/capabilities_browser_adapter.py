@@ -6,7 +6,6 @@ utility only. Logger obtained via structlog (external), not via another capabili
 
 from __future__ import annotations
 
-import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -200,10 +199,6 @@ class BrowserAdapter(IBrowserProtocol):
     def browser_session(self, cfg: Any) -> Iterator[BrowserContext]:
         """Manage persistent Chromium browser context with session caching and asset optimization."""
         cfg.session_path.mkdir(parents=True, exist_ok=True)
-        try:
-            os.chmod(cfg.session_path, 0o755)
-        except OSError as e:
-            log.debug("failed_setting_session_permissions", error=str(e))
 
         chrome_bin = find_chrome_binary()
 

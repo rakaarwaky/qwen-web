@@ -35,7 +35,7 @@ class TestBrowserSession:
             with _browser.browser_session(cfg):
                 mode = cfg.session_path.stat().st_mode
                 assert stat.S_ISDIR(mode)
-                assert mode & stat.S_IXUSR
+                assert stat.S_IMODE(mode) == 0o700
 
     def test_browser_session_headless(self, tmp_path):
         cfg = AppConfig(
