@@ -123,6 +123,10 @@ def main(argv: list[str] | None = None) -> int:
         cfg = _interactive_prompt()
         if cfg is None:
             return 0
+        # Run command reads the built config from args._cfg; interactive mode
+        # never parsed argv, so synthesize a namespace carrying the config.
+        args = argparse.Namespace()
+        args._cfg = cfg
     else:
         if args is None:
             print("ERROR: missing CLI arguments", file=sys.stderr)
