@@ -2,4 +2,7 @@
 exclude_paths:
 - "scripts/**"
 - "tests/**"
+- "__pycache__/**"
+- ".venv/**"
+- "uv.lock"
 
