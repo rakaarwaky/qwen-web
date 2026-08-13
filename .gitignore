@@ -101,6 +101,7 @@ output/
 .archive/
 .worktree/
 .worktrees
+worktrees/
 .jj
 
 # ==========================================
