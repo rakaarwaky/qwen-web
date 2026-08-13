@@ -195,12 +195,17 @@ class TestRunInit:
             assert "*.pyc" in content
 
     def test_creates_symlinks(self, tmp_path):
+        xdg_input = tmp_path / "xdg" / "input"
+        xdg_output = tmp_path / "xdg" / "output"
+        xdg_log = tmp_path / "xdg" / "log"
+        for d in (xdg_input, xdg_output, xdg_log):
+            d.mkdir(parents=True, exist_ok=True)
         with (
             patch("modules.shared.src.taxonomy_core_constant.BASE_DIR", tmp_path),
             patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"),
-            patch("modules.core.src.capabilities_workspace_provisioner.DEFAULT_TODO", tmp_path / "xdg" / "input"),
-            patch("modules.core.src.capabilities_workspace_provisioner.DEFAULT_OUTPUT", tmp_path / "xdg" / "output"),
-            patch("modules.core.src.capabilities_workspace_provisioner.DEFAULT_LOG", tmp_path / "xdg" / "log"),
+            patch("modules.core.src.capabilities_workspace_provisioner.DEFAULT_TODO", xdg_input),
+            patch("modules.core.src.capabilities_workspace_provisioner.DEFAULT_OUTPUT", xdg_output),
+            patch("modules.core.src.capabilities_workspace_provisioner.DEFAULT_LOG", xdg_log),
         ):
             SharedContainer().core.init_workspace(tmp_path)
             dot_qwen = tmp_path / ".qwen-web"

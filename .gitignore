@@ -67,6 +67,7 @@ report.json
 qwen_session/
 tests/artifacts/
 tests/fixtures/qwen_session
+tests/fixtures/.last_run_ts
 
 # ==========================================
 # 7. AI, Agents & Code Analysis Tools
