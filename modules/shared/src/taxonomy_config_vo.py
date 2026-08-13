@@ -9,10 +9,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from modules.shared.src.taxonomy_core_constant import (
-    DEFAULT_LOG,
-    status_path_for,
-)
+from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG, STATUS_FILENAME
 
 
 @dataclass(frozen=True)
@@ -209,7 +206,7 @@ class AppConfig:
     @property
     def status_path(self) -> Path:
         """Path to the JSON status file for monitoring."""
-        return status_path_for(self.log_path)
+        return self.log_path / STATUS_FILENAME
 
     def validate(self) -> None:
         """Validate configuration before execution.
