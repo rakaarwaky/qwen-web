@@ -30,10 +30,12 @@ The CLI surface (`modules/cli`) translates command-line arguments and interactiv
 - **Input**: `AppConfig` (headless=False).
 - **Output**: Success/Failure envelope.
 - **Business Rules**: 
-  - Must force `headless=False`.
-  - Must block execution and wait for user `ENTER` keypress after browser opens.
-- **Edge Cases**: User closes browser before pressing ENTER.
-- **Error Handling**: Catches `AuthRequiredError` and prompts user to retry.
+  - Must force `headless=False` for a new manual-login flow.
+  - Must validate an existing saved session before opening a visible browser.
+  - Must block execution and wait for user `ENTER` keypress while the browser remains open.
+  - Must verify the authenticated chat UI before reporting success.
+- **Edge Cases**: Existing session is valid, session is expired/corrupt, or the user closes the browser before pressing ENTER.
+- **Error Handling**: Catches `AuthRequiredError` and reports that the session was not verified.
 
 ## API Contract
 

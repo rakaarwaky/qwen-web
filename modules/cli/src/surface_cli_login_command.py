@@ -15,13 +15,20 @@ from modules.shared.src.utility_core_response import error_response, safe_handle
 
 @safe_handle
 def handle(_args: object, core: ICoreAggregate, cfg: AppConfig) -> dict[str, object]:
-    """Run manual login in a visible browser window."""
+    """Validate or establish a manual login session in a visible browser."""
     if not sys.stdin.isatty():
         return error_response(
             RuntimeError("Manual login requires an interactive terminal (TTY)."), "validation_error", "cli-400"
         )
-    print("Please log in or resolve CAPTCHA in the browser window.")
-    core.setup_session()
-    print("Press [ENTER] once you have finished logging in:")
-    input()
-    return success_response(f"Login session saved to '{cfg.session_path}'.")
+
+    def _wait_for_login() -> None:
+        """Keep the headed browser alive while the user completes login."""
+        print("Please log in or resolve CAPTCHA in the browser window.")
+        print("Press [ENTER] here once the chat page is ready:")
+        input()
+
+    result = core.setup_session(
+        wait_for_confirmation=_wait_for_login,
+        session_path=cfg.session_path,
+    )
+    return success_response(result)

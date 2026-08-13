@@ -155,6 +155,32 @@ class BrowserAdapter(IBrowserProtocol):
         """Raise AuthRequiredError if the page is on a login/auth URL or login form detected."""
         _assert_on_chat_page(page)
 
+    def check_session(self, page: Page) -> bool:
+        """Return True only when an authenticated chat page is ready for use.
+
+        ``check_auth`` intentionally tolerates a page that is still loading and
+        has not exposed its login form yet. Manual login needs a stronger,
+        boolean check after the user finishes, so this method combines the URL
+        and login-form check with the live chat-input check.
+        """
+        try:
+            try:
+                page.wait_for_load_state("load", timeout=15_000)
+            except Error:
+                # A partially loaded page can still expose the authenticated UI;
+                # SessionCheck below is the final source of truth.
+                log.debug("session_load_state_wait_failed")
+            _assert_on_chat_page(page)
+            return SessionCheck(page).is_alive()
+        except AuthRequiredError:
+            return False
+        except Error as exc:
+            log.warning("session_validation_failed", error=str(exc))
+            return False
+        except Exception as exc:  # defensive fallback for closed pages/adapters
+            log.warning("session_validation_failed", error=str(exc))
+            return False
+
     def _clean_stale_locks(self, user_data_dir: str) -> None:
         """Clean up stale Chromium lock files if process crashed or before launch."""
         session_path = Path(user_data_dir)

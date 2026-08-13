@@ -43,7 +43,7 @@ The MCP surface (`modules/mcp`) exposes the Core aggregate as a Model Context Pr
 | `qwen_process_single` | `input_file`, `output_file`, `headless` | `str` | Processes one markdown file. |
 | `qwen_process_batch` | `input_dir`, `output_dir`, `headless` | `str` | Processes a directory. |
 | `qwen_start_watcher` | `interval_sec`, `headless` | `str` | Starts the continuous watcher. |
-| `qwen_setup_session` | None | `str` | Opens headed browser for login. |
+| `qwen_setup_session` | None | `str` | Validates an existing session or waits for visible browser login to complete. |
 | `qwen_get_audit_log` | `limit` | `str` | Fetches JSONL audit entries. |
 
 ## Integration Points

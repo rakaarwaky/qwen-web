@@ -55,7 +55,7 @@ The Core module (`modules/core`) is the heart of the qwen-web automation engine.
 | `process_batch` | `input_dir`, `output_dir`, `headless` | `ResponseText` | Processes all files in a directory. |
 | `process_watcher` | `interval_sec`, `headless` | `ResponseText` | Runs the continuous polling loop. |
 | `send_prompt` | `prompt`, `timeout_sec`, `headless` | `ResponseText` | Sends raw text without file I/O. |
-| `setup_session` | None | `ResponseText` | Opens headed browser for manual login. |
+| `setup_session` | confirmation callback, optional session path | `ResponseText` | Validates an existing session or keeps a headed browser open for verified manual login. |
 
 ## Integration Points
 - **3rd Party**: Playwright (Browser automation), structlog/Sentry/OpenTelemetry (Observability).
