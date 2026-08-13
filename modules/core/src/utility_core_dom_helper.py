@@ -7,9 +7,11 @@ visibility checks, click helpers, locator selection, and selector-fallback itera
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from playwright.sync_api import Error, Locator, Page
+
+from modules.shared.src.taxonomy_core_constant import SEND_SELECTORS
 
 T = TypeVar("T")
 
@@ -155,8 +157,83 @@ def any_visible_locator(
         selectors = (selectors,)
     for selector in selectors:
         try:
-            if page.locator(selector).first.is_visible(timeout=timeout_ms):
+            loc = page.locator(selector)
+            if loc.count() > 0 and loc.first.is_visible(timeout=timeout_ms):
                 return True
         except Error:
             continue
     return False
+
+
+def click_send(page: Page, config: object = None) -> None:
+    """Click send button via selector fallback, Enter key as last resort.
+
+    Parameters
+    ----------
+    page : Page
+        Active Playwright page.
+    config : optional
+        Unused — kept for API compatibility.
+
+    """
+    clicked = click_first_visible_enabled(page, SEND_SELECTORS, timeout_ms=3000)
+    if not clicked:
+        try:
+            page.keyboard.press("Enter")
+        except Exception:
+            pass
+
+
+def is_any_visible(page: Page, selector: str) -> bool:
+    """Check if any element matching selector is visible.
+
+    Parameters
+    ----------
+    page : Page
+        Active Playwright page.
+    selector : str
+        CSS or XPath selector.
+
+    Returns
+    -------
+    bool
+        True when at least one matching element is visible.
+
+    """
+    try:
+        loc = page.locator(selector)
+        return loc.count() > 0 and loc.first.is_visible()
+    except Exception:
+        return False
+
+
+def first_visible_element_handle(
+    page: Page,
+    selectors: Sequence[str],
+    timeout_ms: int = 1000,
+) -> Any | None:
+    """Return first visible ElementHandle via wait_for_selector, or None.
+
+    Parameters
+    ----------
+    page : Page
+        Active Playwright page.
+    selectors : Sequence[str]
+        CSS or XPath selectors to try in order.
+    timeout_ms : int
+        Visibility timeout per selector in milliseconds.
+
+    Returns
+    -------
+    ElementHandle | None
+        First visible handle, or None if none match.
+
+    """
+    for selector in selectors:
+        try:
+            el = page.wait_for_selector(selector, state="visible", timeout=timeout_ms)
+            if el:
+                return el
+        except Exception:
+            continue
+    return None

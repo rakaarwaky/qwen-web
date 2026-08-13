@@ -95,3 +95,23 @@ def ensure_dir(path: Path) -> Path:
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def write_json_file(target: Path, payload: Mapping[str, Any], atomic: bool = True) -> None:
+    """Write JSON to file, atomically or directly.
+
+    Parameters
+    ----------
+    target : Path
+        Destination file path.
+    payload : Mapping[str, Any]
+        Dict-like object to serialize as JSON.
+    atomic : bool
+        If True, use atomic write (temp + rename). If False, write directly.
+
+    """
+    content = json.dumps(payload, ensure_ascii=False) + "\n"
+    if atomic:
+        _atomic_write(target, content)
+    else:
+        target.write_text(content, encoding="utf-8")

@@ -5,7 +5,6 @@ Implements ISaverProtocol.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +21,7 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_INCLUDE_HEADER,
 )
 from modules.shared.src.taxonomy_domain_error import OutputWriteError
-from modules.core.src.utility_core_io_writer import atomic_write_text, ensure_dir
+from modules.core.src.utility_core_io_writer import ensure_dir, write_json_file
 from modules.shared.src.utility_core_text import build_metadata_header, strip_ui_noise, utc_now_iso
 from modules.core.src.utility_core_logger_factory import get_logger
 
@@ -98,11 +97,7 @@ class Saver(ISaverProtocol):
                     "input_chars": input_chars,
                     "output_chars": output_chars,
                 }
-                self._write_text_file(
-                    sidecar_path,
-                    json.dumps(meta_dict, ensure_ascii=False) + "\n",
-                    atomic_write,
-                )
+                write_json_file(sidecar_path, meta_dict, atomic=bool(atomic_write))
             except Exception as e:
                 log.error("Failed to write metadata sidecar for %s: %s", path, e)
 

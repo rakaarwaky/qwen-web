@@ -129,10 +129,6 @@ class ObservabilitySetup(IObservabilityProtocol):
         except OSError:
             pass
 
-    def _install_excepthooks(self) -> None:
-        """Deprecated — kept for backward compatibility. Use install_excepthooks() directly."""
-        install_excepthooks()
-
     def get_logger(self, name: str = "qwen-web") -> Any:
         return _get_logger(name)
 

@@ -12,6 +12,7 @@ from playwright.sync_api import Error, Page
 from modules.shared.src.contract_core_protocol import IInjectionProtocol
 from modules.shared.src.taxonomy_config_vo import DEFAULT_INJECTOR_CONFIG, InjectorConfig
 from modules.shared.src.taxonomy_domain_error import ElementNotFoundError, PromptInjectionError
+from modules.core.src.utility_core_dom_helper import first_visible_element_handle
 from modules.core.src.utility_core_logger_factory import get_logger
 
 log = get_logger("capabilities_prompt_injector")
@@ -34,14 +35,9 @@ class PromptInjector(IInjectionProtocol):
         selectors = tuple(cfg.input_selectors)
         start_timeout = max(1000, int(cfg.wait_timeout_ms) // len(selectors))
 
-        for selector in selectors:
-            try:
-                el = page.wait_for_selector(selector, state="visible", timeout=start_timeout)
-                if el:
-                    log.debug("Found input element matching selector: %s", selector)
-                    return el
-            except (TimeoutError, Error):
-                continue
+        el = first_visible_element_handle(page, selectors, start_timeout)
+        if el:
+            return el
 
         # Final attempt with full timeout on primary selector
         primary = selectors[0]
@@ -53,7 +49,6 @@ class PromptInjector(IInjectionProtocol):
             raise ElementNotFoundError(
                 f"Timed out waiting for input selector '{primary}' on chat.qwen.ai: {e}"
             ) from e
-
         raise ElementNotFoundError(
             "Could not locate input element on chat.qwen.ai. UI may have changed."
         )

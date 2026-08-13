@@ -18,7 +18,8 @@ from modules.shared.src.taxonomy_core_vo import (
     TryEnterKeyFallbackFlag,
 )
 from modules.shared.src.taxonomy_domain_error import SendDispatchError
-from modules.core.src.utility_core_dom_query import click_send as _dom_click_send, count_messages, latest_message_text
+from modules.core.src.utility_core_dom_helper import click_send as _dom_click_send
+from modules.core.src.utility_core_dom_query import count_messages, latest_message_text
 from modules.core.src.utility_core_logger_factory import get_logger
 
 log = get_logger("capabilities_send_dispatcher")

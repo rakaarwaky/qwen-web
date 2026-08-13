@@ -12,7 +12,7 @@ from typing import Any
 from modules.shared.src.contract_status_protocol import IStatusProtocol
 from modules.shared.src.taxonomy_core_vo import StatusRecordVO
 from modules.shared.src.utility_core_status import status_path_for
-from modules.core.src.utility_core_io_writer import atomic_write_text, ensure_dir
+from modules.core.src.utility_core_io_writer import atomic_write_json, ensure_dir
 
 # Block 1: Class Definition & Constructor ──────────────
 class StatusFileWriter(IStatusProtocol):
@@ -40,7 +40,7 @@ class StatusFileWriter(IStatusProtocol):
             rec["error"] = kwargs["error"]
 
         try:
-            atomic_write_text(self._status_path, json.dumps(rec, ensure_ascii=False) + "\n")
+            atomic_write_json(self._status_path, rec)
         except OSError:
             pass
 

@@ -12,6 +12,12 @@ from pathlib import Path
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG, STATUS_FILENAME
 
 
+def _validate_min(name: str, value: float | int, minimum: float | int) -> None:
+    """Raise ValueError if value is below minimum."""
+    if value < minimum:
+        raise ValueError(f"{name} must be >= {minimum}, got {value}")
+
+
 @dataclass(frozen=True)
 class UploadConfig:
     """Configuration options for file upload behavior."""
@@ -217,16 +223,11 @@ class AppConfig:
             If any configuration value is invalid.
 
         """
-        if self.timeout < 30:
-            raise ValueError(f"timeout must be >= 30s, got {self.timeout}")
-        if self.poll_interval < 0.5:
-            raise ValueError(f"poll_interval must be >= 0.5s, got {self.poll_interval}")
-        if self.request_timeout < 10:
-            raise ValueError(f"request_timeout must be >= 10s, got {self.request_timeout}")
-        if self.rate_limit_per_minute < 1:
-            raise ValueError(f"rate_limit_per_minute must be >= 1, got {self.rate_limit_per_minute}")
-        if self.circuit_breaker_threshold < 2:
-            raise ValueError(f"circuit_breaker_threshold must be >= 2, got {self.circuit_breaker_threshold}")
+        _validate_min("timeout", self.timeout, 30)
+        _validate_min("poll_interval", self.poll_interval, 0.5)
+        _validate_min("request_timeout", self.request_timeout, 10)
+        _validate_min("rate_limit_per_minute", self.rate_limit_per_minute, 1)
+        _validate_min("circuit_breaker_threshold", self.circuit_breaker_threshold, 2)
 
     def __post_init__(self) -> None:
         """Validate config on construction."""

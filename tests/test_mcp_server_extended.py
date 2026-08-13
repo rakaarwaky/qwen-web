@@ -11,7 +11,6 @@ import pytest
 
 from modules.root_mcp_main_entry import (
     _get_mcp_app,
-    _isolate_thread_event_loop,
     _register_tool,
     qwen_get_audit_log,
 )
@@ -27,11 +26,6 @@ class TestGetMcpApp:
         with patch("modules.root_mcp_main_entry.mcp", None):
             with pytest.raises(ImportError, match="mcp"):
                 _get_mcp_app()
-
-
-class TestIsolateThreadEventLoop:
-    def test_isolates_loop(self):
-        _isolate_thread_event_loop()
 
 
 class TestRegisterTool:
