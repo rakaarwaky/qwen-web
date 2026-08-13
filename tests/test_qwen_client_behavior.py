@@ -25,6 +25,7 @@ def _make_orchestrator() -> CoreOrchestrator:
     from modules.core.src.capabilities_prompt_injector import PromptInjector
     from modules.core.src.capabilities_send_dispatcher import SendDispatcher
     from modules.core.src.capabilities_stream_monitor import StreamMonitor
+    from modules.core.src.capabilities_workspace_provisioner import WorkspaceProvisioner
     from pathlib import Path as _P
 
     return CoreOrchestrator(
@@ -36,6 +37,7 @@ def _make_orchestrator() -> CoreOrchestrator:
         saver=MagicMock(),
         audit=AuditRepository(_P("/tmp/qwen-test-log")),
         observability=ObservabilitySetup(_P("/tmp/qwen-test-log")),
+        workspace=WorkspaceProvisioner(),
     )
 
 
@@ -98,21 +100,21 @@ class TestWaitForResponse:
         }""")
 
         # Count messages before
-        msg_count_before = client._count_messages(page)
+        msg_count_before = client._sender.count_messages(page)
 
-        response = client._wait_for_response(page, timeout_sec=5, msg_count_before=msg_count_before)
+        response = client._streamer.wait_for_response(page, 5, msg_count_before, client._emitter())
         assert response is not None
         assert "assistant response" in response
 
     def test_returns_none_on_timeout(self, client, page, monkeypatch):
         # No message will appear — should timeout
-        msg_count_before = client._count_messages(page)
-        response = client._wait_for_response(page, timeout_sec=1, msg_count_before=msg_count_before)
+        msg_count_before = client._sender.count_messages(page)
+        response = client._streamer.wait_for_response(page, 1, msg_count_before, client._emitter())
         assert response is None
 
     def test_returns_stable_text(self, client, page, monkeypatch):
         # Capture baseline count, then simulate a new message appearing
-        msg_count_before = client._count_messages(page)
+        msg_count_before = client._sender.count_messages(page)
 
         page.evaluate("""() => {
             setTimeout(() => {
@@ -127,7 +129,7 @@ class TestWaitForResponse:
             }, 500);
         }""")
 
-        response = client._wait_for_response(page, timeout_sec=5, msg_count_before=msg_count_before)
+        response = client._streamer.wait_for_response(page, 5, msg_count_before, client._emitter())
         assert response == "Already present message."
 
 
