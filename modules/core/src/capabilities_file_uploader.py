@@ -18,8 +18,8 @@ from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_vo import (
     BackoffDelaySec,
     CardRenderTimeoutMs,
-    EVENT_DOCUMENT_PARSED,
     DropdownTimeoutMs,
+    EVENT_DOCUMENT_PARSED,
     FileChooserTimeoutMs,
     FileSizeBytes,
     MaxFileSizeMb,

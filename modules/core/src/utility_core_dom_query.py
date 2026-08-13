@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from playwright.sync_api import Error, Page
 
-from modules.shared.src.taxonomy_config_vo import DEFAULT_SENDER_CONFIG
 from modules.shared.src.taxonomy_core_constant import (
     COMBINED_MESSAGE_SELECTOR,
     JS_COUNT_TURNS,
@@ -17,7 +16,6 @@ from modules.shared.src.taxonomy_core_constant import (
     SEND_SELECTORS,
 )
 from modules.shared.src.taxonomy_core_vo import MessageCount, ResponseText
-from modules.core.src.utility_core_dom_action import click_first_visible_enabled
 
 
 def count_messages(page: Page) -> MessageCount:
@@ -85,10 +83,20 @@ def click_send(page: Page, config: object = None) -> None:
     page : Page
         Active Playwright page.
     config : optional
-        SenderConfig or None — uses DEFAULT_SENDER_CONFIG if omitted.
+        SenderConfig or None — uses the module default if omitted.
 
     """
-    if not click_first_visible_enabled(page, SEND_SELECTORS, timeout_ms=3000):
+    clicked = False
+    for selector in SEND_SELECTORS:
+        try:
+            loc = page.locator(selector).first
+            if loc.is_visible(timeout=3000):
+                loc.click()
+                clicked = True
+                break
+        except Exception:
+            continue
+    if not clicked:
         try:
             page.keyboard.press("Enter")
         except Exception:

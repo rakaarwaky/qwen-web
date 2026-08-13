@@ -5,11 +5,11 @@ Implements ISendProtocol.
 
 from __future__ import annotations
 
-from playwright.sync_api import Error, Page
+from playwright.sync_api import Page
 
 from modules.shared.src.contract_core_protocol import ISendProtocol
 from modules.shared.src.taxonomy_config_vo import SenderConfig
-from modules.shared.src.taxonomy_core_constant import MESSAGE_SELECTORS, SEND_SELECTORS, TEXTAREA_SELECTOR
+from modules.shared.src.taxonomy_core_constant import SEND_SELECTORS
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_vo import (
     EVENT_SEND_CLICKED,

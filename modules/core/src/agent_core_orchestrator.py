@@ -356,7 +356,7 @@ class CoreOrchestrator(ICoreAggregate):
         log = self._observability.get_logger()
         log.info("processing_file", file=str(rel_path), chars=len(prompt))
         t0 = time.time()
-        self._audit.log_step(ctx, "START_PROCESSING", FilePath(str(str(rel_path))), "STARTED", {"input_chars": len(prompt)})
+        self._audit.log_step(ctx, "START_PROCESSING", FilePath(str(rel_path)), "STARTED", {"input_chars": len(prompt)})
 
         try:
             self._execute_single_attempt(proc_file, rel_path, cfg, ctx, t0, prompt, out_path, done_path)

@@ -5,8 +5,10 @@ Taxonomy layer (utility): stateless functions, taxonomy imports only.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from modules.shared.src.taxonomy_core_vo import RunContext
-from modules.shared.src.utility_core_time_formatter import utc_now_iso
+
 
 UI_NOISE_TOKENS = (
     "?",
@@ -17,6 +19,11 @@ UI_NOISE_TOKENS = (
     "Qwen Turbo",
     "Auto",
 )
+
+
+def utc_now_iso() -> str:
+    """Return current UTC time as an ISO-format string."""
+    return datetime.now(tz=timezone.utc).isoformat()
 
 
 def strip_ui_noise(text: str) -> str:

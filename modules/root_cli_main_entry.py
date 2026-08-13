@@ -23,7 +23,6 @@ from modules.cli.src import (
 from modules.core.src.root_core_container import SharedContainer
 from modules.core.src.agent_core_orchestrator import (
     is_watcher_shutdown_set,
-    _watcher_sleep,
 )
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
@@ -262,7 +261,7 @@ def _iter_todo_watcher(src: Path, cfg: AppConfig) -> Any:
 def run_init(target_dir: Path | str = ".") -> None:
     """Initialize workspace (legacy-compatible shim)."""
     container = _default_container()
-    container.core.init_workspace(target_dir)
+    container.core.init_workspace(Path(target_dir))
 
 
 def install_watcher_signal_handlers() -> None:
