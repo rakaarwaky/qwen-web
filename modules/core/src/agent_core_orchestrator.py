@@ -234,12 +234,12 @@ class CoreOrchestrator(ICoreAggregate):
             cfg.headless,
         )
 
-    def send_prompt(self, _prompt: str, timeout_sec: int = 120, headless: bool = True) -> ResponseText:
+    def send_prompt(self, prompt: str, timeout_sec: int = 120, headless: bool = True) -> ResponseText:
         """Send a direct text prompt and return the AI response."""
         fd, tmp_path = tempfile.mkstemp(suffix=".txt")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(_prompt)
+                f.write(prompt)
         except (OSError, UnicodeError):
             with contextlib.suppress(OSError):
                 os.close(fd)

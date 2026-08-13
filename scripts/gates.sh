@@ -61,7 +61,7 @@ info "Gate 3/5 — Bandit security scan..."
 if [ "${1:-}" = "fast" ]; then
     info "Skipping bandit (fast mode)"
 else
-    if ! bandit modules/root_cli_main_entry.py modules/root_mcp_main_entry.py -r modules/ -s B110,B112 2>&1 | grep -q "No issues"; then
+    if ! bandit -r modules/ -s B110,B112 2>&1 | grep -q "No issues"; then
         warn "Bandit found potential issues"
         FAILURES=$((FAILURES + 1))
     else
