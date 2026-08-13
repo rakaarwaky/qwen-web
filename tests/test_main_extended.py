@@ -214,15 +214,17 @@ class TestMain:
             assert result == 0
 
     def test_main_login_mode(self):
-        with patch("sys.argv", ["qwen-cli", "--login"]), patch(
-            "modules.root_cli_main_entry._run_manual_login", return_value=0
+        with (
+            patch("sys.argv", ["qwen-cli", "--login"]),
+            patch("modules.root_cli_main_entry._run_manual_login", return_value=0),
         ):
             result = main()
             assert result == 0
 
     def test_main_login_mode_failure(self):
-        with patch("sys.argv", ["qwen-cli", "--login"]), patch(
-            "modules.root_cli_main_entry._run_manual_login", return_value=1
+        with (
+            patch("sys.argv", ["qwen-cli", "--login"]),
+            patch("modules.root_cli_main_entry._run_manual_login", return_value=1),
         ):
             result = main()
             assert result == 1
