@@ -7,7 +7,9 @@ Taxonomy constants + Playwright Page only.
 
 from __future__ import annotations
 
-from playwright.sync_api import Error, Page
+from collections.abc import Sequence
+
+from playwright.sync_api import Error, Locator, Page
 
 from modules.shared.src.taxonomy_core_constant import (
     COMBINED_MESSAGE_SELECTOR,
@@ -16,7 +18,28 @@ from modules.shared.src.taxonomy_core_constant import (
     SEND_SELECTORS,
 )
 from modules.shared.src.taxonomy_core_vo import MessageCount, ResponseText
-from modules.core.src.utility_core_dom_helper import click_first_visible_enabled
+
+
+def _try_selectors(page: Page, selectors: Sequence[str], action, timeout_ms: int = 1000):
+    """Iterate selectors, applying *action* to each visible locator.
+
+    Swallows exceptions per-selector so iteration continues on failure.
+    """
+    results = []
+    for selector in selectors:
+        try:
+            loc = page.locator(selector).first
+            if loc.is_visible(timeout=timeout_ms):
+                results.append(action(loc))
+        except Exception:
+            continue
+    return results
+
+
+def _click_first_visible_enabled(page: Page, selectors: Sequence[str], timeout_ms: int = 3000) -> bool:
+    """Click the first visible and enabled button matching any selector."""
+    results = _try_selectors(page, selectors, lambda loc: (loc.click(), True)[1], timeout_ms)
+    return len(results) > 0 and results[0] is True
 
 
 def count_messages(page: Page) -> MessageCount:
@@ -87,7 +110,7 @@ def click_send(page: Page, config: object = None) -> None:
         SenderConfig or None — uses the module default if omitted.
 
     """
-    clicked = click_first_visible_enabled(page, SEND_SELECTORS, timeout_ms=3000)
+    clicked = _click_first_visible_enabled(page, SEND_SELECTORS, timeout_ms=3000)
     if not clicked:
         try:
             page.keyboard.press("Enter")

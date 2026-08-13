@@ -37,5 +37,5 @@ def move_to_processing(source: Path, proc_dest: Path) -> None:
         Target path inside the .processing directory.
 
     """
-    ensure_dir(proc_dest)
+    proc_dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(source), str(proc_dest))
