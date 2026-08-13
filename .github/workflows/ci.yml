@@ -111,7 +111,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh issue create \
-            --repo rakaarwaky/qwen-web-arwaky \
+            --repo rakaarwaky/qwen-web \
             --title "CI Auto-Fix: ${{ github.sha }}" \
             --label "auto-fix-ci" \
             --body "CI workflow failed on $(date -u).
@@ -128,7 +128,7 @@ jobs:
       - name: Install lint-arwaky-cli (pre-built binary)
         run: |
           curl -fsSL \
-            https://github.com/rakaarwaky/lint-arwaky/releases/download/v3.5.0/lint-arwaky-cli \
+            https://github.com/rakaarwaky/lint-arwaky/releases/latest/download/lint-arwaky-cli \
             -o "$RUNNER_TEMP/lint-arwaky-cli"
           chmod +x "$RUNNER_TEMP/lint-arwaky-cli"
           sudo mv "$RUNNER_TEMP/lint-arwaky-cli" /usr/local/bin/lint-arwaky-cli
