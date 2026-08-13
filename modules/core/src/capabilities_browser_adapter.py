@@ -68,7 +68,7 @@ class SessionCheck:
         except Error as exc:
             log.warning("session_check_failed", reason="playwright_error", error=str(exc))
             return False
-        except Exception as exc:  # noqa: BLE001 — defensive fallback beyond playwright Error
+        except Exception as exc:  # defensive fallback beyond playwright Error
             log.warning("session_check_failed", reason="unexpected_error", error=str(exc))
             return False
 

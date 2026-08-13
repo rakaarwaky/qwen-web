@@ -186,7 +186,7 @@ class CoreOrchestrator(ICoreAggregate):
                     try:
                         self._process_file(proc_file, rel_path, cfg, ctx)
                         processed += 1
-                    except Exception as e:  # noqa: BLE001 — per-file isolation: a failure must not abort the batch
+                    except Exception as e:  # per-file isolation: a failure must not abort the batch
                         failed += 1
                         self._observability.get_logger().error(
                             "batch_file_failed", file=str(rel_path), error=str(e)
@@ -343,7 +343,7 @@ class CoreOrchestrator(ICoreAggregate):
         """
         try:
             return fn()
-        except Exception as exc:  # noqa: BLE001 — boundary: convert any failure into an error response envelope
+        except Exception as exc:  # boundary: convert any failure into an error response envelope
             return to_error_response(exc)
 
     def _execute_with_cleanup(
@@ -357,7 +357,7 @@ class CoreOrchestrator(ICoreAggregate):
         """
         try:
             return fn()
-        except Exception as exc:  # noqa: BLE001 — boundary: convert any failure into an error response envelope
+        except Exception as exc:  # boundary: convert any failure into an error response envelope
             return to_error_response(exc)
         finally:
             if cleanup is not None:
@@ -412,7 +412,7 @@ class CoreOrchestrator(ICoreAggregate):
             self._execute_single_attempt(proc_file, rel_path, cfg, ctx, t0, prompt, out_path, done_path)
         except AuthRequiredError:
             raise
-        except Exception as exc:  # noqa: BLE001 — boundary: quarantine the file on any unexpected failure
+        except Exception as exc:  # boundary: quarantine the file on any unexpected failure
             self._handle_processing_failure(proc_file, rel_path, cfg, ctx, t0, prompt, out_path, fail_path, exc)
 
     def _execute_single_attempt(

@@ -39,7 +39,7 @@ def safe_handle(
     def wrapper(*args: object, **kwargs: object) -> dict[str, object]:
         try:
             return fn(*args, **kwargs)
-        except Exception as exc:  # noqa: BLE001 — documented contract: catch all exceptions into an error envelope
+        except Exception as exc:  # documented contract: catch all exceptions into an error envelope
             return error_response(exc)
 
     return wrapper

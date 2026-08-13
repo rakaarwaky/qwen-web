@@ -131,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
     # Observability first
     try:
         container = _default_container()
-    except Exception:  # noqa: BLE001 — boundary: container init failure → user-facing error + exit 1
+    except Exception:  # boundary: container init failure → user-facing error + exit 1
         print("[ERROR] Failed to initialize qwen-web. Run 'qwen-web-cli init' first.", file=sys.stderr)
         return 1
 
