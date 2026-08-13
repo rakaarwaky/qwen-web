@@ -7,6 +7,7 @@ visibility checks, click helpers, locator selection, and selector-fallback itera
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from contextlib import suppress
 from typing import Any, TypeVar
 
 from playwright.sync_api import Error, Locator, Page
@@ -19,7 +20,7 @@ T = TypeVar("T")
 def try_selectors(
     page: Page,
     selectors: Sequence[str],
-    action: Callable[[Locator], T | None],
+    action: Callable[[Locator], T],
     timeout_ms: int = 1000,
     first_only: bool = False,
 ) -> list[T]:
@@ -33,7 +34,7 @@ def try_selectors(
         Active Playwright page.
     selectors : Sequence[str]
         CSS or XPath selectors to try in order.
-    action : Callable[[Locator], T | None]
+    action : Callable[[Locator], T]
         Function applied to the first matching locator for each selector.
     timeout_ms : int
         Visibility timeout in milliseconds.
@@ -50,10 +51,12 @@ def try_selectors(
         try:
             loc = page.locator(selector).first
             if loc.is_visible(timeout=timeout_ms):
-                results.append(action(loc))
+                value = action(loc)
+                if value is not None:
+                    results.append(value)
                 if first_only:
                     break
-        except Exception:
+        except Error:
             continue
     return results
 
@@ -189,10 +192,8 @@ def click_send(page: Page, config: object = None) -> None:
     """
     clicked = click_first_visible_enabled(page, SEND_SELECTORS, timeout_ms=3000)
     if not clicked:
-        try:
+        with suppress(Error):
             page.keyboard.press("Enter")
-        except Exception:
-            pass
 
 
 def is_any_visible(page: Page, selector: str) -> bool:
@@ -241,6 +242,6 @@ def first_visible_element_handle(
             el = page.wait_for_selector(selector, state="visible", timeout=timeout_ms)
             if el:
                 return el
-        except Exception:
+        except Error:
             continue
     return None

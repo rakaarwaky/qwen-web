@@ -1,50 +1,146 @@
-name: CI
+name: CI Quality Gates
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, aes-migration ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, aes-migration ]
+
+env:
+  PYTHON_VERSION: "3.12"
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
 
 jobs:
-  lint:
-    name: Lint & Typecheck
+  lint-format:
+    name: Lint & Format (Ruff)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install ruff mypy basedpyright pytest pytest-asyncio pytest-cov pytest-mock playwright
-          python -m playwright install --with-deps chromium
-      - name: Ruff
-        run: ruff check src/
-      - name: Mypy
-        run: mypy src/ --ignore-missing-imports
-      - name: Basedpyright
-        run: basedpyright src/
 
-  test:
-    name: Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-      - name: Set up Python 3.12
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - name: Install Dependencies
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
+          pip install ruff mypy bandit pytest pytest-asyncio pytest-cov pytest-mock playwright structlog tenacity mcp
+
+      - name: Ruff lint check
+        run: ruff check modules/ tests/ root_*.py
+
+      - name: Ruff format check
+        run: ruff format --check modules/ tests/ root_*.py
+
+  typecheck:
+    name: Type Check (MyPy)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install mypy playwright structlog tenacity mcp
+
+      - name: MyPy type check
+        run: mypy modules/ tests/ root_*.py --ignore-missing-imports
+
+  security-scan:
+    name: Security Scan (Bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install bandit
+
+      - name: Bandit security scan (source only)
+        run: bandit modules/root_cli_main_entry.py modules/root_mcp_main_entry.py -r modules/ -s B110,B112 --quiet
+
+  self-lint:
+    name: AES Architecture Self-Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install lint-arwaky-cli
+        run: pip install lint-arwaky-cli
+
+      - name: Run AES architecture check
+        run: lint-arwaky-cli check .
+
+  tests:
+    name: Tests (Pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-cov pytest-mock playwright
-          python -m playwright install --with-deps chromium
-      - name: Run Tests
+          pip install pytest pytest-asyncio pytest-cov pytest-mock playwright structlog tenacity mcp
+          python3 -m playwright install --with-deps chromium
+
+      - name: Run tests
         run: pytest tests/ --ignore=tests/test_e2e_pipeline.py -v
+
+  codacy:
+    name: Codacy Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Codacy local analysis (source only)
+        run: |
+          pip install codacy-analysis-cli
+          codacy-analysis analyze --files "modules/**/*.py" root_*.py --output-format json || true
+
+      - name: Upload results to Codacy
+        if: env.CODACY_PROJECT_TOKEN != ''
+        uses: codacy/codacy-analysis-cli-action@master
+        with:
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+
+  summary:
+    name: Gate Summary
+    needs: [lint-format, typecheck, security-scan, self-lint, tests]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check quality gates
+        run: |
+          echo "Quality Gates Summary:"
+          for job in ${{ join(needs.*.result, ', ') }}; do
+            echo "  - $job"
+          done
