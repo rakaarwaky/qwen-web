@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from modules.core.src.capabilities_output_saver import Saver
 from modules.core.src.capabilities_stream_monitor import validate_response_content
 from modules.shared.src import (
     AuthRequiredError,
@@ -16,13 +15,7 @@ from modules.shared.src import (
     RateLimiter,
     RunContext,
 )
-
-
-def write_output(
-    path, content: str, ctx, src: str, dur: float, input_chars: int, output_chars: int, config=None
-) -> None:
-    """Standalone wrapper for Saver.write_output."""
-    Saver().write_output(path, content, ctx, src, dur, input_chars, output_chars, config)
+from tests.helpers import write_output
 
 
 def test_validate_response_content_valid():

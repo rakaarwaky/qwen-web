@@ -18,7 +18,7 @@ from modules.shared.src.taxonomy_core_constant import (
 )
 from modules.shared.src.taxonomy_core_vo import HeadlessFlag, TimeoutSec
 from modules.shared.src.utility_core_path import list_input_files
-from modules.shared.src.utility_core_response import error_response, success_response
+from modules.shared.src.utility_core_response import safe_handle, success_response
 from modules.core.src.utility_core_config_factory import build_app_config
 
 
@@ -98,6 +98,7 @@ class InteractiveController:
 
         return _base_config(mode, headless=headless)
 
+    @safe_handle
     def run(self) -> dict[str, object]:
         """Present the TUI menu and execute the selected mode."""
         cfg = self.interactive_prompt()
@@ -106,13 +107,10 @@ class InteractiveController:
         if cfg.mode == "login":
             self._core.setup_session()
             return success_response("Login session saved.")
-        try:
-            if cfg.mode == "watcher":
-                result = self._core.process_watcher(TimeoutSec(cfg.interval), HeadlessFlag(cfg.headless))
-            elif cfg.mode == "single":
-                result = self._core.process_single_file(cfg.input_path, cfg.output_path, HeadlessFlag(cfg.headless))
-            else:
-                result = self._core.process_batch(cfg.input_path, cfg.output_path, HeadlessFlag(cfg.headless))
-            return success_response(result)
-        except Exception as e:
-            return error_response(e)
+        if cfg.mode == "watcher":
+            result = self._core.process_watcher(TimeoutSec(cfg.interval), HeadlessFlag(cfg.headless))
+        elif cfg.mode == "single":
+            result = self._core.process_single_file(cfg.input_path, cfg.output_path, HeadlessFlag(cfg.headless))
+        else:
+            result = self._core.process_batch(cfg.input_path, cfg.output_path, HeadlessFlag(cfg.headless))
+        return success_response(result)

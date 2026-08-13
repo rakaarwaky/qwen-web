@@ -16,6 +16,7 @@ from modules.shared.src.taxonomy_core_constant import (
     SEND_SELECTORS,
 )
 from modules.shared.src.taxonomy_core_vo import MessageCount, ResponseText
+from modules.core.src.utility_core_dom_helper import try_selectors
 
 
 def count_messages(page: Page) -> MessageCount:
@@ -86,16 +87,8 @@ def click_send(page: Page, config: object = None) -> None:
         SenderConfig or None — uses the module default if omitted.
 
     """
-    clicked = False
-    for selector in SEND_SELECTORS:
-        try:
-            loc = page.locator(selector).first
-            if loc.is_visible(timeout=3000):
-                loc.click()
-                clicked = True
-                break
-        except Exception:
-            continue
+    results = try_selectors(page, SEND_SELECTORS, lambda loc: (loc.click(), True)[1], 3000)
+    clicked = len(results) > 0 and results[0] is True
     if not clicked:
         try:
             page.keyboard.press("Enter")

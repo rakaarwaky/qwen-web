@@ -13,7 +13,7 @@ import signal
 import tempfile
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 from playwright.sync_api import Page
@@ -150,12 +150,12 @@ class CoreOrchestrator(ICoreAggregate):
         ensure_dir(proc_file)
         shutil.copy2(in_p, proc_file)
 
-        try:
+        def _fn() -> ResponseText:
             with self._browser.browser_session(cfg):
                 self._process_file(proc_file, Path(in_p.name), cfg, ctx)
             return ResponseText(f"Successfully processed {in_p.name} -> {out_p}")
-        except Exception as e:
-            return to_error_response(e)
+
+        return self._execute(_fn)
 
     def process_batch(
         self,
@@ -178,7 +178,8 @@ class CoreOrchestrator(ICoreAggregate):
         processed = 0
         failed = 0
 
-        try:
+        def _fn() -> ResponseText:
+            nonlocal processed, failed
             with self._browser.browser_session(cfg):
                 for proc_file, rel_path in self._iter_todo(cfg):
                     try:
@@ -190,8 +191,8 @@ class CoreOrchestrator(ICoreAggregate):
                             "batch_file_failed", file=str(rel_path), error=str(e)
                         )
             return ResponseText(f"Batch processing complete. Successfully processed: {processed}, Failed: {failed}")
-        except Exception as e:
-            return to_error_response(e)
+
+        return self._execute(_fn)
 
     def process_watcher(self, interval_sec: int = 3, headless: bool = True) -> ResponseText:
         """Run the continuous folder watcher."""
@@ -204,14 +205,15 @@ class CoreOrchestrator(ICoreAggregate):
         )
 
         ctx = RunContext()
-        try:
+
+        def _fn() -> ResponseText:
             with self._browser.browser_session(cfg):
                 for proc_file, rel_path in self._iter_todo(cfg):
                     self._process_file(proc_file, rel_path, cfg, ctx)
                     self._watcher_sleep(cfg.interval)
             return ResponseText("Watcher loop completed.")
-        except Exception as e:
-            return to_error_response(e)
+
+        return self._execute(_fn)
 
     def send_prompt(self, prompt: str, timeout_sec: int = 120, headless: bool = True) -> ResponseText:
         """Send a direct text prompt and return the AI response."""
@@ -309,6 +311,16 @@ class CoreOrchestrator(ICoreAggregate):
         raise TimeoutError(f"Timeout after {timeout_sec}s: no response detected")
 
     # ─── Private orchestration helpers (Block 3) ─────────────────
+    def _execute(self, fn: Callable[[], ResponseText]) -> ResponseText:
+        """Wrap a callable with try/except → error response envelope.
+
+        Eliminates duplicated try/except across public aggregate methods.
+        """
+        try:
+            return fn()
+        except Exception as exc:
+            return to_error_response(exc)
+
     def _send_file(
         self,
         filepath: Path,

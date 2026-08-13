@@ -48,35 +48,14 @@ def navigate_to_chat(page: MagicMock, emitter: MagicMock) -> None:
 from modules.core.src.capabilities_observability_setup import (
     _bind_run_context as _obs_bind,
     _clear_run_context as _obs_clear,
-    _get_logger as _obs_get_logger,
-    _get_tracer as _obs_get_tracer,
-    _start_span as _obs_start_span,
 )
-
-
-def bind_run_context(run_id: str, **extra) -> None:
-    """Standalone wrapper for private module function."""
-    _obs_bind(run_id, **extra)
-
-
-def clear_run_context() -> None:
-    """Standalone wrapper for private module function."""
-    _obs_clear()
-
-
-def get_logger(name="qwen-web"):
-    """Standalone wrapper for private module function."""
-    return _obs_get_logger(name)
-
-
-def get_tracer(name="qwen-web"):
-    """Standalone wrapper for private module function."""
-    return _obs_get_tracer(name)
-
-
-def start_span(name):
-    """Standalone wrapper for private module function."""
-    return _obs_start_span(name)
+from tests.helpers import (
+    bind_run_context,
+    clear_run_context,
+    get_logger,
+    get_tracer,
+    start_span,
+)
 from modules.core.src.capabilities_metrics_collector import MetricsCounter
 from modules.core.src.capabilities_status_writer import StatusFileWriter
 from modules.core.src.capabilities_file_uploader import FileUploader

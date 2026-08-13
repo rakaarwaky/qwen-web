@@ -19,14 +19,7 @@ adapters:
 
 ignored_rules: []
 
-ignored_paths:
-  - "deploy"
-  - "log"
-  - "docs"
-  - "fixtures"
-  - "artifacts"
-  - "**/__pycache__/**"
-  - "**/*.pyc"
+ignored_paths: []
 
 architecture:
   enabled: true

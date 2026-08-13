@@ -1,14 +1,54 @@
 """DOM helper utilities for Playwright pages.
 
 Utility layer (utility_core_dom_helper): stateless functions for DOM interaction —
-visibility checks, click helpers, locator selection.
+visibility checks, click helpers, locator selection, and selector-fallback iteration.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from typing import TypeVar
 
 from playwright.sync_api import Locator, Page
+
+T = TypeVar("T")
+
+
+def try_selectors(
+    page: Page,
+    selectors: Sequence[str],
+    action: Callable[[Locator], T | None],
+    timeout_ms: int = 1000,
+) -> list[T]:
+    """Iterate selectors, applying *action* to each visible locator.
+
+    Swallows exceptions per-selector so iteration continues on failure.
+
+    Parameters
+    ----------
+    page : Page
+        Active Playwright page.
+    selectors : Sequence[str]
+        CSS or XPath selectors to try in order.
+    action : Callable[[Locator], T | None]
+        Function applied to the first matching locator for each selector.
+    timeout_ms : int
+        Visibility timeout in milliseconds.
+
+    Returns
+    -------
+    list[T]
+        Results from successful action calls (empty when none matched).
+    """
+    results: list[T] = []
+    for selector in selectors:
+        try:
+            loc = page.locator(selector).first
+            if loc.is_visible(timeout=timeout_ms):
+                results.append(action(loc))
+        except Exception:
+            continue
+    return results
 
 
 def first_visible_locator(
@@ -65,15 +105,8 @@ def click_first_visible_enabled(
         True if a matching button was clicked, False otherwise.
 
     """
-    for selector in selectors:
-        try:
-            loc = page.locator(selector).first
-            if loc.is_visible(timeout=timeout_ms):
-                loc.click()
-                return True
-        except Exception:
-            continue
-    return False
+    results = try_selectors(page, selectors, lambda loc: (loc.click(), True)[1], timeout_ms)
+    return len(results) > 0 and results[0] is True
 
 
 def is_selector_visible(page: Page, selector: str, timeout_ms: int = 1000) -> bool:

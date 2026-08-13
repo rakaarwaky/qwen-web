@@ -23,8 +23,7 @@ from modules.shared.src.taxonomy_core_constant import (
 )
 from modules.shared.src.taxonomy_domain_error import OutputWriteError
 from modules.core.src.utility_core_io_writer import atomic_write_text, ensure_dir
-from modules.shared.src.utility_core_text import build_metadata_header, strip_ui_noise
-from modules.core.src.utility_core_time_formatter import utc_now_iso
+from modules.shared.src.utility_core_text import build_metadata_header, strip_ui_noise, utc_now_iso
 from modules.core.src.utility_core_logger_factory import get_logger
 
 log = get_logger("capabilities_saver")

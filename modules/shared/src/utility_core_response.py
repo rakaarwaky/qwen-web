@@ -6,6 +6,44 @@ standardized success/error response dicts used by CLI/MCP surfaces.
 
 from __future__ import annotations
 
+from functools import wraps
+from typing import Callable
+
+
+def safe_handle(
+    fn: Callable[..., dict[str, object]],
+) -> Callable[..., dict[str, object]]:
+    """Wrap a surface handler with try/except → success/error envelope.
+
+    Eliminates the duplicated try/except skeleton across CLI and MCP surfaces.
+
+    Parameters
+    ----------
+    fn : Callable
+        Handler function that returns a response dict on success.
+
+    Returns
+    -------
+    Callable
+        Wrapped handler that catches all exceptions and returns an error envelope.
+
+    Example
+    -------
+    >>> @safe_handle
+    ... def handle(args, core):
+    ...     core.init_workspace(Path.cwd())
+    ...     return {"success": True, "message": "done"}
+    """
+
+    @wraps(fn)
+    def wrapper(*args: object, **kwargs: object) -> dict[str, object]:
+        try:
+            return fn(*args, **kwargs)
+        except Exception as exc:
+            return error_response(exc)
+
+    return wrapper
+
 
 def success_response(message: object) -> dict[str, object]:
     """Build a standardized success response envelope."""

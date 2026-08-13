@@ -75,13 +75,25 @@ def _tools() -> Any:
     return McpToolCommand(_container.core)
 
 
+def _async_tool(name: str) -> Callable[..., Any]:
+    """Create an async MCP tool that delegates to a sync core method via asyncio.to_thread.
+
+    Eliminates the duplicated await asyncio.to_thread(_tools().method_name, ...) pattern.
+    """
+
+    async def handler(*args: Any, **kwargs: Any) -> str:
+        return await asyncio.to_thread(getattr(_tools(), name), *args, **kwargs)
+
+    return handler
+
+
 async def qwen_send_prompt(
     prompt: str,
     timeout_sec: int = 120,
     headless: bool = True,
 ) -> str:
     """Send a direct text prompt string to chat.qwen.ai and return AI answer."""
-    return await asyncio.to_thread(_tools().send_prompt, prompt, timeout_sec, headless)
+    return await _async_tool("send_prompt")(prompt, timeout_sec, headless)
 
 
 async def qwen_process_single(
@@ -90,7 +102,7 @@ async def qwen_process_single(
     headless: bool = True,
 ) -> str:
     """Process a single Markdown prompt file (1:1 CLI Single File Mode)."""
-    return await asyncio.to_thread(_tools().process_single, input_file, output_file, headless)
+    return await _async_tool("process_single")(input_file, output_file, headless)
 
 
 async def qwen_process_batch(
@@ -99,17 +111,17 @@ async def qwen_process_batch(
     headless: bool = True,
 ) -> str:
     """Process all prompt files inside an input directory (1:1 CLI Batch Mode)."""
-    return await asyncio.to_thread(_tools().process_batch, input_dir, output_dir, headless)
+    return await _async_tool("process_batch")(input_dir, output_dir, headless)
 
 
 async def qwen_start_watcher(interval_sec: int = 3, headless: bool = True) -> str:
     """Run folder watcher loop to continuously monitor input/ for new files."""
-    return await asyncio.to_thread(_tools().start_watcher, interval_sec, headless)
+    return await _async_tool("start_watcher")(interval_sec, headless)
 
 
 async def qwen_setup_session() -> str:
     """Launch visible browser on chat.qwen.ai for manual login / session setup."""
-    return await asyncio.to_thread(_tools().setup_session)
+    return await _async_tool("setup_session")()
 
 
 def qwen_get_audit_log(limit: int = 20) -> str:

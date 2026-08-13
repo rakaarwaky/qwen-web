@@ -9,6 +9,7 @@ import logging
 import os
 import sys
 import threading
+import importlib
 from contextlib import nullcontext, suppress
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,18 @@ from modules.core.src.utility_core_io_writer import ensure_dir
 from modules.core.src.utility_core_logger_factory import get_logger
 
 log = get_logger("capabilities_observability")
+
+
+def _try_import(module_name: str) -> Any:
+    """Import a module by name, returning None on ImportError.
+
+    Shared helper for optional dependency guards across observability config.
+    """
+    try:
+        return importlib.import_module(module_name)
+    except ImportError:
+        return None
+
 
 # Block 1: Class Definition & Constructor
 class ObservabilitySetup(IObservabilityProtocol):
@@ -40,7 +53,7 @@ class ObservabilitySetup(IObservabilityProtocol):
         self._configure_sentry()
         self._configure_tracing()
         self._configure_logging(target_path)
-        self._install_excepthooks()
+        install_excepthooks()
 
     def _configure_sentry(self) -> None:
         """Configure Sentry (private helper)."""
@@ -135,7 +148,7 @@ class ObservabilitySetup(IObservabilityProtocol):
             pass
 
     def _install_excepthooks(self) -> None:
-        """Install global exception handlers (private helper)."""
+        """Deprecated — kept for backward compatibility. Use install_excepthooks() directly."""
         install_excepthooks()
 
     def get_logger(self, name: str = "qwen-web") -> Any:
@@ -156,14 +169,14 @@ class ObservabilitySetup(IObservabilityProtocol):
     def exit_code_for(self, exc: BaseException) -> ExitCode:
         return ExitCode(utility_core_exit.exit_code_for(exc))
 
-    def install_excepthooks(self) -> None:
-        """Install global exception handlers (delegates to module-level function)."""
-        install_excepthooks()
-
     def write_status(self, status: str, mode: str, headless: bool, run_id: str | None = None) -> None:
         """Write status to disk via DI-injected IStatusProtocol."""
         if self._status_writer is not None:
             self._status_writer.write(status=status, mode=mode, headless=headless, run_id=run_id)
+
+    def install_excepthooks(self) -> None:
+        """Install global exception handlers (delegates to module-level function)."""
+        install_excepthooks()
 
 # Block 3: Dunder Methods, Factories & Helpers
 
