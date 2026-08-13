@@ -53,6 +53,10 @@ class TestInteractivePrompt:
             patch("builtins.input", side_effect=["3", "1", "y"]),
             patch("sys.stdin") as mock_stdin,
             patch("modules.root_cli_main_entry.DEFAULT_TODO", tmp_path / "todo"),
+            patch(
+                "modules.cli.src.surface_cli_interactive_controller.list_input_files",
+                return_value=[(todo / "task.md", Path("task.md"))],
+            ),
         ):
             mock_stdin.isatty.return_value = True
             result = _interactive_prompt()
