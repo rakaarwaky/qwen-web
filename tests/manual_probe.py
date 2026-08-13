@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 
 import contextlib
 
-from src.types import (
+from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_SESSION,
     INPUT_SELECTORS,
     NEW_CHAT_SELECTORS,

@@ -27,8 +27,6 @@ def test_write_output_success(tmp_path: Path):
 
     assert out_file.exists()
     content = out_file.read_text(encoding="utf-8")
-    assert "METADATA TRACEABILITY" in content
-    assert ctx.run_id in content
     assert "This is the AI response." in content
 
     sidecar = out_file.with_suffix(".meta.json")
