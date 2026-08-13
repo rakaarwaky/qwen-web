@@ -17,6 +17,7 @@ from modules.shared.src.taxonomy_core_constant import (
     SEND_SELECTORS,
 )
 from modules.shared.src.taxonomy_core_vo import MessageCount, ResponseText
+from modules.core.src.utility_core_dom_action import click_first_visible_enabled
 
 
 def count_messages(page: Page) -> MessageCount:
@@ -51,6 +52,8 @@ def latest_message_text(page: Page) -> ResponseText | None:
 def click_send(page: Page, config: object = None) -> None:
     """Click the send button via multiple selector strategies.
 
+    Falls back to Enter key when no visible send button is found.
+
     Parameters
     ----------
     page : Page
@@ -59,17 +62,8 @@ def click_send(page: Page, config: object = None) -> None:
         SenderConfig or None — uses DEFAULT_SENDER_CONFIG if omitted.
 
     """
-    for selector in SEND_SELECTORS:
+    if not click_first_visible_enabled(page, SEND_SELECTORS, timeout_ms=3000):
         try:
-            loc = page.locator(selector).first
-            if loc.is_visible(timeout=3000):
-                loc.click()
-                return
+            page.keyboard.press("Enter")
         except Exception:
-            continue
-
-    # Enter key fallback
-    try:
-        page.keyboard.press("Enter")
-    except Exception:
-        pass
+            pass

@@ -22,7 +22,7 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_INCLUDE_HEADER,
 )
 from modules.shared.src.taxonomy_domain_error import OutputWriteError
-from modules.core.src.utility_core_io_writer import atomic_write_text
+from modules.core.src.utility_core_io_writer import atomic_write_text, ensure_dir
 from modules.shared.src.utility_core_text import build_metadata_header, strip_ui_noise
 from modules.core.src.utility_core_time_formatter import utc_now_iso
 from modules.core.src.utility_core_logger_factory import get_logger
@@ -79,11 +79,12 @@ class Saver(ISaverProtocol):
 
         full_text = header + strip_ui_noise(content)
 
+        # Hoist mkdir before conditional branches (deduplication)
+        ensure_dir(path)
+
         if atomic_write:
-            path.parent.mkdir(parents=True, exist_ok=True)
             atomic_write_text(path, full_text)
         else:
-            path.parent.mkdir(parents=True, exist_ok=True)
             try:
                 path.write_text(full_text, encoding="utf-8")
             except OSError as e:
@@ -92,6 +93,7 @@ class Saver(ISaverProtocol):
 
         if generate_sidecar:
             sidecar_path = path.with_suffix(".meta.json")
+            ensure_dir(sidecar_path)
             try:
                 meta_dict = {
                     "run_id": run_id,
@@ -102,7 +104,6 @@ class Saver(ISaverProtocol):
                     "output_chars": output_chars,
                 }
                 if atomic_write:
-                    sidecar_path.parent.mkdir(parents=True, exist_ok=True)
                     atomic_write_text(sidecar_path, json.dumps(meta_dict, ensure_ascii=False) + "\n")
                 else:
                     sidecar_path.write_text(

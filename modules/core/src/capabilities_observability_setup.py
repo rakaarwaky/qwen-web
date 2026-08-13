@@ -135,8 +135,7 @@ class ObservabilitySetup(IObservabilityProtocol):
 
     def _install_excepthooks(self) -> None:
         """Install global exception handlers (private helper)."""
-        sys.excepthook = _excepthook
-        threading.excepthook = _thread_excepthook
+        install_excepthooks()
 
     def get_logger(self, name: str = "qwen-web") -> Any:
         return _get_logger(name)
@@ -157,9 +156,8 @@ class ObservabilitySetup(IObservabilityProtocol):
         return ExitCode(utility_core_exit.exit_code_for(exc))
 
     def install_excepthooks(self) -> None:
-        """Install global exception handlers."""
-        sys.excepthook = _excepthook
-        threading.excepthook = _thread_excepthook
+        """Install global exception handlers (delegates to module-level function)."""
+        install_excepthooks()
 
     def write_status(self, status: str, mode: str, headless: bool, run_id: str | None = None) -> None:
         """Write status to disk via DI-injected IStatusProtocol."""

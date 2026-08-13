@@ -20,7 +20,10 @@ from modules.cli.src import (
     surface_cli_run_command,
 )
 from modules.core.src.root_core_container import SharedContainer
-from modules.core.src.agent_core_orchestrator import is_watcher_shutdown_set
+from modules.core.src.agent_core_orchestrator import (
+    is_watcher_shutdown_set,
+    _watcher_sleep,
+)
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_DONE,
@@ -173,7 +176,7 @@ def _run_watcher(client: Any, cfg: AppConfig, audit: Any) -> None:
 
     try:
         for proc_file, rel_path in _iter_todo(cfg):
-            if _is_watcher_shutdown_set():
+            if is_watcher_shutdown_set():
                 break
             try:
                 _process_file(client, proc_file, rel_path, cfg, audit, ctx)
@@ -228,23 +231,6 @@ def _process_file(
 def _is_watcher_shutdown_set() -> bool:
     """Return True if watcher shutdown has been requested."""
     return is_watcher_shutdown_set()
-
-
-_watcher_shutdown = __import__("threading").Event()
-_WATCHER_SLEEP_CHUNK_SECS = 1
-
-
-def request_watcher_shutdown() -> None:
-    """Signal watcher loop to shutdown gracefully."""
-    _watcher_shutdown.set()
-
-
-def _watcher_sleep(interval: int) -> None:
-    """Sleep in small chunks so shutdown remains responsive."""
-    for _ in range(max(1, interval)):
-        if _watcher_shutdown.is_set():
-            return
-        time.sleep(min(_WATCHER_SLEEP_CHUNK_SECS, interval))
 
 
 def _iter_todo_retry_failed(cfg: AppConfig) -> Any:

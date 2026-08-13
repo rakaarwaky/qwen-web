@@ -29,6 +29,7 @@ from modules.shared.src.taxonomy_core_vo import (
 from modules.shared.src.taxonomy_domain_error import FileValidationError
 from modules.shared.src.utility_core_validation import validate_file as _validate_file_util
 from modules.core.src.utility_core_logger_factory import get_logger
+from modules.core.src.utility_core_dom_action import first_visible_locator
 
 log = get_logger("capabilities_file_uploader")
 
@@ -138,15 +139,7 @@ class FileUploader(IUploadProtocol):
     def _try_upload_attempt(self, page: Page, filepath: Path) -> bool:
         """Execute a single attempt to attach a file via the Qwen Web UI."""
         log.debug("Opening mode-select dropdown using primary/fallback selectors")
-        dropdown_element = None
-        for selector in self.dropdown_selectors:
-            try:
-                loc = page.locator(selector).first
-                if loc.is_visible(timeout=1000):
-                    dropdown_element = loc
-                    break
-            except (TimeoutError, Exception):
-                continue
+        dropdown_element = first_visible_locator(page, self.dropdown_selectors, timeout_ms=1000)
 
         if not dropdown_element:
             dropdown_element = page.locator(self.dropdown_selectors[0]).first
@@ -154,15 +147,7 @@ class FileUploader(IUploadProtocol):
         dropdown_element.click(timeout=self.dropdown_timeout_ms)
 
         log.debug("Locating 'Upload attachment' option")
-        option_element = None
-        for selector in self.upload_option_selectors:
-            try:
-                item = page.locator(selector).first
-                if item.is_visible(timeout=1000):
-                    option_element = item
-                    break
-            except (TimeoutError, Exception):
-                continue
+        option_element = first_visible_locator(page, self.upload_option_selectors, timeout_ms=1000)
 
         if not option_element:
             option_element = page.locator(self.upload_option_selectors[0], has_text="Upload attachment").first

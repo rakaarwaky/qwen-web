@@ -84,6 +84,19 @@ def is_watcher_shutdown_set() -> bool:
     return _watcher_shutdown.is_set()
 
 
+def _watcher_sleep(interval: int) -> None:
+    """Sleep in small chunks so shutdown remains responsive (module-level shim).
+
+    Delegates to the same logic used by CoreOrchestrator._watcher_sleep.
+    Kept for backward compatibility with callers that import this function
+    directly from the module.
+    """
+    for _ in range(max(1, interval)):
+        if _watcher_shutdown.is_set():
+            return
+        time.sleep(min(_WATCHER_SLEEP_CHUNK_SECS, interval))
+
+
 class CoreOrchestrator(ICoreAggregate):
     """Coordinates capabilities to process prompt files through Qwen Web."""
 
@@ -439,17 +452,29 @@ class CoreOrchestrator(ICoreAggregate):
             return
         yield from self._iter_todo_watcher(src, cfg)
 
+    def _yield_and_move(self, src: Path, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
+        """Yield (proc_file, rel_path) after moving each file to processing dir.
+
+        Common logic shared by _iter_todo_retry_failed, _iter_todo_batch,
+        and _iter_todo_watcher.  Watcher mode callers should check shutdown
+        flags between yields.
+        """
+        for f in sorted(f for f in src.rglob("*") if should_process_file(f, src)):
+            rel_path = f.resolve().relative_to(src.resolve())
+            _, _, _, proc_dest = resolve_role_paths(rel_path, cfg)
+            proc_dest.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                shutil.move(str(f), str(proc_dest))
+                yield proc_dest, rel_path
+            except OSError:
+                continue
+
     def _iter_todo_retry_failed(self, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
         """Yield files for retry-failed mode."""
         src = cfg.failed_path
         if not src.exists() or not src.is_dir():
             return
-        for f in sorted(f for f in src.rglob("*") if should_process_file(f, src)):
-            rel_path = f.resolve().relative_to(src.resolve())
-            _, _, _, proc_dest = resolve_role_paths(rel_path, cfg)
-            proc_dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(f), str(proc_dest))
-            yield proc_dest, rel_path
+        yield from self._yield_and_move(src, cfg)
 
     def _iter_todo_single(self, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
         """Yield file for single mode."""
@@ -470,28 +495,16 @@ class CoreOrchestrator(ICoreAggregate):
 
     def _iter_todo_batch(self, src: Path, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
         """Yield files for batch mode."""
-        for f in sorted(f for f in src.rglob("*") if should_process_file(f, src)):
-            rel_path = f.resolve().relative_to(src.resolve())
-            _, _, _, proc_dest = resolve_role_paths(rel_path, cfg)
-            proc_dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(f), str(proc_dest))
-            yield proc_dest, rel_path
+        yield from self._yield_and_move(src, cfg)
 
     def _iter_todo_watcher(self, src: Path, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
         """Yield files continuously in watcher mode."""
         self._install_watcher_signal_handlers()
         while True:
-            for f in sorted(f for f in src.rglob("*") if should_process_file(f, src)):
+            for proc_dest, rel_path in self._yield_and_move(src, cfg):
                 if _watcher_shutdown.is_set():
                     return
-                rel_path = f.resolve().relative_to(src.resolve())
-                _, _, _, proc_dest = resolve_role_paths(rel_path, cfg)
-                proc_dest.parent.mkdir(parents=True, exist_ok=True)
-                try:
-                    shutil.move(str(f), str(proc_dest))
-                    yield proc_dest, rel_path
-                except OSError:
-                    continue
+                yield proc_dest, rel_path
             if _watcher_shutdown.is_set():
                 return
             self._watcher_sleep(cfg.interval)
