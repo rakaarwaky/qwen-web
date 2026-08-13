@@ -203,10 +203,13 @@ class BrowserAdapter(IBrowserProtocol):
         # its ProcessSingleton lock, and a pre-existing dir with a missing x bit
         # would otherwise fail with "Permission denied" at launch. mkdir(exist_ok=True)
         # never repairs an already-broken directory, so chmod explicitly.
-        # 0o700 is restrictive (owner-only) — required by the browser_session tests
-        # and by scripts/install.sh (chmod 700). Codacy's "insecure-file-permissions"
-        # finding here is a false positive.
-        cfg.session_path.chmod(0o700)  # nosemgrep: insecure-file-permissions
+        # 0o700 is owner-only rwx — the most restrictive mode that still lets the
+        # browser traverse the profile dir; nothing is granted to group/other.
+        # Codacy's "insecure-file-permissions" finding here is a false positive.
+        try:
+            cfg.session_path.chmod(0o700)  # nosemgrep: insecure-file-permissions
+        except OSError as e:
+            log.debug("failed_setting_session_permissions", error=str(e))
 
         chrome_bin = find_chrome_binary()
 
