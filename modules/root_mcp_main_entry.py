@@ -137,6 +137,10 @@ def _make_async_tool(spec: dict[str, Any]) -> Callable[..., Any]:
 # Generate async tool functions from specification table
 GENERATED_TOOLS: dict[str, Callable[..., Any]] = {_spec["name"]: _make_async_tool(_spec) for _spec in MCP_TOOL_SPECS}
 
+# Expose generated tools as module-level callables for registration and tests.
+# Keys originate from the in-code MCP_TOOL_SPECS literal, not external input.
+globals().update(GENERATED_TOOLS)
+
 
 def qwen_get_audit_log(limit: int = 20) -> str:
     """Fetch latest entries from the JSONL audit trail log."""
