@@ -144,7 +144,7 @@ def main(argv: list[str] | None = None) -> int:
         args_with_cfg._cfg = cfg
     result = surface_cli_run_command.handle(args_with_cfg, container.core)
     if not result.get("success"):
-        print(result.get("error", "Unknown error"), file=sys.stderr)
+        print(result.get("error") or "Unknown error", file=sys.stderr)
         return 1
     return 0
 
@@ -163,7 +163,7 @@ def _run_manual_login(cfg: AppConfig) -> int:
     container = _default_container()
     result = surface_cli_login_command.handle(None, container.core, cfg)
     if not result.get("success"):
-        print(result.get("error", "Unknown error"), file=sys.stderr)
+        print(result.get("error") or "Unknown error", file=sys.stderr)
         return 1
     return 0
 
