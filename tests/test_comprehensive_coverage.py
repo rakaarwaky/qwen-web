@@ -8,8 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from modules.core.src.capabilities_browser_adapter import _assert_on_chat_page
-from modules.core.src.capabilities_metrics_collector import MetricsCounter
-from modules.core.src.capabilities_status_writer import StatusFileWriter
+from modules.core.src.capabilities_observability_setup import MetricsCounter, StatusFileWriter
 from modules.root_cli_main_entry import main
 from modules.root_mcp_main_entry import (
     qwen_get_audit_log,
