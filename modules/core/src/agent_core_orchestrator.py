@@ -256,9 +256,9 @@ class CoreOrchestrator(ICoreAggregate):
         """Return recent audit log entries as JSON text (delegated to audit capability)."""
         return self._audit.get_audit_log(MessageCount(limit))
 
-    def init_workspace(self, target_dir: Path | str = ".") -> None:
+    def init_workspace(self, target_dir: Path | FilePath = FilePath(".")) -> None:
         """Initialize the workspace (delegated to IWorkspaceProtocol)."""
-        self._workspace.init_workspace(Path(target_dir))
+        self._workspace.init_workspace(FilePath(str(Path(target_dir))))
 
     def send_file(
         self,

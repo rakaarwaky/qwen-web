@@ -217,6 +217,6 @@ CHALLENGE_KEYWORDS: tuple[str, ...] = (
 )
 
 # ─── Saver defaults ─────────────────────────────────────────
-DEFAULT_INCLUDE_HEADER = True
-DEFAULT_GENERATE_SIDECAR = True
-DEFAULT_ATOMIC_WRITE = True
+DEFAULT_INCLUDE_HEADER = IncludeHeaderFlag(True)
+DEFAULT_GENERATE_SIDECAR = GenerateSidecarFlag(True)
+DEFAULT_ATOMIC_WRITE = AtomicWriteFlag(True)

@@ -12,10 +12,9 @@ from modules.core.src.capabilities_browser_adapter import (
     CHAT_URL,
     LOGIN_FORM_SELECTORS,
     TEXTAREA_SELECTOR,
+    BrowserAdapter,
     SessionCheck,
     _assert_on_chat_page,
-    _clean_stale_locks,
-    reset_page,
 )
 from modules.shared.src import AuthRequiredError, LifecycleEmitter
 
@@ -158,7 +157,7 @@ class TestResetPage:
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
 
-        reset_page(page, emitter)
+        BrowserAdapter().reset_page(page, emitter)
 
         page.goto.assert_called_once_with(CHAT_URL, wait_until="domcontentloaded", timeout=10_000)
         emitter.emit.assert_called_once()
@@ -168,7 +167,7 @@ class TestResetPage:
         page.goto.side_effect = Error("navigation failed")
         emitter = MagicMock(spec=LifecycleEmitter)
 
-        reset_page(page, emitter)  # should not raise
+        BrowserAdapter().reset_page(page, emitter)  # should not raise
 
 
 # ─── _clean_stale_locks ────────────────────────────────────────────────────
@@ -179,7 +178,7 @@ class TestCleanStaleLocks:
         for name in ("SingletonLock", "SingletonSocket", "SingletonCookie"):
             (tmp_path / name).write_text("lock")
 
-        _clean_stale_locks(str(tmp_path))
+        BrowserAdapter()._clean_stale_locks(str(tmp_path))
 
         for name in ("SingletonLock", "SingletonSocket", "SingletonCookie"):
             assert not (tmp_path / name).exists()
@@ -188,11 +187,11 @@ class TestCleanStaleLocks:
         lock = tmp_path / "SingletonLock"
         lock.symlink_to("/nonexistent")
 
-        _clean_stale_locks(str(tmp_path))
+        BrowserAdapter()._clean_stale_locks(str(tmp_path))
         assert not lock.exists()
 
     def test_no_error_on_missing_dir(self):
         _clean_stale_locks("/nonexistent/path/that/does/not/exist")
 
     def test_no_error_on_empty_dir(self, tmp_path):
-        _clean_stale_locks(str(tmp_path))  # no locks to clean
+        BrowserAdapter()._clean_stale_locks(str(tmp_path))  # no locks to clean

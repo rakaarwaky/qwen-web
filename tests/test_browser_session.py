@@ -7,13 +7,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from modules.core.src.capabilities_browser_adapter import _clean_stale_locks, _launch_context
+from modules.core.src.capabilities_browser_adapter import BrowserAdapter
 from modules.shared.src import AppConfig
+
+_browser = BrowserAdapter()
 
 
 class TestBrowserSession:
     def test_browser_session_headless(self, tmp_path):
-        from modules.core.src.capabilities_browser_adapter import browser_session
         cfg = AppConfig(
             mode="batch",
             input_path=tmp_path / "in",
@@ -33,12 +34,11 @@ class TestBrowserSession:
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
             mock_p.chromium.launch_persistent_context.return_value = mock_ctx
 
-            with browser_session(cfg) as ctx:
+            with _browser.browser_session(cfg) as ctx:
                 assert ctx == mock_ctx
             mock_ctx.close.assert_called()
 
     def test_browser_session_filters_assets(self, tmp_path):
-        from modules.core.src.capabilities_browser_adapter import browser_session
         cfg = AppConfig(
             mode="batch",
             input_path=tmp_path / "in",
@@ -58,11 +58,10 @@ class TestBrowserSession:
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
             mock_p.chromium.launch_persistent_context.return_value = mock_ctx
 
-            with browser_session(cfg) as ctx:
+            with _browser.browser_session(cfg) as ctx:
                 mock_ctx.route.assert_called_once()
 
     def test_browser_session_login_mode_no_route(self, tmp_path):
-        from modules.core.src.capabilities_browser_adapter import browser_session
         cfg = AppConfig(
             mode="login",
             input_path=tmp_path / "in",
@@ -82,7 +81,7 @@ class TestBrowserSession:
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
             mock_p.chromium.launch_persistent_context.return_value = mock_ctx
 
-            with browser_session(cfg) as ctx:
+            with _browser.browser_session(cfg) as ctx:
                 mock_ctx.route.assert_not_called()
 
     def test_browser_session_close_error_handled(self, tmp_path):
@@ -108,7 +107,7 @@ class TestBrowserSession:
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)
             mock_p.chromium.launch_persistent_context.return_value = mock_ctx
 
-            with browser_session(cfg) as ctx:
+            with _browser.browser_session(cfg) as ctx:
                 pass
 
 
@@ -130,7 +129,7 @@ class TestLaunchContext:
 
         p.chromium.launch_persistent_context.side_effect = launch_side_effect
 
-        ctx = _launch_context(p, kwargs)
+        ctx = BrowserAdapter()._launch_context(p, kwargs)
         assert ctx == good_ctx
 
     def test_cleans_stale_locks(self, tmp_path):
@@ -144,6 +143,6 @@ class TestLaunchContext:
         mock_ctx = MagicMock()
         p.chromium.launch_persistent_context.return_value = mock_ctx
 
-        _launch_context(p, kwargs)
+        BrowserAdapter()._launch_context(p, kwargs)
         assert not (lock_dir / "SingletonLock").exists()
         assert not (lock_dir / "SingletonSocket").exists()

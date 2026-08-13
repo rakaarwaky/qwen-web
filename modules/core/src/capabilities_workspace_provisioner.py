@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
+from modules.shared.src.taxonomy_core_vo import FilePath
 from modules.shared.src.taxonomy_core_constant import (
     BASE_DIR,
     DEFAULT_LOG,
@@ -33,9 +34,9 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
         pass
 
     # ─── Block 2: Public Contract (IWorkspaceProtocol ONLY) ──
-    def init_workspace(self, target_dir: Path) -> None:
+    def init_workspace(self, target_dir: FilePath) -> None:
         """Initialize workspace with .agents/skills/qwen-web/SKILL.md, .qwen-web symlinks, and .gitignore."""
-        target_path = target_dir.resolve()
+        target_path = Path(str(target_dir)).resolve()
 
         # 1. Ensure XDG directories exist
         DEFAULT_TODO.mkdir(parents=True, exist_ok=True)

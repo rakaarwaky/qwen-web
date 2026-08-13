@@ -6,7 +6,6 @@ Implements IUploadProtocol.
 from __future__ import annotations
 
 import contextlib
-import os
 import time
 from pathlib import Path
 from typing import Any
