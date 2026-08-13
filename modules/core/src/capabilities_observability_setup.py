@@ -1,34 +1,123 @@
 """Capabilities: observability stack setup (AES403).
 
-Implements IObservabilityProtocol.
+Implements IObservabilityProtocol. Metrics counters and status.json writes
+live here as helper types (FR-009) — not standalone capabilities.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
 import threading
 from contextlib import nullcontext, suppress
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from modules.core.src.utility_core_io_writer import atomic_write_json, ensure_dir
 from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src import utility_core_exit
 from modules.shared.src.contract_core_protocol import IObservabilityProtocol
+from modules.shared.src.contract_metrics_protocol import IMetricsProtocol
 from modules.shared.src.contract_status_protocol import IStatusProtocol
-from modules.shared.src.taxonomy_core_vo import ErrorCategory, ExitCode, ServiceName
+from modules.shared.src.taxonomy_core_vo import ErrorCategory, ExitCode, MessageCount, ServiceName, StatusRecordVO
 from modules.shared.src.utility_core_status import status_path_for
 
-
 # Block 1: Class Definition & Constructor
+
+
+class MetricsCounter(IMetricsProtocol):
+    """Thread-safe in-memory metrics collector (not persisted across restarts)."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._counters: dict[str, int] = {}
+        self._start_time = datetime.now(tz=timezone.utc)
+
+    def increment(self, key: str, amount: MessageCount = MessageCount(1)) -> None:
+        with self._lock:
+            self._counters[key] = self._counters.get(key, MessageCount(0)) + amount
+
+    def get(self, key: str) -> MessageCount:
+        with self._lock:
+            return MessageCount(self._counters.get(key, 0))
+
+    def snapshot(self) -> dict[str, Any]:
+        with self._lock:
+            return dict(self._counters)
+
+    def __repr__(self) -> str:
+        return "MetricsCounter()"
+
+
+class StatusFileWriter(IStatusProtocol):
+    """Atomic JSON status file for systemd / monitoring tools."""
+
+    def __init__(self, status_path: Path) -> None:
+        self._status_path = status_path
+        ensure_dir(self._status_path)
+
+    def write(self, **kwargs: Any) -> None:
+        rec: dict[str, Any] = {
+            "status": kwargs.get("status", "unknown"),
+            "mode": kwargs.get("mode", "unknown"),
+            "headless": kwargs.get("headless", False),
+            "run_id": kwargs.get("run_id"),
+            "files_processed": kwargs.get("files_processed", 0),
+            "files_failed": kwargs.get("files_failed", 0),
+        }
+        if kwargs.get("cpu_sec") is not None:
+            rec["cpu_sec"] = round(kwargs["cpu_sec"], 2)
+        if kwargs.get("error"):
+            rec["error"] = kwargs["error"]
+
+        with suppress(OSError):
+            atomic_write_json(self._status_path, rec)
+
+    def write_record(self, record: StatusRecordVO) -> None:
+        self.write(
+            status=record.status,
+            mode=record.mode,
+            headless=record.headless,
+            run_id=record.run_id,
+            error=record.error,
+            cpu_sec=record.cpu_sec,
+            files_processed=record.files_processed,
+            files_failed=record.files_failed,
+        )
+
+    def read(self) -> dict[str, Any] | None:
+        try:
+            result: Any = json.loads(self._status_path.read_text(encoding="utf-8"))
+            return result if isinstance(result, dict) else None
+        except FileNotFoundError:
+            return None
+        except (OSError, ValueError):
+            return None
+
+    def __repr__(self) -> str:
+        return "StatusFileWriter()"
+
+    @classmethod
+    def create_default(cls, log_path: Path) -> StatusFileWriter:
+        return cls(status_path_for(log_path))
+
+
+def get_status_writer(log_path: Path) -> StatusFileWriter:
+    """Create a status writer at log_path/status.json."""
+    return StatusFileWriter.create_default(log_path)
+
+
 class ObservabilitySetup(IObservabilityProtocol):
-    """Full observability bootstrap: Sentry → OTel → structlog → hooks."""
+    """Full observability bootstrap: Sentry → OTel → structlog → status → hooks."""
 
     def __init__(self, log_path: Path, status_writer: IStatusProtocol | None = None) -> None:
         self._log_path = log_path
         self._status_path = status_path_for(log_path)
-        self._status_writer = status_writer
+        self._status_writer = status_writer or StatusFileWriter(self._status_path)
+        self._metrics = MetricsCounter()
 
     # ─── Block 2: Public Contract (IObservabilityProtocol ONLY) ──
 
@@ -149,9 +238,8 @@ class ObservabilitySetup(IObservabilityProtocol):
         return ExitCode(utility_core_exit.exit_code_for(exc))
 
     def write_status(self, status: str, mode: str, headless: bool, run_id: str | None = None) -> None:
-        """Write status to disk via DI-injected IStatusProtocol."""
-        if self._status_writer is not None:
-            self._status_writer.write(status=status, mode=mode, headless=headless, run_id=run_id)
+        """Write status.json via the owned (or injected) status writer."""
+        self._status_writer.write(status=status, mode=mode, headless=headless, run_id=run_id)
 
     def install_excepthooks(self) -> None:
         """Install global exception handlers (delegates to module-level function)."""

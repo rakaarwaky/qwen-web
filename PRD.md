@@ -89,6 +89,8 @@ compose these FRs, not additional core FRs.
 - [x] **FR-009 Observability Setup** — structlog + optional OTLP traces +
   optional Sentry + process excepthooks; missing telemetry must not block
   start.
+  Owns in-process metrics counters and `status.json` writes (merged helpers,
+  not extra capabilities).
   *Accept*: process boots with empty `SENTRY_DSN` and no OTLP endpoint.
 - [x] **FR-010 Linux Guard** — `fcntl` single-instance lock and systemd
   `sd_notify` (`READY=1` / `STOPPING=1`). CLI only; MCP does not take the

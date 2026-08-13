@@ -7,9 +7,10 @@ import threading
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from modules.core.src.capabilities_metrics_collector import MetricsCounter
 from modules.core.src.capabilities_observability_setup import (
+    MetricsCounter,
     ObservabilitySetup,
+    StatusFileWriter,
     _bind_run_context,
     _clear_run_context,
     _get_logger,
@@ -17,7 +18,6 @@ from modules.core.src.capabilities_observability_setup import (
     _start_span,
     install_excepthooks,
 )
-from modules.core.src.capabilities_status_writer import StatusFileWriter
 from modules.shared.src import AuthRequiredError, StatusRecordVO
 
 

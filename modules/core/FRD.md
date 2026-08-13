@@ -351,8 +351,9 @@ Lifecycle gates the agent must honor:
 - **Capability**: `capabilities_observability_setup.py` → `ObservabilitySetup`
 - **Contract**: `IObservabilityProtocol`
 - **Description**: Bootstrap the telemetry stack (Sentry → OpenTelemetry →
-  structlog) and process-wide exception hooks. Optional status-file writes
-  go through injected `IStatusProtocol`.
+  structlog) and process-wide exception hooks. In-memory metrics
+  (`MetricsCounter`) and `status.json` (`StatusFileWriter`) are helper types
+  in this file — not standalone capabilities.
 - **Input**: log `Path`; env `SENTRY_DSN`, `OTEL_EXPORTER_OTLP_ENDPOINT`,
   `OTEL_SERVICE_NAME`, `ENVIRONMENT`.
 - **Output**: configured loggers (`stderr` + `app.jsonl`), optional OTLP
@@ -412,17 +413,11 @@ Lifecycle gates the agent must honor:
   - [ ] MCP container can be built with `use_linux_guard=False`.
 - **Tests**: `tests/test_linux.py`.
 
-## Supporting Capabilities (not FRs)
+## Capability Inventory (exactly 10)
 
-These exist in `modules/core/src` but are **not** standalone product FRs.
-They are adapters consumed by FR-009 via protocol DI:
-
-| File | Protocol | Role |
-|------|----------|------|
-| `capabilities_metrics_collector.py` | `IMetricsProtocol` | Counters/timings for runs |
-| `capabilities_status_writer.py` | `IStatusProtocol` | `status.json` heartbeat |
-
-Do not add them as FR-011/FR-012. Fold new telemetry into FR-009.
+Metrics counters and `status.json` writes are helper types inside
+`capabilities_observability_setup.py` (FR-009). Do not reintroduce them as
+standalone capability files.
 
 ## API Contract
 

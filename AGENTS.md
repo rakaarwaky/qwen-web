@@ -30,7 +30,7 @@ Naming: `{layer}_{concern}_{role}.{ext}`.
 
 ```
 modules/shared/src/   taxonomy_*, contract_*, utility_*
-modules/core/src/     agent_core_orchestrator, capabilities_* (12)
+modules/core/src/     agent_core_orchestrator, capabilities_* (10)
 modules/cli/src/      surface_cli_*, root_cli_container
 modules/mcp/src/      surface_mcp_*, root_mcp_container
 root_cli_main_entry.py, root_mcp_main_entry.py
