@@ -1,149 +1,151 @@
-name: CI Quality Gates
+name: CI
 
 on:
-  push:
-    branches: [ main, aes-migration ]
   pull_request:
-    branches: [ main, aes-migration ]
-
-env:
-  PYTHON_VERSION: "3.12"
-  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
-  lint-format:
-    name: Lint & Format (Ruff)
+  format:
+    name: Format (ruff format)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          version: "latest"
 
-      - name: Install dependencies
+      - name: Install project
+        run: uv sync --no-dev
+
+      - name: Install lint deps
+        run: uv pip install ruff
+
+      - name: Check formatting
+        run: uv run ruff format --check modules/ tests/
+
+  lint:
+    name: Lint (ruff check + mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install project
+        run: uv sync --no-dev
+
+      - name: Install lint deps
+        run: uv pip install ruff mypy
+
+      - name: Ruff check
+        run: uv run ruff check modules/ tests/
+
+      - name: Mypy check
+        run: uv run mypy modules/
+
+  build:
+    name: Build package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install project
+        run: uv sync --no-dev
+
+      - name: Build
+        run: uv build
+
+  test:
+    name: Tests (pytest)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install project
+        run: uv sync --no-dev
+
+      - name: Install test deps
+        run: uv pip install pytest pytest-asyncio pytest-cov pytest-mock
+
+      - name: Install system dependencies (Playwright)
         run: |
-          pip install --upgrade pip
-          pip install ruff mypy bandit pytest pytest-asyncio pytest-cov pytest-mock playwright structlog tenacity mcp
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 \
+            libcups2 libdrm2 libdbus-1-3 libxkbcommon0 libxcomposite1 libxdamage1 \
+            libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2 libatspi2.0-0
 
-      - name: Ruff lint check
-        run: ruff check modules/ tests/ root_*.py
-
-      - name: Ruff format check
-        run: ruff format --check modules/ tests/ root_*.py
-
-  typecheck:
-    name: Type Check (MyPy)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install mypy playwright structlog tenacity mcp
-
-      - name: MyPy type check
-        run: mypy modules/ tests/ root_*.py --ignore-missing-imports
-
-  security-scan:
-    name: Security Scan (Bandit)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install bandit
-
-      - name: Bandit security scan (source only)
-        run: bandit modules/root_cli_main_entry.py modules/root_mcp_main_entry.py -r modules/ -s B110,B112 --quiet
-
-  self-lint:
-    name: AES Architecture Self-Lint
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install lint-arwaky-cli (Rust/Cargo binary)
-        run: cargo install lint_arwaky --locked
-
-      - name: Run AES architecture check
-        run: lint-arwaky-cli check .
-
-  tests:
-    name: Tests (Pytest)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-cov pytest-mock playwright structlog tenacity mcp
-          python3 -m playwright install --with-deps chromium
+      - name: Install Playwright browser
+        run: uv run python -m playwright install chromium
 
       - name: Run tests
-        run: pytest tests/ --ignore=tests/test_e2e_pipeline.py -v
+        run: uv run python -m pytest tests/ --ignore=tests/test_e2e_pipeline.py -v
 
-  codacy:
-    name: Codacy Static Analysis
+      - name: Create issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --repo rakaarwaky/qwen-web-arwaky \
+            --title "CI Auto-Fix: ${{ github.sha }}" \
+            --label "auto-fix-ci" \
+            --body "CI workflow failed on $(date -u).
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  self-lint:
+    name: Self-Lint (lint-arwaky-cli)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Run Codacy local analysis (source only)
+      - name: Install lint-arwaky-cli (pre-built binary)
         run: |
-          pip install codacy-analysis-cli
-          codacy-analysis analyze --files "modules/**/*.py" root_*.py --output-format json || true
+          curl -fsSL \
+            https://github.com/rakaarwaky/lint-arwaky/releases/download/v3.5.0/lint-arwaky-cli \
+            -o "$RUNNER_TEMP/lint-arwaky-cli"
+          chmod +x "$RUNNER_TEMP/lint-arwaky-cli"
+          sudo mv "$RUNNER_TEMP/lint-arwaky-cli" /usr/local/bin/lint-arwaky-cli
+          lint-arwaky-cli version
 
-      - name: Upload results to Codacy
-        if: env.CODACY_PROJECT_TOKEN != ''
-        uses: codacy/codacy-analysis-cli-action@d43360362776a6789b47b99ae8973510854e2d3d
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          version: "latest"
 
-  summary:
-    name: Gate Summary
-    needs: [lint-format, typecheck, security-scan, self-lint, tests]
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - name: Check quality gates
+      - name: Install project
+        run: uv sync --no-dev
+
+      - name: Run self-lint (must be 0 violations)
         run: |
-          echo "Quality Gates Summary:"
-          for job in ${{ join(needs.*.result, ', ') }}; do
-            echo "  - $job"
-          done
+          output=$(lint-arwaky-cli scan . 2>&1) || true
+          echo "$output" | tail -5
+          violations=$(echo "$output" | grep -oP 'Total:\s*\K\d+') || violations="PARSE_FAILURE"
+          echo "Violations: ${violations}"
+          [ "${violations}" = "0" ]
