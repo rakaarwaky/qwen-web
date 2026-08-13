@@ -21,9 +21,6 @@ from modules.cli.src import (
     surface_cli_run_command,
 )
 from modules.core.src.root_core_container import SharedContainer
-from modules.core.src.agent_core_orchestrator import (
-    is_watcher_shutdown_set,
-)
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_DONE,
@@ -161,11 +158,6 @@ def _run_manual_login(cfg: AppConfig) -> None:
     """Launch visible browser for interactive login (TTY flow in the surface)."""
     container = _default_container()
     surface_cli_login_command.handle(None, container.core, cfg)
-
-
-def _is_watcher_shutdown_set() -> bool:
-    """Return True if watcher shutdown has been requested."""
-    return is_watcher_shutdown_set()
 
 
 if __name__ == "__main__":

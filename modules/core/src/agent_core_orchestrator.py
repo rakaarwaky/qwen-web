@@ -215,6 +215,24 @@ class CoreOrchestrator(ICoreAggregate):
 
         return self._execute(_fn)
 
+    def process_mode(self, cfg: AppConfig) -> ResponseText:
+        """Dispatch processing based on AppConfig.mode (watcher/single/batch)."""
+        if cfg.mode == "watcher":
+            return self.process_watcher(interval_sec=cfg.interval, headless=cfg.headless)
+
+        if cfg.mode == "single":
+            return self.process_single_file(
+                cfg.input_path,
+                cfg.output_path,
+                cfg.headless,
+            )
+
+        return self.process_batch(
+            cfg.input_path,
+            cfg.output_path,
+            cfg.headless,
+        )
+
     def send_prompt(self, prompt: str, timeout_sec: int = 120, headless: bool = True) -> ResponseText:
         """Send a direct text prompt and return the AI response."""
         with tempfile.NamedTemporaryFile(mode="w+", suffix=".txt", delete=False, encoding="utf-8") as tmp:

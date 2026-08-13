@@ -9,6 +9,8 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from modules.core.src.utility_core_io_writer import ensure_dir
+
 
 def move_file(source: Path, destination: Path) -> None:
     """Move a file from source to destination.
@@ -37,5 +39,5 @@ def move_to_processing(source: Path, proc_dest: Path) -> None:
         Target path inside the .processing directory.
 
     """
-    proc_dest.parent.mkdir(parents=True, exist_ok=True)
+    ensure_dir(proc_dest)
     shutil.move(str(source), str(proc_dest))

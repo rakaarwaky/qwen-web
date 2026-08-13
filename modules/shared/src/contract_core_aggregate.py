@@ -11,6 +11,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_vo import (
     FilePath,
     MessageCount,
@@ -49,6 +50,10 @@ class ICoreAggregate(ABC):
         headless: bool = True,
     ) -> ResponseText:
         """Run the continuous folder watcher."""
+
+    @abstractmethod
+    def process_mode(self, cfg: AppConfig) -> ResponseText:
+        """Dispatch processing based on AppConfig.mode (watcher/single/batch)."""
 
     @abstractmethod
     def send_prompt(

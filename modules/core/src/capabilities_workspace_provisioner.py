@@ -21,6 +21,7 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_TODO,
     XDG_SKILL_MD,
 )
+from modules.core.src.utility_core_io_writer import ensure_dir
 
 
 # Block 1: Class Definition & Constructor
@@ -39,9 +40,9 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
         target_path = Path(str(target_dir)).resolve()
 
         # 1. Ensure XDG directories exist
-        DEFAULT_TODO.mkdir(parents=True, exist_ok=True)
-        DEFAULT_OUTPUT.mkdir(parents=True, exist_ok=True)
-        DEFAULT_LOG.mkdir(parents=True, exist_ok=True)
+        ensure_dir(DEFAULT_TODO)
+        ensure_dir(DEFAULT_OUTPUT)
+        ensure_dir(DEFAULT_LOG)
 
         # 2. Create .agents/skills/qwen-web/SKILL.md
         skills_dir = target_path / ".agents" / "skills" / "qwen-web"

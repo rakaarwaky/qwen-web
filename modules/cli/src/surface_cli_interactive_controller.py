@@ -16,7 +16,6 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_OUTPUT,
     DEFAULT_TODO,
 )
-from modules.shared.src.taxonomy_core_vo import HeadlessFlag, TimeoutSec
 from modules.shared.src.utility_core_path import list_input_files
 from modules.shared.src.utility_core_response import safe_handle, success_response
 from modules.core.src.utility_core_config_factory import build_app_config
@@ -107,10 +106,6 @@ class InteractiveController:
         if cfg.mode == "login":
             self._core.setup_session()
             return success_response("Login session saved.")
-        if cfg.mode == "watcher":
-            result = self._core.process_watcher(TimeoutSec(cfg.interval), HeadlessFlag(cfg.headless))
-        elif cfg.mode == "single":
-            result = self._core.process_single_file(cfg.input_path, cfg.output_path, HeadlessFlag(cfg.headless))
-        else:
-            result = self._core.process_batch(cfg.input_path, cfg.output_path, HeadlessFlag(cfg.headless))
+
+        result = self._core.process_mode(cfg)
         return success_response(result)
