@@ -6,6 +6,7 @@ utility only. Logger obtained via structlog (external), not via another capabili
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -199,6 +200,11 @@ class BrowserAdapter(IBrowserProtocol):
     def browser_session(self, cfg: Any) -> Iterator[BrowserContext]:
         """Manage persistent Chromium browser context with session caching and asset optimization."""
         cfg.session_path.mkdir(parents=True, exist_ok=True)
+        # Restore the execute bit on the profile dir: Chromium needs it to create
+        # its ProcessSingleton lock, and a pre-existing dir with a missing x bit
+        # would otherwise fail with "Permission denied" at launch. mkdir(exist_ok=True)
+        # never repairs an already-broken directory, so chmod explicitly.
+        os.chmod(cfg.session_path, 0o700)
 
         chrome_bin = find_chrome_binary()
 
