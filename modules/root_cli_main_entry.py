@@ -19,7 +19,7 @@ from modules.cli.src import (
     surface_cli_login_command,
     surface_cli_run_command,
 )
-from modules.cli.src.root_cli_container import CliContainer
+from modules.core.src.root_core_container import SharedContainer
 from modules.core.src.agent_core_orchestrator import is_watcher_shutdown_set
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
@@ -94,11 +94,9 @@ def _build_config(args: argparse.Namespace) -> AppConfig:
     )
 
 
-def _default_container() -> CliContainer:
+def _default_container() -> SharedContainer:
     """Build the default auto-wired DI container."""
-    container = CliContainer()
-    container.wire()
-    return container
+    return SharedContainer()
 
 
 def main(argv: list[str] | None = None) -> int:

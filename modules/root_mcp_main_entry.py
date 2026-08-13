@@ -22,13 +22,13 @@ except ImportError:
     except ImportError:
         FastMCP = None
 
-from modules.mcp.src.root_mcp_container import McpContainer
+from modules.core.src.root_core_container import SharedContainer
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
 
 # FastMCP application instance (module-level for tool registration + tests)
 mcp = FastMCP("Qwen-Web") if FastMCP is not None else None
 
-_container: McpContainer | None = None
+_container: SharedContainer | None = None
 
 
 def _get_mcp_app() -> Any:
@@ -70,7 +70,7 @@ def _tools() -> Any:
     from modules.mcp.src.surface_mcp_tool_command import McpToolCommand
 
     if _container is None:
-        _container = McpContainer()
+        _container = SharedContainer(use_linux_guard=False)
         _container.wire()
     return McpToolCommand(_container.core)
 
