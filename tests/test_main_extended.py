@@ -167,7 +167,7 @@ class TestRunWatcher:
         audit = MagicMock()
 
         with patch("modules.root_cli_main_entry._iter_todo", return_value=iter([])), \
-             patch("modules.core.src.capabilities_observability_setup.StatusFileWriter") as mock_sw:
+             patch("modules.core.src.capabilities_status_writer.StatusFileWriter") as mock_sw:
             _run_watcher(client, cfg, audit)
             mock_sw.return_value.write.assert_called()
 
@@ -219,6 +219,6 @@ class TestMain:
         in_dir = tmp_path / "in"
         in_dir.mkdir()
         with patch("sys.argv", ["qwen-cli", "-i", str(in_dir), "-o", str(tmp_path / "out"), "--headless"]), \
-             patch("modules.root_cli_main_entry.CliContainer", side_effect=RuntimeError("boom")):
+             patch("modules.root_cli_main_entry.SharedContainer", side_effect=RuntimeError("boom")):
             result = main()
             assert result == 1

@@ -209,3 +209,8 @@ CHALLENGE_KEYWORDS: tuple[str, ...] = (
     "failed to upload",
     "something went wrong",
 )
+
+# ─── Saver defaults ─────────────────────────────────────────
+DEFAULT_INCLUDE_HEADER = True
+DEFAULT_GENERATE_SIDECAR = True
+DEFAULT_ATOMIC_WRITE = True
