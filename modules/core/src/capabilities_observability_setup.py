@@ -36,6 +36,45 @@ def _try_import(module_name: str) -> Any:
         return None
 
 
+def _import_sentry() -> Any | None:
+    """Import sentry_sdk if available."""
+    try:
+        import sentry_sdk as mod
+        return mod
+    except ImportError:
+        return None
+
+
+def _import_structlog() -> Any | None:
+    """Import structlog if available."""
+    try:
+        import structlog as mod
+        return mod
+    except ImportError:
+        return None
+
+
+def _import_otel() -> dict[str, Any] | None:
+    """Import OpenTelemetry modules if available.
+
+    Returns a dict of imported modules, or None when OTel is not installed.
+    """
+    try:
+        from opentelemetry import trace as otel_trace
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+        return {
+            "trace": otel_trace,
+            "Resource": Resource,
+            "TracerProvider": TracerProvider,
+            "BatchSpanProcessor": BatchSpanProcessor,
+        }
+    except ImportError:
+        return None
+
+
 # Block 1: Class Definition & Constructor
 class ObservabilitySetup(IObservabilityProtocol):
     """Full observability bootstrap: Sentry → OTel → structlog → hooks."""
@@ -58,9 +97,8 @@ class ObservabilitySetup(IObservabilityProtocol):
 
     def _configure_sentry(self) -> None:
         """Configure Sentry (private helper)."""
-        try:
-            import sentry_sdk
-        except ImportError:
+        sentry_sdk = _import_sentry()
+        if sentry_sdk is None:
             return
         dsn = os.getenv("SENTRY_DSN", "")
         if not dsn:
@@ -74,32 +112,28 @@ class ObservabilitySetup(IObservabilityProtocol):
 
     def _configure_tracing(self) -> None:
         """Configure OpenTelemetry tracing (private helper)."""
-        try:
-            from opentelemetry import trace
-            from opentelemetry.sdk.resources import Resource
-            from opentelemetry.sdk.trace import TracerProvider
-            from opentelemetry.sdk.trace.export import BatchSpanProcessor
-        except ImportError:
+        otel = _import_otel()
+        if otel is None:
             return
         try:
-            resource = Resource.create({"service.name": os.getenv("OTEL_SERVICE_NAME", ServiceName("qwen-web"))})
-            provider = TracerProvider(resource=resource)
+            resource = otel["Resource"].create({"service.name": os.getenv("OTEL_SERVICE_NAME", ServiceName("qwen-web"))})
+            provider = otel["TracerProvider"](resource=resource)
             endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
             try:
                 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+
                 if endpoint:
-                    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
+                    provider.add_span_processor(otel["BatchSpanProcessor"](OTLPSpanExporter(endpoint=endpoint)))
             except ImportError:
                 pass
-            trace.set_tracer_provider(provider)
+            otel["trace"].set_tracer_provider(provider)
         except (ImportError, RuntimeError):
             pass
 
     def _configure_logging(self, log_path: Path) -> None:
         """Configure structlog/stdlib logging (private helper)."""
-        try:
-            import structlog
-        except ImportError:
+        structlog = _import_structlog()
+        if structlog is None:
             logging.basicConfig(level=logging.INFO)
             return
 
@@ -191,28 +225,22 @@ class ObservabilitySetup(IObservabilityProtocol):
 
 def _get_logger(name: str = "qwen-web") -> Any:
     """Return a structlog bound logger, falling back to stdlib logging."""
-    try:
-        import structlog
-    except ImportError:
-        return logging.getLogger(name)
-    if structlog:
+    structlog = _import_structlog()
+    if structlog is not None:
         return structlog.get_logger(name)
     return logging.getLogger(name)
 
 
 def _get_tracer(name: str = "qwen-web") -> Any:
     """Return an OpenTelemetry tracer, or None when tracing unavailable."""
-    try:
-        from opentelemetry import trace
-    except ImportError:
-        return None
-    if trace is not None:
-        return trace.get_tracer(name)
+    otel = _import_otel()
+    if otel is not None:
+        return otel["trace"].get_tracer(name)
     return None
 
 
 def _start_span(name: str) -> Any:
-    """Context manager for an OTel span; yields None (no-op) when tracing unavailable."""
+    """Context manager for an OTel span; yields nullcontext (no-op) when tracing unavailable."""
     tracer = _get_tracer()
     if tracer is None:
         return nullcontext()
@@ -221,10 +249,10 @@ def _start_span(name: str) -> Any:
 
 def add_trace_context(_logger: Any, _method: str, event_dict: dict[str, Any]) -> dict[str, Any]:
     """Inject active OTel trace_id/span_id into every log event."""
-    try:
-        from opentelemetry import trace
-    except ImportError:
+    otel = _import_otel()
+    if otel is None:
         return event_dict
+    trace = otel["trace"]
     span = trace.get_current_span()
     ctx = span.get_span_context()
     if ctx.is_valid:
@@ -236,22 +264,18 @@ def add_trace_context(_logger: Any, _method: str, event_dict: dict[str, Any]) ->
 
 def _bind_run_context(run_id: str, **extra: Any) -> None:
     """Bind run-scoped fields into structlog contextvars."""
-    try:
-        import structlog
-    except ImportError:
+    structlog = _import_structlog()
+    if structlog is None:
         return
-    if structlog:
-        structlog.contextvars.bind_contextvars(run_id=run_id, **extra)
+    structlog.contextvars.bind_contextvars(run_id=run_id, **extra)
 
 
 def _clear_run_context() -> None:
     """Clear all run-scoped contextvars."""
-    try:
-        import structlog
-    except ImportError:
+    structlog = _import_structlog()
+    if structlog is None:
         return
-    if structlog:
-        structlog.contextvars.clear_contextvars()
+    structlog.contextvars.clear_contextvars()
 
 
 def _excepthook(exc_type: type[BaseException], exc_value: BaseException, exc_tb: Any) -> None:
@@ -279,11 +303,8 @@ def _report_critical(logger: Any, exc_value: BaseException, event_name: str) -> 
         exc_type=type(exc_value).__name__,
         category=ErrorCategory.categorize(exc_value),
     )
-    try:
-        import sentry_sdk
-    except ImportError:
-        pass
-    else:
+    sentry_sdk = _import_sentry()
+    if sentry_sdk is not None:
         sentry_sdk.capture_exception(exc_value)
 
 
