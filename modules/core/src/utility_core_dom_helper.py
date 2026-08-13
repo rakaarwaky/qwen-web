@@ -7,6 +7,7 @@ visibility checks, click helpers, locator selection, and selector-fallback itera
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from contextlib import suppress
 from typing import Any, TypeVar
 
 from playwright.sync_api import Error, Locator, Page

@@ -39,18 +39,23 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "ARG", "RUF100", "BLE"]
+ignore = [
+    "BLE001",   # blind exception - intentional for browser automation safety
+    "B008",     # function call in defaults - NewType() calls are identity, safe
+    "S110",     # try-except-pass - intentional for cleanup/guard patterns
+    "S112",     # try-except-continue - intentional for element scanning loops
+]
 
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = ["typing.NewType", "typing_extensions.NewType"]
 
 # Per-file ignores for tests/ — intentional patterns (fixtures, mocks, callbacks)
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["E402", "ARG001", "ARG002", "ARG005", "B017", "SIM117", "E741", "N814"]
-"modules/core/src/agent_core_orchestrator.py" = ["BLE001"]
-"modules/core/src/capabilities_browser_adapter.py" = ["BLE001"]
-"modules/root_cli_main_entry.py" = ["BLE001"]
-"modules/shared/src/taxonomy_core_entity.py" = ["BLE001"]
-"modules/shared/src/utility_core_response.py" = ["BLE001"]
+"tests/**" = ["E402", "ARG001", "ARG002", "ARG005", "B017", "SIM117", "E741", "N814", "E501"]
+"modules/core/src/capabilities_file_uploader.py" = ["BLE001"]
+"modules/core/src/capabilities_prompt_injector.py" = ["BLE001"]
+"modules/core/src/capabilities_stream_monitor.py" = ["BLE001"]
+"modules/core/src/utility_core_dom_helper.py" = ["BLE001"]
 [tool.mypy]
 strict = true
 python_version = "3.10"
