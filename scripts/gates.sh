@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # scripts/gates.sh — Local quality gates mirror CI for qwen-web-cli.
 # Usage: bash scripts/gates.sh
-#   Runs all 5 gates: Ruff, Mypy, Bandit, AES lint, and Pytest.
-#   Bandit security scan is always enforced (not optional).
+#   Runs all 5 gates: Ruff (lint + format), Mypy, Bandit, AES self-lint, and Pytest.
+#   Mirrors .github/workflows/ci.yml (uv-based). Bandit is always enforced (not optional).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,54 +22,56 @@ ok()    { printf "${GREEN}  ✓%s${NC}\n" "$*"; }
 warn()  { printf "${YELLOW}  ⚠%s${NC}\n" "$*"; }
 fail()  { printf "${RED}  ✗%s${NC}\n" "$*"; exit 1; }
 
-# ─── Pre-flight: virtual env ───────────────────────────────────────────────
-VENV_DIR="${PROJECT_ROOT}/venv"
-if [ ! -d "${VENV_DIR}" ]; then
-    info "Creating virtual environment..."
-    python3 -m venv "${VENV_DIR}"
+# ─── Pre-flight: uv ─────────────────────────────────────────────────────────
+if ! command -v uv >/dev/null 2>&1; then
+    info "Installing uv..."
+    pip install --quiet uv || curl -LsSf https://astral.sh/uv/install.sh | sh
 fi
-# shellcheck disable=SC1091
-source "${VENV_DIR}/bin/activate"
 
-info "Installing dependencies..."
-pip install --quiet ruff mypy bandit pytest pytest-asyncio pytest-cov pytest-mock playwright structlog || true
-pip install --quiet -e . 2>/dev/null || true
-python3 -m playwright install --with-deps chromium 2>/dev/null || true
+info "Syncing project dependencies (uv)..."
+uv sync --no-dev
+
+# Best-effort extras for local runs: bandit + Playwright browser
+uv pip install --quiet bandit >/dev/null 2>&1 || true
+uv run python -m playwright install chromium >/dev/null 2>&1 || true
 
 # ─── Gates ──────────────────────────────────────────────────────────────────
 FAILURES=0
 
-# Gate 1: Ruff lint + format check (root_*.py removed — file is at modules/root_cli_main_entry.py)
+# Gate 1: Ruff lint + format check
 info "Gate 1/5 — Ruff lint & format..."
-if ! ruff check modules/ tests/ 2>&1 | grep -q "All checks passed"; then
-    warn "Ruff found issues (see output above)"
-    FAILURES=$((FAILURES + 1))
-else
+if uv run ruff format --check modules/ tests/ >/dev/null 2>&1 && \
+   uv run ruff check modules/ tests/ 2>&1 | grep -q "All checks passed"; then
     ok "Ruff clean"
+else
+    warn "Ruff found issues (run 'uv run ruff format --check modules/ tests/' and 'uv run ruff check modules/ tests/' for details)"
+    FAILURES=$((FAILURES + 1))
 fi
 
-# Gate 2: Mypy type checking (modules/ covers root_cli_main_entry.py)
+# Gate 2: Mypy type checking
 info "Gate 2/5 — Mypy type check..."
-if ! mypy modules/ --ignore-missing-imports 2>&1 | tail -1; then
-    warn "Mypy found type errors"
-    FAILURES=$((FAILURES + 1))
-else
+if uv run mypy modules/ --ignore-missing-imports >/tmp/gates_mypy.log 2>&1; then
     ok "Mypy clean"
+else
+    warn "Mypy found type errors"
+    tail -5 /tmp/gates_mypy.log
+    FAILURES=$((FAILURES + 1))
 fi
 
 # Gate 3: Bandit security scan (source code only, exclude tests) — always runs (not optional)
 info "Gate 3/5 — Bandit security scan..."
-if ! bandit -r modules/ -s B110,B112 2>&1 | grep -q "No issues"; then
+if uv run bandit modules/root_cli_main_entry.py modules/root_mcp_main_entry.py -r modules/ -s B110,B112 2>&1 | grep -q "No issues"; then
+    ok "Bandit clean"
+else
     warn "Bandit found potential issues"
     FAILURES=$((FAILURES + 1))
-else
-    ok "Bandit clean"
 fi
 
 # Gate 4: AES architecture self-lint (lint-arwaky-cli)
 info "Gate 4/5 — AES architecture self-lint..."
 if command -v lint-arwaky-cli &>/dev/null; then
-    output=$(lint-arwaky-cli check . 2>&1) || true
+    output=$(lint-arwaky-cli scan . 2>&1) || true
+    echo "$output" | tail -5
     violations=$(echo "$output" | grep -oP 'Total:\s*\K\d+' || echo "0")
     if [ "${violations}" = "0" ]; then
         ok "AES architecture clean (0 violations)"
@@ -78,16 +80,18 @@ if command -v lint-arwaky-cli &>/dev/null; then
         FAILURES=$((FAILURES + 1))
     fi
 else
-    warn "lint-arwaky-cli not installed — skipping AES check"
+    warn "lint-arwaky-cli not installed — skipping AES check (see CI: downloads release binary)"
+    FAILURES=$((FAILURES + 1))
 fi
 
 # Gate 5: Pytest test suite
 info "Gate 5/5 — Running pytest..."
-if ! pytest tests/ --ignore=tests/test_e2e_pipeline.py -v -q 2>&1 | tail -3; then
-    warn "Tests failed (see output above)"
-    FAILURES=$((FAILURES + 1))
-else
+if uv run python -m pytest tests/ --ignore=tests/test_e2e_pipeline.py -v >/tmp/gates_pytest.log 2>&1; then
     ok "Tests passed"
+else
+    warn "Tests failed (see output above)"
+    tail -15 /tmp/gates_pytest.log
+    FAILURES=$((FAILURES + 1))
 fi
 
 # ─── Summary ────────────────────────────────────────────────────────────────
