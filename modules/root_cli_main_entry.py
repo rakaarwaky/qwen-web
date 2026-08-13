@@ -205,78 +205,9 @@ def _run_watcher(client: Any, cfg: AppConfig, audit: Any) -> None:
     )
 
 
-def _iter_todo(cfg: AppConfig) -> Any:
-    """Legacy-compatible iterator — delegate to core orchestrator.
-
-    DEPRECATED: callers should use SharedContainer().core._iter_todo(cfg).
-    """
-    container = _default_container()
-    yield from container.core._iter_todo(cfg)
-
-
-def _process_file(
-    _client: Any,
-    proc_file: Path,
-    rel_path: Path,
-    cfg: AppConfig,
-    _audit: Any,
-    ctx: RunContext,
-    cb: Any = None,
-    rl: Any = None,
-) -> None:
-    """Legacy-compatible single-file processing — delegate to core orchestrator.
-
-    DEPRECATED: callers should use SharedContainer().core._process_file(...).
-    """
-    # cb/rl accepted for API compatibility; the wired container owns its own
-    # circuit breaker and rate limiter.
-    _ = (cb, rl)
-    container = _default_container()
-    container.core._process_file(proc_file, rel_path, cfg, ctx)
-
-
 def _is_watcher_shutdown_set() -> bool:
     """Return True if watcher shutdown has been requested."""
     return is_watcher_shutdown_set()
-
-
-# ─── Legacy compat shims (DEPRECATED — use SharedContainer.core directly) ──
-
-
-def _iter_todo_retry_failed(cfg: AppConfig) -> Any:
-    """Yield files for retry-failed mode. DEPRECATED: use SharedContainer().core._iter_todo_retry_failed(cfg)."""
-    container = _default_container()
-    yield from container.core._iter_todo_retry_failed(cfg)
-
-
-def _iter_todo_single(cfg: AppConfig) -> Any:
-    """Yield file for single mode. DEPRECATED: use SharedContainer().core._iter_todo_single(cfg)."""
-    container = _default_container()
-    yield from container.core._iter_todo_single(cfg)
-
-
-def _iter_todo_batch(src: Path, cfg: AppConfig) -> Any:
-    """Yield files for batch mode. DEPRECATED: use SharedContainer().core._iter_todo_batch(src, cfg)."""
-    container = _default_container()
-    yield from container.core._iter_todo_batch(src, cfg)
-
-
-def _iter_todo_watcher(src: Path, cfg: AppConfig) -> Any:
-    """Yield files continuously in watcher mode. DEPRECATED: use SharedContainer().core._iter_todo_watcher(src, cfg)."""
-    container = _default_container()
-    yield from container.core._iter_todo_watcher(src, cfg)
-
-
-def run_init(target_dir: Path | str = ".") -> None:
-    """Initialize workspace. DEPRECATED: use SharedContainer().core.init_workspace(Path(target_dir))."""
-    container = _default_container()
-    container.core.init_workspace(Path(target_dir))
-
-
-def install_watcher_signal_handlers() -> None:
-    """Register SIGINT/SIGTERM watcher shutdown handlers. DEPRECATED."""
-    container = _default_container()
-    container.core._install_watcher_signal_handlers()
 
 
 if __name__ == "__main__":
