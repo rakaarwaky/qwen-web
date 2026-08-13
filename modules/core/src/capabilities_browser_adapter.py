@@ -6,7 +6,6 @@ utility only. Logger obtained via structlog (external), not via another capabili
 
 from __future__ import annotations
 
-import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -200,11 +199,15 @@ class BrowserAdapter(IBrowserProtocol):
     def browser_session(self, cfg: Any) -> Iterator[BrowserContext]:
         """Manage persistent Chromium browser context with session caching and asset optimization."""
         cfg.session_path.mkdir(parents=True, exist_ok=True)
-        # Owner-only rwx: Chrome needs the execute bit to traverse the profile dir
-        # (a 0o644 profile dir breaks SingletonLock), while 0o700 keeps it private.
-        # 0o700 is the most restrictive mode that works; nothing is granted to group/other.
+        # Restore the execute bit on the profile dir: Chromium needs it to create
+        # its ProcessSingleton lock, and a pre-existing dir with a missing x bit
+        # would otherwise fail with "Permission denied" at launch. mkdir(exist_ok=True)
+        # never repairs an already-broken directory, so chmod explicitly.
+        # 0o700 is owner-only rwx — the most restrictive mode that still lets the
+        # browser traverse the profile dir; nothing is granted to group/other.
+        # Codacy's "insecure-file-permissions" finding here is a false positive.
         try:
-            os.chmod(cfg.session_path, 0o700)  # nosemgrep: insecure-file-permissions
+            cfg.session_path.chmod(0o700)  # nosemgrep: insecure-file-permissions
         except OSError as e:
             log.debug("failed_setting_session_permissions", error=str(e))
 
