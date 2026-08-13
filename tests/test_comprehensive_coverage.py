@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from modules.root_cli_main_entry import _interactive_prompt, _run_manual_login, _run_watcher, main
+from modules.root_cli_main_entry import _interactive_prompt, _run_manual_login, main
 from modules.root_mcp_main_entry import (
     qwen_get_audit_log,
     qwen_process_batch,
@@ -154,7 +154,20 @@ class TestPipelineRemaining:
             proc_path=tmp_path / "todo" / "proc",
             session_path=tmp_path / "session",
         )
-        files = list(_iter_todo_batch(tmp_path / "todo", cfg))
+        orch = CoreOrchestrator(
+            browser=MagicMock(),
+            injector=MagicMock(),
+            sender=MagicMock(),
+            streamer=MagicMock(),
+            uploader=MagicMock(),
+            saver=MagicMock(),
+            audit=MagicMock(),
+            observability=MagicMock(get_logger=MagicMock(return_value=MagicMock())),
+            workspace=MagicMock(),
+            circuit_breaker=CircuitBreaker(),
+            rate_limiter=RateLimiter(),
+        )
+        files = list(orch._iter_todo_batch(tmp_path / "todo", cfg))
         assert len(files) == 1
 
     def test_cleanup_empty_dirs_nonempty(self, tmp_path):

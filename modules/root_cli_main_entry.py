@@ -163,48 +163,6 @@ def _run_manual_login(cfg: AppConfig) -> None:
     surface_cli_login_command.handle(None, container.core, cfg)
 
 
-def _run_watcher(client: Any, cfg: AppConfig, audit: Any) -> None:
-    """Watcher loop with graceful shutdown support (legacy-compatible shim)."""
-    from modules.core.src.capabilities_status_writer import StatusFileWriter
-
-    ctx = RunContext()
-    status_writer = StatusFileWriter(cfg.status_path)
-    status_writer.write(status="running", mode=cfg.mode, headless=cfg.headless, run_id=ctx.run_id)
-
-    files_processed = 0
-    files_failed = 0
-    t0 = time.time()
-
-    try:
-        for proc_file, rel_path in _iter_todo(cfg):
-            if is_watcher_shutdown_set():
-                break
-            try:
-                _process_file(client, proc_file, rel_path, cfg, audit, ctx)
-                files_processed += 1
-            except Exception as e:
-                files_failed += 1
-                print(f"file_failed: {rel_path}: {e}", file=sys.stderr)
-            status_writer.write(
-                status="running", mode=cfg.mode, headless=cfg.headless, run_id=ctx.run_id,
-                cpu_sec=time.time() - t0,
-                files_processed=files_processed,
-                files_failed=files_failed,
-            )
-    except Exception as e:
-        status_writer.write(
-            status="error", mode=cfg.mode, headless=cfg.headless, run_id=ctx.run_id,
-            error=str(e), cpu_sec=time.time() - t0,
-            files_processed=files_processed, files_failed=files_failed,
-        )
-
-    status_writer.write(
-        status="completed", mode=cfg.mode, headless=cfg.headless, run_id=ctx.run_id,
-        cpu_sec=time.time() - t0,
-        files_processed=files_processed, files_failed=files_failed,
-    )
-
-
 def _is_watcher_shutdown_set() -> bool:
     """Return True if watcher shutdown has been requested."""
     return is_watcher_shutdown_set()

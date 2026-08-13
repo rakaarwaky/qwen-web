@@ -9,20 +9,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from modules.core.src.capabilities_audit_repository import AuditRepository
 from modules.core.src.agent_core_orchestrator import (
+    CoreOrchestrator,
     _watcher_shutdown,
     _watcher_sleep,
     is_watcher_shutdown_set,
     request_watcher_shutdown,
-)
-from modules.root_cli_main_entry import (
-    _iter_todo,
-    _iter_todo_batch,
-    _iter_todo_retry_failed,
-    _iter_todo_single,
-    _iter_todo_watcher,
-    _process_file,
 )
 from modules.shared.src.utility_core_path import cleanup_empty_dirs
 from modules.shared.src import (
@@ -57,6 +49,21 @@ class TestCleanupEmptyDirs:
 
 
 class TestIterTodoRetryFailed:
+    def _make_orchestrator(self):
+        return CoreOrchestrator(
+            browser=MagicMock(),
+            injector=MagicMock(),
+            sender=MagicMock(),
+            streamer=MagicMock(),
+            uploader=MagicMock(),
+            saver=MagicMock(),
+            audit=MagicMock(),
+            observability=MagicMock(get_logger=MagicMock(return_value=MagicMock())),
+            workspace=MagicMock(),
+            circuit_breaker=CircuitBreaker(),
+            rate_limiter=RateLimiter(),
+        )
+
     def test_yields_from_failed(self, tmp_path):
         failed = tmp_path / "failed"
         role_dir = failed / "role-dev"
@@ -73,7 +80,8 @@ class TestIterTodoRetryFailed:
             session_path=tmp_path / "session",
             retry_failed=True,
         )
-        files = list(_iter_todo_retry_failed(cfg))
+        orch = self._make_orchestrator()
+        files = list(orch._iter_todo_retry_failed(cfg))
         assert len(files) == 1
 
     def test_no_failed_dir(self, tmp_path):
@@ -87,11 +95,27 @@ class TestIterTodoRetryFailed:
             session_path=tmp_path / "session",
             retry_failed=True,
         )
-        files = list(_iter_todo_retry_failed(cfg))
+        orch = self._make_orchestrator()
+        files = list(orch._iter_todo_retry_failed(cfg))
         assert len(files) == 0
 
 
 class TestIterTodoSingle:
+    def _make_orchestrator(self):
+        return CoreOrchestrator(
+            browser=MagicMock(),
+            injector=MagicMock(),
+            sender=MagicMock(),
+            streamer=MagicMock(),
+            uploader=MagicMock(),
+            saver=MagicMock(),
+            audit=MagicMock(),
+            observability=MagicMock(get_logger=MagicMock(return_value=MagicMock())),
+            workspace=MagicMock(),
+            circuit_breaker=CircuitBreaker(),
+            rate_limiter=RateLimiter(),
+        )
+
     def test_yields_single_file(self, tmp_path):
         todo = tmp_path / "todo"
         todo.mkdir()
@@ -107,7 +131,8 @@ class TestIterTodoSingle:
             proc_path=tmp_path / "proc",
             session_path=tmp_path / "session",
         )
-        files = list(_iter_todo_single(cfg))
+        orch = self._make_orchestrator()
+        files = list(orch._iter_todo_single(cfg))
         assert len(files) == 1
 
     def test_missing_file_raises(self, tmp_path):
@@ -120,11 +145,27 @@ class TestIterTodoSingle:
             proc_path=tmp_path / "proc",
             session_path=tmp_path / "session",
         )
+        orch = self._make_orchestrator()
         with pytest.raises(FileNotFoundError):
-            list(_iter_todo_single(cfg))
+            list(orch._iter_todo_single(cfg))
 
 
 class TestIterTodoBatch:
+    def _make_orchestrator(self):
+        return CoreOrchestrator(
+            browser=MagicMock(),
+            injector=MagicMock(),
+            sender=MagicMock(),
+            streamer=MagicMock(),
+            uploader=MagicMock(),
+            saver=MagicMock(),
+            audit=MagicMock(),
+            observability=MagicMock(get_logger=MagicMock(return_value=MagicMock())),
+            workspace=MagicMock(),
+            circuit_breaker=CircuitBreaker(),
+            rate_limiter=RateLimiter(),
+        )
+
     def test_yields_batch_files(self, tmp_path):
         todo = tmp_path / "todo"
         role_dir = todo / "role-dev" / "todo"
@@ -141,11 +182,27 @@ class TestIterTodoBatch:
             proc_path=tmp_path / "proc",
             session_path=tmp_path / "session",
         )
-        files = list(_iter_todo_batch(todo, cfg))
+        orch = self._make_orchestrator()
+        files = list(orch._iter_todo_batch(todo, cfg))
         assert len(files) == 2
 
 
 class TestIterTodoMain:
+    def _make_orchestrator(self):
+        return CoreOrchestrator(
+            browser=MagicMock(),
+            injector=MagicMock(),
+            sender=MagicMock(),
+            streamer=MagicMock(),
+            uploader=MagicMock(),
+            saver=MagicMock(),
+            audit=MagicMock(),
+            observability=MagicMock(get_logger=MagicMock(return_value=MagicMock())),
+            workspace=MagicMock(),
+            circuit_breaker=CircuitBreaker(),
+            rate_limiter=RateLimiter(),
+        )
+
     def test_dispatches_to_retry_failed(self, tmp_path):
         failed = tmp_path / "failed" / "role-dev"
         failed.mkdir(parents=True)
@@ -161,7 +218,8 @@ class TestIterTodoMain:
             session_path=tmp_path / "session",
             retry_failed=True,
         )
-        files = list(_iter_todo(cfg))
+        orch = self._make_orchestrator()
+        files = list(orch._iter_todo(cfg))
         assert len(files) == 1
 
     def test_dispatches_to_single(self, tmp_path):
@@ -179,7 +237,8 @@ class TestIterTodoMain:
             proc_path=tmp_path / "proc",
             session_path=tmp_path / "session",
         )
-        files = list(_iter_todo(cfg))
+        orch = self._make_orchestrator()
+        files = list(orch._iter_todo(cfg))
         assert len(files) == 1
 
     def test_dispatches_to_batch(self, tmp_path):
@@ -196,15 +255,13 @@ class TestIterTodoMain:
             proc_path=tmp_path / "todo" / "proc",
             session_path=tmp_path / "session",
         )
-        files = list(_iter_todo(cfg))
+        orch = self._make_orchestrator()
+        files = list(orch._iter_todo(cfg))
         assert len(files) == 1
 
 
 class TestProcessFile:
-    def _make_orchestrator(self, mocker=None, audit=None):
-        from modules.core.src.agent_core_orchestrator import CoreOrchestrator
-        from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
-
+    def _make_orchestrator(self, audit=None):
         return CoreOrchestrator(
             browser=MagicMock(),
             injector=MagicMock(),
@@ -213,7 +270,8 @@ class TestProcessFile:
             uploader=MagicMock(),
             saver=MagicMock(),
             audit=audit or MagicMock(),
-            observability=MagicMock(),
+            observability=MagicMock(get_logger=MagicMock(return_value=MagicMock())),
+            workspace=MagicMock(),
             circuit_breaker=CircuitBreaker(),
             rate_limiter=RateLimiter(),
         )
@@ -231,7 +289,7 @@ class TestProcessFile:
             proc_path=tmp_path / "proc",
             session_path=tmp_path / "session",
         )
-        audit = AuditRepository(tmp_path / "log")
+        audit = MagicMock()
         ctx = RunContext()
         orch = self._make_orchestrator(audit=audit)
         cb = CircuitBreaker(threshold=1, window_sec=30)
@@ -255,7 +313,7 @@ class TestProcessFile:
             proc_path=tmp_path / "proc",
             session_path=tmp_path / "session",
         )
-        audit = AuditRepository(tmp_path / "log")
+        audit = MagicMock()
         ctx = RunContext()
         orch = self._make_orchestrator(audit=audit)
         orch._streamer.wait_for_response.return_value = "AI response"
@@ -272,18 +330,30 @@ class TestWatcherSleep:
         request_watcher_shutdown()
         _watcher_sleep(10)  # should return immediately
         # Reset for other tests
-        from modules.core.src.agent_core_orchestrator import _watcher_shutdown
         _watcher_shutdown.clear()
 
     def test_normal_sleep(self):
-        from modules.core.src.agent_core_orchestrator import _watcher_shutdown
         _watcher_shutdown.clear()
         _watcher_sleep(1)
 
 
 class TestIterTodoWatcher:
+    def _make_orchestrator(self):
+        return CoreOrchestrator(
+            browser=MagicMock(),
+            injector=MagicMock(),
+            sender=MagicMock(),
+            streamer=MagicMock(),
+            uploader=MagicMock(),
+            saver=MagicMock(),
+            audit=MagicMock(),
+            observability=MagicMock(get_logger=MagicMock(return_value=MagicMock())),
+            workspace=MagicMock(),
+            circuit_breaker=CircuitBreaker(),
+            rate_limiter=RateLimiter(),
+        )
+
     def test_yields_and_shutdown(self, tmp_path):
-        from modules.core.src.agent_core_orchestrator import _watcher_shutdown
         _watcher_shutdown.clear()
 
         todo = tmp_path / "todo" / "role-dev" / "todo"
@@ -301,9 +371,10 @@ class TestIterTodoWatcher:
             interval=1,
         )
 
+        orch = self._make_orchestrator()
         results = []
         def consume():
-            for item in _iter_todo_watcher(tmp_path / "todo", cfg):
+            for item in orch._iter_todo_watcher(tmp_path / "todo", cfg):
                 results.append(item)
                 request_watcher_shutdown()
 

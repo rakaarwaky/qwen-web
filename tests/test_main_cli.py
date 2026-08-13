@@ -11,8 +11,8 @@ import pytest
 from modules.root_cli_main_entry import (
     _build_config,
     _parse_args,
-    run_init,
 )
+from modules.core.src.root_core_container import SharedContainer
 from modules.shared.src import AppConfig
 
 
@@ -172,13 +172,13 @@ class TestRunInit:
              patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"):
             skill_dir = tmp_path / ".agents" / "skills" / "qwen-web"
             assert not skill_dir.exists()
-            run_init(tmp_path)
+            SharedContainer().core.init_workspace(tmp_path)
             assert (skill_dir / "SKILL.md").exists()
 
     def test_creates_gitignore(self, tmp_path):
         with patch("modules.shared.src.taxonomy_core_constant.BASE_DIR", tmp_path), \
              patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"):
-            run_init(tmp_path)
+            SharedContainer().core.init_workspace(tmp_path)
             gitignore = tmp_path / ".gitignore"
             assert gitignore.exists()
             assert ".qwen-web/" in gitignore.read_text()
@@ -188,7 +188,7 @@ class TestRunInit:
         gitignore.write_text("*.pyc\n")
         with patch("modules.shared.src.taxonomy_core_constant.BASE_DIR", tmp_path), \
              patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"):
-            run_init(tmp_path)
+            SharedContainer().core.init_workspace(tmp_path)
             content = gitignore.read_text()
             assert ".qwen-web/" in content
             assert "*.pyc" in content
@@ -196,7 +196,7 @@ class TestRunInit:
     def test_creates_symlinks(self, tmp_path):
         with patch("modules.shared.src.taxonomy_core_constant.BASE_DIR", tmp_path), \
              patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"):
-            run_init(tmp_path)
+            SharedContainer().core.init_workspace(tmp_path)
             dot_qwen = tmp_path / ".qwen-web"
             assert dot_qwen.exists()
             assert (dot_qwen / "input").exists()

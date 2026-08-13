@@ -9,7 +9,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from modules.core.src.agent_core_orchestrator import _watcher_shutdown, request_watcher_shutdown
+from modules.core.src.agent_core_orchestrator import (
+    CoreOrchestrator,
+    _watcher_shutdown,
+    request_watcher_shutdown,
+)
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
 from modules.core.src.capabilities_file_uploader import FileUploader
 from modules.core.src.capabilities_observability_setup import (
@@ -18,12 +22,7 @@ from modules.core.src.capabilities_observability_setup import (
     _thread_excepthook,
 )
 from modules.root_cli_main_entry import (
-    _iter_todo_retry_failed,
-    _iter_todo_single,
-    _iter_todo_watcher,
-    _process_file,
     _run_manual_login,
-    _run_watcher,
     main,
 )
 from modules.root_mcp_main_entry import (
@@ -33,57 +32,41 @@ from modules.root_mcp_main_entry import (
     qwen_start_watcher,
 )
 from modules.shared.src import AppConfig, CircuitBreaker, LifecycleEmitter, RunContext
+from modules.shared.src.taxonomy_core_entity import RateLimiter
 
 
-# ─── main.py watcher error paths ────────────────────────────────────────────
+def _make_orchestrator():
+    return CoreOrchestrator(
+        browser=MagicMock(),
+        injector=MagicMock(),
+        sender=MagicMock(),
+        streamer=MagicMock(),
+        uploader=MagicMock(),
+        saver=MagicMock(),
+        audit=MagicMock(),
+        observability=MagicMock(get_logger=MagicMock(return_value=MagicMock())),
+        workspace=MagicMock(),
+        circuit_breaker=CircuitBreaker(),
+        rate_limiter=RateLimiter(),
+    )
 
-class TestMainWatcherError:
-    def test_watcher_file_failed_continues(self, tmp_path):
-        client = MagicMock()
-        cfg = AppConfig(
-            mode="watcher",
-            input_path=tmp_path / "in",
-            output_path=tmp_path / "out",
-            done_path=tmp_path / "done",
-            failed_path=tmp_path / "failed",
-            proc_path=tmp_path / "proc",
-            session_path=tmp_path / "session",
-            log_path=tmp_path / "log",
-            interval=1,
-        )
-        audit = MagicMock()
 
-        def iter_with_error(cfg):
-            yield tmp_path / "task.md", Path("task.md")
-            raise RuntimeError("boom")
+# ─── main.py remaining paths ────────────────────────────────────────────────
 
-        with patch("modules.root_cli_main_entry._iter_todo", side_effect=iter_with_error), \
-             patch("modules.root_cli_main_entry._process_file"), \
-             patch("modules.core.src.capabilities_status_writer.StatusFileWriter") as mock_sw:
-            _run_watcher(client, cfg, audit)
-            calls = mock_sw.return_value.write.call_args_list
-            assert any("error" in str(c) for c in calls)
-
-    def test_watcher_shutdown_breaks_loop(self, tmp_path):
-        _watcher_shutdown.set()
-        client = MagicMock()
-        cfg = AppConfig(
-            mode="watcher",
-            input_path=tmp_path / "in",
-            output_path=tmp_path / "out",
-            done_path=tmp_path / "done",
-            failed_path=tmp_path / "failed",
-            proc_path=tmp_path / "proc",
-            session_path=tmp_path / "session",
-            log_path=tmp_path / "log",
-            interval=1,
-        )
-        audit = MagicMock()
-
-        with patch("modules.root_cli_main_entry._iter_todo", return_value=iter([])), \
-             patch("modules.core.src.capabilities_status_writer.StatusFileWriter"):
-            _run_watcher(client, cfg, audit)
-        _watcher_shutdown.clear()
+class TestMainRemainingPaths:
+    def test_run_manual_login(self, tmp_path):
+        with patch("sys.stdin"), \
+             patch("modules.cli.src.surface_cli_login_command.handle", return_value={"success": True}):
+            cfg = AppConfig(
+                mode="login",
+                input_path=tmp_path / "in",
+                output_path=tmp_path / "out",
+                done_path=tmp_path / "done",
+                failed_path=tmp_path / "failed",
+                proc_path=tmp_path / "proc",
+                session_path=tmp_path / "session",
+            )
+            _run_manual_login(cfg)
 
 
 # ─── mcp_server.py remaining async functions ────────────────────────────────
@@ -129,39 +112,6 @@ class TestMcpServerRemainingAsync:
             result = loop.run_until_complete(qwen_process_batch())
             loop.close()
             assert "Batch processing complete" in result
-
-
-# ─── pipeline.py remaining paths ────────────────────────────────────────────
-
-class TestPipelineRemainingPaths:
-    def test_retry_failed_no_failed_dir(self, tmp_path):
-        cfg = AppConfig(
-            mode="batch",
-            input_path=tmp_path / "input",
-            output_path=tmp_path / "out",
-            done_path=tmp_path / "done",
-            failed_path=tmp_path / "nonexistent",
-            proc_path=tmp_path / "proc",
-            session_path=tmp_path / "session",
-            retry_failed=True,
-        )
-        files = list(_iter_todo_retry_failed(cfg))
-        assert len(files) == 0
-
-    def test_iter_todo_single_file(self, tmp_path):
-        task = tmp_path / "task.md"
-        task.write_text("task")
-        cfg = AppConfig(
-            mode="single",
-            input_path=task,
-            output_path=tmp_path / "out",
-            done_path=tmp_path / "done",
-            failed_path=tmp_path / "failed",
-            proc_path=tmp_path / "proc",
-            session_path=tmp_path / "session",
-        )
-        files = list(_iter_todo_single(cfg))
-        assert len(files) == 1
 
 
 # ─── observability.py remaining paths ───────────────────────────────────────

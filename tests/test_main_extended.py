@@ -8,14 +8,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 from modules.root_cli_main_entry import (
     _build_config,
     _interactive_prompt,
-    _run_manual_login,
-    _run_watcher,
     main,
 )
 from modules.shared.src import AppConfig
+from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
 
 
 class TestInteractivePrompt:
@@ -26,7 +26,7 @@ class TestInteractivePrompt:
 
     def test_init_choice(self):
         with patch("builtins.input", return_value="5"), \
-             patch("modules.root_cli_main_entry.run_init"):
+             patch.object(CoreOrchestrator, "init_workspace"):
             result = _interactive_prompt()
             assert result is None
 
@@ -130,6 +130,7 @@ class TestRunManualLogin:
                 proc_path=Path("/tmp/proc"),
                 session_path=Path("/tmp/session"),
             )
+            from modules.root_cli_main_entry import _run_manual_login
             _run_manual_login(cfg)
             mock_handle.assert_called_once()
 
@@ -146,30 +147,9 @@ class TestRunManualLogin:
                 proc_path=Path("/tmp/proc"),
                 session_path=Path("/tmp/session"),
             )
+            from modules.root_cli_main_entry import _run_manual_login
             _run_manual_login(cfg)
             mock_handle.assert_called_once()
-
-
-class TestRunWatcher:
-    def test_processes_files(self, tmp_path):
-        client = MagicMock()
-        cfg = AppConfig(
-            mode="watcher",
-            input_path=tmp_path / "in",
-            output_path=tmp_path / "out",
-            done_path=tmp_path / "done",
-            failed_path=tmp_path / "failed",
-            proc_path=tmp_path / "proc",
-            session_path=tmp_path / "session",
-            log_path=tmp_path / "log",
-            interval=1,
-        )
-        audit = MagicMock()
-
-        with patch("modules.root_cli_main_entry._iter_todo", return_value=iter([])), \
-             patch("modules.core.src.capabilities_status_writer.StatusFileWriter") as mock_sw:
-            _run_watcher(client, cfg, audit)
-            mock_sw.return_value.write.assert_called()
 
 
 class TestMain:
