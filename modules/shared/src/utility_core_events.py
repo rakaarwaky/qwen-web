@@ -13,11 +13,7 @@ def should_treat_as_new_response(
     min_text_length: int,
 ) -> bool:
     """True when text is non-empty, long enough, and differs from the baseline."""
-    return (
-        text is not None
-        and len(text) >= min_text_length
-        and text != baseline
-    )
+    return text is not None and len(text) >= min_text_length and text != baseline
 
 
 def is_stability_satisfied(
@@ -29,9 +25,4 @@ def is_stability_satisfied(
 ) -> bool:
     """Decide whether the response has stabilized enough to accept it."""
     force_complete = stable_count >= stability_checks * 2
-    return bool(
-        has_thinking
-        and has_streaming
-        and stable_count >= stability_checks
-        and (is_complete or force_complete)
-    )
+    return bool(has_thinking and has_streaming and stable_count >= stability_checks and (is_complete or force_complete))

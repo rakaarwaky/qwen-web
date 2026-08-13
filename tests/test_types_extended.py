@@ -134,6 +134,7 @@ class TestRateLimiterExtended:
 
     def test_throttles_when_exceeded(self):
         from collections import deque
+
         rl = RateLimiter(max_per_minute=2)
         # Pre-seed timestamps inside the mocked window (time=100, window=40..100)
         # so the rate limiter sees the bucket as full from the start of the patch.

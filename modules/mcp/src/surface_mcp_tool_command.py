@@ -25,9 +25,7 @@ class McpToolCommand:
 
     def send_prompt(self, prompt: str, timeout_sec: int = 120, headless: bool = True) -> ResponseText:
         """Send a direct text prompt to chat.qwen.ai and return the AI answer."""
-        return self._core.send_prompt(
-            PromptText(prompt), TimeoutSec(timeout_sec), HeadlessFlag(headless)
-        )
+        return self._core.send_prompt(PromptText(prompt), TimeoutSec(timeout_sec), HeadlessFlag(headless))
 
     def process_single(
         self,

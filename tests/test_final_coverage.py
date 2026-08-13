@@ -48,10 +48,13 @@ def _make_orchestrator():
 
 # ─── main.py remaining paths ────────────────────────────────────────────────
 
+
 class TestMainRemainingPaths:
     def test_run_manual_login(self, tmp_path):
-        with patch("sys.stdin"), \
-             patch("modules.cli.src.surface_cli_login_command.handle", return_value={"success": True}):
+        with (
+            patch("sys.stdin"),
+            patch("modules.cli.src.surface_cli_login_command.handle", return_value={"success": True}),
+        ):
             cfg = AppConfig(
                 mode="login",
                 input_path=tmp_path / "in",
@@ -65,6 +68,7 @@ class TestMainRemainingPaths:
 
 
 # ─── mcp_server.py remaining async functions ────────────────────────────────
+
 
 class TestMcpServerRemainingAsync:
     def test_qwen_send_prompt_auth_error(self):
@@ -111,11 +115,14 @@ class TestMcpServerRemainingAsync:
 
 # ─── observability.py remaining paths ───────────────────────────────────────
 
+
 class TestObservabilityRemainingPaths:
     def test_configure_sentry_with_dsn(self, tmp_path):
         mock_sentry = MagicMock()
-        with patch.dict("os.environ", {"SENTRY_DSN": "https://key@sentry.io/1"}), \
-             patch.dict(sys.modules, {"sentry_sdk": mock_sentry}):
+        with (
+            patch.dict("os.environ", {"SENTRY_DSN": "https://key@sentry.io/1"}),
+            patch.dict(sys.modules, {"sentry_sdk": mock_sentry}),
+        ):
             ObservabilitySetup(tmp_path / "log")._configure_sentry()
             mock_sentry.init.assert_called_once()
 
@@ -137,8 +144,10 @@ class TestObservabilityRemainingPaths:
             "opentelemetry.exporter.otlp.proto.http": MagicMock(),
             "opentelemetry.exporter.otlp.proto.http.trace_exporter": mock_otlp_exporter,
         }
-        with patch.dict("os.environ", {"OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318"}), \
-             patch.dict(sys.modules, otel_modules):
+        with (
+            patch.dict("os.environ", {"OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318"}),
+            patch.dict(sys.modules, otel_modules),
+        ):
             ObservabilitySetup(tmp_path / "log")._configure_tracing()
             mock_otlp_exporter.OTLPSpanExporter.assert_called_once_with(endpoint="http://localhost:4318")
 
@@ -157,6 +166,7 @@ class TestObservabilityRemainingPaths:
 
 
 # ─── browser.py remaining paths ─────────────────────────────────────────────
+
 
 class TestBrowserRemainingPaths:
     def test_launch_context_no_user_data_dir(self):
@@ -180,8 +190,10 @@ class TestBrowserRemainingPaths:
         )
         mock_ctx = MagicMock()
         mock_ctx.pages = [MagicMock()]
-        with patch("modules.core.src.capabilities_browser_adapter.sync_playwright") as mock_pw, \
-             patch("modules.core.src.capabilities_browser_adapter.os.chmod"):
+        with (
+            patch("modules.core.src.capabilities_browser_adapter.sync_playwright") as mock_pw,
+            patch("modules.core.src.capabilities_browser_adapter.os.chmod"),
+        ):
             mock_p = MagicMock()
             mock_pw.return_value.__enter__ = MagicMock(return_value=mock_p)
             mock_pw.return_value.__exit__ = MagicMock(return_value=False)

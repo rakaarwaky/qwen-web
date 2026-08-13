@@ -14,6 +14,7 @@ Scope:
 
 Run: python3 -m pytest tests/test_regression_lock.py -v
 """
+
 from __future__ import annotations
 
 import json
@@ -58,6 +59,7 @@ from modules.shared.src.utility_core_prompt import (
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
+
 def _make_cfg(tmp_path: Path, mode: str = "batch") -> AppConfig:
     return AppConfig(
         mode=mode,
@@ -71,8 +73,9 @@ def _make_cfg(tmp_path: Path, mode: str = "batch") -> AppConfig:
     )
 
 
-def _make_task(tmp_path: Path, role: str = "role-architect",
-               subfolder: str = "todo", name: str = "task_001.md") -> Path:
+def _make_task(
+    tmp_path: Path, role: str = "role-architect", subfolder: str = "todo", name: str = "task_001.md"
+) -> Path:
     f = tmp_path / "input" / role / subfolder / name
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text("# Task prompt\nDo the thing.", encoding="utf-8")
@@ -82,6 +85,7 @@ def _make_task(tmp_path: Path, role: str = "role-architect",
 from tests.helpers import make_test_orchestrator as _make_orchestrator
 
 # ─── Exception hierarchy lock ─────────────────────────────────────────────────
+
 
 class TestExceptionHierarchy:
     """All domain exceptions must derive from QwenCliError."""
@@ -107,29 +111,34 @@ class TestExceptionHierarchy:
 
 # ─── ErrorCategory lock ───────────────────────────────────────────────────────
 
+
 class TestErrorCategory:
     """ErrorCategory.categorize must map known patterns to correct categories."""
 
-    @pytest.mark.parametrize("exc,expected", [
-        (AuthRequiredError("login required"), "auth"),
-        (RuntimeError("captcha challenge"), "auth"),
-        (TimeoutError("connection dropped"), "network"),
-        (RuntimeError("socket closed"), "network"),
-        (RuntimeError("429 rate limit exceeded"), "rate_limit"),
-        (RuntimeError("throttling applied"), "rate_limit"),
-        (RuntimeError("chromium page crashed"), "browser"),
-        (RuntimeError("playwright launch failed"), "browser"),
-        (RuntimeError("prompt fill failed"), "injection"),
-        (RuntimeError("clipboard paste failed"), "injection"),
-        (ValueError("parse empty response"), "parsing"),
-        (OSError("disk I/O error"), "file_io"),
-        (Exception("unhandled custom error"), "other"),
-    ])
+    @pytest.mark.parametrize(
+        "exc,expected",
+        [
+            (AuthRequiredError("login required"), "auth"),
+            (RuntimeError("captcha challenge"), "auth"),
+            (TimeoutError("connection dropped"), "network"),
+            (RuntimeError("socket closed"), "network"),
+            (RuntimeError("429 rate limit exceeded"), "rate_limit"),
+            (RuntimeError("throttling applied"), "rate_limit"),
+            (RuntimeError("chromium page crashed"), "browser"),
+            (RuntimeError("playwright launch failed"), "browser"),
+            (RuntimeError("prompt fill failed"), "injection"),
+            (RuntimeError("clipboard paste failed"), "injection"),
+            (ValueError("parse empty response"), "parsing"),
+            (OSError("disk I/O error"), "file_io"),
+            (Exception("unhandled custom error"), "other"),
+        ],
+    )
     def test_categorize(self, exc: Exception, expected: str):
         assert ErrorCategory.categorize(exc) == expected
 
 
 # ─── CircuitBreaker lock ──────────────────────────────────────────────────────
+
 
 class TestCircuitBreakerLock:
     def test_not_tripped_initially(self):
@@ -167,6 +176,7 @@ class TestCircuitBreakerLock:
 
 # ─── RateLimiter lock ─────────────────────────────────────────────────────────
 
+
 class TestRateLimiterLock:
     def test_single_acquire_succeeds(self):
         rl = RateLimiter(max_per_minute=60)
@@ -183,6 +193,7 @@ class TestRateLimiterLock:
 
 
 # ─── AppConfig validation lock ────────────────────────────────────────────────
+
 
 class TestAppConfigValidation:
     def test_valid_config_constructs(self, tmp_path: Path):
@@ -222,6 +233,7 @@ class TestAppConfigValidation:
 
 # ─── RunContext lock ──────────────────────────────────────────────────────────
 
+
 class TestRunContextLock:
     def test_run_id_is_unique_per_instance(self):
         ids = {RunContext().run_id for _ in range(10)}
@@ -231,12 +243,13 @@ class TestRunContextLock:
         ctx = RunContext()
         parts = ctx.run_id.split("_")
         assert len(parts) == 3
-        assert len(parts[0]) == 8   # YYYYMMDD
-        assert len(parts[1]) == 6   # HHMMSS
-        assert len(parts[2]) == 6   # uuid hex[:6]
+        assert len(parts[0]) == 8  # YYYYMMDD
+        assert len(parts[1]) == 6  # HHMMSS
+        assert len(parts[2]) == 6  # uuid hex[:6]
 
 
 # ─── _extract_prompt_text lock ────────────────────────────────────────────────
+
 
 class TestExtractPromptText:
     def test_strips_yaml_frontmatter(self):
@@ -254,6 +267,7 @@ class TestExtractPromptText:
 
 
 # ─── _strip_input_from_output lock ───────────────────────────────────────────
+
 
 class TestStripInputFromOutput:
     def test_strips_repeated_prompt_prefix(self):
@@ -275,6 +289,7 @@ class TestStripInputFromOutput:
 
 
 # ─── _should_process_file lock ───────────────────────────────────────────────
+
 
 class TestShouldProcessFileLock:
     def test_valid_role_task_passes(self, tmp_path: Path):
@@ -305,6 +320,7 @@ class TestShouldProcessFileLock:
 
 # ─── _list_input_files lock ───────────────────────────────────────────────────
 
+
 class TestListInputFilesLock:
     def test_lists_valid_tasks_only(self, tmp_path: Path):
         _make_task(tmp_path)
@@ -329,6 +345,7 @@ class TestListInputFilesLock:
 
 # ─── resolve_role_paths lock ──────────────────────────────────────────────────
 
+
 class TestResolveRolePathsLock:
     def test_role_path_strips_todo(self, tmp_path: Path):
         cfg = _make_cfg(tmp_path)
@@ -343,9 +360,7 @@ class TestResolveRolePathsLock:
         out, *_ = resolve_role_paths(Path("role-architect/done/task_001.md"), cfg)
         assert out == cfg.output_path / "task_001.md"
 
-    @pytest.mark.parametrize("role", [
-        "role-architect", "role-business-analyst", "role-tech-lead"
-    ])
+    @pytest.mark.parametrize("role", ["role-architect", "role-business-analyst", "role-tech-lead"])
     def test_multiple_roles_resolve_correctly(self, tmp_path: Path, role: str):
         cfg = _make_cfg(tmp_path)
         _, done, fail, proc = resolve_role_paths(Path(f"{role}/todo/task_001.md"), cfg)
@@ -367,6 +382,7 @@ class TestResolveRolePathsLock:
 
 
 # ─── load_role_prompt lock ────────────────────────────────────────────────────
+
 
 class TestLoadRolePromptLock:
     def test_strips_frontmatter_from_prompt(self, tmp_path: Path):
@@ -393,6 +409,7 @@ class TestLoadRolePromptLock:
 
 # ─── AuditLog lock ────────────────────────────────────────────────────────────
 
+
 class TestAuditLogLock:
     def test_log_step_writes_valid_jsonl(self, tmp_path: Path):
         audit = AuditRepository(tmp_path)
@@ -409,8 +426,16 @@ class TestAuditLogLock:
     def test_log_failure_writes_errors_jsonl(self, tmp_path: Path):
         audit = AuditRepository(tmp_path)
         ctx = RunContext()
-        audit.log(status="FAILED", ctx=ctx, src="task.md", dst="out.md",
-                  dur=0.5, in_c=100, out_c=0, err="TimeoutError: timed out")
+        audit.log(
+            status="FAILED",
+            ctx=ctx,
+            src="task.md",
+            dst="out.md",
+            dur=0.5,
+            in_c=100,
+            out_c=0,
+            err="TimeoutError: timed out",
+        )
 
         assert (tmp_path / "errors.jsonl").exists()
         assert (tmp_path / "errors.log").exists()
@@ -421,8 +446,7 @@ class TestAuditLogLock:
     def test_log_success_does_not_write_errors_files(self, tmp_path: Path):
         audit = AuditRepository(tmp_path)
         ctx = RunContext()
-        audit.log(status="SUCCESS", ctx=ctx, src="task.md", dst="out.md",
-                  dur=1.0, in_c=50, out_c=200)
+        audit.log(status="SUCCESS", ctx=ctx, src="task.md", dst="out.md", dur=1.0, in_c=50, out_c=200)
         assert not (tmp_path / "errors.jsonl").exists()
         assert not (tmp_path / "errors.log").exists()
         assert (tmp_path / "audit_history.jsonl").exists()
@@ -432,12 +456,12 @@ class TestAuditLogLock:
         ctx = RunContext()
         for step in ("STEP_A", "STEP_B", "STEP_C"):
             audit.log_step(ctx, step, "file.md", "STARTED")
-        steps = [json.loads(l)["step"] for l in
-                 (tmp_path / "audit_history.jsonl").read_text().splitlines()]
+        steps = [json.loads(l)["step"] for l in (tmp_path / "audit_history.jsonl").read_text().splitlines()]
         assert steps == ["STEP_A", "STEP_B", "STEP_C"]
 
 
 # ─── write_output (saver) lock ────────────────────────────────────────────────
+
 
 class TestWriteOutputLock:
     def test_creates_file_with_traceability_header(self, tmp_path: Path):
@@ -482,6 +506,7 @@ class TestWriteOutputLock:
 
 
 # ─── CoreOrchestrator DI contract lock ───────────────────────────────────────
+
 
 class TestCoreOrchestratorDiLock:
     def test_init_with_mock_capabilities(self):

@@ -22,11 +22,13 @@ from tests.helpers import (
 
 # ─── sender.py remaining lines ─────────────────────────────────────────────
 
+
 class TestSenderRemaining:
     def test_click_send_custom_config(self):
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
         from modules.shared.src import SenderConfig
+
         cfg = SenderConfig(click_timeout_ms=5000, try_enter_key_fallback=False)
         # No selectors match, no enter fallback — new code does not raise, just silently tries
         loc = MagicMock()
@@ -63,6 +65,7 @@ class TestSenderRemaining:
 
 # ─── saver.py remaining lines ───────────────────────────────────────────────
 
+
 class TestSaverRemaining:
     def test_strip_ui_noise_qwen_max(self):
         text = "Qwen Max\nReal content"
@@ -98,6 +101,7 @@ class TestSaverRemaining:
 
 
 # ─── observability.py remaining lines ───────────────────────────────────────
+
 
 class TestObservabilityRemaining:
     def test_configure_sentry_no_dsn(self):

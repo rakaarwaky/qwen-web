@@ -181,15 +181,19 @@ class TestWaitForResponseEdgeCases:
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
         with pytest.raises(RuntimeError, match="dispatch"):
-            StreamMonitor().wait_for_response(page, timeout_sec=10, msg_count_before=0, emitter=emitter, dispatch_acknowledged=False)
+            StreamMonitor().wait_for_response(
+                page, timeout_sec=10, msg_count_before=0, emitter=emitter, dispatch_acknowledged=False
+            )
 
     def test_timeout_returns_none(self):
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
 
-        with patch("modules.core.src.capabilities_stream_monitor.count_messages", return_value=1), \
-             patch("modules.core.src.capabilities_stream_monitor._dom_latest", return_value=None), \
-             patch("modules.core.src.capabilities_stream_monitor.time") as mock_time:
+        with (
+            patch("modules.core.src.capabilities_stream_monitor.count_messages", return_value=1),
+            patch("modules.core.src.capabilities_stream_monitor._dom_latest", return_value=None),
+            patch("modules.core.src.capabilities_stream_monitor.time") as mock_time,
+        ):
             mock_time.time.side_effect = [0, 0, 0, 9999]
             mock_time.sleep = MagicMock()
 
@@ -212,10 +216,12 @@ class TestWaitForResponseEdgeCases:
         # and the loop never processes any text, hanging until timeout.
         msg_side_effect = [None] + [stable_text] * 20
 
-        with patch("modules.core.src.capabilities_stream_monitor.count_messages", return_value=2), \
-             patch("modules.core.src.capabilities_stream_monitor._dom_latest", side_effect=msg_side_effect), \
-             patch.object(StreamMonitor, "is_generation_complete", return_value=True), \
-             patch("modules.core.src.capabilities_stream_monitor.time") as mock_time:
+        with (
+            patch("modules.core.src.capabilities_stream_monitor.count_messages", return_value=2),
+            patch("modules.core.src.capabilities_stream_monitor._dom_latest", side_effect=msg_side_effect),
+            patch.object(StreamMonitor, "is_generation_complete", return_value=True),
+            patch("modules.core.src.capabilities_stream_monitor.time") as mock_time,
+        ):
             mock_time.time.side_effect = [0] + [0.1] * 50
             mock_time.sleep = MagicMock()
 

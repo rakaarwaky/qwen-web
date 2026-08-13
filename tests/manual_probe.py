@@ -2,6 +2,7 @@
 
 Outputs screenshot artifacts and JSON selector status report.
 """
+
 from __future__ import annotations
 
 import json
@@ -92,12 +93,14 @@ def _probe_upload(page: Page, probe: Path, live: dict) -> bool:
             item.click()
         fc.value.set_files(str(probe))
         page.wait_for_timeout(1800)
-        attached = bool(page.evaluate("""() => {
+        attached = bool(
+            page.evaluate("""() => {
             const s=['.file-card-list','.fileitem-btn','.message-input-column-file',
                      '[class*="file-card"]','[class*="file-item"]','[class*="fileitem"]'];
             for(const sel of s){for(const el of document.querySelectorAll(sel)){
                 if(el.offsetWidth>0&&el.offsetHeight>0) return true;}}
-            return false;}"""))
+            return false;}""")
+        )
     except Exception as e:
         live["upload_mode_select"]["error"] = str(e)[:200]
     live["upload_mode_select"]["alive"] = attached
@@ -142,7 +145,8 @@ def _probe_send_and_response(page: Page, live: dict) -> None:
         return
 
     with contextlib.suppress(Exception):
-        page.wait_for_function("""() => {
+        page.wait_for_function(
+            """() => {
             const wait=['parsing','uploading','processing','please wait'];
             for(const el of document.querySelectorAll('*')){
                 const r=el.getBoundingClientRect();
@@ -151,7 +155,9 @@ def _probe_send_and_response(page: Page, live: dict) -> None:
                 if(wait.some(k=>t.includes(k))) return false;
             }
             return true;
-        }""", timeout=120000)
+        }""",
+            timeout=120000,
+        )
 
     baseline = page.evaluate("""() => document.querySelectorAll(
         '.markdown-body,[class*="message-content"],[class*="response"]').length""")
@@ -163,14 +169,17 @@ def _probe_send_and_response(page: Page, live: dict) -> None:
         print(f"  [FAIL] send_clicked -> {e}")
 
     page.wait_for_timeout(45000)
-    resp = page.evaluate("""(baseline) => {
+    resp = page.evaluate(
+        """(baseline) => {
         const s=['.chat-message-assistant .markdown-body','[class*="assistant"] .markdown-body',
                  '[data-role="assistant"]','.qwen-markdown','.markdown-body',
                  '[class*="message-content"]','[class*="message-body"]','[class*="response"]'];
         for(const sel of s){const n=Array.from(document.querySelectorAll(sel)).filter(el=>{
             const u=el.closest("[class*='user'],[class*='human'],[class*='prompt'],[class*='file-card']");
             return !u;}); if(n.length){return (n[n.length-1].innerText||'').trim();}}
-        return '';}""", baseline)
+        return '';}""",
+        baseline,
+    )
 
     live["response"] = {"alive": bool(resp), "chars": len(resp or "")}
     print(f"  [{'PASS' if resp else 'FAIL'}] response_received -> {len(resp or '')} chars")
@@ -184,8 +193,13 @@ def main() -> int:
     live: dict = {
         "generated_at": datetime.now().isoformat(),
         "chat_url": CHAT_URL,
-        "new_chat": {}, "input": {}, "send": {}, "message": {},
-        "upload_mode_select": {}, "attachment_card": {}, "response": {},
+        "new_chat": {},
+        "input": {},
+        "send": {},
+        "message": {},
+        "upload_mode_select": {},
+        "attachment_card": {},
+        "response": {},
     }
 
     with sync_playwright() as p:
@@ -194,8 +208,7 @@ def main() -> int:
             headless=False,
             permissions=["clipboard-read", "clipboard-write"],
             user_agent=(
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
             ),
             args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
             viewport={"width": 1280, "height": 800},
@@ -232,8 +245,16 @@ def main() -> int:
 
 def _dump(live: dict) -> None:
     total = passed = 0
-    for key in ("session_logged_in", "new_chat", "input", "upload_mode_select",
-                "attachment_card", "prompt_injection", "send", "response"):
+    for key in (
+        "session_logged_in",
+        "new_chat",
+        "input",
+        "upload_mode_select",
+        "attachment_card",
+        "prompt_injection",
+        "send",
+        "response",
+    ):
         v = live.get(key)
         ok = v.get("alive") if isinstance(v, dict) else v
         if ok is True or ok is False:

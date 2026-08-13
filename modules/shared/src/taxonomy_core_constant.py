@@ -20,20 +20,24 @@ BASE_DIR = Path(__file__).resolve().parents[3]
 STATUS_FILENAME: str = "status.json"
 
 # ─── Role path skip sets ──────────────────────────────────────
-SKIP_DIRS: frozenset[str] = frozenset({
-    "done",
-    "failed",
-    ".processing",
-    "proc",
-})
+SKIP_DIRS: frozenset[str] = frozenset(
+    {
+        "done",
+        "failed",
+        ".processing",
+        "proc",
+    }
+)
 
-ROLE_PATH_SKIP_DIRS: frozenset[str] = frozenset({
-    "todo",
-    "done",
-    "failed",
-    ".processing",
-    "proc",
-})
+ROLE_PATH_SKIP_DIRS: frozenset[str] = frozenset(
+    {
+        "todo",
+        "done",
+        "failed",
+        ".processing",
+        "proc",
+    }
+)
 
 # ─── Application paths ────────────────────────────────────────
 
@@ -119,15 +123,10 @@ MESSAGE_SELECTORS: tuple[str, ...] = (
 COMBINED_MESSAGE_SELECTOR: str = ", ".join(MESSAGE_SELECTORS)
 
 STOP_BUTTON_SELECTORS: str = (
-    "button[aria-label*='Stop' i], button:has-text('Stop'), "
-    "[class*='stop-btn'], [class*='icon-stop']"
+    "button[aria-label*='Stop' i], button:has-text('Stop'), [class*='stop-btn'], [class*='icon-stop']"
 )
-SEND_DISABLED_SELECTORS: str = (
-    "button[aria-label*='Send' i][disabled], button[class*='send' i][disabled]"
-)
-TYPING_INDICATOR_SELECTORS: str = (
-    ".thinking:not([style*='display: none']), [class*='typing'], [class*='streaming']"
-)
+SEND_DISABLED_SELECTORS: str = "button[aria-label*='Send' i][disabled], button[class*='send' i][disabled]"
+TYPING_INDICATOR_SELECTORS: str = ".thinking:not([style*='display: none']), [class*='typing'], [class*='streaming']"
 
 JS_GET_RESPONSE_TEXT: str = """
 () => {

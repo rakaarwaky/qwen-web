@@ -157,8 +157,7 @@ class ObservabilitySetup(IObservabilityProtocol):
         """Install global exception handlers (delegates to module-level function)."""
         install_excepthooks()
 
-# Block 3: Dunder Methods, Factories & Helpers
-
+    # Block 3: Dunder Methods, Factories & Helpers
 
     def __repr__(self) -> str:
         """Return string representation of ObservabilitySetup."""
@@ -166,6 +165,7 @@ class ObservabilitySetup(IObservabilityProtocol):
 
 
 # ─── Module-level helper functions ──────────────────────────────────────────
+
 
 def _get_logger(name: str = "qwen-web") -> Any:
     """Return a structlog bound logger, falling back to stdlib logging."""
@@ -265,6 +265,7 @@ def _import_sentry() -> Any | None:
     """Import sentry_sdk if available."""
     try:
         import sentry_sdk as mod
+
         return mod
     except ImportError:
         return None
@@ -274,6 +275,7 @@ def _import_structlog() -> Any | None:
     """Import structlog if available."""
     try:
         import structlog as mod
+
         return mod
     except ImportError:
         return None

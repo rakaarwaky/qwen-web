@@ -86,7 +86,10 @@ class FileUploader(IUploadProtocol):
             attempt += 1
             log.info(
                 "Attempt %d/%d to upload attachment: %s (%d bytes)",
-                attempt, max_attempts, filepath.name, size_bytes,
+                attempt,
+                max_attempts,
+                filepath.name,
+                size_bytes,
             )
 
             try:
@@ -95,7 +98,9 @@ class FileUploader(IUploadProtocol):
                     elapsed = time.monotonic()
                     log.info(
                         "File attached successfully in %.2fs (attempt %d): %s",
-                        elapsed, attempt, filepath.name,
+                        elapsed,
+                        attempt,
+                        filepath.name,
                     )
                     if emitter:
                         emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "char_count": size_bytes})
@@ -112,7 +117,9 @@ class FileUploader(IUploadProtocol):
 
         log.error(
             "All %d upload attempts failed for %s after %.2fs",
-            max_attempts, filepath.name, time.monotonic() - size_bytes
+            max_attempts,
+            filepath.name,
+            time.monotonic() - size_bytes,
         )
         return False
 
@@ -156,9 +163,7 @@ class FileUploader(IUploadProtocol):
 
         log.debug("Waiting for file card attachment indicator to render and complete parsing")
         card_selector_str = ", ".join(self.card_selectors)
-        page.locator(card_selector_str).first.wait_for(
-            state="visible", timeout=self.card_render_timeout_ms
-        )
+        page.locator(card_selector_str).first.wait_for(state="visible", timeout=self.card_render_timeout_ms)
         with contextlib.suppress(Exception):
             page.locator("[class*='loading'], [class*='parsing'], [class*='spin'], .ant-spin").first.wait_for(
                 state="hidden", timeout=5000

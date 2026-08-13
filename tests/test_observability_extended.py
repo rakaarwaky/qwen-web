@@ -46,9 +46,11 @@ class TestMetricsCounter:
 
     def test_thread_safety(self):
         m = MetricsCounter()
+
         def worker():
             for _ in range(100):
                 m.increment("counter")
+
         threads = [threading.Thread(target=worker) for _ in range(10)]
         for t in threads:
             t.start()
@@ -143,6 +145,7 @@ class TestExcepthooks:
     def test_thread_excepthook(self):
         install_excepthooks()
         from modules.core.src.capabilities_observability_setup import _thread_excepthook
+
         args = MagicMock()
         args.exc_type = RuntimeError
         args.exc_value = RuntimeError("test")

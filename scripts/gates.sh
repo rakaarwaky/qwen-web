@@ -31,8 +31,8 @@ fi
 info "Syncing project dependencies (uv)..."
 uv sync --no-dev
 
-# Best-effort extras for local runs: bandit + Playwright browser
-uv pip install --quiet bandit >/dev/null 2>&1 || true
+# Best-effort extras for local runs: bandit + Playwright browser + lint deps
+uv pip install --quiet ruff mypy bandit pytest pytest-asyncio pytest-cov pytest-mock >/dev/null 2>&1 || true
 uv run python -m playwright install chromium >/dev/null 2>&1 || true
 
 # ─── Gates ──────────────────────────────────────────────────────────────────
@@ -60,7 +60,7 @@ fi
 
 # Gate 3: Bandit security scan (source code only, exclude tests) — always runs (not optional)
 info "Gate 3/5 — Bandit security scan..."
-if uv run bandit modules/root_cli_main_entry.py modules/root_mcp_main_entry.py -r modules/ -s B110,B112 2>&1 | grep -q "No issues"; then
+if uv run bandit -r modules/ -s B110,B112 2>&1 | grep -q "No issues"; then
     ok "Bandit clean"
 else
     warn "Bandit found potential issues"

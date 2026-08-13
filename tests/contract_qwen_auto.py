@@ -1,4 +1,5 @@
 """Contract test suite verifying public API contracts across feature modules."""
+
 import unittest
 from pathlib import Path
 
@@ -46,9 +47,7 @@ class TestQwenAutoContract(unittest.TestCase):
             "init_workspace",
         ]
         for m in expected_methods:
-            self.assertTrue(
-                hasattr(CoreOrchestrator, m), f"CoreOrchestrator missing method {m}"
-            )
+            self.assertTrue(hasattr(CoreOrchestrator, m), f"CoreOrchestrator missing method {m}")
 
 
 if __name__ == "__main__":

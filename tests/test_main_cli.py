@@ -163,16 +163,20 @@ class TestBuildConfig:
 
 class TestRunInit:
     def test_creates_skill_md(self, tmp_path):
-        with patch("modules.shared.src.taxonomy_core_constant.BASE_DIR", tmp_path), \
-             patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"):
+        with (
+            patch("modules.shared.src.taxonomy_core_constant.BASE_DIR", tmp_path),
+            patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"),
+        ):
             skill_dir = tmp_path / ".agents" / "skills" / "qwen-web"
             assert not skill_dir.exists()
             SharedContainer().core.init_workspace(tmp_path)
             assert (skill_dir / "SKILL.md").exists()
 
     def test_creates_gitignore(self, tmp_path):
-        with patch("modules.shared.src.taxonomy_core_constant.BASE_DIR", tmp_path), \
-             patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"):
+        with (
+            patch("modules.shared.src.taxonomy_core_constant.BASE_DIR", tmp_path),
+            patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"),
+        ):
             SharedContainer().core.init_workspace(tmp_path)
             gitignore = tmp_path / ".gitignore"
             assert gitignore.exists()
@@ -181,16 +185,20 @@ class TestRunInit:
     def test_appends_to_existing_gitignore(self, tmp_path):
         gitignore = tmp_path / ".gitignore"
         gitignore.write_text("*.pyc\n")
-        with patch("modules.shared.src.taxonomy_core_constant.BASE_DIR", tmp_path), \
-             patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"):
+        with (
+            patch("modules.shared.src.taxonomy_core_constant.BASE_DIR", tmp_path),
+            patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"),
+        ):
             SharedContainer().core.init_workspace(tmp_path)
             content = gitignore.read_text()
             assert ".qwen-web/" in content
             assert "*.pyc" in content
 
     def test_creates_symlinks(self, tmp_path):
-        with patch("modules.shared.src.taxonomy_core_constant.BASE_DIR", tmp_path), \
-             patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"):
+        with (
+            patch("modules.shared.src.taxonomy_core_constant.BASE_DIR", tmp_path),
+            patch("modules.shared.src.taxonomy_core_constant.XDG_SKILL_MD", tmp_path / "nonexistent"),
+        ):
             SharedContainer().core.init_workspace(tmp_path)
             dot_qwen = tmp_path / ".qwen-web"
             assert dot_qwen.exists()

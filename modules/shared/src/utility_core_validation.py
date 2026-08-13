@@ -58,8 +58,7 @@ def validate_file(filepath: object, max_size_mb: float = 100.0) -> int:
     max_bytes = int(max_size_mb * 1024 * 1024)
     if size_bytes > max_bytes:
         raise FileValidationError(
-            f"File size ({size_bytes / (1024 * 1024):.2f}MB) exceeds maximum limit "
-            f"of {max_size_mb:.2f}MB: {path}"
+            f"File size ({size_bytes / (1024 * 1024):.2f}MB) exceeds maximum limit of {max_size_mb:.2f}MB: {path}"
         )
 
     return size_bytes

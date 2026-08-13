@@ -38,8 +38,7 @@ class SingleInstanceLock:
         except OSError as err:
             self._lock_fd.close()
             raise SingleInstanceError(
-                "Another instance of qwen-cli is already running. "
-                f"Lock file: {self._lock_path}"
+                f"Another instance of qwen-cli is already running. Lock file: {self._lock_path}"
             ) from err
         return self
 
@@ -57,6 +56,8 @@ class SingleInstanceLock:
         finally:
             with contextlib.suppress(Exception):
                 self._lock_path.unlink(missing_ok=True)
+
+
 class LinuxGuard(ILinuxProtocol):
     """Linux-native guard: single-instance lock and sd_notify notifications."""
 
@@ -64,8 +65,7 @@ class LinuxGuard(ILinuxProtocol):
         """Initialize with an optional custom lock file path."""
         self._lock_path = lock_path
 
-# Block 2: Public Contract
-
+    # Block 2: Public Contract
 
     def acquire_lock(self) -> SingleInstanceLock:
         """Acquire the single-instance file lock."""
@@ -85,8 +85,7 @@ class LinuxGuard(ILinuxProtocol):
         """Notify systemd that the application is stopping gracefully."""
         self._sd_notify("STOPPING=1")
 
-# Block 3: Dunder Methods, Factories & Helpers
-
+    # Block 3: Dunder Methods, Factories & Helpers
 
     def _sd_notify(self, message: str, unset_environment: bool = False) -> None:
         """Send a message to systemd via the NOTIFY_SOCKET Unix datagram socket."""
