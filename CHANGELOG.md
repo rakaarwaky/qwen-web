@@ -31,6 +31,77 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- Merge pull request #30 from rakaarwaky/arena/019ffc13-qwen-web
+- fix(ci): restore os.chmod 0o700 on session dir to unbreak pytest job
+- Merge pull request #18 from rakaarwaky/worktree-fix-login-browser
+- fix: use owner-only 0o700 for session dir (address Codacy permissive chmod)
+- fix: chmod session dir to 755 (not 644) before Chrome launch
+- fix: use 'or' fallback for null error values (Codacy review)
+- fix: propagate login failure through exit code + test stderr output
+- fix: print login error instead of silent exit
+- fix: update .last_run_ts for test consistency and adjust patch paths in TestRunInit
+- fix: update .last_run_ts in tests and add it to .gitignore for consistency
+- fix: update .last_run_ts in tests and adjust symlink test paths for consistency
+- fix: update .last_run_ts timestamp for test consistency
+- fix: update patch paths in tests to reflect module restructuring
+- fix: patch XDG constants in test_creates_symlinks to avoid CI environment dependency
+- fix: apply ruff format repo-wide and use libasound2t64 for Ubuntu 24.04 CI
+- fix: expose generated MCP tools as module-level callables and satisfy ruff format
+- fix: streamline async tool generation by consolidating dictionary comprehension
+- fix: refactor async tool generation to use a dictionary for improved clarity and access
+- fix: update actions/checkout and astral-sh/setup-uv versions in CI workflow for consistency
+- fix: update gates.sh script for clarity and improve dependency management; enhance linting and testing processes
+
+### Changed
+
+- Merge pull request #32 from rakaarwaky/chore/gitignore-worktrees
+- chore: gitignore worktrees/ directory
+- chore: suppress Semgrep insecure-file-permissions on the 0o700 chmod
+- test: lock session dir execute bit (regression for 644 chmod bug)
+- chore(release): v4.1.0
+- style: fix ruff format in test_main_extended.py
+- chore(release): v4.1.0
+- Merge pull request #14 from rakaarwaky/worktree-ci-release
+- ci: add release automation and PR maintenance workflows
+- Merge pull request #11 from rakaarwaky/arena/019ffb5b-qwen-web
+- ci: address ruleset review feedback and test failures
+- chore: add codacy exclusions for __pycache__, .venv, and uv.lock
+- ci: require passing CI gates before merge
+- ci: add main branch protection rulesets and apply script
+- Merge pull request #9 from rakaarwaky/dependabot/github_actions/actions-9e919e9cab
+- Merge pull request #10 from rakaarwaky/dependabot/uv/python-e3c1103597
+- chore(deps): update setuptools requirement in the python group
+- chore(deps-ci): bump the actions group with 3 updates
+- Merge pull request #8 from rakaarwaky/arena/019ffb43-qwen-web
+- ci: add Dependabot for uv and GitHub Actions updates
+
+## [4.1.0] - 2026-08-13
+
+### Added
+
+- feat: update linting rules and ignore specific patterns for browser automation safety
+- feat: update README and CLI commands for qwen-web-cli integration
+- feat: add test suite initialization for qwen-web-cli
+- feat: enhance CI workflow with quality gates and add local gates script
+- feat: add atomic JSON file writing utility and update test fixture timestamp
+- feat: refactor DOM helper functions and update related capabilities for improved visibility checks
+- feat: add utilities for async event-loop isolation and Chrome binary discovery
+- feat: add DOM action utilities for Playwright pages
+- feat: refine exception handling across multiple modules
+- feat: enable AES501 to AES506 rules in lint configuration
+- feat: fix AES202/AES203 violations — 0 codacy & aes linter violations
+- feat: add IMetricsProtocol import and create QWEN.md file; remove unused Path import
+- feat: update protocols to use taxonomy value objects for metrics and status handling
+- feat: add Codacy configuration to exclude scripts and tests from analysis
+- feat: remove outdated key patterns section from AGENTS.md
+- feat: remove unnecessary comment and clean up SKILL.md formatting
+- feat: remove obsolete module verification script
+- feat: implement atomic file writing with error handling in _write_file_atomic function
+- feat: update protocol implementations and enhance class constructors with dependency injection
+- feat: enhance class definitions and add __repr__ methods for better debugging
+
+### Fixed
+
 - fix: use 'or' fallback for null error values (Codacy review)
 - fix: propagate login failure through exit code + test stderr output
 - fix: print login error instead of silent exit
