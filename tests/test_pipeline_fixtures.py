@@ -207,6 +207,7 @@ def _make_orchestrator(mocker: Any, audit: Any = None) -> Any:
         saver=mocker.MagicMock(),
         audit=audit or mocker.MagicMock(),
         observability=mocker.MagicMock(),
+        workspace=mocker.MagicMock(),
         circuit_breaker=CircuitBreaker(),
         rate_limiter=RateLimiter(),
     )

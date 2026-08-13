@@ -2,11 +2,11 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import MagicMock
 
 from modules.core.src.capabilities_audit_repository import AuditRepository
-from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 from modules.shared.src import AppConfig, RunContext
-from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
+from tests.helpers import make_test_orchestrator
 
 
 class MockQwenClient:
@@ -51,18 +51,11 @@ class TestQwenAutoIntegration(unittest.TestCase):
                 session_path=sess_dir,
             )
 
-            orch = CoreOrchestrator(
-                browser=MagicMock(),
-                injector=MagicMock(),
+            orch = make_test_orchestrator(
                 sender=MagicMock(return_value="Successful response text"),
                 streamer=MagicMock(wait_for_response=MagicMock(return_value="Successful response text")),
                 uploader=MagicMock(upload_attachment=MagicMock(return_value=False)),
-                saver=MagicMock(),
                 audit=AuditRepository(out_dir),
-                observability=MagicMock(get_logger=MagicMock(return_value=MagicMock())),
-                workspace=MagicMock(),
-                circuit_breaker=CircuitBreaker(),
-                rate_limiter=RateLimiter(),
             )
 
             ctx = RunContext()
@@ -96,18 +89,10 @@ class TestQwenAutoIntegration(unittest.TestCase):
                 session_path=sess_dir,
             )
 
-            orch = CoreOrchestrator(
-                browser=MagicMock(),
-                injector=MagicMock(),
+            orch = make_test_orchestrator(
                 sender=MagicMock(side_effect=RuntimeError("Mock network failure")),
-                streamer=MagicMock(),
                 uploader=MagicMock(upload_attachment=MagicMock(return_value=False)),
-                saver=MagicMock(),
                 audit=AuditRepository(out_dir),
-                observability=MagicMock(get_logger=MagicMock(return_value=MagicMock())),
-                workspace=MagicMock(),
-                circuit_breaker=CircuitBreaker(),
-                rate_limiter=RateLimiter(),
             )
 
             ctx = RunContext()

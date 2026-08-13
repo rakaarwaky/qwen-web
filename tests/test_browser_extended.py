@@ -128,9 +128,11 @@ class TestAssertOnChatPage:
 
         login_form = MagicMock()
         login_form.count.return_value = 1
+        login_form.first.is_visible.return_value = True
 
         def locator_factory(sel):
-            if sel in LOGIN_FORM_SELECTORS:
+            # is_any_visible receives a combined CSS selector string (".login-form, [class*='login'], ...")
+            if ".login-form" in sel or "[class*='login']" in sel or "#login" in sel:
                 return login_form
             return MagicMock(count=0)
 

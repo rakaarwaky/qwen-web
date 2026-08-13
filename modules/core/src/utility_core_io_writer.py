@@ -75,6 +75,25 @@ def append_jsonl(target: Path, record: Mapping[str, Any]) -> None:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
+def write_json_file(target: Path, payload: Mapping[str, Any], atomic: bool = True) -> None:
+    """Write JSON to file, atomically or directly.
+
+    Parameters
+    ----------
+    target : Path
+        Destination file path.
+    payload : Mapping[str, Any]
+        Dict-like object to serialize as JSON.
+    atomic : bool
+        If True, use atomic write (temp + rename). If False, write directly.
+    """
+    content = json.dumps(payload, ensure_ascii=False) + "\n"
+    if atomic:
+        _atomic_write(target, content)
+    else:
+        target.write_text(content, encoding="utf-8")
+
+
 def ensure_dir(path: Path) -> Path:
     """Create parent directories for *path* if they do not exist.
 

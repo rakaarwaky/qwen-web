@@ -78,7 +78,7 @@ class TestTypeSlowly:
     def test_type_slowly_inputs_text(self, client, page):
         textarea = page.query_selector(".message-input-textarea")
         assert textarea is not None
-        client._type_slowly(page, textarea, "slow text")
+        client._injector.inject_text(page, "slow text")
         val = page.evaluate("e => e.value", textarea)
         assert val == "slow text"
 
