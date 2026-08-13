@@ -1,5 +1,4 @@
-"""Path-algebra and file-state pure utilities.
-
+"""
 Taxonomy layer (utility): stateless functions, taxonomy imports only.
 """
 
@@ -8,11 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from modules.shared.src.taxonomy_config_vo import AppConfig
-from modules.shared.src.taxonomy_core_constant import (
-    DEFAULT_TODO,
-    ROLE_PATH_SKIP_DIRS,
-    SKIP_DIRS,
-)
+from modules.shared.src.taxonomy_core_constant import ROLE_PATH_SKIP_DIRS, SKIP_DIRS
 
 
 def _normalize_sub_parts(parts: tuple[str, ...], fallback_name: str) -> Path:
@@ -24,29 +19,45 @@ def _normalize_sub_parts(parts: tuple[str, ...], fallback_name: str) -> Path:
 
 
 def _compute_output_path(cfg: AppConfig, sub_path: Path) -> Path:
-    """Resolve the output destination for a sub-path (single-file file-target or dir join)."""
+    """Resolve the output destination for a sub-path (single-file target or directory join)."""
     if cfg.mode == "single" and cfg.output_path.suffix:
         return cfg.output_path
     return cfg.output_path / sub_path.name
 
 
-def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> tuple[Path, Path, Path, Path]:
-    """Resolve role-based paths for output, done, failed, and processing.
+def _role_destination(
+    root: Path, role_folder: str, sub_path: Path, marker: str, input_root: Path | None = None
+) -> Path:
+    """Join a role below a workspace root without breaking role-local defaults."""
+    if root.name == marker and root.parent.name == role_folder:
+        return root / sub_path
+    if input_root is not None and root.name == marker and root.parent.resolve() == input_root.resolve():
+        return root.parent / role_folder / marker / sub_path
+    return root / role_folder / sub_path
 
-    Returns (out_path, done_path, fail_path, proc_file).
+
+def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> tuple[Path, Path, Path, Path]:
+    """Resolve output, done, failed, and processing paths from one relative path.
+
+    ``rel_path`` may contain a role folder and any queue marker (``todo``,
+    ``done``, ``failed``, ``proc`` or ``.processing``).  Configured roots are
+    always respected; if a configured root already points at a role directory,
+    the role is not appended a second time.
     """
     parts = rel_path.parts
-    is_single_file_input = cfg.mode == "single" or bool(cfg.input_path.suffix) or cfg.input_path.is_file()
-    base = DEFAULT_TODO if is_single_file_input else cfg.input_path
+    role_idx = next((i for i, part in enumerate(parts) if part.startswith("role-")), None)
 
-    role_idx = next((i for i, p in enumerate(parts) if p.startswith("role-")), None)
     if role_idx is not None:
         role_folder = parts[role_idx]
         sub_path = _normalize_sub_parts(parts[role_idx + 1 :], rel_path.name)
         out_path = _compute_output_path(cfg, sub_path)
-        done_path = base / role_folder / "done" / sub_path
-        fail_path = base / role_folder / "failed" / sub_path
-        proc_file = cfg.proc_path / role_folder / sub_path
+        done_path = _role_destination(cfg.done_path, role_folder, sub_path, "done", cfg.input_path)
+        fail_path = _role_destination(cfg.failed_path, role_folder, sub_path, "failed", cfg.input_path)
+        proc_file = (
+            _role_destination(cfg.proc_path, role_folder, sub_path, ".processing")
+            if cfg.mode == "single"
+            else cfg.proc_path / role_folder / sub_path
+        )
     else:
         sub_path = _normalize_sub_parts(parts, rel_path.name)
         out_path = _compute_output_path(cfg, sub_path)
@@ -68,7 +79,7 @@ def should_process_file(f: Path, base_src: Path) -> bool:
 
     if len(rel_parts) < 2 or not rel_parts[0].startswith("role-"):
         return False
-    return not any(p in SKIP_DIRS or p.startswith(".") for p in rel_parts[:-1])
+    return not any(part in SKIP_DIRS or part.startswith(".") for part in rel_parts[:-1])
 
 
 def list_input_files(base_path: Path) -> list[tuple[Path, Path]]:
