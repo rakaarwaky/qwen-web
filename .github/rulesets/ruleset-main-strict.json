@@ -24,13 +24,14 @@
     {
       "type": "required_status_checks",
       "parameters": {
-        "strict_required_status_checks_policy": false,
+        "strict_required_status_checks_policy": true,
         "required_status_checks": [
           { "context": "Format (ruff format)", "integration_id": 15368 },
           { "context": "Lint (ruff check + mypy)", "integration_id": 15368 },
           { "context": "Build package", "integration_id": 15368 },
           { "context": "Tests (pytest) (3.12)", "integration_id": 15368 },
-          { "context": "Tests (pytest) (3.13)", "integration_id": 15368 }
+          { "context": "Tests (pytest) (3.13)", "integration_id": 15368 },
+          { "context": "Self-Lint (lint-arwaky-cli)", "integration_id": 15368 }
         ]
       }
     }
