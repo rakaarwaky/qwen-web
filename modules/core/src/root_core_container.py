@@ -1,66 +1,90 @@
-"""Composition root: wires Capabilities to Contract protocols and bootstraps the application.
+"""Root: single DI container for CLI and MCP features.
 
-Root layer (root_core_container): instantiates concrete Capabilities, connects them
-to Contract protocols, returns ICoreAggregate. Contains no business logic or
-orchestration policy. Surfaces should use build_core_container() instead of
-instantiating Capabilities directly.
+root_core_container.py is the only container file. Both entry points use it.
+No new files are created — no root_shared_container.py, no duplicate containers.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from modules.shared.src.contract_core_aggregate import ICoreAggregate
-from modules.shared.src.taxonomy_config_vo import DEFAULT_UPLOAD_CONFIG
-from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
-
-from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 from modules.core.src.capabilities_audit_repository import AuditRepository
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
 from modules.core.src.capabilities_file_uploader import FileUploader
 from modules.core.src.capabilities_linux_guard import LinuxGuard
-from modules.core.src.capabilities_metrics_collector import MetricsCollector
 from modules.core.src.capabilities_observability_setup import ObservabilitySetup
 from modules.core.src.capabilities_output_saver import Saver
 from modules.core.src.capabilities_prompt_injector import PromptInjector
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
-from modules.core.src.capabilities_status_writer import StatusFileWriter
 from modules.core.src.capabilities_stream_monitor import StreamMonitor
 from modules.core.src.capabilities_workspace_provisioner import WorkspaceProvisioner
+from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
+from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
+from modules.shared.src.taxonomy_core_vo import FailureThreshold, MaxPerMinute, WindowSec
+
+from .agent_core_orchestrator import CoreOrchestrator
 
 
-def build_core_container() -> ICoreAggregate:
-    """Build and return the CoreOrchestrator wired with all Capabilities.
+class SharedContainer:
+    """Single dependency injection container shared by CLI and MCP features."""
 
-    Returns
-    -------
-    ICoreAggregate
-        The orchestrator ready for use by CLI or MCP surfaces.
+    def __init__(
+        self,
+        log_path: Path | str | None = None,
+        use_linux_guard: bool = True,
+        circuit_breaker_threshold: int = 5,
+        circuit_breaker_window: int = 30,
+        rate_limit_per_minute: int = 60,
+    ) -> None:
+        """Wire capabilities with injected dependencies.
 
-    """
-    workspace = WorkspaceProvisioner()
-    linux_guard = LinuxGuard()
-    metrics = MetricsCollector()
+        Parameters
+        ----------
+        log_path : optional
+            Override for the application log directory. Defaults to DEFAULT_LOG.
+        use_linux_guard : bool
+            Include LinuxGuard (CLI-only). MCP sets False.
+        circuit_breaker_threshold : int
+            Number of consecutive failures before the circuit opens.
+        circuit_breaker_window : int
+            Time window in seconds for counting consecutive failures.
+        rate_limit_per_minute : int
+            Maximum number of requests per minute.
+        """
+        log = Path(log_path) if log_path else DEFAULT_LOG
 
-    status_writer = StatusFileWriter(DEFAULT_LOG / "status.json")
-    observability = ObservabilitySetup(log_path=DEFAULT_LOG, status_writer=status_writer)
-    audit = AuditRepository(DEFAULT_LOG)
+        self.cb = CircuitBreaker(
+            FailureThreshold(circuit_breaker_threshold),
+            WindowSec(circuit_breaker_window),
+        )
+        self.rl = RateLimiter(MaxPerMinute(rate_limit_per_minute))
 
-    browser = BrowserAdapter()
-    injector = PromptInjector()
-    sender = SendDispatcher()
-    streamer = StreamMonitor()
-    uploader = FileUploader(config=DEFAULT_UPLOAD_CONFIG)
-    saver = Saver()
+        self.browser = BrowserAdapter()
+        self.injector = PromptInjector()
+        self.sender = SendDispatcher()
+        self.streamer = StreamMonitor()
+        self.uploader = FileUploader()
+        self.saver = Saver()
+        self.audit = AuditRepository(log)
+        self.observability = ObservabilitySetup(log)
 
-    return CoreOrchestrator(
-        browser=browser,
-        injector=injector,
-        sender=sender,
-        streamer=streamer,
-        uploader=uploader,
-        saver=saver,
-        audit=audit,
-        observability=observability,
-        workspace=workspace,
-    )
+        self.core = CoreOrchestrator(
+            browser=self.browser,
+            injector=self.injector,
+            sender=self.sender,
+            streamer=self.streamer,
+            uploader=self.uploader,
+            saver=self.saver,
+            audit=self.audit,
+            observability=self.observability,
+            workspace=WorkspaceProvisioner(),
+            circuit_breaker=self.cb,
+            rate_limiter=self.rl,
+        )
+
+        # LinuxGuard is CLI-only
+        self.linux = LinuxGuard() if use_linux_guard else None  # type: ignore[assignment]
+
+    def wire(self) -> None:
+        """Wire the container (idempotent — attributes already composed)."""
+        return None
