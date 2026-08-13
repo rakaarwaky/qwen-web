@@ -201,7 +201,7 @@ class BrowserAdapter(IBrowserProtocol):
         """Manage persistent Chromium browser context with session caching and asset optimization."""
         cfg.session_path.mkdir(parents=True, exist_ok=True)
         try:
-            os.chmod(cfg.session_path, 0o644)
+            os.chmod(cfg.session_path, 0o755)
         except OSError as e:
             log.debug("failed_setting_session_permissions", error=str(e))
 
