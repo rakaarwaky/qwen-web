@@ -86,13 +86,17 @@ class TestQwenGetAuditLogExtended:
         entries = json.dumps([{"run_id": str(i)} for i in range(5)])
         tools = _mock_tools(get_audit_log=entries)
         with patch("modules.root_mcp_main_entry._tools", return_value=tools):
-            result = qwen_get_audit_log(limit=3)
+            loop = asyncio.new_event_loop()
+            result = loop.run_until_complete(qwen_get_audit_log(limit=3))
+            loop.close()
             records = json.loads(result)
             assert len(records) == 5
 
     def test_empty_file(self):
         tools = _mock_tools(get_audit_log="[]")
         with patch("modules.root_mcp_main_entry._tools", return_value=tools):
-            result = qwen_get_audit_log()
+            loop = asyncio.new_event_loop()
+            result = loop.run_until_complete(qwen_get_audit_log())
+            loop.close()
             records = json.loads(result)
             assert len(records) == 0

@@ -92,7 +92,7 @@ class TestMcpServerRemaining:
         mock_tools = MagicMock()
         mock_tools.get_audit_log.return_value = "Audit log file does not exist yet."
         with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
-            result = qwen_get_audit_log()
+            result = asyncio.run(qwen_get_audit_log())
             assert "does not exist" in result
 
 
