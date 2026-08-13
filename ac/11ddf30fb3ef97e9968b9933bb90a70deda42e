@@ -1,0 +1,19 @@
+modules/core/src/utility_core_dom_helper.py
+  s_3afbec7dcd339d::t_e7ab66f7f866b4 160-161
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ac11ddf30fb3ef97e9968b9933bb90a70deda42e",
+  "prompts": {},
+  "sessions": {
+    "s_3afbec7dcd339d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_005b8dbbcffeDe4CQ6Xosd8fgy",
+        "model": "deepseek-v4-flash-free"
+      },
+      "human_author": "rakaarwaky <arwaky90@gmail.com>"
+    }
+  }
+}
