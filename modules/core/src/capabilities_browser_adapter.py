@@ -96,7 +96,7 @@ def _assert_on_chat_page(page: Page) -> None:
     if any(k in current_url for k in AUTH_KEYWORDS):
         raise AuthRequiredError(
             f"Not authenticated — browser is on login page ({page.url}). "
-            "Run 'python3 src/main.py --login' to save your session first."
+            "Run 'qwen-web-cli --login' to save your session first."
         )
 
     if not page.query_selector(TEXTAREA_SELECTOR):
@@ -104,7 +104,7 @@ def _assert_on_chat_page(page: Page) -> None:
         if is_any_visible(page, combined_login):
             raise AuthRequiredError(
                 f"Not authenticated — login form detected ({LOGIN_FORM_SELECTORS}). "
-                "Run 'python3 src/main.py --login' to save your session first."
+                "Run 'qwen-web-cli --login' to save your session first."
             )
         log.warning("chat_textarea_missing_but_no_login_form_detected", url=page.url)
 

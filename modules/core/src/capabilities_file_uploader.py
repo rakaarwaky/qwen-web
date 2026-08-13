@@ -126,7 +126,7 @@ class FileUploader(IUploadProtocol):
         """Send Escape key to close orphaned dropdown menus."""
         try:
             page.keyboard.press("Escape")
-        except Error as e:
+        except Exception as e:
             log.debug("Cleanup keypress failed (page may be closed or unnavigated): %s", e)
 
     def _try_upload_attempt(self, page: Page, filepath: Path) -> bool:

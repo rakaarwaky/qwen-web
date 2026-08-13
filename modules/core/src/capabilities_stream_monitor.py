@@ -66,7 +66,7 @@ class StreamMonitor(IStreamProtocol):
             if is_any_visible(page, SEND_DISABLED_SELECTORS):
                 return False
             return not is_any_visible(page, TYPING_INDICATOR_SELECTORS)
-        except Error:
+        except Exception:
             return False
 
     def is_thinking_active(self, page: Page) -> bool:

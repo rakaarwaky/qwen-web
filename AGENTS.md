@@ -83,22 +83,22 @@ python3 -m playwright install chromium
 
 ```bash
 # Interactive mode (menu-driven)
-python3 src/main.py
+qwen-web-cli
 
 # Watcher mode (continuous input/ monitoring)
-python3 src/main.py --watch --headless
+qwen-web-cli --watch --headless
 
 # Batch folder processing
-python3 src/main.py -i input -o output --headless
+qwen-web-cli -i input -o output --headless
 
 # Single file processing
-python3 src/main.py -i prompt.md -o output/result.md --headless
+qwen-web-cli -i prompt.md -o output/result.md --headless
 
 # MCP server mode
-python3 src/main.py --mcp
+qwen-web-mcp
 
 # Manual login (first run)
-python3 src/main.py --login
+qwen-web-cli --login
 ```
 
 ### Running Tests

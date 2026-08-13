@@ -52,7 +52,7 @@ fi
 
 # 5. Make entrypoints executable
 echo "🔑 [install] Setting executable permissions..."
-chmod +x src/main.py "${SCRIPT_DIR}/install.sh" 2>/dev/null || true
+chmod +x "${SCRIPT_DIR}/install.sh" 2>/dev/null || true
 
 # 6. Ensure ~/.local/bin is in PATH in ~/.bashrc
 BASHRC="${HOME}/.bashrc"
