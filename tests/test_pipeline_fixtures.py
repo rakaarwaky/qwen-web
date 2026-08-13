@@ -249,10 +249,10 @@ def test_iter_todo_batch_moves_file_to_processing(fixture_root: Path, tmp_path: 
     collected = list(orchestrator._iter_todo(sandbox_cfg))
 
     assert len(collected) == 1, f"Expected 1 file, got {len(collected)}"
-    proc_file, rel_path, orig_file = collected[0]
+    proc_file, rel_path = collected[0]
 
     assert proc_file.exists(), "File must exist at .processing path"
-    assert orig_file.exists(), "Original file stays in todo until done/failed"
+    assert not task_copy.exists(), "Original file must be moved (not copied)"
     assert ".processing" in str(proc_file), "Destination must be inside .processing/"
     assert str(rel_path) == "role-architect/todo/task_001.md"
 
