@@ -18,62 +18,9 @@ from modules.shared.src import utility_core_exit
 from modules.shared.src.contract_core_protocol import IObservabilityProtocol
 from modules.shared.src.contract_status_protocol import IStatusProtocol
 from modules.shared.src.taxonomy_core_vo import ErrorCategory, ExitCode, ServiceName
-from modules.shared.src.utility_core_path import status_path_for
+from modules.shared.src.utility_core_status import status_path_for
 from modules.core.src.utility_core_io_writer import ensure_dir
 from modules.core.src.utility_core_logger_factory import get_logger
-
-log = get_logger("capabilities_observability")
-
-
-def _try_import(module_name: str) -> Any:
-    """Import a module by name, returning None on ImportError.
-
-    Shared helper for optional dependency guards across observability config.
-    """
-    try:
-        return importlib.import_module(module_name)
-    except ImportError:
-        return None
-
-
-def _import_sentry() -> Any | None:
-    """Import sentry_sdk if available."""
-    try:
-        import sentry_sdk as mod
-        return mod
-    except ImportError:
-        return None
-
-
-def _import_structlog() -> Any | None:
-    """Import structlog if available."""
-    try:
-        import structlog as mod
-        return mod
-    except ImportError:
-        return None
-
-
-def _import_otel() -> dict[str, Any] | None:
-    """Import OpenTelemetry modules if available.
-
-    Returns a dict of imported modules, or None when OTel is not installed.
-    """
-    try:
-        from opentelemetry import trace as otel_trace
-        from opentelemetry.sdk.resources import Resource
-        from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor
-
-        return {
-            "trace": otel_trace,
-            "Resource": Resource,
-            "TracerProvider": TracerProvider,
-            "BatchSpanProcessor": BatchSpanProcessor,
-        }
-    except ImportError:
-        return None
-
 
 # Block 1: Class Definition & Constructor
 class ObservabilitySetup(IObservabilityProtocol):
@@ -312,3 +259,56 @@ def install_excepthooks() -> None:
     """Install global exception handlers so crashes are logged as structured events."""
     sys.excepthook = _excepthook
     threading.excepthook = _thread_excepthook
+
+
+log = get_logger("capabilities_observability")
+
+
+def _try_import(module_name: str) -> Any:
+    """Import a module by name, returning None on ImportError.
+
+    Shared helper for optional dependency guards across observability config.
+    """
+    try:
+        return importlib.import_module(module_name)
+    except ImportError:
+        return None
+
+
+def _import_sentry() -> Any | None:
+    """Import sentry_sdk if available."""
+    try:
+        import sentry_sdk as mod
+        return mod
+    except ImportError:
+        return None
+
+
+def _import_structlog() -> Any | None:
+    """Import structlog if available."""
+    try:
+        import structlog as mod
+        return mod
+    except ImportError:
+        return None
+
+
+def _import_otel() -> dict[str, Any] | None:
+    """Import OpenTelemetry modules if available.
+
+    Returns a dict of imported modules, or None when OTel is not installed.
+    """
+    try:
+        from opentelemetry import trace as otel_trace
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+        return {
+            "trace": otel_trace,
+            "Resource": Resource,
+            "TracerProvider": TracerProvider,
+            "BatchSpanProcessor": BatchSpanProcessor,
+        }
+    except ImportError:
+        return None

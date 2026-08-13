@@ -12,7 +12,7 @@ from pathlib import Path
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_LOG,
 )
-from modules.shared.src.utility_core_path import status_path_for
+from modules.shared.src.utility_core_status import status_path_for
 
 
 @dataclass(frozen=True)

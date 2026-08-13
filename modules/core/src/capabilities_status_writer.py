@@ -11,7 +11,7 @@ from typing import Any
 
 from modules.shared.src.contract_status_protocol import IStatusProtocol
 from modules.shared.src.taxonomy_core_vo import StatusRecordVO
-from modules.shared.src.utility_core_path import status_path_for
+from modules.shared.src.utility_core_status import status_path_for
 from modules.core.src.utility_core_io_writer import atomic_write_text, ensure_dir
 
 # Block 1: Class Definition & Constructor ──────────────
