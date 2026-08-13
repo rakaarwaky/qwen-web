@@ -202,8 +202,9 @@ class BrowserAdapter(IBrowserProtocol):
         cfg.session_path.mkdir(parents=True, exist_ok=True)
         # Owner-only rwx: Chrome needs the execute bit to traverse the profile dir
         # (a 0o644 profile dir breaks SingletonLock), while 0o700 keeps it private.
+        # 0o700 is the most restrictive mode that works; nothing is granted to group/other.
         try:
-            os.chmod(cfg.session_path, 0o700)
+            os.chmod(cfg.session_path, 0o700)  # nosemgrep: insecure-file-permissions
         except OSError as e:
             log.debug("failed_setting_session_permissions", error=str(e))
 
