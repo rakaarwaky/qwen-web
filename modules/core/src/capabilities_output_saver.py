@@ -5,7 +5,6 @@ Implements ISaverProtocol.
 
 from __future__ import annotations
 
-import contextlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,13 +18,10 @@ from modules.shared.src.taxonomy_core_vo import (
     RunContext,
 )
 from modules.shared.src.taxonomy_domain_error import OutputWriteError
+from modules.core.src.utility_core_io_writer import atomic_write_text
 from modules.shared.src.utility_core_text import build_metadata_header, strip_ui_noise
 
 log = __import__("logging").getLogger("capabilities_saver")
-
-DEFAULT_INCLUDE_HEADER = IncludeHeaderFlag(True)
-DEFAULT_GENERATE_SIDECAR = GenerateSidecarFlag(True)
-DEFAULT_ATOMIC_WRITE = AtomicWriteFlag(True)
 
 
 
@@ -79,7 +75,8 @@ class Saver(ISaverProtocol):
         full_text = header + strip_ui_noise(content)
 
         if atomic_write:
-            _write_file_atomic(path, full_text)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            atomic_write_text(path, full_text)
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
             try:
@@ -99,8 +96,9 @@ class Saver(ISaverProtocol):
                     "input_chars": input_chars,
                     "output_chars": output_chars,
                 }
-                if self.atomic_write:
-                    _write_file_atomic(sidecar_path, json.dumps(meta_dict, ensure_ascii=False) + "\n")
+                if atomic_write:
+                    sidecar_path.parent.mkdir(parents=True, exist_ok=True)
+                    atomic_write_text(sidecar_path, json.dumps(meta_dict, ensure_ascii=False) + "\n")
                 else:
                     sidecar_path.write_text(
                         json.dumps(meta_dict, ensure_ascii=False) + "\n", encoding="utf-8"
@@ -110,40 +108,10 @@ class Saver(ISaverProtocol):
 
         log.info("output_file_written: %s", path.name)
 
-# Block 3: Dunder Methods, Factories & Helpers
-
+    # ─── Block 3: Dunder Methods, Factories & Helpers ─────
 
     def __repr__(self) -> str:
         """Return string representation of Saver."""
         return f"Saver(header={self.include_header}, sidecar={self.generate_sidecar}, atomic={self.atomic_write})"
-
-
-# Module-level convenience function
-def write_output(
-    path: Path,
-    content: str,
-    ctx: RunContext,
-    src: str,
-    dur: float,
-    input_chars: int,
-    output_chars: int,
-    config: Any | None = None,
-) -> None:
-    """Write output file (module-level convenience)."""
-    saver = Saver()
-    saver.write_output(path, content, ctx, src, dur, input_chars, output_chars, config)
-    
-def _write_file_atomic(target_path: Path, data: str) -> None:
-    """Atomically write text content to target path using a temporary file."""
-    tmp_path = target_path.with_suffix(f"{target_path.suffix}.tmp")
-    try:
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path.write_text(data, encoding="utf-8")
-        tmp_path.replace(target_path)
-    except OSError as e:
-        if tmp_path.exists():
-            with contextlib.suppress(OSError):
-                tmp_path.unlink()
-        raise OutputWriteError(f"Failed to write output file {target_path}: {e}") from e
 
 

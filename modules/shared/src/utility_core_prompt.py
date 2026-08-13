@@ -7,9 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from modules.shared.src.taxonomy_core_constant import DEFAULT_TODO
-
-SKIP_DIRS = {"done", "failed", ".processing", "proc"}
+from modules.shared.src.taxonomy_core_constant import DEFAULT_TODO, SKIP_DIRS
 
 
 def extract_prompt_text(content: str) -> str:

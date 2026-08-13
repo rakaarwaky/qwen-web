@@ -11,6 +11,24 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[3]
 
+# ─── Role path skip sets ──────────────────────────────────────
+SKIP_DIRS: frozenset[str] = frozenset({
+    "done",
+    "failed",
+    ".processing",
+    "proc",
+})
+
+ROLE_PATH_SKIP_DIRS: frozenset[str] = frozenset({
+    "todo",
+    "done",
+    "failed",
+    ".processing",
+    "proc",
+})
+
+# ─── Application paths ────────────────────────────────────────
+
 XDG_DATA_HOME = (
     Path(os.environ["XDG_DATA_HOME"]) / "qwen-web"
     if os.environ.get("XDG_DATA_HOME")

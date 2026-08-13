@@ -12,7 +12,6 @@ from .contract_core_aggregate import ICoreAggregate
 # ─── Contract: protocols ──────────────────────────────────────
 from .contract_core_protocol import (
     IBrowserProtocol,
-    IFileSystemProtocol,
     IInjectionProtocol,
     ILinuxProtocol,
     IObservabilityProtocol,
@@ -38,7 +37,6 @@ from .taxonomy_config_vo import (
     QwenClientConfig,
     SaverConfig,
     SenderConfig,
-    StatusRecord,
     StreamerConfig,
     UploadConfig,
 )
@@ -262,7 +260,6 @@ __all__ = [
     "QwenClientConfig",
     "ObservabilityConfig",
     "MCPServerConfig",
-    "StatusRecord",
     "MCPToolResponse",
     "OutputMetadata",
     "DEFAULT_UPLOAD_CONFIG",
@@ -336,7 +333,6 @@ __all__ = [
     "IBrowserProtocol",
     "ISaverProtocol",
     "IObservabilityProtocol",
-    "IFileSystemProtocol",
     "ILinuxProtocol",
     "ICoreAggregate",
     # Utilities

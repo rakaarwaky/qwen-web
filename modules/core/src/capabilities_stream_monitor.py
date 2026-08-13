@@ -3,12 +3,15 @@
 Implements IStreamProtocol.
 """
 
+from __future__ import annotations
+
 import time
 from typing import Any
 
 from playwright.sync_api import Error, Page
 
 from modules.shared.src.contract_core_protocol import IStreamProtocol
+from modules.shared.src.taxonomy_config_vo import StreamerConfig
 from modules.shared.src.taxonomy_core_constant import (
     COMBINED_MESSAGE_SELECTOR,
     JS_COUNT_TURNS,
@@ -33,10 +36,6 @@ from modules.shared.src.utility_core_validation import validate_response_content
 
 log = __import__("logging").getLogger("capabilities_stream_monitor")
 
-DEFAULT_POLLING_INTERVAL_SEC = PollIntervalSec(1.0)
-DEFAULT_STABILITY_CHECKS = StabilityChecks(4)
-DEFAULT_MIN_TEXT_LENGTH = MinTextLength(1)
-
 
 
 # Block 1: Class Definition & Constructor
@@ -47,13 +46,16 @@ class StreamMonitor(IStreamProtocol):
 
     def __init__(
         self,
-        polling_interval_sec: PollIntervalSec = DEFAULT_POLLING_INTERVAL_SEC,
-        stability_checks: StabilityChecks = DEFAULT_STABILITY_CHECKS,
-        min_text_length: MinTextLength = DEFAULT_MIN_TEXT_LENGTH,
+        config: StreamerConfig | None = None,
     ) -> None:
-        self.polling_interval_sec = polling_interval_sec
-        self.stability_checks = stability_checks
-        self.min_text_length = min_text_length
+        if config is not None:
+            self.polling_interval_sec = PollIntervalSec(config.polling_interval_sec)
+            self.stability_checks = StabilityChecks(config.stability_checks)
+            self.min_text_length = MinTextLength(config.min_text_length)
+        else:
+            self.polling_interval_sec = PollIntervalSec(1.0)
+            self.stability_checks = StabilityChecks(4)
+            self.min_text_length = MinTextLength(1)
 
     # ─── Block 2: Public Contract (IStreamProtocol ONLY) ──
     def is_generation_complete(self, page: Page) -> bool:
@@ -106,7 +108,7 @@ class StreamMonitor(IStreamProtocol):
         emitter.emit(EVENT_THINKING_STARTED)
         has_thinking = True
 
-        baseline_text: str | None = _latest_message_text(page)
+        baseline_text: str | None = self._latest_message_text(page)
 
         start = time.time()
         last_text: str | None = None
@@ -114,9 +116,9 @@ class StreamMonitor(IStreamProtocol):
 
         while time.time() - start < timeout_sec:
             try:
-                count = _count_messages(page)
+                count = self._count_messages(page)
                 if count >= msg_count_before:
-                    text = _latest_message_text(page)
+                    text = self._latest_message_text(page)
                     if text is not None and should_treat_as_new_response(text, baseline_text, int(active_min_len)):
                         if text == last_text:
                             stable_count += 1
@@ -156,8 +158,37 @@ class StreamMonitor(IStreamProtocol):
         log.warning("Timeout after %ds — no response detected", timeout_sec)
         return None
 
-# Block 3: Dunder Methods, Factories & Helpers
+    def _count_messages(self, page: Page) -> int:
+        """Count chat turns using JS evaluate — robust against CSS modules and virtual DOM."""
+        try:
+            count = page.evaluate(JS_COUNT_TURNS)
+            if isinstance(count, int) and count > 0:
+                return count
+        except Error:
+            pass
+        try:
+            return page.locator(COMBINED_MESSAGE_SELECTOR).count()
+        except Error:
+            return 0
 
+    def _latest_message_text(self, page: Page) -> str | None:
+        """Get the longest text block on the page excluding input/UI chrome — JS-based."""
+        try:
+            text = page.evaluate(JS_GET_RESPONSE_TEXT)
+            if text and len(text.strip()) > 0:
+                return str(text.strip())
+        except Error:
+            pass
+        try:
+            locator = page.locator(COMBINED_MESSAGE_SELECTOR)
+            cnt = locator.count()
+            if isinstance(cnt, int) and cnt > 0:
+                text = locator.last.text_content()
+                if text is not None:
+                    return str(text.strip())
+        except Error:
+            pass
+        return None
 
     def __repr__(self) -> str:
         """Return string representation of StreamMonitor."""
@@ -165,84 +196,4 @@ class StreamMonitor(IStreamProtocol):
             f"StreamMonitor(poll={self.polling_interval_sec}, checks={self.stability_checks}, "
             f"min_len={self.min_text_length})"
         )
-
-
-# Module-level convenience functions
-def wait_for_response(
-    page: Page,
-    timeout_sec: int,
-    msg_count_before: int,
-    emitter: LifecycleEmitter,
-    polling_interval_sec: float = 1.0,
-    stability_checks: int = 4,
-    min_text_length: int = 1,
-    dispatch_acknowledged: bool = True,
-) -> str | None:
-    """Wait for response (module-level convenience)."""
-    monitor = StreamMonitor(
-        polling_interval_sec=PollIntervalSec(polling_interval_sec),
-        stability_checks=StabilityChecks(stability_checks),
-        min_text_length=MinTextLength(min_text_length),
-    )
-    return monitor.wait_for_response(
-        page,
-        timeout_sec,
-        msg_count_before,
-        emitter,
-        polling_interval_sec,
-        stability_checks,
-        min_text_length,
-        dispatch_acknowledged,
-    )
-
-
-def is_generation_complete(page: Page) -> bool:
-    """Check if generation complete (module-level convenience)."""
-    monitor = StreamMonitor()
-    return monitor.is_generation_complete(page)
-
-
-def is_thinking_active(page: Page) -> bool:
-    """Check if thinking active (module-level convenience)."""
-    monitor = StreamMonitor()
-    return monitor.is_thinking_active(page)
-
-
-def _safe_count(cnt: Any) -> int:
-    """Return 0 when count() returns a non-int (e.g. MagicMock) for test safety."""
-    return cnt if isinstance(cnt, int) else 0
-
-
-def _count_messages(page: Page) -> int:
-    """Count chat turns using JS evaluate — robust against CSS modules and virtual DOM."""
-    try:
-        count = page.evaluate(JS_COUNT_TURNS)
-        if isinstance(count, int) and count > 0:
-            return count
-    except Error:
-        pass
-    try:
-        return page.locator(COMBINED_MESSAGE_SELECTOR).count()
-    except Error:
-        return 0
-
-
-def _latest_message_text(page: Page) -> str | None:
-    """Get the longest text block on the page excluding input/UI chrome — JS-based."""
-    try:
-        text = page.evaluate(JS_GET_RESPONSE_TEXT)
-        if text and len(text.strip()) > 0:
-            return str(text.strip())
-    except Error:
-        pass
-    try:
-        locator = page.locator(COMBINED_MESSAGE_SELECTOR)
-        cnt = locator.count()
-        if isinstance(cnt, int) and cnt > 0:
-            text = locator.last.text_content()
-            if text is not None:
-                return str(text.strip())
-    except Error:
-        pass
-    return None
 

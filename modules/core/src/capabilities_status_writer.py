@@ -11,6 +11,7 @@ from typing import Any
 
 from modules.shared.src.contract_status_protocol import IStatusProtocol
 from modules.shared.src.taxonomy_core_vo import StatusRecordVO
+from modules.core.src.utility_core_io_writer import atomic_write_text
 
 # Block 1: Class Definition & Constructor ──────────────
 class StatusFileWriter(IStatusProtocol):
@@ -37,11 +38,9 @@ class StatusFileWriter(IStatusProtocol):
         if kwargs.get("error"):
             rec["error"] = kwargs["error"]
 
-        tmp_path = self._status_path.with_suffix(".tmp")
         try:
-            tmp_path.write_text(json.dumps(rec, ensure_ascii=False) + "\n", encoding="utf-8")
-            tmp_path.rename(self._status_path)
-        except (OSError, IOError):
+            atomic_write_text(self._status_path, json.dumps(rec, ensure_ascii=False) + "\n")
+        except OSError:
             pass
 
     def write_record(self, record: StatusRecordVO) -> None:

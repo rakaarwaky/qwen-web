@@ -14,9 +14,9 @@ from typing import Any
 from playwright.sync_api import Page
 
 from modules.shared.src.contract_core_protocol import IUploadProtocol
+from modules.shared.src.taxonomy_config_vo import DEFAULT_UPLOAD_CONFIG, UploadConfig
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_vo import (
-    EVENT_DOCUMENT_PARSED,
     BackoffDelaySec,
     CardRenderTimeoutMs,
     DropdownTimeoutMs,
@@ -26,61 +26,32 @@ from modules.shared.src.taxonomy_core_vo import (
     MaxRetries,
     OptionTimeoutMs,
 )
-from modules.shared.src.taxonomy_domain_error import (
-    FileValidationError,
-)
+from modules.shared.src.taxonomy_domain_error import FileValidationError
 
 log = __import__("logging").getLogger("capabilities_file_uploader")
-
-DEFAULT_MAX_FILE_SIZE_MB = MaxFileSizeMb(100.0)
-DEFAULT_DROPDOWN_TIMEOUT_MS = DropdownTimeoutMs(5000)
-DEFAULT_OPTION_TIMEOUT_MS = OptionTimeoutMs(3000)
-DEFAULT_FILE_CHOOSER_TIMEOUT_MS = FileChooserTimeoutMs(8000)
-DEFAULT_CARD_RENDER_TIMEOUT_MS = CardRenderTimeoutMs(5000)
-DEFAULT_MAX_RETRIES = MaxRetries(2)
-DEFAULT_BACKOFF_DELAY_SEC = BackoffDelaySec(1.0)
 
 
 # Block 1: Class Definition & Constructor
 class FileUploader(IUploadProtocol):
     """Resilient file upload with validation, retry, and DOM recovery."""
 
-    def __init__(
-        self,
-        max_file_size_mb: MaxFileSizeMb = DEFAULT_MAX_FILE_SIZE_MB,
-        dropdown_timeout_ms: DropdownTimeoutMs = DEFAULT_DROPDOWN_TIMEOUT_MS,
-        option_timeout_ms: OptionTimeoutMs = DEFAULT_OPTION_TIMEOUT_MS,
-        file_chooser_timeout_ms: FileChooserTimeoutMs = DEFAULT_FILE_CHOOSER_TIMEOUT_MS,
-        card_render_timeout_ms: CardRenderTimeoutMs = DEFAULT_CARD_RENDER_TIMEOUT_MS,
-        max_retries: MaxRetries = DEFAULT_MAX_RETRIES,
-        backoff_delay_sec: BackoffDelaySec = DEFAULT_BACKOFF_DELAY_SEC,
-    ) -> None:
-        self.max_file_size_mb = max_file_size_mb
-        self.dropdown_timeout_ms = dropdown_timeout_ms
-        self.option_timeout_ms = option_timeout_ms
-        self.file_chooser_timeout_ms = file_chooser_timeout_ms
-        self.card_render_timeout_ms = card_render_timeout_ms
-        self.max_retries = max_retries
-        self.backoff_delay_sec = backoff_delay_sec
+    def __init__(self, config: UploadConfig | None = None) -> None:
+        if config is not None:
+            self.config = config
+        else:
+            self.config = DEFAULT_UPLOAD_CONFIG
 
-        self.dropdown_selectors = (
-            ".mode-select-open",
-            "[class*='mode-select']",
-            "button:has-text('Upload')",
-        )
-        self.upload_option_selectors = (
-            ".mode-select-dropdown-item",
-            "text='Upload attachment'",
-            "text='Upload file'",
-        )
-        self.card_selectors = (
-            ".file-card-list",
-            ".fileitem-btn",
-            ".message-input-column-file",
-            "[class*='file-card']",
-            "[class*='file-item']",
-            "[class*='fileitem']",
-        )
+        self.max_file_size_mb = MaxFileSizeMb(float(self.config.max_file_size_mb))
+        self.dropdown_timeout_ms = DropdownTimeoutMs(int(self.config.dropdown_timeout_ms))
+        self.option_timeout_ms = OptionTimeoutMs(int(self.config.option_timeout_ms))
+        self.file_chooser_timeout_ms = FileChooserTimeoutMs(int(self.config.file_chooser_timeout_ms))
+        self.card_render_timeout_ms = CardRenderTimeoutMs(int(self.config.card_render_timeout_ms))
+        self.max_retries = MaxRetries(int(self.config.max_retries))
+        self.backoff_delay_sec = BackoffDelaySec(float(self.config.backoff_delay_sec))
+
+        self.dropdown_selectors = self.config.dropdown_selectors
+        self.upload_option_selectors = self.config.upload_option_selectors
+        self.card_selectors = self.config.card_selectors
 
     # ─── Block 2: Public Contract (IUploadProtocol ONLY) ──
     def upload_attachment(
@@ -230,8 +201,7 @@ class FileUploader(IUploadProtocol):
 
         return True
 
-# Block 3: Dunder Methods, Factories & Helpers
-
+    # ─── Block 3: Dunder Methods, Factories & Helpers ─────
 
     def __repr__(self) -> str:
         """Return string representation of FileUploader."""
@@ -239,32 +209,3 @@ class FileUploader(IUploadProtocol):
             f"FileUploader(max_size={self.max_file_size_mb}, retries={self.max_retries}, "
             f"backoff={self.backoff_delay_sec})"
         )
-
-
-# Module-level convenience function
-def upload_attachment(
-    page: Page,
-    filepath: Path,
-    config: dict[str, Any] | None = None,
-    emitter: LifecycleEmitter | None = None,
-    web_loaded: bool = True,
-) -> bool:
-    """Upload attachment (module-level convenience)."""
-    uploader = FileUploader()
-    return uploader.upload_attachment(page, filepath, config, emitter, web_loaded)
-
-
-def validate_file(filepath: Path, max_size_mb: float = 100.0) -> int:
-    """Pre-flight file validation (module-level convenience)."""
-    uploader = FileUploader()
-    return uploader.validate_file(filepath, max_size_mb)
-
-
-def _close_dropdown_if_open(page: Page) -> None:
-    """Send Escape key to close orphaned dropdown menus (module-level convenience)."""
-    FileUploader()._close_dropdown_if_open(page)
-
-
-def _try_upload_attempt(page: Page, filepath: Path) -> bool:
-    """Execute a single upload attempt (module-level convenience)."""
-    return FileUploader()._try_upload_attempt(page, filepath)

@@ -163,7 +163,7 @@ def _run_manual_login(cfg: AppConfig) -> None:
 
 def _run_watcher(client: Any, cfg: AppConfig, audit: Any) -> None:
     """Watcher loop with graceful shutdown support (legacy-compatible shim)."""
-    from modules.core.src.capabilities_observability_setup import StatusFileWriter
+    from modules.core.src.capabilities_status_writer import StatusFileWriter
 
     ctx = RunContext()
     status_writer = StatusFileWriter(cfg.status_path)

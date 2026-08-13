@@ -280,14 +280,3 @@ def install_excepthooks() -> None:
     """Install global exception handlers so crashes are logged as structured events."""
     sys.excepthook = _excepthook
     threading.excepthook = _thread_excepthook
-
-
-def setup_observability(log_path: Path) -> None:
-    """Full observability bootstrap."""
-    inst = ObservabilitySetup(log_path)
-    inst.setup_observability()
-
-
-def exit_code_for(exc: BaseException) -> ExitCode:
-    """Map an unhandled exception to a process exit code (delegates to utility)."""
-    return ExitCode(utility_core_exit.exit_code_for(exc))

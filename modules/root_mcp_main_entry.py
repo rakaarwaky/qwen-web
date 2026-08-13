@@ -55,8 +55,8 @@ def _isolate_thread_event_loop() -> None:
     try:
         if hasattr(asyncio, "_set_running_loop"):
             asyncio._set_running_loop(None)
-        except (RuntimeError, AttributeError):
-            pass
+    except (RuntimeError, AttributeError):
+        pass
     try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -132,9 +132,9 @@ def _register_tools() -> None:
 
 def run_mcp_server() -> None:
     """Run the FastMCP server over stdio."""
-    from modules.core.src.capabilities_observability_setup import setup_observability
+    from modules.core.src.capabilities_observability_setup import ObservabilitySetup
 
-    setup_observability(DEFAULT_LOG)
+    ObservabilitySetup(DEFAULT_LOG).setup_observability()
 
     # Redirect standard text prints & logging to stderr to protect JSON-RPC stdio
     sys.stdout = sys.stderr

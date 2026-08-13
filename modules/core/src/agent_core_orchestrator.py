@@ -16,7 +16,7 @@ import time
 from collections.abc import Iterator
 from pathlib import Path
 
-from playwright.sync_api import ElementHandle, Locator, Page
+from playwright.sync_api import Page
 
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.contract_core_protocol import (
@@ -29,6 +29,7 @@ from modules.shared.src.contract_core_protocol import (
     IStreamProtocol,
     IUploadProtocol,
 )
+from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
     _WATCHER_SLEEP_CHUNK_SECS,
@@ -58,7 +59,6 @@ from modules.shared.src.taxonomy_core_vo import (
 from modules.shared.src.taxonomy_domain_error import (
     AuthRequiredError,
     CircuitBreakerOpenError,
-    PromptInjectionError,
     QwenCliError,
 )
 from modules.shared.src.utility_core_path import (
@@ -67,6 +67,9 @@ from modules.shared.src.utility_core_path import (
     should_process_file,
 )
 from modules.shared.src.utility_core_prompt import load_role_prompt, strip_input_from_output
+from modules.core.src.utility_core_config_factory import build_app_config
+from modules.core.src.utility_core_error_mapping import to_error_response
+from modules.core.src.utility_core_file_mover import move_to_processing, move_file
 
 _watcher_shutdown: threading.Event = threading.Event()
 
@@ -94,6 +97,7 @@ class CoreOrchestrator(ICoreAggregate):
         saver: ISaverProtocol,
         audit: IAuditProtocol,
         observability: IObservabilityProtocol,
+        workspace: IWorkspaceProtocol,
         circuit_breaker: CircuitBreaker | None = None,
         rate_limiter: RateLimiter | None = None,
     ) -> None:
@@ -106,6 +110,7 @@ class CoreOrchestrator(ICoreAggregate):
         self._saver = saver
         self._audit = audit
         self._observability = observability
+        self._workspace = workspace
         self._cb = circuit_breaker or CircuitBreaker()
         self._rl = rate_limiter or RateLimiter()
 
@@ -122,15 +127,10 @@ class CoreOrchestrator(ICoreAggregate):
             raise FileNotFoundError(f"Input file not found: {input_file}")
 
         out_p = Path(output_file).resolve() if output_file else DEFAULT_OUTPUT / in_p.name
-        cfg = AppConfig(
+        cfg = build_app_config(
             mode="single",
             input_path=in_p,
             output_path=out_p,
-            done_path=DEFAULT_DONE,
-            failed_path=DEFAULT_FAILED,
-            proc_path=DEFAULT_PROC,
-            session_path=DEFAULT_SESSION,
-            log_path=DEFAULT_LOG,
             headless=headless,
         )
 
@@ -145,10 +145,8 @@ class CoreOrchestrator(ICoreAggregate):
             with self._browser.browser_session(cfg):
                 self._process_file(proc_file, Path(in_p.name), cfg, ctx)
             return ResponseText(f"Successfully processed {in_p.name} -> {out_p}")
-        except AuthRequiredError as e:
-            return ResponseText(f"ERROR [AUTH_REQUIRED]: {e}")
         except Exception as e:
-            return ResponseText(f"ERROR [{type(e).__name__}]: {e}")
+            return to_error_response(e)
 
     def process_batch(
         self,
@@ -160,15 +158,10 @@ class CoreOrchestrator(ICoreAggregate):
         in_p = Path(input_dir).resolve() if input_dir else DEFAULT_TODO
         out_p = Path(output_dir).resolve() if output_dir else DEFAULT_OUTPUT
 
-        cfg = AppConfig(
+        cfg = build_app_config(
             mode="batch",
             input_path=in_p,
             output_path=out_p,
-            done_path=DEFAULT_DONE,
-            failed_path=DEFAULT_FAILED,
-            proc_path=DEFAULT_PROC,
-            session_path=DEFAULT_SESSION,
-            log_path=DEFAULT_LOG,
             headless=headless,
         )
 
@@ -188,22 +181,15 @@ class CoreOrchestrator(ICoreAggregate):
                             "batch_file_failed", file=str(rel_path), error=str(e)
                         )
             return ResponseText(f"Batch processing complete. Successfully processed: {processed}, Failed: {failed}")
-        except AuthRequiredError as e:
-            return ResponseText(f"ERROR [AUTH_REQUIRED]: {e}")
         except Exception as e:
-            return ResponseText(f"ERROR [{type(e).__name__}]: {e}")
+            return to_error_response(e)
 
     def process_watcher(self, interval_sec: int = 3, headless: bool = True) -> ResponseText:
         """Run the continuous folder watcher."""
-        cfg = AppConfig(
+        cfg = build_app_config(
             mode="watcher",
             input_path=DEFAULT_TODO,
             output_path=DEFAULT_OUTPUT,
-            done_path=DEFAULT_DONE,
-            failed_path=DEFAULT_FAILED,
-            proc_path=DEFAULT_PROC,
-            session_path=DEFAULT_SESSION,
-            log_path=DEFAULT_LOG,
             interval=interval_sec,
             headless=headless,
         )
@@ -215,10 +201,8 @@ class CoreOrchestrator(ICoreAggregate):
                     self._process_file(proc_file, rel_path, cfg, ctx)
                     self._watcher_sleep(cfg.interval)
             return ResponseText("Watcher loop completed.")
-        except AuthRequiredError as e:
-            return ResponseText(f"ERROR [AUTH_REQUIRED]: {e}")
         except Exception as e:
-            return ResponseText(f"ERROR [{type(e).__name__}]: {e}")
+            return to_error_response(e)
 
     def send_prompt(self, prompt: str, timeout_sec: int = 120, headless: bool = True) -> ResponseText:
         """Send a direct text prompt and return the AI response."""
@@ -226,40 +210,28 @@ class CoreOrchestrator(ICoreAggregate):
             tmp.write(prompt)
             tmp_path = Path(tmp.name)
 
-        cfg = AppConfig(
+        cfg = build_app_config(
             mode="single",
             input_path=tmp_path,
             output_path=DEFAULT_OUTPUT,
-            done_path=DEFAULT_DONE,
-            failed_path=DEFAULT_FAILED,
-            proc_path=DEFAULT_PROC,
-            session_path=DEFAULT_SESSION,
-            log_path=DEFAULT_LOG,
             headless=headless,
         )
 
         try:
             with self._browser.browser_session(cfg):
                 return ResponseText(self._send_file(tmp_path, timeout_sec, None, None, cfg))
-        except AuthRequiredError as e:
-            return ResponseText(f"ERROR [AUTH_REQUIRED]: {e}")
         except Exception as e:
-            return ResponseText(f"ERROR [{type(e).__name__}]: {e}")
+            return to_error_response(e)
         finally:
             if tmp_path.exists():
                 tmp_path.unlink()
 
     def setup_session(self) -> ResponseText:
         """Launch a visible browser for manual login / session setup."""
-        cfg = AppConfig(
+        cfg = build_app_config(
             mode="login",
             input_path=DEFAULT_TODO,
             output_path=DEFAULT_OUTPUT,
-            done_path=DEFAULT_DONE,
-            failed_path=DEFAULT_FAILED,
-            proc_path=DEFAULT_PROC,
-            session_path=DEFAULT_SESSION,
-            log_path=DEFAULT_LOG,
             headless=False,
         )
         with self._browser.browser_session(cfg) as bctx:
@@ -272,8 +244,8 @@ class CoreOrchestrator(ICoreAggregate):
         return self._audit.get_audit_log(MessageCount(limit))
 
     def init_workspace(self, target_dir: Path | str = ".") -> None:
-        """Initialize the workspace (delegated to the audit/file-system capability)."""
-        self._audit.init_workspace(Path(target_dir))
+        """Initialize the workspace (delegated to IWorkspaceProtocol)."""
+        self._workspace.init_workspace(Path(target_dir))
 
     def send_file(
         self,
@@ -327,36 +299,6 @@ class CoreOrchestrator(ICoreAggregate):
             return response.strip()
         raise TimeoutError(f"Timeout after {timeout_sec}s: no response detected")
 
-    def _type_slowly(self, _page: Page, textarea: ElementHandle | Locator, text: str, delay_ms: int = 30) -> None:
-        """Type text character-by-character using Playwright's native type()."""
-        if not text:
-            return
-        try:
-            textarea.type(text, delay=delay_ms)
-        except Exception as e:
-            raise PromptInjectionError(f"Native typing failed: {e}") from e
-
-    def _count_messages(self, page: Page) -> int:
-        """Count chat turns on the given page."""
-        return self._sender.count_messages(page)
-
-    def _latest_message_text(self, page: Page) -> str | None:
-        """Return the latest assistant response text on the given page."""
-        return self._sender.latest_message_text(page)
-
-    def _wait_for_response(
-        self,
-        page: Page,
-        timeout_sec: int,
-        msg_count_before: int,
-        dispatch_acknowledged: bool = True,
-    ) -> str | None:
-        """Wait for a stable assistant response on the given page."""
-        return self._streamer.wait_for_response(
-            page, TimeoutSec(timeout_sec), MessageCount(msg_count_before), self._emitter(),
-            dispatch_acknowledged=HeadlessFlag(bool(dispatch_acknowledged)),
-        )
-
     # ─── Private orchestration helpers (Block 3) ─────────────────
     def _send_file(
         self,
@@ -367,15 +309,10 @@ class CoreOrchestrator(ICoreAggregate):
         cfg: AppConfig | None = None,
     ) -> str:
         """Send a prompt file and return the AI response text."""
-        active_cfg = cfg or AppConfig(
+        active_cfg = cfg or build_app_config(
             mode="single",
             input_path=filepath,
             output_path=DEFAULT_OUTPUT,
-            done_path=DEFAULT_DONE,
-            failed_path=DEFAULT_FAILED,
-            proc_path=DEFAULT_PROC,
-            session_path=DEFAULT_SESSION,
-            log_path=DEFAULT_LOG,
             headless=True,
         )
 
@@ -451,8 +388,7 @@ class CoreOrchestrator(ICoreAggregate):
             with contextlib.suppress(Exception):
                 proc_file.unlink()
         else:
-            done_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(proc_file), str(done_path))
+            move_file(proc_file, done_path)
 
         cleanup_empty_dirs(proc_file.parent, cfg.proc_path)
         return text
@@ -478,8 +414,7 @@ class CoreOrchestrator(ICoreAggregate):
         self._audit.log_step(ctx, "QUARANTINED", FilePath(str(rel_path)), "FAILED", {"error": err_msg})
 
         if out_path.resolve() != fail_path.resolve() and proc_file.exists():
-            fail_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(proc_file), str(fail_path))
+            move_file(proc_file, fail_path)
         else:
             with contextlib.suppress(Exception):
                 proc_file.unlink()

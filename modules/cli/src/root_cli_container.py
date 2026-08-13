@@ -18,6 +18,7 @@ from modules.core.src.capabilities_output_saver import Saver
 from modules.core.src.capabilities_prompt_injector import PromptInjector
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.core.src.capabilities_stream_monitor import StreamMonitor
+from modules.core.src.capabilities_workspace_provisioner import WorkspaceProvisioner
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
 from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
 from modules.shared.src.taxonomy_core_vo import FailureThreshold, MaxPerMinute, WindowSec
@@ -56,6 +57,7 @@ class CliContainer:
             saver=self.saver,
             audit=self.audit,
             observability=self.observability,
+            workspace=WorkspaceProvisioner(),
             circuit_breaker=self.cb,
             rate_limiter=self.rl,
         )

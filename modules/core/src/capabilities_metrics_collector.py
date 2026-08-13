@@ -43,9 +43,3 @@ class MetricsCounter(IMetricsProtocol):
     # ─── Block 3: Dunder Methods, Factories & Helpers ─────
     def __repr__(self) -> str:
         return "MetricsCounter()"
-
-
-# Module-level convenience
-def counter() -> MetricsCounter:
-    """Create a fresh metrics counter (module-level convenience)."""
-    return MetricsCounter()

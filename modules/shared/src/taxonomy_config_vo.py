@@ -79,20 +79,6 @@ DEFAULT_INJECTOR_CONFIG = InjectorConfig()
 
 
 @dataclass(frozen=True)
-class StatusRecord:
-    """Status payload recorded for systemd/monitoring integration."""
-
-    status: str
-    mode: str
-    headless: bool
-    run_id: str | None = None
-    files_processed: int = 0
-    files_failed: int = 0
-    cpu_sec: float | None = None
-    error: str | None = None
-
-
-@dataclass(frozen=True)
 class ObservabilityConfig:
     """Configuration options for observability logging and tracing."""
 
@@ -159,7 +145,7 @@ class StreamerConfig:
     """Configuration options for AI response streaming and stability detection."""
 
     polling_interval_sec: float = 1.0
-    stability_checks: int = 3
+    stability_checks: int = 4
     min_text_length: int = 1
 
 

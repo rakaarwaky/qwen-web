@@ -98,15 +98,8 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
         else:
             git_ignore.write_text(f"{entry}\n", encoding="utf-8")
 
-# Block 3: Dunder Methods, Factories & Helpers
-
+    # ─── Block 3: Dunder Methods, Factories & Helpers ─────
 
     def __repr__(self) -> str:
         """Return string representation of WorkspaceProvisioner."""
         return "WorkspaceProvisioner()"
-
-
-# Module-level convenience function
-def init_workspace(target_dir: Path) -> None:
-    """Initialize workspace (module-level convenience)."""
-    WorkspaceProvisioner().init_workspace(target_dir)

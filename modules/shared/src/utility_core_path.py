@@ -8,10 +8,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from modules.shared.src.taxonomy_config_vo import AppConfig
-from modules.shared.src.taxonomy_core_constant import DEFAULT_TODO
-
-SKIP_DIRS = {"done", "failed", ".processing", "proc"}
-ROLE_PATH_SKIP_DIRS = {"todo", "done", "failed", ".processing", "proc"}
+from modules.shared.src.taxonomy_core_constant import (
+    DEFAULT_TODO,
+    ROLE_PATH_SKIP_DIRS,
+    SKIP_DIRS,
+)
 
 
 def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> tuple[Path, Path, Path, Path]:

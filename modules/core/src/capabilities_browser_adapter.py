@@ -262,37 +262,3 @@ class BrowserAdapter(IBrowserProtocol):
     def __repr__(self) -> str:
         """Return string representation of BrowserAdapter."""
         return "BrowserAdapter()"
-
-
-# ─── Module-level convenience functions ──────────────────────────────────────
-def reset_page(page: Page, emitter: LifecycleEmitter) -> None:
-    """Reset the page to a clean state by navigating back to chat.qwen.ai."""
-    BrowserAdapter().reset_page(page, emitter)
-
-
-def navigate_to_chat(page: Page, emitter: LifecycleEmitter) -> None:
-    """Navigate to chat.qwen.ai, emit WEB_LOADED, and verify authenticated session."""
-    BrowserAdapter().navigate_to_chat(page, emitter)
-
-
-def check_auth(page: Page) -> None:
-    """Raise AuthRequiredError if the page is on a login/auth URL or login form detected."""
-    BrowserAdapter().check_auth(page)
-
-
-def _clean_stale_locks(user_data_dir: str) -> None:
-    """Clean up stale Chromium lock files (module-level convenience)."""
-    BrowserAdapter()._clean_stale_locks(user_data_dir)
-
-
-def _launch_context(p: Playwright, kwargs: dict[str, Any]) -> BrowserContext:
-    """Launch the persistent context with tenacity retry (module-level convenience)."""
-    return BrowserAdapter()._launch_context(p, kwargs)
-
-
-@contextmanager
-def browser_session(cfg: Any) -> Iterator[BrowserContext]:
-    """Manage persistent Chromium browser context (module-level convenience)."""
-    adapter = BrowserAdapter()
-    with adapter.browser_session(cfg) as ctx:
-        yield ctx

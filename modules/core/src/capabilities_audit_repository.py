@@ -8,7 +8,6 @@ IWorkspaceProtocol via DI. All file system I/O for the domain lives here.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +15,8 @@ from modules.shared.src.contract_core_protocol import IAuditProtocol
 from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
 from modules.shared.src.taxonomy_core_vo import FilePath, ResponseText, RunContext
+from modules.core.src.utility_core_io_writer import append_jsonl
+from modules.core.src.utility_core_time_formatter import utc_now_iso
 
 # Block 1: Class Definition & Constructor
 
@@ -44,7 +45,7 @@ class AuditRepository(IAuditProtocol):
         """Log granular step-by-step event execution for end-to-end traceability."""
         rec: dict[str, Any] = {
             "run_id": ctx.run_id,
-            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+            "timestamp": utc_now_iso(),
             "event": "step_execution",
             "step": step,
             "source_file": src,
@@ -52,8 +53,7 @@ class AuditRepository(IAuditProtocol):
         }
         if details is not None:
             rec["details"] = details
-        with self._audit.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        append_jsonl(self._audit, rec)
 
     def log(
         self,
@@ -69,7 +69,7 @@ class AuditRepository(IAuditProtocol):
         """Log a completed file processing result with duration and character counts."""
         rec = {
             "run_id": ctx.run_id,
-            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+            "timestamp": utc_now_iso(),
             "source_file": src,
             "output_file": dst,
             "status": status,
@@ -79,24 +79,22 @@ class AuditRepository(IAuditProtocol):
         }
         if err:
             rec["error"] = err
-        with self._audit.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        append_jsonl(self._audit, rec)
         if err:
-            err_entry = f"[{datetime.now(tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}] [run_id={ctx.run_id}] {src}: {err}\n\n"
+            err_entry = f"[{utc_now_iso()}] [run_id={ctx.run_id}] {src}: {err}\n\n"
             with self._errors.open("a", encoding="utf-8") as f:
                 f.write(err_entry)
 
             err_json_rec = {
                 "run_id": ctx.run_id,
-                "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+                "timestamp": utc_now_iso(),
                 "source_file": src,
                 "output_file": dst,
                 "error": err,
                 "duration_sec": dur,
                 "input_chars": in_c,
             }
-            with self._errors_jsonl.open("a", encoding="utf-8") as f:
-                f.write(json.dumps(err_json_rec, ensure_ascii=False) + "\n")
+            append_jsonl(self._errors_jsonl, err_json_rec)
 
     def init_workspace(self, target_dir: FilePath) -> None:
         """Delegate to workspace provisioner (separate concern via DI)."""

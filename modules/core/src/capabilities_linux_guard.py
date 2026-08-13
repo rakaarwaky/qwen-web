@@ -108,19 +108,3 @@ class LinuxGuard(ILinuxProtocol):
     def __repr__(self) -> str:
         """Return string representation of LinuxGuard."""
         return f"LinuxGuard(lock_path={self._lock_path!r})"
-
-
-# ─── Module-level convenience functions ──────────────────────────────────────
-def sd_notify(message: str, unset_environment: bool = False) -> None:
-    """Send a raw message to systemd (module-level convenience)."""
-    LinuxGuard()._sd_notify(message, unset_environment)
-
-
-def sd_notify_ready() -> None:
-    """Notify systemd that the application is ready (module-level convenience)."""
-    LinuxGuard().sd_notify_ready()
-
-
-def sd_notify_stop() -> None:
-    """Notify systemd that the application is stopping (module-level convenience)."""
-    LinuxGuard().sd_notify_stop()

@@ -152,28 +152,3 @@ class PromptInjector(IInjectionProtocol):
     def __repr__(self) -> str:
         """Return string representation of PromptInjector."""
         return f"PromptInjector(config={self.config!r})"
-
-
-def find_input(page: Page, config: InjectorConfig | None = None) -> Any:
-    """Find input element (module-level convenience function)."""
-    return PromptInjector().find_input(page, config)
-
-
-def inject_text(page: Page, text: str, config: InjectorConfig | None = None) -> None:
-    """Inject text (module-level convenience function)."""
-    PromptInjector().inject_text(page, text, config)
-
-
-def type_slowly(_page: Page, textarea: Any, text: str, delay_ms: int = 30) -> None:
-    """Type text character-by-character using Playwright's native type()."""
-    if not text:
-        return
-    try:
-        textarea.type(text, delay=delay_ms)
-    except Exception as e:
-        raise PromptInjectionError(f"Native typing failed: {e}") from e
-
-
-def _verify_injection(el: Any) -> bool:
-    """Verify that text is non-empty inside the input element (module-level convenience)."""
-    return PromptInjector()._verify_injection(el)
