@@ -1,0 +1,217 @@
+name: Auto-Release
+
+# Opens a versioned release PR automatically after CI passes on main.
+# Conventional commit types drive the version bump:
+#   feat! / fix! / BREAKING CHANGE footer -> MAJOR
+#   feat                                -> MINOR
+#   fix / other                         -> PATCH
+# The PR bumps pyproject.toml + uv.lock and prepends a CHANGELOG.md entry.
+# Once it merges, tag-release-prs.yml creates the v* tag and dispatches
+# release.yml for the actual build.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write       # push the release branch
+  pull-requests: write  # open + auto-merge the release PR
+  actions: write        # dispatch CI on the release branch
+
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Open release PR
+    runs-on: ubuntu-latest
+    # Only run when CI succeeded on a push to main; skip the version-bump
+    # merge commit itself (prevents an infinite release loop). Manual dispatch
+    # must target refs/heads/main — never run the privileged release path
+    # otherwise.
+    if: >
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_commit.message != 'Initial commit' &&
+       !startsWith(github.event.workflow_run.head_commit.message, 'chore(release):'))
+    steps:
+      # Checkout the static main ref (not the incoming workflow_run ref),
+      # which security scanners flag as a risk. Release integrity is still
+      # guaranteed by verifying the tip of main matches the exact SHA that
+      # CI tested — see the next step.
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Skip if the tested commit is no longer main's tip
+        # A later push may have landed while CI was running; releasing it
+        # would tag commits that were never gated. Only release when the
+        # SHA that passed CI is still the tip of main.
+        id: staleness
+        if: github.event_name == 'workflow_run'
+        run: |
+          TIP=$(git rev-parse refs/remotes/origin/main)
+          TESTED="${{ github.event.workflow_run.head_sha }}"
+          if [ "$TIP" != "$TESTED" ]; then
+            echo "main tip ($TIP) != tested SHA ($TESTED) — skipping release."
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+            echo "Tested commit is still main's tip."
+          fi
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+
+      - name: Determine next version from commit history
+        id: version
+        if: steps.staleness.outputs.stale != 'true'
+        run: |
+          # Newest vX.Y.Z tag reachable from HEAD, descending version sort.
+          LAST_TAG=$(git tag --merged HEAD --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+          if [ -z "$LAST_TAG" ]; then
+            # No tags yet — derive base version from pyproject.toml and inspect
+            # all commits. grep must fail through to the default when there is
+            # no root version.
+            CURRENT=$(grep -m1 -oP '^version\s*=\s*"\K[^"]+' pyproject.toml || true)
+            if [ -z "$CURRENT" ]; then
+              CURRENT="0.1.0"
+            fi
+            LAST_TAG="v${CURRENT}"
+            RANGE="HEAD"
+          else
+            RANGE="${LAST_TAG}..HEAD"
+          fi
+          echo "range=${RANGE}" >> "$GITHUB_OUTPUT"
+          echo "last_tag=${LAST_TAG}" >> "$GITHUB_OUTPUT"
+
+          # Conventional commit detection.
+          # Breaking change via subject: `feat!:`, `feat(scope)!:`, `fix!:` etc.
+          MAJOR_SUBJECT=$(git log "$RANGE" --oneline --grep='^[a-zA-Z]*(.*)!:' -E | head -1)
+          # Breaking change via footer: `BREAKING CHANGE: ...` in the body.
+          MAJOR_FOOTER=$(git log "$RANGE" --format=%B | grep -m1 '^BREAKING CHANGE:' || true)
+          # Minor: only `feat:` or `feat(scope):` — not e.g. `feature:`.
+          FEAT=$(git log "$RANGE" --oneline --grep='^feat(\([^)]+\))?:' -E | head -1)
+
+          BASE="${LAST_TAG#v}"
+          IFS='.' read -r MAJ_V MIN_V PAT_V <<< "$BASE"
+          MAJ_V=${MAJ_V:-0}; MIN_V=${MIN_V:-0}; PAT_V=${PAT_V:-0}
+
+          if [ -n "$MAJOR_SUBJECT" ] || [ -n "$MAJOR_FOOTER" ]; then
+            NEW="$((MAJ_V + 1)).0.0"
+          elif [ -n "$FEAT" ]; then
+            NEW="${MAJ_V}.$((MIN_V + 1)).0"
+          else
+            NEW="${MAJ_V}.${MIN_V}.$((PAT_V + 1))"
+          fi
+          echo "version=${NEW}" >> "$GITHUB_OUTPUT"
+          echo "New version: ${NEW}"
+
+      - name: Bump version (pyproject.toml + uv.lock)
+        if: steps.staleness.outputs.stale != 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # The root [project] version is the single source of truth (same
+          # convention as scripts/release.sh).
+          sed -i "s/^version = .*/version = \"${VERSION}\"/" pyproject.toml
+          # Refresh ONLY the root package's locked version — dependency
+          # constraints are unchanged, so uv lock cannot pull untested
+          # dependency upgrades into the release.
+          uv lock
+
+      - name: Update CHANGELOG.md
+        if: steps.staleness.outputs.stale != 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          RANGE: ${{ steps.version.outputs.range }}
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          # Group conventional commit messages since the previous release.
+          FEATS=$(git log "$RANGE" --pretty=format:'- %s' --grep='^feat(\([^)]+\))?:' -E | head -20)
+          FIXES=$(git log "$RANGE" --pretty=format:'- %s' --grep='^fix(\([^)]+\))?:' -E | head -20)
+          CHORES=$(git log "$RANGE" --pretty=format:'- %s' --grep='^(chore|refactor|docs|test|perf|ci|build|style)(\([^)]+\))?:' -E | head -20)
+          python3 - "$VERSION" "$DATE" "$FEATS" "$FIXES" "$CHORES" <<'PYEOF'
+          import re
+          import sys
+
+          version, date, feats, fixes, chores = sys.argv[1:6]
+          sections = []
+          if feats.strip():
+              sections.append("### Added\n\n" + feats.strip())
+          if fixes.strip():
+              sections.append("### Fixed\n\n" + fixes.strip())
+          if chores.strip():
+              sections.append("### Changed\n\n" + chores.strip())
+          if not sections:
+              sections.append("- No significant changes")
+          body = "\n\n".join(sections)
+          entry = f"## [{version}] - {date}\n\n{body}\n\n"
+          with open("CHANGELOG.md") as f:
+              content = f.read()
+          # Keep a Changelog layout: header block first, then releases
+          # newest-first — insert before the first existing release heading.
+          m = re.search(r"^## \[", content, flags=re.M)
+          idx = m.start() if m else len(content)
+          with open("CHANGELOG.md", "w") as f:
+              f.write(content[:idx] + entry + content[idx:])
+          PYEOF
+
+      - name: Open release PR
+        if: steps.staleness.outputs.stale != 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="release/v${VERSION}"
+
+          # Skip only when an open release PR for this version already exists
+          # (prevents duplicate release PRs after a merge). The branch itself
+          # may exist from a previous attempt and is overwritten below.
+          if gh pr list --head "$BRANCH" --state open --json number \
+            --jq 'length' 2>/dev/null | grep -q '[1-9]'; then
+            echo "Release PR for ${VERSION} already open — skipping."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml uv.lock CHANGELOG.md
+          git commit -m "chore(release): v${VERSION}"
+
+          # Create the release branch and push it. --force-with-lease
+          # overwrites a stale branch from a previous attempt but refuses to
+          # clobber anything pushed concurrently.
+          git switch -c "$BRANCH"
+          git push -u origin "$BRANCH" --force-with-lease
+
+          # Open a PR to main; a failure here must fail the job.
+          PR_BODY=$(cat <<BODY
+          Automated release PR for v${VERSION}.
+
+          ## Changelog
+
+          See the v${VERSION} entry in [CHANGELOG.md](CHANGELOG.md).
+          BODY
+          )
+          gh pr create --base main --head "$BRANCH" \
+            --title "chore(release): v${VERSION}" \
+            --body "$PR_BODY"
+
+          # PRs opened with GITHUB_TOKEN do not fire on:pull_request workflows
+          # (GitHub anti-recursion guard), so dispatch CI on the release branch
+          # explicitly — the checks attach to the same head SHA and gate the
+          # PR — then arm auto-merge so the PR lands once checks pass.
+          gh workflow run ci.yml --ref "$BRANCH"
+          gh pr merge --auto --squash \
+            --subject "chore(release): v${VERSION}" "$BRANCH" || \
+            echo "Auto-merge not available yet (e.g. checks still pending) — the auto-merge workflow re-arms on later PR events."

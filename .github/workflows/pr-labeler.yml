@@ -1,0 +1,25 @@
+name: PR Labeler
+
+# Applies labels to PRs based on changed files (see .github/labeler.yml).
+# Also syncs labels when a PR is updated.
+
+on:
+  # pull_request_target gives the token write access to label PRs opened
+  # from forks. This workflow only reads changed-file metadata (no checkout,
+  # no code execution), so the privileged event is safe here.
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    name: Label PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          sync-labels: true

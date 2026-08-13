@@ -1,0 +1,40 @@
+name: Auto-merge gated PRs
+
+# Merges a PR automatically once all required status checks pass.
+# Branch protection on main should require the CI quality gates
+# ("Format (ruff format)", "Lint (ruff check + mypy)", "Build package",
+# "Tests (pytest)" for each matrix Python, "Self-Lint (lint-arwaky-cli)").
+# GitHub's native auto-merge holds the PR until those checks succeed, then
+# merges. Repository setting "Allow auto-merge" is already enabled.
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  enable-auto-merge:
+    name: Enable auto-merge
+    runs-on: ubuntu-latest
+    # Only for PRs targeting main, not draft, and not already merged.
+    if: >
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.merged == false
+    steps:
+      - name: Enable auto-merge (squash)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Values arrive via env vars (escaped by the runner), never inline
+          # interpolation, to prevent command injection through PR metadata.
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # --auto holds the PR until the branch-protection/required checks
+          # pass, then merges with squash. Idempotent across re-runs.
+          gh pr merge "$PR_NUMBER" --auto --squash \
+            --subject "$PR_TITLE" || \
+            echo "Auto-merge not available yet (e.g. checks still pending) — a later event will retry."
