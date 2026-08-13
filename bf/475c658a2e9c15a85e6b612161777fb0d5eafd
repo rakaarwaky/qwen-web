@@ -1,0 +1,45 @@
+tests/test_file_uploader.py
+  s_3afbec7dcd339d::t_ac57a6cde09a6d 28
+modules/shared/src/utility_core_path.py
+  s_3afbec7dcd339d::t_ce905471e0ac2f 20-22
+tests/test_browser_extended.py
+  s_3afbec7dcd339d::t_305e29a2d1282b 195
+modules/core/src/utility_core_dom_helper.py
+  s_3afbec7dcd339d::t_7c3bc899fa8832 136-138,156-162
+  s_3afbec7dcd339d::t_3d07eb965ae167 12
+tests/helpers.py
+  s_3afbec7dcd339d::t_ab37f675362ad2 95-138
+  s_3afbec7dcd339d::t_e03c2beb5af7ae 10,12,24,26-27
+tests/test_streamer_extended.py
+  s_3afbec7dcd339d::t_25063e6bf3ac2f 9,18
+tests/test_regression_lock.py
+  s_3afbec7dcd339d::t_191daa58394d35 75
+tests/conftest.py
+  s_3afbec7dcd339d::t_01341b68fa30ad 29
+  s_3afbec7dcd339d::t_a7947f657db917 95
+tests/test_comprehensive_coverage.py
+  s_3afbec7dcd339d::t_7704a75f7d7838 23
+  s_3afbec7dcd339d::t_72444310a0eeaa 41,45-47
+  s_3afbec7dcd339d::t_4663e347541833 54
+  s_3afbec7dcd339d::t_c5791f7c571183 185
+  s_3afbec7dcd339d::t_e4b172f55d2bfd 142-143,151
+modules/core/src/capabilities_browser_adapter.py
+  s_3afbec7dcd339d::t_9bcef4ca770e6e 105,107
+  s_3afbec7dcd339d::t_3cc05f95b322d4 141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "bf475c658a2e9c15a85e6b612161777fb0d5eafd",
+  "prompts": {},
+  "sessions": {
+    "s_3afbec7dcd339d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_005b8dbbcffeDe4CQ6Xosd8fgy",
+        "model": "deepseek-v4-flash-free"
+      },
+      "human_author": "rakaarwaky <arwaky90@gmail.com>"
+    }
+  }
+}
