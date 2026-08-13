@@ -17,8 +17,9 @@ from modules.shared.src import utility_core_exit
 from modules.shared.src.contract_core_protocol import IObservabilityProtocol
 from modules.shared.src.contract_status_protocol import IStatusProtocol
 from modules.shared.src.taxonomy_core_vo import ErrorCategory, ExitCode, ServiceName
+from modules.core.src.utility_core_logger_factory import get_logger
 
-log = __import__("logging").getLogger("capabilities_observability")
+log = get_logger("capabilities_observability")
 
 # Block 1: Class Definition & Constructor
 class ObservabilitySetup(IObservabilityProtocol):

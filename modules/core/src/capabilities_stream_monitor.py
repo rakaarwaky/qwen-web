@@ -34,7 +34,10 @@ from modules.shared.src.taxonomy_domain_error import AuthRequiredError, NetworkT
 from modules.shared.src.utility_core_events import is_stability_satisfied, should_treat_as_new_response
 from modules.shared.src.utility_core_validation import validate_response_content
 
-log = __import__("logging").getLogger("capabilities_stream_monitor")
+from modules.core.src.utility_core_dom_query import count_messages as _dom_count, latest_message_text as _dom_latest
+from modules.core.src.utility_core_logger_factory import get_logger
+
+log = get_logger("capabilities_stream_monitor")
 
 
 
@@ -159,36 +162,13 @@ class StreamMonitor(IStreamProtocol):
         return None
 
     def _count_messages(self, page: Page) -> int:
-        """Count chat turns using JS evaluate — robust against CSS modules and virtual DOM."""
-        try:
-            count = page.evaluate(JS_COUNT_TURNS)
-            if isinstance(count, int) and count > 0:
-                return count
-        except Error:
-            pass
-        try:
-            return page.locator(COMBINED_MESSAGE_SELECTOR).count()
-        except Error:
-            return 0
+        """Count chat turns using JS evaluate — delegates to utility."""
+        return _dom_count(page)
 
     def _latest_message_text(self, page: Page) -> str | None:
-        """Get the longest text block on the page excluding input/UI chrome — JS-based."""
-        try:
-            text = page.evaluate(JS_GET_RESPONSE_TEXT)
-            if text and len(text.strip()) > 0:
-                return str(text.strip())
-        except Error:
-            pass
-        try:
-            locator = page.locator(COMBINED_MESSAGE_SELECTOR)
-            cnt = locator.count()
-            if isinstance(cnt, int) and cnt > 0:
-                text = locator.last.text_content()
-                if text is not None:
-                    return str(text.strip())
-        except Error:
-            pass
-        return None
+        """Get the latest message text — delegates to utility."""
+        result = _dom_latest(page)
+        return str(result) if result else None
 
     def __repr__(self) -> str:
         """Return string representation of StreamMonitor."""

@@ -10,27 +10,18 @@ import sys
 
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.taxonomy_config_vo import AppConfig
+from modules.shared.src.utility_core_response import error_response, success_response
 
 
 def handle(_args: object, core: ICoreAggregate, cfg: AppConfig) -> dict[str, object]:
     """Run manual login in a visible browser window."""
     if not sys.stdin.isatty():
-        return {
-            "success": False,
-            "error": "Manual login requires an interactive terminal (TTY).",
-            "category": "validation_error",
-            "ref": "cli-400",
-        }
+        return error_response(RuntimeError("Manual login requires an interactive terminal (TTY)."), "validation_error", "cli-400")
     try:
         print("Please log in or resolve CAPTCHA in the browser window.")
         core.setup_session()
         print("Press [ENTER] once you have finished logging in:")
         input()
-        return {"success": True, "message": f"Login session saved to '{cfg.session_path}'."}
+        return success_response(f"Login session saved to '{cfg.session_path}'.")
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "category": "unexpected",
-            "ref": "cli-500",
-        }
+        return error_response(e)

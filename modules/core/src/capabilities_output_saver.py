@@ -6,7 +6,6 @@ Implements ISaverProtocol.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -25,8 +24,10 @@ from modules.shared.src.taxonomy_core_constant import (
 from modules.shared.src.taxonomy_domain_error import OutputWriteError
 from modules.core.src.utility_core_io_writer import atomic_write_text
 from modules.shared.src.utility_core_text import build_metadata_header, strip_ui_noise
+from modules.core.src.utility_core_time_formatter import utc_now_iso
+from modules.core.src.utility_core_logger_factory import get_logger
 
-log = __import__("logging").getLogger("capabilities_saver")
+log = get_logger("capabilities_saver")
 
 
 
@@ -72,8 +73,7 @@ class Saver(ISaverProtocol):
         atomic_write = cfg.get("atomic_write", self.atomic_write)
         run_id = str(ctx.run_id)
 
-        processed_at = datetime.now(tz=timezone.utc)
-        iso_timestamp = processed_at.isoformat()
+        iso_timestamp = utc_now_iso()
 
         header = build_metadata_header(ctx, src, dur, input_chars, output_chars) if include_header else ""
 

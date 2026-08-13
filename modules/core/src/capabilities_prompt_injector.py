@@ -12,8 +12,9 @@ from playwright.sync_api import Error, Page
 from modules.shared.src.contract_core_protocol import IInjectionProtocol
 from modules.shared.src.taxonomy_config_vo import DEFAULT_INJECTOR_CONFIG, InjectorConfig
 from modules.shared.src.taxonomy_domain_error import ElementNotFoundError, PromptInjectionError
+from modules.core.src.utility_core_logger_factory import get_logger
 
-log = __import__("logging").getLogger("capabilities_prompt_injector")
+log = get_logger("capabilities_prompt_injector")
 
 
 # Block 1: Class Definition & Constructor

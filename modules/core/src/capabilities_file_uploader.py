@@ -27,8 +27,10 @@ from modules.shared.src.taxonomy_core_vo import (
     OptionTimeoutMs,
 )
 from modules.shared.src.taxonomy_domain_error import FileValidationError
+from modules.shared.src.utility_core_validation import validate_file as _validate_file_util
+from modules.core.src.utility_core_logger_factory import get_logger
 
-log = __import__("logging").getLogger("capabilities_file_uploader")
+log = get_logger("capabilities_file_uploader")
 
 
 # Block 1: Class Definition & Constructor
@@ -114,25 +116,11 @@ class FileUploader(IUploadProtocol):
         return False
 
     def _validate_file(self, filepath: Path) -> int:
-        """Perform pre-flight sanity and security validation."""
-        if not filepath.exists():
-            raise FileValidationError(f"File does not exist: {filepath}")
+        """Perform pre-flight sanity and security validation.
 
-        if not filepath.is_file():
-            raise FileValidationError(f"Path is not a regular file: {filepath}")
-
-        if not os.access(filepath, os.R_OK):
-            raise FileValidationError(f"File is not readable: {filepath}")
-
-        size_bytes = filepath.stat().st_size
-        max_bytes = int(self.max_file_size_mb * 1024 * 1024)
-        if size_bytes > max_bytes:
-            raise FileValidationError(
-                f"File size ({size_bytes / (1024 * 1024):.2f}MB) exceeds maximum limit "
-                f"of {self.max_file_size_mb:.2f}MB: {filepath}"
-            )
-
-        return FileSizeBytes(size_bytes)
+        Delegates to shared utility_core_validation.validate_file.
+        """
+        return FileSizeBytes(_validate_file_util(filepath, float(self.max_file_size_mb)))
 
     def validate_file(self, filepath: Path, max_size_mb: float = 100.0) -> FileSizeBytes:
         """Public protocol method — pre-flight validation returning size in bytes."""

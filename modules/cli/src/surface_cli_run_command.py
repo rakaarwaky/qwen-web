@@ -8,18 +8,14 @@ from __future__ import annotations
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_vo import HeadlessFlag, TimeoutSec
+from modules.shared.src.utility_core_response import error_response, success_response
 
 
 def handle(args: object, core: ICoreAggregate) -> dict[str, object]:
     """Dispatch watcher/batch/single processing based on parsed CLI args."""
     cfg: AppConfig | None = getattr(args, "_cfg", None)
     if cfg is None:
-        return {
-            "success": False,
-            "error": "Missing AppConfig — run command requires a built config.",
-            "category": "validation_error",
-            "ref": "cli-400",
-        }
+        return error_response(RuntimeError("Missing AppConfig — run command requires a built config."), "validation_error", "cli-400")
 
     try:
         if cfg.mode == "watcher":
@@ -28,11 +24,6 @@ def handle(args: object, core: ICoreAggregate) -> dict[str, object]:
             result = core.process_single_file(cfg.input_path, cfg.output_path, HeadlessFlag(cfg.headless))
         else:
             result = core.process_batch(cfg.input_path, cfg.output_path, HeadlessFlag(cfg.headless))
-        return {"success": True, "message": result}
+        return success_response(result)
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "category": "unexpected",
-            "ref": "cli-500",
-        }
+        return error_response(e)

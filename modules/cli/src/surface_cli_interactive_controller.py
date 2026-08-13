@@ -23,21 +23,13 @@ from modules.shared.src.taxonomy_core_constant import (
 )
 from modules.shared.src.taxonomy_core_vo import HeadlessFlag, TimeoutSec
 from modules.shared.src.utility_core_path import list_input_files
+from modules.shared.src.utility_core_response import error_response, success_response
+from modules.core.src.utility_core_config_factory import build_app_config
 
 
 def _base_config(mode: str, headless: bool = False) -> AppConfig:
     """Build an AppConfig with default XDG paths."""
-    return AppConfig(
-        mode=mode,
-        input_path=DEFAULT_TODO,
-        output_path=DEFAULT_OUTPUT,
-        done_path=DEFAULT_DONE,
-        failed_path=DEFAULT_FAILED,
-        proc_path=DEFAULT_PROC,
-        session_path=DEFAULT_SESSION,
-        log_path=DEFAULT_LOG,
-        headless=headless,
-    )
+    return build_app_config(mode=mode, headless=headless)
 
 
 class InteractiveController:
@@ -99,30 +91,14 @@ class InteractiveController:
                 except ValueError:
                     chosen_abs, _chosen_rel = available_files[0]
 
-                return AppConfig(
-                    mode=mode,
-                    input_path=chosen_abs,
-                    output_path=DEFAULT_OUTPUT,
-                    done_path=DEFAULT_DONE,
-                    failed_path=DEFAULT_FAILED,
-                    proc_path=DEFAULT_PROC,
-                    session_path=DEFAULT_SESSION,
-                    log_path=DEFAULT_LOG,
-                    headless=headless,
+                return build_app_config(
+                    mode=mode, input_path=chosen_abs, output_path=DEFAULT_OUTPUT, headless=headless
                 )
             else:
                 input_file = input(f"Enter input file path [default: {DEFAULT_TODO}]: ").strip() or str(DEFAULT_TODO)
                 output_file = input(f"Enter output file path [default: {DEFAULT_OUTPUT}]: ").strip() or str(DEFAULT_OUTPUT)
-                return AppConfig(
-                    mode=mode,
-                    input_path=Path(input_file),
-                    output_path=Path(output_file),
-                    done_path=DEFAULT_DONE,
-                    failed_path=DEFAULT_FAILED,
-                    proc_path=DEFAULT_PROC,
-                    session_path=DEFAULT_SESSION,
-                    log_path=DEFAULT_LOG,
-                    headless=headless,
+                return build_app_config(
+                    mode=mode, input_path=Path(input_file), output_path=Path(output_file), headless=headless
                 )
 
         return _base_config(mode, headless=headless)
@@ -131,10 +107,10 @@ class InteractiveController:
         """Present the TUI menu and execute the selected mode."""
         cfg = self.interactive_prompt()
         if cfg is None:
-            return {"success": True, "message": "Exited."}
+            return success_response("Exited.")
         if cfg.mode == "login":
             self._core.setup_session()
-            return {"success": True, "message": "Login session saved."}
+            return success_response("Login session saved.")
         try:
             if cfg.mode == "watcher":
                 result = self._core.process_watcher(TimeoutSec(cfg.interval), HeadlessFlag(cfg.headless))
@@ -142,11 +118,6 @@ class InteractiveController:
                 result = self._core.process_single_file(cfg.input_path, cfg.output_path, HeadlessFlag(cfg.headless))
             else:
                 result = self._core.process_batch(cfg.input_path, cfg.output_path, HeadlessFlag(cfg.headless))
-            return {"success": True, "message": result}
+            return success_response(result)
         except Exception as e:
-            return {
-                "success": False,
-                "error": str(e),
-                "category": "unexpected",
-                "ref": "cli-500",
-            }
+            return error_response(e)

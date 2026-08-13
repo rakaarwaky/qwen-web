@@ -14,6 +14,7 @@ from modules.shared.src.taxonomy_core_constant import (
     COMBINED_MESSAGE_SELECTOR,
     JS_COUNT_TURNS,
     JS_GET_RESPONSE_TEXT,
+    SEND_SELECTORS,
 )
 from modules.shared.src.taxonomy_core_vo import MessageCount, ResponseText
 
@@ -58,17 +59,7 @@ def click_send(page: Page, config: object = None) -> None:
         SenderConfig or None — uses DEFAULT_SENDER_CONFIG if omitted.
 
     """
-    selectors: tuple[str, ...] = (
-        "button[aria-label*='Send' i]:not([disabled])",
-        "button[type='submit']:not([disabled])",
-        "button[class*='send' i]:not([disabled])",
-        "button[class*='submit' i]:not([disabled])",
-        "button[id*='send' i]:not([disabled])",
-        ".message-input-send-button:not([disabled])",
-        "button:has(svg):not([disabled])",
-    )
-
-    for selector in selectors:
+    for selector in SEND_SELECTORS:
         try:
             loc = page.locator(selector).first
             if loc.is_visible(timeout=3000):
