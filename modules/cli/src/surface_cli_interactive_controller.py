@@ -19,7 +19,7 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_TODO,
 )
 from modules.shared.src.utility_core_path import list_input_files
-from modules.shared.src.utility_core_response import safe_handle, success_response
+from modules.shared.src.utility_core_response import error_response, safe_handle, success_response
 
 
 def _base_config(mode: str, headless: bool = False) -> AppConfig:
@@ -107,6 +107,13 @@ class InteractiveController:
         The optional arguments preserve the controller's original public API
         for callers that want menu selection and execution in one call.
         """
+        if prompt and not sys.stdin.isatty():
+            return error_response(
+                RuntimeError("Interactive mode requires a TTY. Please provide CLI arguments."),
+                "validation_error",
+                "cli-400",
+            )
+
         selected = self.interactive_prompt() if prompt else cfg
         if selected is None:
             return success_response("Exited.")

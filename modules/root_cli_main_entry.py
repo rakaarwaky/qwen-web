@@ -124,7 +124,7 @@ def _result_exit_code(result: dict[str, object]) -> int:
     """Convert a surface response envelope to a CLI exit code."""
     if result.get("success"):
         return 0
-    print(str(result.get("error") or "Unknown error"), file=sys.stderr)
+    print(f"{_ERROR_PREFIX} {result.get('error') or 'Unknown error'}", file=sys.stderr)
     return 1
 
 
@@ -158,8 +158,10 @@ def _dispatch(
     """Dispatch one already-parsed CLI invocation."""
     # Explicit precedence: login wins over init, including --login --init.
     if args is not None and bool(getattr(args, "login", False)):
-        assert cfg is not None
-        return _run_manual_login(cfg, container)
+        if cfg is None:
+            print(f"{_ERROR_PREFIX} Missing login configuration.", file=sys.stderr)
+            return 1
+        return _run_manual_login(cfg)
 
     # Init is an action rather than an AppConfig mode. It wins over watcher
     # and path inference when login is absent.
@@ -168,13 +170,7 @@ def _dispatch(
         return _result_exit_code(result)
 
     if not raw_argv:
-        cfg_interactive = _interactive_prompt(container.core)
-        if cfg_interactive is None:
-            return 0
-        result = surface_cli_interactive_controller.InteractiveController(container.core).run(
-            cfg_interactive,
-            prompt=False,
-        )
+        result = surface_cli_interactive_controller.InteractiveController(container.core).run()
         return _result_exit_code(result)
 
     if args is None or cfg is None:
@@ -224,10 +220,9 @@ def _interactive_prompt(core: Any | None = None) -> AppConfig | None:
     return surface_cli_interactive_controller.InteractiveController(core).interactive_prompt()
 
 
-def _run_manual_login(cfg: AppConfig, container: SharedContainer | None = None) -> int:
+def _run_manual_login(cfg: AppConfig) -> int:
     """Launch visible browser for interactive login."""
-    if container is None:
-        container = _default_container()
+    container = _default_container()
     result = surface_cli_login_command.handle(None, container.core, cfg)
     return _result_exit_code(result)
 

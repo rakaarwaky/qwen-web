@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+from modules.cli.src.surface_cli_interactive_controller import InteractiveController
 from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 from modules.root_cli_main_entry import (
     _interactive_prompt,
@@ -126,6 +127,22 @@ class TestInteractivePrompt:
             assert result.mode == "watcher"
 
 
+class TestInteractiveControllerRun:
+    def test_non_tty_returns_validation_error(self):
+        with patch("sys.stdin") as mock_stdin:
+            mock_stdin.isatty.return_value = False
+            result = InteractiveController(MagicMock()).run()
+        assert result["success"] is False
+        assert result["category"] == "validation_error"
+        assert result["ref"] == "cli-400"
+
+    def test_explicit_exit_returns_success(self):
+        with patch("sys.stdin") as mock_stdin, patch("builtins.input", return_value="6"):
+            mock_stdin.isatty.return_value = True
+            result = InteractiveController(MagicMock()).run()
+        assert result == {"success": True, "message": "Exited."}
+
+
 class TestRunManualLogin:
     def test_not_tty_exits(self):
         with (
@@ -208,10 +225,19 @@ class TestMain:
     def test_main_interactive_exit(self):
         with (
             patch("sys.argv", ["qwen-cli"]),
-            patch("modules.root_cli_main_entry._interactive_prompt", return_value=None),
+            patch(
+                "modules.cli.src.surface_cli_interactive_controller.InteractiveController.run",
+                return_value={"success": True, "message": "Exited."},
+            ),
         ):
             result = main()
             assert result == 0
+
+    def test_main_non_tty_interactive_fails(self):
+        with patch("sys.argv", ["qwen-cli"]), patch("sys.stdin") as mock_stdin:
+            mock_stdin.isatty.return_value = False
+            result = main()
+            assert result == 1
 
     def test_main_login_mode(self):
         with (
