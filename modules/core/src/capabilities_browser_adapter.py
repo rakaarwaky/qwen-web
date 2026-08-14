@@ -265,9 +265,11 @@ class BrowserAdapter(IBrowserProtocol):
 
         isolate_thread_event_loop()
 
+        context_started = False
         try:
             with sync_playwright() as p:
                 ctx = self._launch_context(p, kwargs)
+                context_started = True
                 if cfg.mode != "login":
                     ctx.route(
                         "**/*.{png,jpg,jpeg,gif,webp,mp4,mp3,woff,woff2,ttf,otf}",
@@ -278,11 +280,16 @@ class BrowserAdapter(IBrowserProtocol):
                 finally:
                     try:
                         ctx.close()
-                    except Error as e:
-                        log.warning("Error closing browser context: %s", e)
+                    except Exception as e:
+                        # Teardown is best-effort and must never mask the domain failure.
+                        log.warning("browser_context_cleanup_failed", error=str(e))
         except AuthRequiredError:
             raise
+        except BrowserLaunchError:
+            raise
         except Exception as e:
+            if context_started:
+                raise
             log.critical("browser_launch_failed", error=str(e))
             raise BrowserLaunchError(f"Failed to launch browser: {e}") from e
 

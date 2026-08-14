@@ -71,6 +71,7 @@ PIPELINE_EVENT_SEQUENCE: tuple[QwenEventType, ...] = (
     QwenEventType.PROMPT_INJECTED,
     QwenEventType.DOCUMENT_PARSED,
     QwenEventType.SEND_CLICKED,
+    QwenEventType.DISPATCH_ACKNOWLEDGED,
     QwenEventType.THINKING_STARTED,
     QwenEventType.STREAMING_GENERATION,
     QwenEventType.GENERATION_FINISHED,

@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from modules.core.src.capabilities_file_uploader import FileUploader
-from modules.shared.src import FileValidationError, LifecycleEmitter
+from modules.shared.src import EVENT_FILE_UPLOADED, FileValidationError, LifecycleEmitter
 
 
 class TestValidateFile:
@@ -96,7 +96,10 @@ class TestUploadAttachment:
 
         with patch.object(FileUploader, "_try_upload_attempt", return_value=True):
             FileUploader().upload_attachment(page, f, emitter=emitter)
-            emitter.emit.assert_called_once()
+            emitter.emit.assert_called_once_with(
+                EVENT_FILE_UPLOADED,
+                {"file": str(f), "byte_count": 5, "attempt": 1},
+            )
 
     def test_retry_on_failure(self, tmp_path):
         f = tmp_path / "test.md"

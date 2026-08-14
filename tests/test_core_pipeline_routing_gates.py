@@ -12,7 +12,16 @@ from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 from modules.core.src.utility_core_file_mover import move_file
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_entity import CircuitBreaker, LifecycleState, RateLimiter
-from modules.shared.src.taxonomy_core_event import EVENT_DOCUMENT_PARSED, EVENT_WEB_LOADED
+from modules.shared.src.taxonomy_core_event import (
+    EVENT_DISPATCH_ACKNOWLEDGED,
+    EVENT_DOCUMENT_PARSED,
+    EVENT_FILE_UPLOADED,
+    EVENT_GENERATION_FINISHED,
+    EVENT_SEND_CLICKED,
+    EVENT_STREAMING_GENERATION,
+    EVENT_THINKING_STARTED,
+    EVENT_WEB_LOADED,
+)
 from modules.shared.src.taxonomy_core_vo import (
     ProcessingOutcome,
     ProcessingStatus,
@@ -178,18 +187,28 @@ def test_lifecycle_flags_are_event_backed_and_passed_to_capabilities(tmp_path: P
     page = MagicMock()
 
     def navigate(_page: object, emitter: object) -> None:
-        emitter.emit(orchestrator_module.EVENT_WEB_LOADED, {"url": "test"})
+        emitter.emit(EVENT_WEB_LOADED, {"url": "test"})
 
-    def upload(_page: object, _filepath: Path, **_kwargs: object) -> bool:
-        return False
+    def upload(_page: object, _filepath: Path, **kwargs: object) -> bool:
+        emitter = kwargs["emitter"]
+        emitter.emit(EVENT_FILE_UPLOADED, {"source": "test"})
+        return True
 
     def send(_page: object, emitter: object, **_kwargs: object) -> None:
-        emitter.emit(orchestrator_module.EVENT_DISPATCH_ACKNOWLEDGED, {"source": "test"})
+        emitter.emit(EVENT_SEND_CLICKED, {"source": "test"})
+        emitter.emit(EVENT_DISPATCH_ACKNOWLEDGED, {"source": "test"})
 
     orch._browser.navigate_to_chat.side_effect = navigate
     orch._uploader.upload_attachment.side_effect = upload
     orch._sender.click_send.side_effect = send
-    orch._streamer.wait_for_response.return_value = "answer"
+
+    def stream(_page: object, _timeout: int, _before: int, emitter: object, **_kwargs: object) -> str:
+        emitter.emit(EVENT_THINKING_STARTED)
+        emitter.emit(EVENT_STREAMING_GENERATION, {"text_length": 6})
+        emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": 6})
+        return "answer"
+
+    orch._streamer.wait_for_response.side_effect = stream
 
     assert orch.send_file(page, prompt_file, timeout_sec=5) == "answer"
     assert orch._uploader.upload_attachment.call_args.kwargs["web_loaded"] is True
@@ -210,7 +229,7 @@ def test_missing_web_loaded_event_blocks_upload(tmp_path: Path) -> None:
     orch._sender.click_send.assert_not_called()
 
 
-def test_missing_document_parsed_event_blocks_send(tmp_path: Path) -> None:
+def test_upload_success_without_verified_event_blocks_pipeline(tmp_path: Path) -> None:
     prompt_file = tmp_path / "prompt.md"
     prompt_file.write_text("prompt")
     orch = _make_orchestrator()
@@ -221,7 +240,7 @@ def test_missing_document_parsed_event_blocks_send(tmp_path: Path) -> None:
     orch._browser.navigate_to_chat.side_effect = navigate
     orch._uploader.upload_attachment.return_value = True
 
-    with pytest.raises(RuntimeError, match="EVENT_DOCUMENT_PARSED"):
+    with pytest.raises(RuntimeError, match="EVENT_FILE_UPLOADED"):
         orch.send_file(MagicMock(), prompt_file, timeout_sec=5)
 
     orch._sender.click_send.assert_not_called()
@@ -235,8 +254,9 @@ def test_missing_dispatch_acknowledgement_blocks_stream(tmp_path: Path) -> None:
     def navigate(_page: object, emitter: object) -> None:
         emitter.emit(EVENT_WEB_LOADED, {"url": "test"})
 
-    def upload(_page: object, _filepath: Path, **_kwargs: object) -> bool:
-        return False
+    def upload(_page: object, _filepath: Path, **kwargs: object) -> bool:
+        kwargs["emitter"].emit(EVENT_FILE_UPLOADED, {"source": "test"})
+        return True
 
     orch._browser.navigate_to_chat.side_effect = navigate
     orch._uploader.upload_attachment.side_effect = upload
@@ -311,10 +331,15 @@ def test_dispatch_failure_blocks_stream_monitor(tmp_path: Path) -> None:
     orch = _make_orchestrator()
 
     def navigate(_page: object, emitter: object) -> None:
-        emitter.emit(orchestrator_module.EVENT_WEB_LOADED, {"url": "test"})
+        emitter.emit(EVENT_WEB_LOADED, {"url": "test"})
 
     orch._browser.navigate_to_chat.side_effect = navigate
-    orch._uploader.upload_attachment.return_value = False
+
+    def upload(_page: object, _filepath: Path, **kwargs: object) -> bool:
+        kwargs["emitter"].emit(EVENT_FILE_UPLOADED, {"source": "test"})
+        return True
+
+    orch._uploader.upload_attachment.side_effect = upload
     orch._sender.click_send.side_effect = RuntimeError("dispatch failed")
 
     with pytest.raises(RuntimeError, match="dispatch failed"):

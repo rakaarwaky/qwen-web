@@ -35,12 +35,18 @@ class UploadConfig:
             ".mode-select-open",
             "[class*='mode-select']",
             "button:has-text('Upload')",
+            "button[aria-label*='attach' i]",
+            "[data-testid*='attach' i]",
         )
     )
 
     upload_option_selectors: Sequence[str] = field(
         default_factory=lambda: (
             ".mode-select-dropdown-item",
+            "[data-testid*='upload' i]",
+            "[aria-label*='upload' i]",
+            "button:has-text('Upload attachment')",
+            "button:has-text('Upload file')",
             "text='Upload attachment'",
             "text='Upload file'",
         )

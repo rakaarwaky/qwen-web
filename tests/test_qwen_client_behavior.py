@@ -15,6 +15,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from modules.core.src.agent_core_orchestrator import CoreOrchestrator
+from modules.shared.src import ResponseDetectionTimeoutError
 
 
 def _make_orchestrator() -> CoreOrchestrator:
@@ -164,5 +165,5 @@ class TestSendFilePipeline:
         monkeypatch.setattr(client._streamer, "wait_for_response", lambda *a, **k: None)
 
         probe = _probe_file(tmp_path)
-        with pytest.raises(TimeoutError, match="Timeout after"):
+        with pytest.raises(ResponseDetectionTimeoutError, match="Response detection timeout"):
             client.send_file(page, probe, timeout_sec=1)

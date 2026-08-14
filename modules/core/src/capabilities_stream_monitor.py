@@ -148,6 +148,7 @@ class StreamMonitor(IStreamProtocol):
 
         if last_text is not None:
             validate_response_content(last_text)
+            emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(last_text), "fallback": True})
             return ResponseText(last_text)
 
         log.warning("Timeout after %ds — no response detected", timeout_sec)
