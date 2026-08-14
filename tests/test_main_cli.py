@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from modules.core.src.root_core_container import SharedContainer
 from modules.root_cli_main_entry import (
     _build_config,
@@ -87,7 +89,9 @@ class TestBuildConfig:
         args = MagicMock()
         args.login = False
         args.watch = True
-        args.input = str(tmp_path / "in")
+        input_dir = tmp_path / "in"
+        input_dir.mkdir()
+        args.input = str(input_dir)
         args.output = str(tmp_path / "out")
         args.done_dir = str(tmp_path / "done")
         args.failed_dir = str(tmp_path / "failed")
@@ -213,3 +217,53 @@ class TestRunInit:
             assert (dot_qwen / "input").exists()
             assert (dot_qwen / "output").exists()
             assert (dot_qwen / "log").exists()
+
+
+class TestCliValidation:
+    def test_login_precedes_watch_and_path_inference(self, tmp_path):
+        args = _namespace_for_config(tmp_path, login=True, watch=True, input_path=tmp_path / "missing")
+        cfg = _build_config(args)
+        assert cfg.mode == "login"
+        assert cfg.headless is False
+
+    def test_watch_requires_existing_directory(self, tmp_path):
+        args = _namespace_for_config(tmp_path, watch=True, input_path=tmp_path / "missing")
+        with pytest.raises(ValueError, match="existing directory"):
+            _build_config(args)
+
+    def test_extensionless_existing_file_is_single_mode(self, tmp_path):
+        input_file = tmp_path / "prompt"
+        input_file.write_text("prompt")
+        args = _namespace_for_config(tmp_path, input_path=input_file)
+        assert _build_config(args).mode == "single"
+
+    def test_missing_input_is_rejected(self, tmp_path):
+        args = _namespace_for_config(tmp_path, input_path=tmp_path / "missing")
+        with pytest.raises(ValueError, match="existing file or directory"):
+            _build_config(args)
+
+
+def _namespace_for_config(tmp_path, *, login=False, watch=False, input_path=None):
+    from argparse import Namespace
+
+    return Namespace(
+        login=login,
+        watch=watch,
+        input=str(input_path or tmp_path),
+        output=str(tmp_path / "out"),
+        done_dir=str(tmp_path / "done"),
+        failed_dir=str(tmp_path / "failed"),
+        proc_dir=str(tmp_path / "proc"),
+        data_dir=str(tmp_path / "session"),
+        log_dir=str(tmp_path / "log"),
+        headless=True,
+        timeout=300,
+        interval=3,
+        request_timeout=120,
+        poll_interval=1.0,
+        streaming_timeout=180,
+        rate_limit=60,
+        cb_threshold=5,
+        cb_window=30,
+        retry_failed=False,
+    )
