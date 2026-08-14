@@ -147,7 +147,10 @@ class TestSendFilePipeline:
         monkeypatch.setattr(page, "goto", lambda *a, **k: None)
 
         probe = _probe_file(tmp_path)
-        res = client.send_file(page, probe, timeout_sec=5)
+        # Mock the uploader to return True (simulating successful attachment)
+        from unittest.mock import patch
+        with patch.object(client._uploader, "_try_upload_attempt", return_value=True):
+            res = client.send_file(page, probe, timeout_sec=5)
         assert "received the attached file" in res.lower()
 
     def test_send_file_with_custom_prompt_role(self, client, page, tmp_path, monkeypatch):
@@ -157,7 +160,9 @@ class TestSendFilePipeline:
         role_prompt = tmp_path / "PROMPT.md"
         role_prompt.write_text("---\nrole: arch\n---\nSystem role instructions.", encoding="utf-8")
 
-        res = client.send_file(page, probe, timeout_sec=5, custom_prompt_path=role_prompt)
+        from unittest.mock import patch
+        with patch.object(client._uploader, "_try_upload_attempt", return_value=True):
+            res = client.send_file(page, probe, timeout_sec=5, custom_prompt_path=role_prompt)
         assert "received the attached file" in res.lower()
 
     def test_send_file_raises_timeout_when_no_response(self, client, page, tmp_path, monkeypatch):

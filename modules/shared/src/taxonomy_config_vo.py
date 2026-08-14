@@ -47,9 +47,11 @@ class UploadConfig:
 
     upload_option_selectors: Sequence[str] = field(
         default_factory=lambda: (
-            ".qwen-chat-v2-dropdown-menu-item",
-            ".mode-select-open",
-            "#filesUpload",
+            "text='Upload attachment'",
+            "text='Upload file'",
+            ".mode-select-dropdown-item[data-action='upload']",
+            "[data-testid*='upload' i]",
+            "[aria-label*='upload' i]",
         )
     )
 
