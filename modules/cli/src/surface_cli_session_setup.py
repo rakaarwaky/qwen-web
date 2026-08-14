@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+from typing import Callable
+
 from textual.app import App, ComposeResult
 from textual.containers import Vertical
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Static
 
 
-class SessionSetupScreen(Screen):
+class SessionSetupScreen(Screen["SessionSetupApp"]):
     """Session setup submenu with status and actions."""
 
-    def __init__(self, status_text: str, on_login, on_back) -> None:
+    def __init__(self, status_text: str, on_login: Callable[[], None], on_back: Callable[[], None]) -> None:
         super().__init__()
         self.status_text = status_text
         self.on_login = on_login
@@ -34,7 +36,7 @@ class SessionSetupScreen(Screen):
             self.app.exit("back")
 
 
-class SessionSetupApp(App):
+class SessionSetupApp(App[str]):
     """Textual app for session setup submenu."""
 
     CSS = """
@@ -57,7 +59,7 @@ class SessionSetupApp(App):
     }
     """
 
-    def __init__(self, status_text: str, on_login, on_back) -> None:
+    def __init__(self, status_text: str, on_login: Callable[[], None], on_back: Callable[[], None]) -> None:
         super().__init__()
         self.status_text = status_text
         self.on_login = on_login
@@ -77,7 +79,7 @@ class SessionSetupApp(App):
         self.exit()
 
 
-def run_session_setup(status_text: str, on_login, on_back) -> str:
+def run_session_setup(status_text: str, on_login: Callable[[], None], on_back: Callable[[], None]) -> str:
     """Run the Textual session setup submenu and return the selected action."""
     app = SessionSetupApp(status_text, on_login, on_back)
     app.run()
