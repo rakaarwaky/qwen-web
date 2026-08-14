@@ -69,9 +69,9 @@ class LifecycleEvent:
     """Structured event emitted at a lifecycle boundary."""
 
     name: EventName
-    timestamp: EventTimestamp = field(default_factory=lambda: EventTimestamp(time.time()))
-    event_id: EventId = field(default_factory=lambda: EventId(uuid.uuid4().hex))
-    details: EventDetails = field(default_factory=EventDetails)
+    timestamp: EventTimestamp = field(default_factory=time.time)
+    event_id: EventId = field(default_factory=lambda: uuid.uuid4().hex)
+    details: EventDetails = field(default_factory=dict)
 
 
 LifecycleCallback = Callable[[LifecycleEvent], None]

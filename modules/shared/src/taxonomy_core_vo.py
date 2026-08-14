@@ -8,11 +8,12 @@ Lifecycle events live in taxonomy_core_event; domain errors live in taxonomy_cor
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import NewType
+from typing import NewType, TypeAlias
 
 PromptText = NewType("PromptText", str)
 InputPath = NewType("InputPath", str)
@@ -28,17 +29,11 @@ TimeoutSec = NewType("TimeoutSec", int)
 PollIntervalSec = NewType("PollIntervalSec", float)
 HeadlessFlag = NewType("HeadlessFlag", bool)
 Mode = NewType("Mode", str)
-EventName = NewType("EventName", str)
-EventTimestamp = NewType("EventTimestamp", float)
-EventId = NewType("EventId", str)
-
-
-class EventDetails(dict[str, object]):
-    """Structured detail mapping attached to a lifecycle event."""
-
-
-class EventOrderMap(dict[object, int]):
-    """Mapping from event types to their strict pipeline positions."""
+EventName: TypeAlias = str
+EventTimestamp: TypeAlias = float
+EventId: TypeAlias = str
+EventDetails: TypeAlias = Mapping[str, object]
+EventOrderMap: TypeAlias = dict[object, int]
 
 
 class ProcessingStatus(str, Enum):
