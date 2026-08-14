@@ -60,6 +60,14 @@ class CircuitBreaker:
             raise ValueError(f"window_sec must be >= 1, got {window_sec}")
         self._threshold = threshold
         self._window_sec = window_sec
+        self._refresh_state()
+
+    def _refresh_state(self, now: float | None = None) -> None:
+        """Discard expired failures and recompute the trip state."""
+        current = time.time() if now is None else now
+        while self._failures and (current - self._failures[0]) > self._window_sec:
+            self._failures.popleft()
+        self._trip = len(self._failures) >= self._threshold
 
     def record_success(self) -> None:
         """Reset the breaker on a successful request."""
@@ -68,12 +76,8 @@ class CircuitBreaker:
 
     def record_failure(self) -> None:
         """Record a failure and trip if threshold exceeded within window."""
-        now = time.time()
-        self._failures.append(now)
-        while self._failures and (now - self._failures[0]) > self._window_sec:
-            self._failures.popleft()
-        if len(self._failures) >= self._threshold:
-            self._trip = True
+        self._failures.append(time.time())
+        self._refresh_state()
 
     @property
     def threshold(self) -> int:
@@ -88,6 +92,7 @@ class CircuitBreaker:
     @property
     def is_tripped(self) -> bool:
         """True when the breaker has tripped."""
+        self._refresh_state()
         return self._trip
 
 

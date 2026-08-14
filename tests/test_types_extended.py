@@ -103,6 +103,25 @@ class TestCircuitBreakerExtended:
         assert len(cb._failures) == 2
         assert cb.is_tripped is False  # threshold=3, only 2 in window
 
+    def test_configure_recomputes_trip_state(self):
+        cb = CircuitBreaker(threshold=2, window_sec=30)
+        cb.record_failure()
+        cb.record_failure()
+        assert cb.is_tripped is True
+
+        cb.configure(threshold=3, window_sec=30)
+        assert cb.is_tripped is False
+
+        cb.configure(threshold=1, window_sec=30)
+        assert cb.is_tripped is True
+
+    def test_is_tripped_reopens_after_window_expires(self):
+        cb = CircuitBreaker(threshold=1, window_sec=1)
+        cb.record_failure()
+        assert cb.is_tripped is True
+        cb._failures[0] = time.time() - 2
+        assert cb.is_tripped is False
+
     def test_success_resets_after_partial_failures(self):
         cb = CircuitBreaker(threshold=3, window_sec=30)
         cb.record_failure()
