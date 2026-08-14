@@ -153,15 +153,18 @@ def _run_cli_lifecycle(dispatch: Callable[[SharedContainer], int]) -> int:
 
 
 def _dispatch(
-    container: SharedContainer, raw_argv: list[str], args: argparse.Namespace | None, cfg: AppConfig | None
+    container: SharedContainer,
+    raw_argv: list[str],
+    args: argparse.Namespace | None,
+    cfg: AppConfig | None,
 ) -> int:
-    """Dispatch one already-parsed CLI invocation."""
+    """Dispatch one already-parsed CLI invocation inside the Linux lifecycle."""
     # Explicit precedence: login wins over init, including --login --init.
     if args is not None and bool(getattr(args, "login", False)):
         if cfg is None:
             print(f"{_ERROR_PREFIX} Missing login configuration.", file=sys.stderr)
             return 1
-        return _run_manual_login(cfg)
+        return _run_manual_login(cfg, container)
 
     # Init is an action rather than an AppConfig mode. It wins over watcher
     # and path inference when login is absent.
@@ -220,9 +223,10 @@ def _interactive_prompt(core: Any | None = None) -> AppConfig | None:
     return surface_cli_interactive_controller.InteractiveController(core).interactive_prompt()
 
 
-def _run_manual_login(cfg: AppConfig) -> int:
+def _run_manual_login(cfg: AppConfig, container: SharedContainer | None = None) -> int:
     """Launch visible browser for interactive login."""
-    container = _default_container()
+    if container is None:
+        container = _default_container()
     result = surface_cli_login_command.handle(None, container.core, cfg)
     return _result_exit_code(result)
 

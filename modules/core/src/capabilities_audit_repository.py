@@ -103,14 +103,15 @@ class AuditRepository(IAuditProtocol):
             self._workspace.init_workspace(FilePath(str(target_dir)))
 
     def get_audit_log(self, limit: int = 20) -> ResponseText:
-        """Fetch recent entries from the JSONL audit trail log."""
+        """Fetch recent entries without loading the complete JSONL file."""
         audit_file = self._audit
         if not audit_file.exists():
             return ResponseText("Audit log file does not exist yet.")
+        if limit <= 0:
+            return ResponseText("[]")
 
-        lines = audit_file.read_text(encoding="utf-8").strip().splitlines()
-        recent = lines[-limit:]
-        records: list[Any] = [json.loads(line) for line in recent if line.strip()]
+        records = _read_recent_jsonl_records(audit_file, limit)
+        records.reverse()
         return ResponseText(json.dumps(records, indent=2))
 
     # Block 3: Dunder Methods, Factories & Helpers
@@ -118,3 +119,51 @@ class AuditRepository(IAuditProtocol):
     def __repr__(self) -> str:
         """Return string representation of AuditRepository."""
         return f"AuditRepository(log_dir={self._audit.parent!r})"
+
+
+_AUDIT_READ_BLOCK_SIZE = 64 * 1024
+
+
+def _read_recent_jsonl_records(audit_file: Path, limit: int) -> list[Any]:
+    """Read at most ``limit`` valid JSONL records from the end of a file.
+
+    Reading backwards in fixed-size blocks keeps memory bounded by the block
+    size plus the requested result count. Blank, malformed, and undecodable
+    lines are ignored so a partially written final record cannot hide older
+    valid audit entries.
+    """
+    records: list[Any] = []
+    pending = b""
+    with audit_file.open("rb") as stream:
+        position = stream.seek(0, 2)
+        while position > 0 and len(records) < limit:
+            block_size = min(_AUDIT_READ_BLOCK_SIZE, position)
+            position -= block_size
+            stream.seek(position)
+            pending = stream.read(block_size) + pending
+            lines = pending.split(b"\n")
+            pending = lines[0]
+            for raw_line in reversed(lines[1:]):
+                record = _decode_jsonl_record(raw_line)
+                if record is not None:
+                    records.append(record)
+                    if len(records) >= limit:
+                        break
+
+        if pending and len(records) < limit:
+            record = _decode_jsonl_record(pending)
+            if record is not None:
+                records.append(record)
+
+    return records
+
+
+def _decode_jsonl_record(raw_line: bytes) -> Any | None:
+    """Decode one JSONL line, returning ``None`` for blank or partial data."""
+    try:
+        line = raw_line.strip().decode("utf-8")
+        if not line:
+            return None
+        return json.loads(line)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None

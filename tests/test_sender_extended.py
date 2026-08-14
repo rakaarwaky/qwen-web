@@ -10,6 +10,7 @@ from playwright.sync_api import Error
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.core.src.utility_core_dom_query import count_messages, latest_message_text
 from modules.shared.src import LifecycleEmitter, SendDispatchError
+from modules.shared.src.taxonomy_config_vo import SenderConfig
 
 
 def _sender() -> SendDispatcher:
@@ -114,3 +115,39 @@ class TestLatestMessageTextExtended:
         page.locator.side_effect = Error("crashed")
         result = latest_message_text(page)
         assert result is None
+
+
+def _page_with_no_send_selector() -> MagicMock:
+    page = MagicMock()
+
+    def locator_factory(_selector):
+        loc = MagicMock()
+        loc.count.return_value = 0
+        loc.first.is_visible.return_value = False
+        return loc
+
+    page.locator.side_effect = locator_factory
+    return page
+
+
+def test_no_visible_selector_does_not_press_enter_when_instance_fallback_disabled():
+    page = _page_with_no_send_selector()
+    emitter = MagicMock(spec=LifecycleEmitter)
+
+    with pytest.raises(SendDispatchError, match="send button and Enter fallback"):
+        SendDispatcher(try_enter_key_fallback=False).click_send(page, emitter)
+
+    page.keyboard.press.assert_not_called()
+    emitter.emit.assert_not_called()
+
+
+def test_per_call_sender_config_overrides_instance_fallback():
+    page = _page_with_no_send_selector()
+    emitter = MagicMock(spec=LifecycleEmitter)
+    config = SenderConfig(try_enter_key_fallback=False)
+
+    with pytest.raises(SendDispatchError, match="send button and Enter fallback"):
+        SendDispatcher(try_enter_key_fallback=True).click_send(page, emitter, _config=config)
+
+    page.keyboard.press.assert_not_called()
+    emitter.emit.assert_not_called()

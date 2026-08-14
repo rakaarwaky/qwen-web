@@ -54,7 +54,12 @@ class SendDispatcher(ISendProtocol):
                 "Cannot send prompt: document attachment parsing (EVENT_DOCUMENT_PARSED) is incomplete"
             )
 
-        _dom_click_send(page)
+        effective_config = _config or SenderConfig(
+            click_timeout_ms=int(self.click_timeout_ms),
+            try_enter_key_fallback=bool(self.try_enter_key_fallback),
+        )
+        if not _dom_click_send(page, _config=effective_config):
+            raise SendDispatchError("Unable to dispatch prompt: send button and Enter fallback both failed")
         details: dict[str, object] = {"selector": "SendDispatcher"}
         emitter.emit(EVENT_SEND_CLICKED, details)
         emitter.emit(EVENT_DISPATCH_ACKNOWLEDGED, details)
