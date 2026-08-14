@@ -640,10 +640,20 @@ class CoreOrchestrator(ICoreAggregate):
         self._saver.write_output(
             out_path, ResponseText(text), ctx, FilePath(str(rel_path)), dur, len(prompt), OutputChars(len(text))
         )
-        if not out_path.is_file() or out_path.stat().st_size <= 0:
-            raise OSError(f"Output artifact was not written successfully: {out_path}")
+        try:
+            output_size = out_path.stat().st_size
+            if not out_path.is_file() or output_size <= 0:
+                raise OSError(f"Output artifact was not written successfully: {out_path}")
+            with out_path.open("rb") as output_file:
+                if not output_file.read(1):
+                    raise OSError(f"Output artifact is not readable or empty: {out_path}")
+        except OSError as exc:
+            raise OSError(f"Output artifact verification failed: {out_path}") from exc
         if QwenEventType.GENERATION_FINISHED in emitter.completed:
-            emitter.emit(EVENT_OUTPUT_COPIED, {"file": str(out_path), "char_count": len(text)})
+            emitter.emit(
+                EVENT_OUTPUT_COPIED,
+                {"file": str(out_path), "char_count": len(text), "file_size_bytes": output_size},
+            )
         else:
             self._observability.get_logger().warning(
                 "Output saved without lifecycle emission: EVENT_GENERATION_FINISHED was not accepted"

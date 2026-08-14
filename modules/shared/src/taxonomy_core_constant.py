@@ -110,6 +110,9 @@ SEND_SELECTORS: tuple[str, ...] = (
 )
 
 MESSAGE_SELECTORS: tuple[str, ...] = (
+    ".chat-response-message .response-message-content",
+    ".chat-response-message .qwen-markdown-text",
+    ".chat-response-message .qwen-markdown",
     ".chat-message-assistant .markdown-body",
     "[class*='assistant'] .markdown-body",
     "[class*='assistant'] [class*='markdown']",
@@ -129,10 +132,26 @@ STOP_BUTTON_SELECTORS: str = (
     "button[aria-label*='Stop' i], button:has-text('Stop'), [class*='stop-btn'], [class*='icon-stop']"
 )
 SEND_DISABLED_SELECTORS: str = "button[aria-label*='Send' i][disabled], button[class*='send' i][disabled]"
-TYPING_INDICATOR_SELECTORS: str = ".thinking:not([style*='display: none']), [class*='typing'], [class*='streaming']"
+TYPING_INDICATOR_SELECTORS: str = (
+    ".thinking:not([style*='display: none']):not([class*='completed']), "
+    "[class*='qwen-chat-thinking-status-card']:not([class*='completed']), "
+    "[class*='typing'], [class*='streaming']"
+)
 
 JS_GET_RESPONSE_TEXT: str = """
 () => {
+    var responseNodes = document.querySelectorAll(
+        '.chat-response-message .response-message-content .qwen-markdown-text,' +
+        '.chat-response-message .response-message-content .qwen-markdown,' +
+        '.chat-response-message .response-message-content,' +
+        '.chat-response-message .qwen-markdown-text'
+    );
+    for (var ri = responseNodes.length - 1; ri >= 0; ri--) {
+        var responseNode = responseNodes[ri];
+        if (responseNode.closest('.qwen-chat-message-user')) continue;
+        var responseText = (responseNode.innerText || '').trim();
+        if (responseText.length > 0) return responseText;
+    }
     var containers = ['#chatLog', '[class*="chat-log"]', '[class*="virtual-list"]',
                       '[class*="message-list"]', '[class*="conversation-body"]',
                       '[class*="dialog-content"]', '.chat-messages-container',
@@ -184,7 +203,8 @@ JS_GET_RESPONSE_TEXT: str = """
 JS_COUNT_TURNS: str = """
 () => {
     var turns = document.querySelectorAll(
-        '[class*="chat-message"], [class*="message-item"], [class*="virtual-list-item"], [class*="turn"]'
+        '.chat-response-message, [class*="chat-message"], [class*="message-item"], '
+        + '[class*="virtual-list-item"], [class*="turn"]'
     );
     return turns.length;
 }

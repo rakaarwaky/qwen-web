@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import threading
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from modules.cli.src.surface_cli_login_command import handle
 from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
-from modules.shared.src import AppConfig, AuthRequiredError
+from modules.shared.src import AppConfig
 
 
 class _BrowserHarness:
@@ -193,12 +190,9 @@ def test_manual_login_delays_check_session_after_confirmation(tmp_path: Path) ->
     This prevents the browser from being checked while the page is still
     stabilizing after a manual login — which previously caused a hang.
     """
-    import time
-
     session_path = tmp_path / "session"
     browser = _BrowserHarness([True])
     confirmation = MagicMock()
-    start = time.monotonic()
 
     result = _orchestrator(browser).setup_session(
         wait_for_confirmation=confirmation,

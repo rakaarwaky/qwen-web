@@ -13,6 +13,7 @@ from modules.shared.src import (
 )
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter, LifecycleGate, LifecycleState
 from modules.shared.src.taxonomy_core_error import ErrorCategory, QwenCliError, ResponseDetectionTimeoutError
+from modules.shared.src.taxonomy_core_error import QwenCliError as CANONICAL_QWEN_CLI_ERROR
 from modules.shared.src.taxonomy_core_event import (
     EVENT_DOCUMENT_PARSED,
     EVENT_GENERATION_FINISHED,
@@ -30,7 +31,6 @@ from modules.shared.src.taxonomy_core_vo import (
     EventDetails,
     EventOrderMap,
 )
-from modules.shared.src.taxonomy_core_error import QwenCliError as CANONICAL_QWEN_CLI_ERROR
 
 
 def test_pipeline_event_sequence_is_canonical_and_ordered() -> None:
