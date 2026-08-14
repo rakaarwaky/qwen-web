@@ -25,11 +25,6 @@ def _login_waiter() -> Callable[[], None]:
 @safe_handle
 def handle(_args: object, core: ICoreAggregate, cfg: AppConfig) -> dict[str, object]:
     """Validate or establish a manual login session in a visible browser."""
-    if not sys.stdin.isatty():
-        return error_response(
-            RuntimeError("Manual login requires an interactive terminal (TTY)."), "validation_error", "cli-400"
-        )
-
     core.delete_session(session_path=cfg.session_path)
 
     result = core.setup_session(
