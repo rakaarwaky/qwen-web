@@ -146,22 +146,10 @@ class FileUploader(IUploadProtocol):
 
     def _try_upload_attempt(self, page: Page, filepath: Path) -> bool:
         """Execute a single attempt to attach a file via the Qwen Web UI."""
-        direct_input = self._find_file_input(page)
         baseline_matches = self._attachment_match_count(page, filepath)
-        if direct_input is not None:
-            try:
-                log.debug("Setting file through direct Qwen file input selector")
-                direct_input.set_input_files(str(filepath))
-                self._wait_for_attachment_card(page, filepath, baseline_matches)
-                return True
-            except (TimeoutError, Error):
-                if self._attachment_match_count(page, filepath) > baseline_matches:
-                    log.debug("Direct upload rendered the exact attachment after timeout; skipping chooser fallback")
-                    return True
-                log.debug("Direct file input did not render an exact attachment; trying chooser fallback")
 
-        if self._attachment_match_count(page, filepath) > baseline_matches:
-            return True
+        # Direct file input (#filesUpload) doesn't trigger React rendering —
+        # always use the dropdown+chooser path which properly fires React handlers.
         log.debug("Opening mode-select dropdown using primary/fallback selectors")
         dropdown_element = first_visible_locator(page, self.dropdown_selectors, timeout_ms=1000)
 
@@ -169,6 +157,9 @@ class FileUploader(IUploadProtocol):
             dropdown_element = page.locator(self.dropdown_selectors[0]).first
 
         dropdown_element.click(timeout=self.dropdown_timeout_ms)
+
+        # Wait for React to render the dropdown menu before searching for upload option
+        page.wait_for_timeout(500)
 
         log.debug("Locating upload option using resilient selector fallbacks")
         option_element = first_visible_locator(page, self.upload_option_selectors, timeout_ms=self.option_timeout_ms)
@@ -212,7 +203,7 @@ class FileUploader(IUploadProtocol):
         raise TimeoutError(f"Exact uploaded filename was not rendered in Qwen attachment DOM: {filepath.name}")
 
     def _wait_for_parse_ready(self, page: Page, filepath: Path) -> None:
-        """Wait for Qwen's attachment-specific parse-ready icon before continuing."""
+        """Wait for Qwen's document parsing to complete by checking text state."""
         deadline = time.monotonic() + (self.card_render_timeout_ms / 1000)
         while time.monotonic() < deadline:
             card = page.locator(".fileitem-btn").filter(has_text=filepath.stem).last
@@ -220,20 +211,15 @@ class FileUploader(IUploadProtocol):
                 if card.count() == 0:
                     page.wait_for_timeout(100)
                     continue
-                pending = any(
-                    card.locator(selector).count() > 0 and card.locator(selector).last.is_visible()
-                    for selector in self.config.parse_pending_selectors
-                )
-                ready = any(
-                    card.locator(selector).count() > 0 and card.locator(selector).last.is_visible()
-                    for selector in self.config.parse_ready_selectors
-                )
-                if ready and not pending:
+                # Check for parsing text (e.g., "Parsing...", size + "Parsing...")
+                card_text = card.inner_text().casefold()
+                has_parsing = "parsing" in card_text
+                if not has_parsing:
                     log.debug("Qwen document parsing is ready for %s", filepath.name)
                     return
             except (TimeoutError, Error):
                 pass
-            page.wait_for_timeout(100)
+            page.wait_for_timeout(200)
         raise TimeoutError(f"Qwen document parsing did not reach ready state: {filepath.name}")
 
     def _attachment_match_count(self, page: Page, filepath: Path) -> int:
@@ -245,19 +231,37 @@ class FileUploader(IUploadProtocol):
             ("[class*='fileitem-file-name']", normalized_name),
             (".fileitem-file-name-text", normalized_stem),
             ("[class*='fileitem-file-name-text']", normalized_stem),
+            # Fallback: any element containing the filename text
+            ("", normalized_name),
         ):
             try:
-                locator = page.locator(selector)
+                if selector:
+                    locator = page.locator(selector)
+                else:
+                    # Broadest fallback: find any visible text node containing the filename
+                    locator = page.locator("body")
                 visible_texts = []
                 for index in range(locator.count()):
                     item = locator.nth(index)
-                    if item.is_visible():
-                        visible_texts.append(item.inner_text())
+                    try:
+                        if item.is_visible():
+                            visible_texts.append(item.inner_text())
+                    except (TimeoutError, Error):
+                        continue
             except (TimeoutError, Error):
                 continue
-            matches = sum(" ".join(text.split()).casefold() == expected for text in visible_texts)
+            matches = sum("".join(text.split()).casefold() == expected for text in visible_texts)
             if matches:
                 return matches
+            # Fallback: check if ANY text on the page contains the filename
+            try:
+                body_text = page.locator("body").first.inner_text()
+                stripped_body = "".join(body_text.split()).casefold()
+                stripped_name = "".join(normalized_name.split())
+                if stripped_name in stripped_body:
+                    return 1
+            except (TimeoutError, Error):
+                pass
         return 0
 
     # ─── Block 3: Dunder Methods, Factories & Helpers ─────

@@ -116,6 +116,9 @@ MESSAGE_SELECTORS: tuple[str, ...] = (
     "[data-role='assistant']",
     ".qwen-markdown",
     ".chat-message-assistant",
+    ".qwen-chat-message-assistant",
+    ".chat-response-message",
+    ".chat-messages-container",
     "div.assistant",
     ".assistant",
 )
@@ -132,7 +135,8 @@ JS_GET_RESPONSE_TEXT: str = """
 () => {
     var containers = ['#chatLog', '[class*="chat-log"]', '[class*="virtual-list"]',
                       '[class*="message-list"]', '[class*="conversation-body"]',
-                      '[class*="dialog-content"]'];
+                      '[class*="dialog-content"]', '.chat-messages-container',
+                      '.chat-response-message', '.qwen-chat-message-assistant'];
     for (var ci = 0; ci < containers.length; ci++) {
         var container = document.querySelector(containers[ci]);
         if (container && container.children.length > 0) {
