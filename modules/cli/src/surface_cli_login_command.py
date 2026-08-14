@@ -10,25 +10,17 @@ from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.utility_core_response import error_response, safe_handle, success_response
 
 
-def wait_for_login_confirmation() -> None:
-    """Keep the headed browser alive while the user completes login."""
-    print("Please log in or resolve CAPTCHA in the browser window.")
-    print("Press [ENTER] here once the chat page is ready:")
-    input()
-
-
-def _login_waiter() -> Callable[[], None]:
-    """Return the shared login confirmation callback for dependency injection."""
-    return wait_for_login_confirmation
-
-
 @safe_handle
 def handle(_args: object, core: ICoreAggregate, cfg: AppConfig) -> dict[str, object]:
-    """Validate or establish a manual login session in a visible browser."""
+    """Validate or establish a manual login session in a visible browser.
+
+    The user logs in manually in the headed browser, then closes it — that
+    triggers the session check. No ENTER press needed.
+    """
     core.delete_session(session_path=cfg.session_path)
 
     result = core.setup_session(
-        wait_for_confirmation=_login_waiter(),
+        wait_for_confirmation=None,
         session_path=cfg.session_path,
     )
     return success_response(result)

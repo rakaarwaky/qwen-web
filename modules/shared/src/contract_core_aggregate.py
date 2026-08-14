@@ -82,6 +82,10 @@ class ICoreAggregate(ABC):
         """
 
     @abstractmethod
+    def delete_session(self, session_path: Path | None = None) -> ResponseText:
+        """Delete the persistent login session at ``session_path``."""
+
+    @abstractmethod
     def get_audit_log(self, limit: MessageCount = MessageCount(20)) -> ResponseText:
         """Return recent audit log entries as JSON text."""
 

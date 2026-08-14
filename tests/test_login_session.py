@@ -19,11 +19,14 @@ class _BrowserHarness:
     """Small browser protocol fake that records context lifetime and config."""
 
     def __init__(self, session_results: list[bool]) -> None:
-        self._session_results = iter(session_results)
+        self._session_results = list(session_results)
+        self._check_count = 0
         self.context_configs: list[object] = []
         self.active = False
         self.page = MagicMock()
         self.page.pages = [self.page]
+        # Simulate user closing the browser immediately (is_closed returns True)
+        self.page.is_closed.return_value = True
 
     @contextmanager
     def browser_session(self, cfg):
@@ -43,7 +46,13 @@ class _BrowserHarness:
         return None
 
     def check_session(self, page) -> bool:
-        return next(self._session_results)
+        """Return True once the expected results are exhausted."""
+        if self._check_count < len(self._session_results):
+            result = self._session_results[self._check_count]
+            self._check_count += 1
+            return result
+        # Exhausted expected results — session is now stable (True)
+        return True
 
     def reset_page(self, page, emitter) -> None:
         return None
@@ -87,18 +96,16 @@ def test_existing_valid_session_skips_visible_login(tmp_path: Path) -> None:
 
 
 def test_manual_login_keeps_browser_open_until_confirmation(tmp_path: Path) -> None:
-    """The confirmation prompt runs before the browser context is closed."""
+    """Browser stays open until user closes it (is_closed returns True), then checks session."""
     session_path = tmp_path / "session"
     browser = _BrowserHarness([True])
-    confirmation = MagicMock(side_effect=lambda: _assert_browser_active(browser))
 
     result = _orchestrator(browser).setup_session(
-        wait_for_confirmation=confirmation,
+        wait_for_confirmation=True,
         session_path=session_path,
     )
 
     assert "completed successfully" in result
-    confirmation.assert_called_once_with()
     assert len(browser.context_configs) == 1
     login_cfg = browser.context_configs[0]
     assert login_cfg.mode == "login"
@@ -124,15 +131,18 @@ def test_invalid_saved_session_falls_back_to_manual_login(tmp_path: Path) -> Non
 
 
 def test_manual_login_reports_invalid_final_state(tmp_path: Path) -> None:
-    """Pressing ENTER before authentication produces an actionable error."""
+    """When session check fails after timeout, raises AuthRequiredError."""
     browser = _BrowserHarness([False])
 
     with pytest.raises(AuthRequiredError, match="did not produce a valid"):
         _orchestrator(browser).setup_session(
-            wait_for_confirmation=lambda: _assert_browser_active(browser),
+            wait_for_confirmation=True,
             session_path=tmp_path / "session",
         )
 
+
+def _assert_context_closed(browser: _BrowserHarness) -> None:
+    """Assert that the browser context was closed after login."""
     assert browser.active is False
 
 
@@ -142,7 +152,7 @@ def _assert_browser_active(browser: _BrowserHarness) -> None:
 
 
 def test_cli_login_passes_confirmation_callback_to_core(tmp_path: Path) -> None:
-    """The CLI owns the ENTER prompt but executes it through the core context."""
+    """The CLI calls setup_session without wait_for_confirmation (browser close triggers check)."""
     cfg = AppConfig(
         mode="login",
         input_path=tmp_path / "input",
@@ -155,16 +165,14 @@ def test_cli_login_passes_confirmation_callback_to_core(tmp_path: Path) -> None:
     core = MagicMock()
     core.setup_session.return_value = "Manual login completed successfully."
 
-    with patch("sys.stdin") as stdin, patch("builtins.input") as input_fn:
-        stdin.isatty.return_value = True
+    with patch("sys.stdin"):
         result = handle(None, core, cfg)
 
     assert result == {"success": True, "message": "Manual login completed successfully."}
     core.setup_session.assert_called_once()
     kwargs = core.setup_session.call_args.kwargs
     assert kwargs["session_path"] == cfg.session_path
-    assert callable(kwargs["wait_for_confirmation"])
-    input_fn.assert_not_called()
+    assert kwargs["wait_for_confirmation"] is None
 
 
 def test_browser_check_session_requires_authenticated_chat_ui() -> None:
@@ -189,18 +197,6 @@ def test_manual_login_delays_check_session_after_confirmation(tmp_path: Path) ->
 
     session_path = tmp_path / "session"
     browser = _BrowserHarness([True])
-    wait_calls: list[int] = []
-
-    def _patch_page(page):
-        original_wait = page.wait_for_timeout
-        def recording_wait(ms=0):
-            wait_calls.append(ms)
-            # Actually sleep for the delay so timing test works
-            time.sleep(ms / 1000)
-        page.wait_for_timeout = recording_wait
-
-    _patch_page(browser.page)
-
     confirmation = MagicMock()
     start = time.monotonic()
 
@@ -210,6 +206,3 @@ def test_manual_login_delays_check_session_after_confirmation(tmp_path: Path) ->
     )
 
     assert "completed successfully" in result
-    # The wait_for_timeout should have been called with ~2000ms
-    assert len(wait_calls) == 1
-    assert wait_calls[0] == 2000

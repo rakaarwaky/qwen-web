@@ -331,19 +331,26 @@ class CoreOrchestrator(ICoreAggregate):
             page.goto(CHAT_URL, wait_until="domcontentloaded")
 
             if wait_for_confirmation is not None:
-                # The callback blocks inside this context, keeping the headed
-                # browser alive while the user logs in or resolves CAPTCHA.
-                wait_for_confirmation()
-                # Give the page time to stabilize after manual login before checking.
+                # The user logs in manually, then closes the browser (clicks X) —
+                # that triggers the session check. No ENTER press needed.
+                # Poll until the user actually closes the page.
                 try:
-                    page.wait_for_timeout(2000)
+                    deadline = time.monotonic() + cfg.timeout
+                    while True:
+                        try:
+                            if page.is_closed():
+                                break
+                        except Exception:
+                            break
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0:
+                            break
+                        try:
+                            page.wait_for_timeout(min(500, max(1, int(remaining * 10))))
+                        except Exception:
+                            break
                 except Exception:
                     pass
-            else:
-                # Non-CLI callers (for example MCP) have no ENTER prompt. Wait
-                # until the page becomes authenticated instead of closing the
-                # browser immediately after navigation.
-                self._wait_for_session(page, cfg.timeout)
 
             if not self._browser.check_session(page):
                 raise AuthRequiredError(

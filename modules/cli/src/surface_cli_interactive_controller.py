@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 from typing import Literal
 
-from modules.cli.src.surface_cli_login_command import wait_for_login_confirmation
 from modules.cli.src.surface_cli_session_setup import run_session_setup
 from modules.core.src.utility_core_config_factory import build_app_config
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
@@ -124,7 +123,7 @@ class InteractiveController:
             def _do_login() -> None:
                 self._core.delete_session(session_path=selected.session_path)
                 result = self._core.setup_session(
-                    wait_for_confirmation=wait_for_login_confirmation,
+                    wait_for_confirmation=None,
                     session_path=selected.session_path,
                 )
                 print(result)
