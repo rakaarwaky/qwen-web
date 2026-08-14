@@ -4,6 +4,77 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.1.0] - 2026-08-14
+
+### Added
+
+- feat: update linting rules and ignore specific patterns for browser automation safety
+- feat: update README and CLI commands for qwen-web-cli integration
+- feat: add test suite initialization for qwen-web-cli
+- feat: enhance CI workflow with quality gates and add local gates script
+- feat: add atomic JSON file writing utility and update test fixture timestamp
+- feat: refactor DOM helper functions and update related capabilities for improved visibility checks
+- feat: add utilities for async event-loop isolation and Chrome binary discovery
+- feat: add DOM action utilities for Playwright pages
+- feat: refine exception handling across multiple modules
+- feat: enable AES501 to AES506 rules in lint configuration
+- feat: fix AES202/AES203 violations — 0 codacy & aes linter violations
+- feat: add IMetricsProtocol import and create QWEN.md file; remove unused Path import
+- feat: update protocols to use taxonomy value objects for metrics and status handling
+- feat: add Codacy configuration to exclude scripts and tests from analysis
+- feat: remove outdated key patterns section from AGENTS.md
+- feat: remove unnecessary comment and clean up SKILL.md formatting
+- feat: remove obsolete module verification script
+- feat: implement atomic file writing with error handling in _write_file_atomic function
+- feat: update protocol implementations and enhance class constructors with dependency injection
+- feat: enhance class definitions and add __repr__ methods for better debugging
+
+### Fixed
+
+- Merge pull request #98 from rakaarwaky/fix/mcp-transport-and-spec
+- fix(core): refresh circuit breaker state on reconfigure
+- fix(mcp): harden stdio proxy validation
+- fix: apply CodeRabbit auto-fixes
+- fix(core): address PR review pipeline findings
+- fix(cli): address review feedback for interactive errors
+- fix(core): enforce pipeline routing outcomes and lifecycle gates
+- fix(cli): enforce surface precedence and linux lifecycle
+- fix(mcp): protect stdio and generate audit log tool
+- Merge pull request #47 from rakaarwaky/fix/interactive-missing-appconfig
+- fix: pass built config to run command in interactive mode
+- Merge pull request #46 from rakaarwaky/arena/019ffc60-qwen-web
+- fix: keep manual login browser open and verify session
+- Merge pull request #31 from rakaarwaky/arena/019ffc14-qwen-web
+- Merge pull request #25 from rakaarwaky/fix/install-clean-reinstall
+- fix(install): clean reinstall + repair browser session dir perms
+- Merge pull request #30 from rakaarwaky/arena/019ffc13-qwen-web
+- fix(browser): chmod session dir 0700 at runtime to unblock Chromium launch
+- fix(ci): restore os.chmod 0o700 on session dir to unbreak pytest job
+- fix(install): clean reinstall + repair browser session dir perms
+
+### Changed
+
+- refactor(core): simplify breaker refresh helper
+- style(mcp): organize test imports
+- chore(core): keep self-lint compatible
+- style(mcp): satisfy lint for generated signatures
+- test(mcp): use buffered stdout fixtures
+- test(core): avoid private breaker state access
+- test(cli): strengthen interactive review coverage
+- chore(release): v4.1.0
+- Merge pull request #60 from rakaarwaky/arena/019ffcd8-qwen-web
+- refactor(core): merge metrics and status into observability (12→10)
+- docs(core): split PRD/FRD into 10 capability-aligned FRs
+- chore(release): v4.1.0
+- Merge pull request #44 from rakaarwaky/worktree/docs-update
+- docs: lock scope to Stabilization Mode (PRD, README, FRDs, skill)
+- chore(release): v4.1.0
+- chore: remove obsolete .last_run_ts fixture file
+- chore(release): v4.1.0
+- chore(release): v4.1.0
+- chore(release): v4.1.0
+- Merge pull request #24 from rakaarwaky/dependabot/github_actions/actions-f435755103
+
 ## [4.1.0] - 2026-08-13
 
 ### Added
