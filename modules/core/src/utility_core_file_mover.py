@@ -36,6 +36,9 @@ def _copy_then_replace(source: Path, destination: Path) -> None:
                 shutil.copyfileobj(source_file, temp_file)
             temp_file.flush()
             os.fsync(temp_file.fileno())
+        shutil.copystat(source, temp_path)
+        with temp_path.open("rb") as copied_file:
+            os.fsync(copied_file.fileno())
         os.replace(temp_path, destination)
         _fsync_directory(destination.parent)
         source.unlink()

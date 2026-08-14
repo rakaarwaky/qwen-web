@@ -8,8 +8,30 @@ import pytest
 from playwright.sync_api import Error
 
 from modules.core.src.capabilities_prompt_injector import PromptInjector
-from modules.shared.src import QwenCliError
+from modules.shared.src import (
+    EVENT_DISPATCH_ACKNOWLEDGED,
+    EVENT_DOCUMENT_PARSED,
+    EVENT_WEB_LOADED,
+    QwenCliError,
+)
 from tests.helpers import make_test_orchestrator
+
+
+def _configure_lifecycle_mocks(orch) -> None:
+    def navigate(_page, emitter):
+        emitter.emit(EVENT_WEB_LOADED, {"url": "test"})
+
+    def upload(_page, _filepath, emitter=None, **_kwargs):
+        assert emitter is not None
+        emitter.emit(EVENT_DOCUMENT_PARSED, {"file": "test"})
+        return True
+
+    def send(_page, emitter, **_kwargs):
+        emitter.emit(EVENT_DISPATCH_ACKNOWLEDGED, {"file": "test"})
+
+    orch._browser.navigate_to_chat.side_effect = navigate
+    orch._uploader.upload_attachment.side_effect = upload
+    orch._sender.click_send.side_effect = send
 
 
 class TestSendFile:
@@ -21,6 +43,7 @@ class TestSendFile:
 
     def test_send_file_timeout_error(self, tmp_path):
         orch = make_test_orchestrator()
+        _configure_lifecycle_mocks(orch)
         page = MagicMock()
         orch._sender.count_messages.return_value = 0
         orch._uploader.upload_attachment.return_value = True
@@ -34,6 +57,7 @@ class TestSendFile:
 
     def test_send_file_delegates_to_capabilities(self, tmp_path):
         orch = make_test_orchestrator()
+        _configure_lifecycle_mocks(orch)
         page = MagicMock()
         orch._sender.count_messages.return_value = 2
         orch._uploader.upload_attachment.return_value = True

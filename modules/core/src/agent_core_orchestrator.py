@@ -14,8 +14,6 @@ import tempfile
 import threading
 import time
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 
 from playwright.sync_api import Page
@@ -43,7 +41,7 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_OUTPUT,
     DEFAULT_TODO,
 )
-from modules.shared.src.taxonomy_core_entity import CircuitBreaker, LifecycleEmitter, RateLimiter
+from modules.shared.src.taxonomy_core_entity import CircuitBreaker, LifecycleEmitter, LifecycleState, RateLimiter
 from modules.shared.src.taxonomy_core_vo import (
     EVENT_DISPATCH_ACKNOWLEDGED,
     EVENT_DOCUMENT_PARSED,
@@ -56,6 +54,8 @@ from modules.shared.src.taxonomy_core_vo import (
     MessageCount,
     OutputChars,
     PollIntervalSec,
+    ProcessingOutcome,
+    ProcessingStatus,
     PromptText,
     ResponseText,
     RunContext,
@@ -75,39 +75,6 @@ from modules.shared.src.utility_core_path import (
 from modules.shared.src.utility_core_prompt import load_role_prompt, strip_input_from_output
 
 _watcher_shutdown: threading.Event = threading.Event()
-
-
-class ProcessingStatus(str, Enum):
-    """Terminal status for one queue item."""
-
-    SUCCESS = "SUCCESS"
-    FAILED = "FAILED"
-
-
-@dataclass(frozen=True)
-class ProcessingOutcome:
-    """Result of one processing attempt, including quarantine details."""
-
-    status: ProcessingStatus
-    error: str | None = None
-    failed_path: Path | None = None
-
-
-class LifecycleState:
-    """Run-local lifecycle gates driven by emitted event completion."""
-
-    def __init__(self) -> None:
-        self.web_loaded = False
-        self.document_parsed = False
-        self.dispatch_acknowledged = False
-
-    def mark(self, event_name: object) -> None:
-        if event_name == EVENT_WEB_LOADED:
-            self.web_loaded = True
-        elif event_name == EVENT_DOCUMENT_PARSED:
-            self.document_parsed = True
-        elif event_name == EVENT_DISPATCH_ACKNOWLEDGED:
-            self.dispatch_acknowledged = True
 
 
 def request_watcher_shutdown() -> None:
@@ -224,8 +191,11 @@ class CoreOrchestrator(ICoreAggregate):
         ctx = RunContext()
 
         def _fn() -> ResponseText:
-            proc_file, rel_path = next(iter(self._iter_todo(cfg)))
             with self._browser.browser_session(cfg):
+                try:
+                    proc_file, rel_path = next(iter(self._iter_todo(cfg)))
+                except StopIteration:
+                    return ResponseText(f"ERROR [NO_INPUT_FILE]: No processable input file found at {cfg.input_path}")
                 outcome = self._process_file(proc_file, rel_path, cfg, ctx)
             if outcome.status is ProcessingStatus.FAILED:
                 return ResponseText(f"ERROR [PROCESSING_FAILED]: {outcome.error}")
@@ -265,25 +235,32 @@ class CoreOrchestrator(ICoreAggregate):
         ctx = RunContext()
 
         def _fn() -> ResponseText:
+            processed = 0
+            failed = 0
             with self._browser.browser_session(cfg):
                 for proc_file, rel_path in self._iter_todo(cfg):
-                    self._process_file(proc_file, rel_path, cfg, ctx)
+                    try:
+                        outcome = self._process_file(proc_file, rel_path, cfg, ctx)
+                        if outcome.status is ProcessingStatus.SUCCESS:
+                            processed += 1
+                        else:
+                            failed += 1
+                    except AuthRequiredError:
+                        raise
+                    except Exception as exc:
+                        failed += 1
+                        self._observability.get_logger().error(
+                            "watcher_file_failed", file=str(rel_path), error=str(exc)
+                        )
                     _watcher_sleep(cfg.interval)
-            return ResponseText("Watcher loop completed.")
+            return ResponseText(f"Watcher loop completed. Successfully processed: {processed}, Failed: {failed}")
 
         return self._execute(_fn)
 
     def _apply_runtime_config(self, cfg: AppConfig) -> None:
-        """Apply config-owned rate and circuit-breaker limits for this execution."""
-        current_cb = getattr(self._cb, "_threshold", None)
-        current_window = getattr(self._cb, "_window_sec", None)
-        if current_cb != cfg.circuit_breaker_threshold or current_window != cfg.circuit_breaker_window:
-            self._cb = type(self._cb)(
-                FailureThreshold(cfg.circuit_breaker_threshold), WindowSec(cfg.circuit_breaker_window)
-            )
-        current_rate = getattr(self._rl, "_max_per_minute", None)
-        if current_rate != cfg.rate_limit_per_minute:
-            self._rl = type(self._rl)(MaxPerMinute(cfg.rate_limit_per_minute))
+        """Apply config-owned limits through the injected runtime collaborators."""
+        self._cb.configure(FailureThreshold(cfg.circuit_breaker_threshold), WindowSec(cfg.circuit_breaker_window))
+        self._rl.configure(MaxPerMinute(cfg.rate_limit_per_minute))
 
     def send_prompt(self, prompt: str, timeout_sec: int = 120, headless: bool = True) -> ResponseText:
         """Send a direct text prompt and return the AI response."""
@@ -435,10 +412,6 @@ class CoreOrchestrator(ICoreAggregate):
 
         self._browser.navigate_to_chat(page, emitter)
         if not state.web_loaded:
-            # The browser operation succeeded but a test/custom adapter did not
-            # emit the contract event; emit it here only as a successful fallback.
-            emitter.emit(EVENT_WEB_LOADED, {"url": getattr(page, "url", "")})
-        if not state.web_loaded:
             raise RuntimeError("Cannot upload attachment: web page loading (EVENT_WEB_LOADED) is incomplete")
         self._browser.check_auth(page)
 
@@ -454,14 +427,11 @@ class CoreOrchestrator(ICoreAggregate):
                 "File upload failed, proceeding with text-only prompt: %s", filepath.name
             )
             emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "char_count": len(prompt), "fallback": True})
-        elif not state.document_parsed:
-            emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "char_count": len(prompt)})
         if not state.document_parsed:
             raise RuntimeError("Cannot send prompt: document attachment parsing (EVENT_DOCUMENT_PARSED) is incomplete")
 
         self._injector.inject_text(page, PromptText(prompt))
         self._sender.click_send(page, emitter, document_parsed=HeadlessFlag(state.document_parsed))
-        emitter.emit(EVENT_DISPATCH_ACKNOWLEDGED, {"file": str(filepath)})
         if not state.dispatch_acknowledged:
             raise RuntimeError("Cannot wait for response: prompt dispatch (EVENT_DISPATCH_ACKNOWLEDGED) is incomplete")
 

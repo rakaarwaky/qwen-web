@@ -53,11 +53,7 @@ def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> tuple[Path, Path, Path
         out_path = _compute_output_path(cfg, sub_path)
         done_path = _role_destination(cfg.done_path, role_folder, sub_path, "done", cfg.input_path)
         fail_path = _role_destination(cfg.failed_path, role_folder, sub_path, "failed", cfg.input_path)
-        proc_file = (
-            _role_destination(cfg.proc_path, role_folder, sub_path, ".processing")
-            if cfg.mode == "single"
-            else cfg.proc_path / role_folder / sub_path
-        )
+        proc_file = _role_destination(cfg.proc_path, role_folder, sub_path, ".processing", cfg.input_path)
     else:
         sub_path = _normalize_sub_parts(parts, rel_path.name)
         out_path = _compute_output_path(cfg, sub_path)

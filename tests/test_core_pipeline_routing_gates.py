@@ -11,7 +11,13 @@ from modules.core.src import agent_core_orchestrator as orchestrator_module
 from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 from modules.core.src.utility_core_file_mover import move_file
 from modules.shared.src.taxonomy_config_vo import AppConfig
-from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
+from modules.shared.src.taxonomy_core_entity import CircuitBreaker, LifecycleState, RateLimiter
+from modules.shared.src.taxonomy_core_vo import (
+    EVENT_DOCUMENT_PARSED,
+    EVENT_WEB_LOADED,
+    ProcessingOutcome,
+    ProcessingStatus,
+)
 
 
 def _make_orchestrator() -> CoreOrchestrator:
@@ -76,6 +82,8 @@ def test_move_file_cross_device_copies_flushes_replaces_then_unlinks(
     source = tmp_path / "source.md"
     destination = tmp_path / "nested" / "destination.md"
     source.write_text("payload")
+    source.chmod(0o744)
+    os.utime(source, (1000, 2000))
     real_replace = os.replace
     calls = 0
 
@@ -92,6 +100,9 @@ def test_move_file_cross_device_copies_flushes_replaces_then_unlinks(
     assert calls == 2
     assert not source.exists()
     assert destination.read_text() == "payload"
+    destination_stat = destination.stat()
+    assert destination_stat.st_mode & 0o777 == 0o744
+    assert destination_stat.st_mtime == pytest.approx(2000)
     assert not list(destination.parent.glob(".*.tmp"))
 
 
@@ -140,19 +151,25 @@ def test_batch_counts_quarantine_as_failed_and_continues(tmp_path: Path) -> None
     assert not list(input_root.rglob("*.md"))
 
 
-def test_process_mode_passes_complete_config_and_runtime_limits() -> None:
+def test_process_mode_passes_complete_config_and_runtime_limits(tmp_path: Path) -> None:
     orch = _make_orchestrator()
-    cfg = _config(Path("/tmp"), mode="batch")
+    cfg = _config(tmp_path, mode="batch")
     dispatch = MagicMock(return_value="dispatched")
     orch._process_batch_with_config = dispatch
 
     assert orch.process_mode(cfg) == "dispatched"
     dispatch.assert_called_once_with(cfg)
 
+    original_cb = orch._cb
+    original_rl = orch._rl
+    original_cb.record_failure()
+    original_rl.acquire()
     orch._apply_runtime_config(cfg)
-    assert orch._cb._threshold == cfg.circuit_breaker_threshold
-    assert orch._cb._window_sec == cfg.circuit_breaker_window
-    assert orch._rl._max_per_minute == cfg.rate_limit_per_minute
+    assert orch._cb is original_cb
+    assert orch._rl is original_rl
+    assert orch._cb.threshold == cfg.circuit_breaker_threshold
+    assert orch._cb.window_sec == cfg.circuit_breaker_window
+    assert orch._rl.max_per_minute == cfg.rate_limit_per_minute
 
 
 def test_lifecycle_flags_are_event_backed_and_passed_to_capabilities(tmp_path: Path) -> None:
@@ -160,7 +177,19 @@ def test_lifecycle_flags_are_event_backed_and_passed_to_capabilities(tmp_path: P
     prompt_file.write_text("prompt")
     orch = _make_orchestrator()
     page = MagicMock()
-    orch._uploader.upload_attachment.return_value = False
+
+    def navigate(_page: object, emitter: object) -> None:
+        emitter.emit(orchestrator_module.EVENT_WEB_LOADED, {"url": "test"})
+
+    def upload(_page: object, _filepath: Path, **_kwargs: object) -> bool:
+        return False
+
+    def send(_page: object, emitter: object, **_kwargs: object) -> None:
+        emitter.emit(orchestrator_module.EVENT_DISPATCH_ACKNOWLEDGED, {"source": "test"})
+
+    orch._browser.navigate_to_chat.side_effect = navigate
+    orch._uploader.upload_attachment.side_effect = upload
+    orch._sender.click_send.side_effect = send
     orch._streamer.wait_for_response.return_value = "answer"
 
     assert orch.send_file(page, prompt_file, timeout_sec=5) == "answer"
@@ -168,6 +197,56 @@ def test_lifecycle_flags_are_event_backed_and_passed_to_capabilities(tmp_path: P
     assert orch._sender.click_send.call_args.kwargs["document_parsed"] is True
     assert orch._streamer.wait_for_response.call_args.kwargs["dispatch_acknowledged"] is True
     assert orch._streamer.wait_for_response.call_args.kwargs["polling_interval_sec"] == 1.0
+
+
+def test_missing_web_loaded_event_blocks_upload(tmp_path: Path) -> None:
+    prompt_file = tmp_path / "prompt.md"
+    prompt_file.write_text("prompt")
+    orch = _make_orchestrator()
+
+    with pytest.raises(RuntimeError, match="EVENT_WEB_LOADED"):
+        orch.send_file(MagicMock(), prompt_file, timeout_sec=5)
+
+    orch._uploader.upload_attachment.assert_not_called()
+    orch._sender.click_send.assert_not_called()
+
+
+def test_missing_document_parsed_event_blocks_send(tmp_path: Path) -> None:
+    prompt_file = tmp_path / "prompt.md"
+    prompt_file.write_text("prompt")
+    orch = _make_orchestrator()
+
+    def navigate(_page: object, emitter: object) -> None:
+        emitter.emit(EVENT_WEB_LOADED, {"url": "test"})
+
+    orch._browser.navigate_to_chat.side_effect = navigate
+    orch._uploader.upload_attachment.return_value = True
+
+    with pytest.raises(RuntimeError, match="EVENT_DOCUMENT_PARSED"):
+        orch.send_file(MagicMock(), prompt_file, timeout_sec=5)
+
+    orch._sender.click_send.assert_not_called()
+
+
+def test_missing_dispatch_acknowledgement_blocks_stream(tmp_path: Path) -> None:
+    prompt_file = tmp_path / "prompt.md"
+    prompt_file.write_text("prompt")
+    orch = _make_orchestrator()
+
+    def navigate(_page: object, emitter: object) -> None:
+        emitter.emit(EVENT_WEB_LOADED, {"url": "test"})
+
+    def upload(_page: object, _filepath: Path, **_kwargs: object) -> bool:
+        return False
+
+    orch._browser.navigate_to_chat.side_effect = navigate
+    orch._uploader.upload_attachment.side_effect = upload
+    orch._sender.click_send.return_value = None
+
+    with pytest.raises(RuntimeError, match="EVENT_DISPATCH_ACKNOWLEDGED"):
+        orch.send_file(MagicMock(), prompt_file, timeout_sec=5)
+
+    orch._streamer.wait_for_response.assert_not_called()
 
 
 def test_navigation_failure_blocks_upload_and_send(tmp_path: Path) -> None:
@@ -184,10 +263,58 @@ def test_navigation_failure_blocks_upload_and_send(tmp_path: Path) -> None:
     orch._streamer.wait_for_response.assert_not_called()
 
 
+def test_single_file_stays_available_when_session_setup_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    source = tmp_path / "role-demo" / "todo" / "task.md"
+    source.parent.mkdir(parents=True)
+    source.write_text("prompt")
+    cfg = _config(tmp_path, mode="single", input_path=source)
+    orch = _make_orchestrator()
+    orch._browser.browser_session.side_effect = RuntimeError("browser setup failed")
+    monkeypatch.setattr(orchestrator_module, "build_app_config", lambda **_kwargs: cfg)
+
+    result = orch.process_single_file(source, cfg.output_path, headless=True)
+
+    assert result.startswith("ERROR [RuntimeError]")
+    assert source.exists()
+    assert not list(cfg.proc_path.rglob("task.md"))
+
+
+def test_watcher_counts_terminal_outcomes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = _config(tmp_path, mode="watcher")
+    orch = _make_orchestrator()
+    orch._browser.browser_session.return_value.__enter__.return_value.pages = [MagicMock()]
+    items = [(tmp_path / "one.md", Path("role-demo/one.md")), (tmp_path / "two.md", Path("role-demo/two.md"))]
+    orch._iter_todo = MagicMock(return_value=iter(items))
+    orch._process_file = MagicMock(
+        side_effect=[
+            ProcessingOutcome(ProcessingStatus.SUCCESS),
+            ProcessingOutcome(ProcessingStatus.FAILED, "failed"),
+        ]
+    )
+    monkeypatch.setattr(orchestrator_module, "_watcher_sleep", lambda _interval: None)
+
+    result = orch._process_watcher_with_config(cfg)
+
+    assert result == "Watcher loop completed. Successfully processed: 1, Failed: 1"
+
+
+def test_lifecycle_state_only_advances_on_matching_events() -> None:
+    state = LifecycleState()
+    state.mark(EVENT_DOCUMENT_PARSED)
+    assert not state.web_loaded
+    assert state.document_parsed
+    assert not state.dispatch_acknowledged
+
+
 def test_dispatch_failure_blocks_stream_monitor(tmp_path: Path) -> None:
     prompt_file = tmp_path / "prompt.md"
     prompt_file.write_text("prompt")
     orch = _make_orchestrator()
+
+    def navigate(_page: object, emitter: object) -> None:
+        emitter.emit(orchestrator_module.EVENT_WEB_LOADED, {"url": "test"})
+
+    orch._browser.navigate_to_chat.side_effect = navigate
     orch._uploader.upload_attachment.return_value = False
     orch._sender.click_send.side_effect = RuntimeError("dispatch failed")
 

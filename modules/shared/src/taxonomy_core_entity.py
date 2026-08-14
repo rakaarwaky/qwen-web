@@ -52,6 +52,15 @@ class CircuitBreaker:
         self._failures: deque[float] = deque()
         self._trip: bool = False
 
+    def configure(self, threshold: FailureThreshold, window_sec: WindowSec) -> None:
+        """Update limits while preserving accumulated failure history."""
+        if threshold < 1:
+            raise ValueError(f"threshold must be >= 1, got {threshold}")
+        if window_sec < 1:
+            raise ValueError(f"window_sec must be >= 1, got {window_sec}")
+        self._threshold = threshold
+        self._window_sec = window_sec
+
     def record_success(self) -> None:
         """Reset the breaker on a successful request."""
         self._failures.clear()
@@ -65,6 +74,16 @@ class CircuitBreaker:
             self._failures.popleft()
         if len(self._failures) >= self._threshold:
             self._trip = True
+
+    @property
+    def threshold(self) -> int:
+        """Configured consecutive-failure threshold."""
+        return int(self._threshold)
+
+    @property
+    def window_sec(self) -> int:
+        """Configured failure observation window in seconds."""
+        return int(self._window_sec)
 
     @property
     def is_tripped(self) -> bool:
@@ -90,6 +109,17 @@ class RateLimiter:
         self._max_per_minute = max_per_minute
         self._timestamps: deque[float] = deque()
 
+    def configure(self, max_per_minute: MaxPerMinute) -> None:
+        """Update the request limit while preserving timestamp history."""
+        if max_per_minute < MaxPerMinute(1):
+            raise ValueError(f"max_per_minute must be >= 1, got {max_per_minute}")
+        self._max_per_minute = max_per_minute
+
+    @property
+    def max_per_minute(self) -> int:
+        """Configured maximum requests per minute."""
+        return int(self._max_per_minute)
+
     def acquire(self) -> None:
         """Wait until a request slot is available."""
         now = time.time()
@@ -105,6 +135,24 @@ class RateLimiter:
             now = time.time()
             window_start = now - 60.0
         self._timestamps.append(time.time())
+
+
+class LifecycleState:
+    """Mutable run-local gates driven only by emitted lifecycle events."""
+
+    def __init__(self) -> None:
+        self.web_loaded = False
+        self.document_parsed = False
+        self.dispatch_acknowledged = False
+
+    def mark(self, event_name: QwenEventType | str) -> None:
+        """Advance exactly the gate represented by an emitted event."""
+        if event_name == QwenEventType.WEB_LOADED:
+            self.web_loaded = True
+        elif event_name == QwenEventType.DOCUMENT_PARSED:
+            self.document_parsed = True
+        elif event_name == QwenEventType.DISPATCH_ACKNOWLEDGED:
+            self.dispatch_acknowledged = True
 
 
 class LifecycleEmitter:
