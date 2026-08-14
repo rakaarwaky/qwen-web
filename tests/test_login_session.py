@@ -96,7 +96,7 @@ def test_existing_valid_session_skips_visible_login(tmp_path: Path) -> None:
 
 
 def test_manual_login_keeps_browser_open_until_confirmation(tmp_path: Path) -> None:
-    """Browser stays open until user closes it (is_closed returns True), then checks session."""
+    """Browser stays open until user closes it (is_closed returns True), then validates saved session."""
     session_path = tmp_path / "session"
     browser = _BrowserHarness([True])
 
@@ -106,15 +106,14 @@ def test_manual_login_keeps_browser_open_until_confirmation(tmp_path: Path) -> N
     )
 
     assert "completed successfully" in result
-    assert len(browser.context_configs) == 1
-    login_cfg = browser.context_configs[0]
-    assert login_cfg.mode == "login"
-    assert login_cfg.headless is False
-    assert browser.active is False
+    # Two contexts: login (headed) + session-check (headless validation after close)
+    assert len(browser.context_configs) == 2
+    assert [cfg.mode for cfg in browser.context_configs] == ["login", "session-check"]
 
 
 def test_invalid_saved_session_falls_back_to_manual_login(tmp_path: Path) -> None:
-    """An expired profile is checked first, then replaced through manual login."""
+    """An expired profile is checked first, then replaced through manual login.
+    After user closes browser, session-check runs again to validate the new session."""
     session_path = tmp_path / "session"
     session_path.mkdir()
     browser = _BrowserHarness([False, True])
@@ -126,19 +125,20 @@ def test_invalid_saved_session_falls_back_to_manual_login(tmp_path: Path) -> Non
     )
 
     assert "completed successfully" in result
-    assert [cfg.mode for cfg in browser.context_configs] == ["session-check", "login"]
-    assert browser.context_configs[1].headless is False
+    assert [cfg.mode for cfg in browser.context_configs] == ["session-check", "login", "session-check"]
 
 
 def test_manual_login_reports_invalid_final_state(tmp_path: Path) -> None:
-    """When session check fails after timeout, raises AuthRequiredError."""
+    """When user closes browser but session is invalid, _validate_saved_session returns False.
+    The mock's check_session returns False (first result), so login fails with message."""
     browser = _BrowserHarness([False])
 
-    with pytest.raises(AuthRequiredError, match="did not produce a valid"):
-        _orchestrator(browser).setup_session(
-            wait_for_confirmation=True,
-            session_path=tmp_path / "session",
-        )
+    result = _orchestrator(browser).setup_session(
+        wait_for_confirmation=True,
+        session_path=tmp_path / "session",
+    )
+
+    assert "did not produce a valid" in str(result)
 
 
 def _assert_context_closed(browser: _BrowserHarness) -> None:

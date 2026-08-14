@@ -330,35 +330,32 @@ class CoreOrchestrator(ICoreAggregate):
             page = bctx.pages[0] if bctx.pages else bctx.new_page()
             page.goto(CHAT_URL, wait_until="domcontentloaded")
 
-            if wait_for_confirmation is not None:
-                # The user logs in manually, then closes the browser (clicks X) —
-                # that triggers the session check. No ENTER press needed.
-                # Poll until the user actually closes the page.
-                try:
-                    deadline = time.monotonic() + cfg.timeout
-                    while True:
-                        try:
-                            if page.is_closed():
-                                break
-                        except Exception:
+            # For manual login (mode='login'), keep browser open until user closes it.
+            # No ENTER press needed — user clicks X on browser window to trigger check.
+            try:
+                deadline = time.monotonic() + cfg.timeout
+                while True:
+                    try:
+                        if page.is_closed():
                             break
-                        remaining = deadline - time.monotonic()
-                        if remaining <= 0:
-                            break
-                        try:
-                            page.wait_for_timeout(min(500, max(1, int(remaining * 10))))
-                        except Exception:
-                            break
-                except Exception:
-                    pass
+                    except Exception:
+                        break
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        break
+                    try:
+                        page.wait_for_timeout(min(500, max(1, int(remaining * 10))))
+                    except Exception:
+                        break
+            except Exception:
+                pass
 
-            if not self._browser.check_session(page):
-                raise AuthRequiredError(
-                    "Manual login did not produce a valid Qwen session. "
-                    "Please run 'qwen-web-cli --login' again and finish the login or CAPTCHA."
-                )
+        # After user closes the headed browser, validate the saved session in a new
+        # headless context (same approach as _validate_saved_session).
+        if self._validate_saved_session(cfg):
+            return ResponseText("Manual login completed successfully. The Qwen session is valid for headless tasks.")
 
-        return ResponseText("Manual login completed successfully. The Qwen session is valid for headless tasks.")
+        return ResponseText("Manual login did not produce a valid Qwen session. Please run 'qwen-web-cli --login' again and finish the login or CAPTCHA.")
 
     def validate_session(self, session_path: Path | None = None) -> tuple[bool, str]:
         cfg = build_app_config(

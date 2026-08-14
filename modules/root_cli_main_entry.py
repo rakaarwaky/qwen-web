@@ -123,6 +123,7 @@ def _default_container() -> SharedContainer:
 def _result_exit_code(result: dict[str, object]) -> int:
     """Convert a surface response envelope to a CLI exit code."""
     if result.get("success"):
+        print(result.get("message", ""))
         return 0
     print(f"{_ERROR_PREFIX} {result.get('error') or 'Unknown error'}", file=sys.stderr)
     return 1
