@@ -23,14 +23,7 @@ from modules.shared.src.taxonomy_core_event import (
     LifecycleEvent,
     QwenEventType,
 )
-from modules.shared.src.taxonomy_core_vo import (
-    EVENT_WEB_LOADED as LEGACY_EVENT_WEB_LOADED,
-)
-from modules.shared.src.taxonomy_core_vo import (
-    EventDetails,
-    EventOrderMap,
-)
-from modules.shared.src.taxonomy_domain_error import QwenCliError as LEGACY_QWEN_CLI_ERROR
+from modules.shared.src.taxonomy_core_vo import EventDetails, EventOrderMap
 
 
 def test_pipeline_event_sequence_is_canonical_and_ordered() -> None:
@@ -55,8 +48,8 @@ def test_pipeline_event_sequence_is_canonical_and_ordered() -> None:
     assert EVENT_ORDER[QwenEventType.GENERATION_FINISHED] < EVENT_ORDER[QwenEventType.OUTPUT_COPIED]
 
 
-def test_event_exports_are_available_and_legacy_vo_alias_is_compatible() -> None:
-    assert EVENT_WEB_LOADED == LEGACY_EVENT_WEB_LOADED
+def test_event_exports_are_available_from_canonical_modules() -> None:
+    assert EVENT_WEB_LOADED == QwenEventType.WEB_LOADED
     assert EVENT_FILE_UPLOADED == QwenEventType.FILE_UPLOADED
     assert EVENT_PROMPT_INJECTED == QwenEventType.PROMPT_INJECTED
     assert EVENT_DOCUMENT_PARSED == QwenEventType.DOCUMENT_PARSED
@@ -67,7 +60,7 @@ def test_event_exports_are_available_and_legacy_vo_alias_is_compatible() -> None
     assert EVENT_OUTPUT_COPIED == QwenEventType.OUTPUT_COPIED
 
 
-def test_lifecycle_event_is_immutable_and_legacy_vo_classes_are_constructible() -> None:
+def test_lifecycle_event_is_immutable_and_vo_classes_are_constructible() -> None:
     details = EventDetails({"source": "test"})
     event = LifecycleEvent(name="EVENT_TEST", details=details)
 
@@ -88,6 +81,6 @@ def test_entity_remains_for_stateful_runtime_behavior() -> None:
     assert isinstance(LifecycleEmitter(), LifecycleEmitter)
 
 
-def test_error_taxonomy_has_new_source_and_legacy_facade() -> None:
-    assert LEGACY_QWEN_CLI_ERROR is QwenCliError
+def test_error_taxonomy_is_canonical() -> None:
+    assert issubclass(QwenCliError, RuntimeError)
     assert ErrorCategory.categorize(RuntimeError("network timeout")) == "network"

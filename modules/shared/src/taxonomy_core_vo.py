@@ -123,65 +123,6 @@ class RunContext:
     )
 
 
-_LEGACY_EVENT_EXPORTS = (
-    "QwenEventType",
-    "LifecycleEvent",
-    "LifecycleCallback",
-    "EventDetails",
-    "EventMessage",
-    "CallbackRegistry",
-    "EVENT_DESCRIPTIONS",
-    "PIPELINE_EVENT_SEQUENCE",
-    "EVENT_ORDER",
-    "EVENT_NETWORK_RECONNECTING",
-    "EVENT_WEB_LOADED",
-    "EVENT_FILE_UPLOADED",
-    "EVENT_PROMPT_INJECTED",
-    "EVENT_DOCUMENT_PARSED",
-    "EVENT_SEND_CLICKED",
-    "EVENT_DISPATCH_ACKNOWLEDGED",
-    "EVENT_THINKING_STARTED",
-    "EVENT_STREAMING_GENERATION",
-    "EVENT_GENERATION_FINISHED",
-    "EVENT_OUTPUT_COPIED",
-)
-
-_LEGACY_ERROR_EXPORTS = (
-    "QwenCliError",
-    "AuthRequiredError",
-    "PromptInjectionError",
-    "RateLimitError",
-    "CircuitBreakerOpenError",
-    "BrowserLaunchError",
-    "SingleInstanceError",
-    "ElementNotFoundError",
-    "NetworkTimeoutError",
-    "OutputValidationError",
-    "FileUploadError",
-    "FileValidationError",
-    "UploadTimeoutError",
-    "UIInteractionError",
-    "PipelineError",
-    "QuarantineError",
-    "SendDispatchError",
-    "OutputWriteError",
-    "ErrorCategory",
-)
-
-
-def __getattr__(name: str) -> object:
-    """Resolve event and error names lazily for legacy imports."""
-    if name in _LEGACY_EVENT_EXPORTS:
-        from . import taxonomy_core_event
-
-        return getattr(taxonomy_core_event, name)
-    if name in _LEGACY_ERROR_EXPORTS:
-        from . import taxonomy_core_error
-
-        return getattr(taxonomy_core_error, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
 @dataclass
 class StatusRecordVO:
     """Status payload recorded for systemd/monitoring integration."""
