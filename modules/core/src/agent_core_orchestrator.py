@@ -453,7 +453,7 @@ class CoreOrchestrator(ICoreAggregate):
 
         self._injector.inject_text(page, PromptText(prompt))
         emitter.emit(EVENT_PROMPT_INJECTED, {"file": str(filepath), "char_count": len(prompt)})
-        emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "char_count": len(prompt)})
+        emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "file_size_bytes": filepath.stat().st_size})
         if not state.document_parsed:
             raise RuntimeError("Cannot send prompt: document attachment parsing (EVENT_DOCUMENT_PARSED) is incomplete")
 

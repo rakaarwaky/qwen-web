@@ -130,10 +130,11 @@ class StreamMonitor(IStreamProtocol):
                                 return ResponseText(text)
                         else:
                             if has_thinking:
-                                has_streaming = True
+                                if not has_streaming:
+                                    has_streaming = True
+                                    emitter.emit(EVENT_STREAMING_GENERATION, {"text_length": len(text)})
                                 stable_count = 0
                                 last_text = text
-                                emitter.emit(EVENT_STREAMING_GENERATION, {"text_length": len(text)})
                 time.sleep(active_poll)
             except TimeoutError as e:
                 raise NetworkTimeoutError(f"Browser network timeout during streaming poll: {e}") from e
