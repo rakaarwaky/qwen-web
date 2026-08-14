@@ -38,7 +38,7 @@ class TestClickSendExtended:
 
         _sender().click_send(page, emitter)
         page.keyboard.press.assert_called_once_with("Enter")
-        emitter.emit.assert_called_once()
+        assert emitter.emit.call_count == 2
 
     def test_selector_exception_continues(self):
         page = MagicMock()
@@ -58,7 +58,7 @@ class TestClickSendExtended:
 
         page.locator.side_effect = locator_factory
         _sender().click_send(page, emitter)
-        emitter.emit.assert_called_once()
+        assert emitter.emit.call_count == 2
 
 
 class TestCountMessagesExtended:

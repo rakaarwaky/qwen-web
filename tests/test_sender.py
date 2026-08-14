@@ -26,7 +26,7 @@ def test_click_send_primary_selector_success():
     _sender().click_send(mock_page, mock_emitter)
 
     mock_locator.first.click.assert_called_once()
-    mock_emitter.emit.assert_called_once()
+    assert mock_emitter.emit.call_count == 2
 
 
 def test_click_send_enter_fallback():
@@ -44,7 +44,7 @@ def test_click_send_enter_fallback():
 
     _sender().click_send(mock_page, mock_emitter)
     mock_page.keyboard.press.assert_called_once_with("Enter")
-    mock_emitter.emit.assert_called_once()
+    assert mock_emitter.emit.call_count == 2
 
 
 def test_click_send_all_failed():

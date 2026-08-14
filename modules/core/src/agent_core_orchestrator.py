@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import contextlib
 import os
-import shutil
 import signal
 import tempfile
 import threading
@@ -42,19 +41,26 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_OUTPUT,
     DEFAULT_TODO,
 )
-from modules.shared.src.taxonomy_core_entity import CircuitBreaker, LifecycleEmitter, RateLimiter
+from modules.shared.src.taxonomy_core_entity import CircuitBreaker, LifecycleEmitter, LifecycleState, RateLimiter
 from modules.shared.src.taxonomy_core_vo import (
     EVENT_DISPATCH_ACKNOWLEDGED,
     EVENT_DOCUMENT_PARSED,
     EVENT_OUTPUT_COPIED,
+    EVENT_WEB_LOADED,
+    FailureThreshold,
     FilePath,
     HeadlessFlag,
+    MaxPerMinute,
     MessageCount,
     OutputChars,
+    PollIntervalSec,
+    ProcessingOutcome,
+    ProcessingStatus,
     PromptText,
     ResponseText,
     RunContext,
     TimeoutSec,
+    WindowSec,
 )
 from modules.shared.src.taxonomy_domain_error import (
     AuthRequiredError,
@@ -131,32 +137,17 @@ class CoreOrchestrator(ICoreAggregate):
         output_file: Path | str | None = None,
         headless: bool = True,
     ) -> ResponseText:
-        """Process a single prompt file end-to-end."""
+        """Process one prompt file using the standard move-based queue flow."""
         in_p = Path(input_file).resolve()
         if not in_p.exists():
             raise FileNotFoundError(f"Input file not found: {input_file}")
-
-        out_p = Path(output_file).resolve() if output_file else DEFAULT_OUTPUT / in_p.name
         cfg = build_app_config(
             mode="single",
             input_path=in_p,
-            output_path=out_p,
+            output_path=Path(output_file).resolve() if output_file else DEFAULT_OUTPUT / in_p.name,
             headless=headless,
         )
-
-        ctx = RunContext()
-        self._audit.log_step(ctx, "START_PROCESSING", FilePath(str(in_p.name)), "STARTED", {"input_chars": 0})
-
-        proc_file = cfg.proc_path / in_p.name
-        ensure_dir(proc_file)
-        shutil.copy2(in_p, proc_file)
-
-        def _fn() -> ResponseText:
-            with self._browser.browser_session(cfg):
-                self._process_file(proc_file, Path(in_p.name), cfg, ctx)
-            return ResponseText(f"Successfully processed {in_p.name} -> {out_p}")
-
-        return self._execute(_fn)
+        return self._process_single_with_config(cfg)
 
     def process_batch(
         self,
@@ -165,33 +156,13 @@ class CoreOrchestrator(ICoreAggregate):
         headless: bool = True,
     ) -> ResponseText:
         """Process all prompt files inside an input directory."""
-        in_p = Path(input_dir).resolve() if input_dir else DEFAULT_TODO
-        out_p = Path(output_dir).resolve() if output_dir else DEFAULT_OUTPUT
-
         cfg = build_app_config(
             mode="batch",
-            input_path=in_p,
-            output_path=out_p,
+            input_path=Path(input_dir).resolve() if input_dir else DEFAULT_TODO,
+            output_path=Path(output_dir).resolve() if output_dir else DEFAULT_OUTPUT,
             headless=headless,
         )
-
-        ctx = RunContext()
-        processed = 0
-        failed = 0
-
-        def _fn() -> ResponseText:
-            nonlocal processed, failed
-            with self._browser.browser_session(cfg):
-                for proc_file, rel_path in self._iter_todo(cfg):
-                    try:
-                        self._process_file(proc_file, rel_path, cfg, ctx)
-                        processed += 1
-                    except Exception as e:  # per-file isolation: a failure must not abort the batch
-                        failed += 1
-                        self._observability.get_logger().error("batch_file_failed", file=str(rel_path), error=str(e))
-            return ResponseText(f"Batch processing complete. Successfully processed: {processed}, Failed: {failed}")
-
-        return self._execute(_fn)
+        return self._process_batch_with_config(cfg)
 
     def process_watcher(self, interval_sec: int = 3, headless: bool = True) -> ResponseText:
         """Run the continuous folder watcher."""
@@ -202,35 +173,94 @@ class CoreOrchestrator(ICoreAggregate):
             interval=interval_sec,
             headless=headless,
         )
+        return self._process_watcher_with_config(cfg)
 
+    def process_mode(self, cfg: AppConfig) -> ResponseText:
+        """Dispatch an already-built AppConfig without reconstructing it."""
+        if cfg.mode == "watcher":
+            return self._process_watcher_with_config(cfg)
+        if cfg.mode == "single":
+            return self._process_single_with_config(cfg)
+        return self._process_batch_with_config(cfg)
+
+    def _process_single_with_config(self, cfg: AppConfig) -> ResponseText:
+        """Acquire, process, and report one file using the exact supplied config."""
+        if not cfg.input_path.exists():
+            raise FileNotFoundError(f"Input file not found: {cfg.input_path}")
+        self._apply_runtime_config(cfg)
         ctx = RunContext()
 
         def _fn() -> ResponseText:
             with self._browser.browser_session(cfg):
-                for proc_file, rel_path in self._iter_todo(cfg):
-                    self._process_file(proc_file, rel_path, cfg, ctx)
-                    _watcher_sleep(cfg.interval)
-            return ResponseText("Watcher loop completed.")
+                try:
+                    proc_file, rel_path = next(iter(self._iter_todo(cfg)))
+                except StopIteration:
+                    return ResponseText(f"ERROR [NO_INPUT_FILE]: No processable input file found at {cfg.input_path}")
+                outcome = self._process_file(proc_file, rel_path, cfg, ctx)
+            if outcome.status is ProcessingStatus.FAILED:
+                return ResponseText(f"ERROR [PROCESSING_FAILED]: {outcome.error}")
+            return ResponseText(f"Successfully processed {rel_path.name} -> {cfg.output_path}")
 
         return self._execute(_fn)
 
-    def process_mode(self, cfg: AppConfig) -> ResponseText:
-        """Dispatch processing based on AppConfig.mode (watcher/single/batch)."""
-        if cfg.mode == "watcher":
-            return self.process_watcher(interval_sec=cfg.interval, headless=cfg.headless)
+    def _process_batch_with_config(self, cfg: AppConfig) -> ResponseText:
+        """Process a batch while counting each terminal outcome exactly once."""
+        self._apply_runtime_config(cfg)
+        ctx = RunContext()
+        processed = 0
+        failed = 0
 
-        if cfg.mode == "single":
-            return self.process_single_file(
-                cfg.input_path,
-                cfg.output_path,
-                cfg.headless,
-            )
+        def _fn() -> ResponseText:
+            nonlocal processed, failed
+            with self._browser.browser_session(cfg):
+                for proc_file, rel_path in self._iter_todo(cfg):
+                    try:
+                        outcome = self._process_file(proc_file, rel_path, cfg, ctx)
+                        if outcome.status is ProcessingStatus.SUCCESS:
+                            processed += 1
+                        else:
+                            failed += 1
+                    except AuthRequiredError:
+                        raise
+                    except Exception as exc:  # preserve per-file isolation for acquisition/runtime failures
+                        failed += 1
+                        self._observability.get_logger().error("batch_file_failed", file=str(rel_path), error=str(exc))
+            return ResponseText(f"Batch processing complete. Successfully processed: {processed}, Failed: {failed}")
 
-        return self.process_batch(
-            cfg.input_path,
-            cfg.output_path,
-            cfg.headless,
-        )
+        return self._execute(_fn)
+
+    def _process_watcher_with_config(self, cfg: AppConfig) -> ResponseText:
+        """Run the continuous folder watcher with the supplied AppConfig."""
+        self._apply_runtime_config(cfg)
+        ctx = RunContext()
+
+        def _fn() -> ResponseText:
+            processed = 0
+            failed = 0
+            with self._browser.browser_session(cfg):
+                for proc_file, rel_path in self._iter_todo(cfg):
+                    try:
+                        outcome = self._process_file(proc_file, rel_path, cfg, ctx)
+                        if outcome.status is ProcessingStatus.SUCCESS:
+                            processed += 1
+                        else:
+                            failed += 1
+                    except AuthRequiredError:
+                        raise
+                    except Exception as exc:
+                        failed += 1
+                        self._observability.get_logger().error(
+                            "watcher_file_failed", file=str(rel_path), error=str(exc)
+                        )
+                    _watcher_sleep(cfg.interval)
+            return ResponseText(f"Watcher loop completed. Successfully processed: {processed}, Failed: {failed}")
+
+        return self._execute(_fn)
+
+    def _apply_runtime_config(self, cfg: AppConfig) -> None:
+        """Apply config-owned limits through the injected runtime collaborators."""
+        self._cb.configure(FailureThreshold(cfg.circuit_breaker_threshold), WindowSec(cfg.circuit_breaker_window))
+        self._rl.configure(MaxPerMinute(cfg.rate_limit_per_minute))
 
     def send_prompt(self, prompt: str, timeout_sec: int = 120, headless: bool = True) -> ResponseText:
         """Send a direct text prompt and return the AI response."""
@@ -357,14 +387,20 @@ class CoreOrchestrator(ICoreAggregate):
         timeout_sec: int,
         custom_prompt_path: Path | None = None,
         rel_path: Path | None = None,
+        cfg: AppConfig | None = None,
     ) -> str:
-        """Send a prompt file to chat.qwen.ai and return the full AI response as text.
-
-        Pure orchestration: navigate → auth check → inject → upload → send →
-        stream. The caller provides the Playwright page (from browser_session or
-        a test fixture).
-        """
+        """Send a prompt file while enforcing event-backed lifecycle gates."""
+        active_cfg = cfg or build_app_config(
+            mode="single",
+            input_path=filepath,
+            output_path=DEFAULT_OUTPUT,
+            headless=True,
+        )
         emitter = self._emitter()
+        state = LifecycleState()
+        emitter.on(EVENT_WEB_LOADED, lambda _event: state.mark(EVENT_WEB_LOADED))
+        emitter.on(EVENT_DOCUMENT_PARSED, lambda _event: state.mark(EVENT_DOCUMENT_PARSED))
+        emitter.on(EVENT_DISPATCH_ACKNOWLEDGED, lambda _event: state.mark(EVENT_DISPATCH_ACKNOWLEDGED))
         try:
             prompt = filepath.read_text(encoding="utf-8").strip()
         except OSError as e:
@@ -375,35 +411,45 @@ class CoreOrchestrator(ICoreAggregate):
             prompt = f"{role_prompt}\n\n{prompt}"
 
         self._browser.navigate_to_chat(page, emitter)
+        if not state.web_loaded:
+            raise RuntimeError("Cannot upload attachment: web page loading (EVENT_WEB_LOADED) is incomplete")
         self._browser.check_auth(page)
 
         self._observability.get_logger().info("Sending prompt to chat.qwen.ai (%d chars)", len(prompt))
         msg_count_before = self._sender.count_messages(page)
 
         self._injector.find_input(page)
-        attached = self._uploader.upload_attachment(page, filepath, emitter=emitter, web_loaded=HeadlessFlag(True))
+        attached = self._uploader.upload_attachment(
+            page, filepath, emitter=emitter, web_loaded=HeadlessFlag(state.web_loaded)
+        )
         if not attached:
             self._observability.get_logger().warning(
                 "File upload failed, proceeding with text-only prompt: %s", filepath.name
             )
-            emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "char_count": len(prompt)})
-        self._injector.inject_text(page, PromptText(prompt))
-        self._sender.click_send(page, emitter, document_parsed=HeadlessFlag(True))
-        emitter.emit(EVENT_DISPATCH_ACKNOWLEDGED, {"file": str(filepath)})
+            emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "char_count": len(prompt), "fallback": True})
+        if not state.document_parsed:
+            raise RuntimeError("Cannot send prompt: document attachment parsing (EVENT_DOCUMENT_PARSED) is incomplete")
 
+        self._injector.inject_text(page, PromptText(prompt))
+        self._sender.click_send(page, emitter, document_parsed=HeadlessFlag(state.document_parsed))
+        if not state.dispatch_acknowledged:
+            raise RuntimeError("Cannot wait for response: prompt dispatch (EVENT_DISPATCH_ACKNOWLEDGED) is incomplete")
+
+        stream_timeout_sec = min(timeout_sec, active_cfg.streaming_timeout)
         response = self._streamer.wait_for_response(
             page,
-            TimeoutSec(timeout_sec),
+            TimeoutSec(stream_timeout_sec),
             MessageCount(msg_count_before),
             emitter,
-            dispatch_acknowledged=HeadlessFlag(True),
+            polling_interval_sec=PollIntervalSec(active_cfg.poll_interval),
+            dispatch_acknowledged=HeadlessFlag(state.dispatch_acknowledged),
         )
 
         if response and len(response.strip()) > 0:
             self._observability.get_logger().info("Received response (%d chars)", len(response))
             emitter.emit(EVENT_OUTPUT_COPIED, {"file": str(filepath), "char_count": len(response.strip())})
             return response.strip()
-        raise TimeoutError(f"Timeout after {timeout_sec}s: no response detected")
+        raise TimeoutError(f"Timeout after {stream_timeout_sec}s: no response detected")
 
     # ─── Private orchestration helpers (Block 3) ─────────────────
     def _execute(self, fn: Callable[[], ResponseText]) -> ResponseText:
@@ -451,7 +497,7 @@ class CoreOrchestrator(ICoreAggregate):
 
         with self._browser.browser_session(active_cfg) as bctx:
             page = bctx.pages[0] if bctx.pages else bctx.new_page()
-            return self.send_file(page, filepath, timeout_sec, custom_prompt_path, rel_path)
+            return self.send_file(page, filepath, timeout_sec, custom_prompt_path, rel_path, active_cfg)
 
     def _emitter(self) -> LifecycleEmitter:
         return LifecycleEmitter(self._observability.get_logger())
@@ -462,8 +508,8 @@ class CoreOrchestrator(ICoreAggregate):
         rel_path: Path,
         cfg: AppConfig,
         ctx: RunContext,
-    ) -> None:
-        """Process a single file with retry and quarantine handling."""
+    ) -> ProcessingOutcome:
+        """Process one file and return its terminal success or quarantine outcome."""
         out_path, done_path, fail_path, _ = resolve_role_paths(rel_path, cfg)
 
         if self._cb.is_tripped:
@@ -480,10 +526,11 @@ class CoreOrchestrator(ICoreAggregate):
 
         try:
             self._execute_single_attempt(proc_file, rel_path, cfg, ctx, t0, prompt, out_path, done_path)
+            return ProcessingOutcome(ProcessingStatus.SUCCESS)
         except AuthRequiredError:
             raise
         except Exception as exc:  # boundary: quarantine the file on any unexpected failure
-            self._handle_processing_failure(proc_file, rel_path, cfg, ctx, t0, prompt, out_path, fail_path, exc)
+            return self._handle_processing_failure(proc_file, rel_path, cfg, ctx, t0, prompt, out_path, fail_path, exc)
 
     def _execute_single_attempt(
         self,
@@ -542,7 +589,7 @@ class CoreOrchestrator(ICoreAggregate):
         out_path: Path,
         fail_path: Path,
         exc: Exception,
-    ) -> None:
+    ) -> ProcessingOutcome:
         """Record failure metrics, update circuit breaker, and quarantine file."""
         dur = time.time() - t0
         self._cb.record_failure()
@@ -568,6 +615,7 @@ class CoreOrchestrator(ICoreAggregate):
 
         cleanup_empty_dirs(proc_file.parent, cfg.proc_path)
         self._observability.get_logger().error("file_quarantined", fail_path=str(fail_path), error=str(exc))
+        return ProcessingOutcome(ProcessingStatus.FAILED, err_msg, fail_path)
 
     def _iter_todo(self, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
         """Yield (proc_file, relative_path) tuples for the processing queue."""

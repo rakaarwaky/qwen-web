@@ -82,7 +82,7 @@ def test_resolve_role_paths_strips_done_and_failed(cfg: AppConfig) -> None:
     assert out_p == cfg.output_path / "task_001.md"
     assert done_p == cfg.input_path / "role-architect" / "done" / "task_001.md"
     assert fail_p == cfg.input_path / "role-architect" / "failed" / "task_001.md"
-    assert proc_p == cfg.proc_path / "role-architect" / "task_001.md"
+    assert proc_p == cfg.proc_path / "task_001.md"
 
 
 def test_resolve_role_paths_single_mode_no_duplicate(tmp_path: Path) -> None:

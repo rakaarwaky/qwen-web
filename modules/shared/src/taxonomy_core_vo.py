@@ -12,6 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+from pathlib import Path
 from typing import Any, NewType
 
 PromptText = NewType("PromptText", str)
@@ -28,6 +29,23 @@ TimeoutSec = NewType("TimeoutSec", int)
 PollIntervalSec = NewType("PollIntervalSec", float)
 HeadlessFlag = NewType("HeadlessFlag", bool)
 Mode = NewType("Mode", str)
+
+
+class ProcessingStatus(str, Enum):
+    """Terminal status for one queue item."""
+
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+
+
+@dataclass(frozen=True)
+class ProcessingOutcome:
+    """Result of one processing attempt, including quarantine details."""
+
+    status: ProcessingStatus
+    error: str | None = None
+    failed_path: Path | None = None
+
 
 # ─── Brand types: timing & limits ─────────────────────────────
 TypingDelayMs = NewType("TypingDelayMs", int)

@@ -14,6 +14,7 @@ from modules.shared.src.contract_core_protocol import ISendProtocol
 from modules.shared.src.taxonomy_config_vo import SenderConfig
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_vo import (
+    EVENT_DISPATCH_ACKNOWLEDGED,
     EVENT_SEND_CLICKED,
     ClickTimeoutMs,
     MessageCount,
@@ -54,7 +55,9 @@ class SendDispatcher(ISendProtocol):
             )
 
         _dom_click_send(page)
-        emitter.emit(EVENT_SEND_CLICKED, {"selector": "SendDispatcher"})
+        details: dict[str, object] = {"selector": "SendDispatcher"}
+        emitter.emit(EVENT_SEND_CLICKED, details)
+        emitter.emit(EVENT_DISPATCH_ACKNOWLEDGED, details)
 
     def count_messages(self, page: Page) -> MessageCount:
         """Count chat turns using JS evaluate."""

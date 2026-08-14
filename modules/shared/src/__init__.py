@@ -81,7 +81,7 @@ from .taxonomy_core_constant import (
 
 # ─── Taxonomy: entities ───────────────────────────────────────
 # ─── Taxonomy: events ─────────────────────────────────────────
-from .taxonomy_core_entity import CircuitBreaker, LifecycleEmitter, RateLimiter
+from .taxonomy_core_entity import CircuitBreaker, LifecycleEmitter, LifecycleState, RateLimiter
 
 # ─── Taxonomy: core VOs ───────────────────────────────────────
 from .taxonomy_core_vo import (
@@ -123,6 +123,8 @@ from .taxonomy_core_vo import (
     OutputChars,
     OutputPath,
     PollIntervalSec,
+    ProcessingOutcome,
+    ProcessingStatus,
     PromptText,
     QwenEventType,
     ResponseText,
@@ -220,6 +222,8 @@ __all__ = [
     "OutputChars",
     "OutputPath",
     "PollIntervalSec",
+    "ProcessingOutcome",
+    "ProcessingStatus",
     "PromptText",
     "ResponseText",
     "RunContext",
@@ -323,6 +327,7 @@ __all__ = [
     # Entities
     "CircuitBreaker",
     "RateLimiter",
+    "LifecycleState",
     # Events
     "LifecycleEmitter",
     # Contracts
