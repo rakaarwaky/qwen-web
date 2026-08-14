@@ -51,7 +51,7 @@ qwen-web-cli
 │ 1. Watcher Mode (continuous)                     │
 │ 2. Batch Mode (folder)                           │
 │ 3. Single File Mode                              │
-│ 4. Manual Login / Session Setup                  │
+│ 4. Session Setup                  │
 │ 5. Init Workspace                                │
 │ 6. Exit                                          │
 ╰──────────────────────────────────────────────────╯
