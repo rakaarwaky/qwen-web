@@ -18,6 +18,7 @@ from modules.shared.src.taxonomy_core_constant import (
     BASE_DIR,
     DEFAULT_LOG,
     DEFAULT_OUTPUT,
+    DEFAULT_SESSION,
     DEFAULT_TODO,
     XDG_SKILL_MD,
 )
@@ -71,6 +72,7 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
             "log": DEFAULT_LOG,
             "input": DEFAULT_TODO,
             "output": DEFAULT_OUTPUT,
+            "qwen_session": DEFAULT_SESSION,
         }
 
         for link_name, xdg_target in links.items():
