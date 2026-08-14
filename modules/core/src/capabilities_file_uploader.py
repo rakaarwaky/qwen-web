@@ -5,7 +5,6 @@ Implements IUploadProtocol.
 
 from __future__ import annotations
 
-import contextlib
 import time
 from pathlib import Path
 from typing import Any
@@ -207,14 +206,35 @@ class FileUploader(IUploadProtocol):
         while time.monotonic() < deadline:
             matches = self._attachment_match_count(page, filepath)
             if matches > baseline_matches or (baseline_matches == 0 and matches > 0):
-                with contextlib.suppress(Exception):
-                    page.locator("[class*='loading'], [class*='parsing'], [class*='spin'], .ant-spin").last.wait_for(
-                        state="hidden", timeout=5000
-                    )
-                time.sleep(2.0)
+                self._wait_for_parse_ready(page, filepath)
                 return
             page.wait_for_timeout(100)
         raise TimeoutError(f"Exact uploaded filename was not rendered in Qwen attachment DOM: {filepath.name}")
+
+    def _wait_for_parse_ready(self, page: Page, filepath: Path) -> None:
+        """Wait for Qwen's attachment-specific parse-ready icon before continuing."""
+        deadline = time.monotonic() + (self.card_render_timeout_ms / 1000)
+        while time.monotonic() < deadline:
+            card = page.locator(".fileitem-btn").filter(has_text=filepath.stem).last
+            try:
+                if card.count() == 0:
+                    page.wait_for_timeout(100)
+                    continue
+                pending = any(
+                    card.locator(selector).count() > 0 and card.locator(selector).last.is_visible()
+                    for selector in self.config.parse_pending_selectors
+                )
+                ready = any(
+                    card.locator(selector).count() > 0 and card.locator(selector).last.is_visible()
+                    for selector in self.config.parse_ready_selectors
+                )
+                if ready and not pending:
+                    log.debug("Qwen document parsing is ready for %s", filepath.name)
+                    return
+            except (TimeoutError, Error):
+                pass
+            page.wait_for_timeout(100)
+        raise TimeoutError(f"Qwen document parsing did not reach ready state: {filepath.name}")
 
     def _attachment_match_count(self, page: Page, filepath: Path) -> int:
         """Count exact filename matches, preferring full filename nodes over stem-only nodes."""
