@@ -60,6 +60,8 @@ from modules.shared.src.taxonomy_core_event import (
     EVENT_OUTPUT_COPIED,
     EVENT_PROMPT_INJECTED,
     PIPELINE_EVENT_SEQUENCE,
+    LifecycleEvent,
+    QwenEventType,
 )
 from modules.shared.src.taxonomy_core_vo import (
     FailureThreshold,
@@ -411,7 +413,14 @@ class CoreOrchestrator(ICoreAggregate):
         gate = LifecycleGate(logger)
         emitter = LifecycleEmitter(logger, gate=gate)
         for lifecycle_event in PIPELINE_EVENT_SEQUENCE:
-            emitter.on(lifecycle_event, lambda _event, name=lifecycle_event: state.mark(name))
+
+            def mark_lifecycle_event(
+                _event: LifecycleEvent,
+                name: QwenEventType = lifecycle_event,
+            ) -> None:
+                state.mark(name)
+
+            emitter.on(lifecycle_event, mark_lifecycle_event)
         try:
             prompt = filepath.read_text(encoding="utf-8").strip()
         except OSError as e:

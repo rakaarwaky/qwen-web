@@ -85,8 +85,8 @@ class OutputWriteError(QwenCliError):
 
 _ERROR_CATEGORY_RULES: tuple[tuple[tuple[str, ...], str], ...] = (
     (("auth", "login", "captcha", "signin"), "auth"),
-    (('response detection', 'response timeout', 'stream timeout'), 'response_timeout'),
-    (('network', 'connection', 'timeout', 'dns', 'socket'), 'network'),
+    (("response detection", "response timeout", "stream timeout"), "response_timeout"),
+    (("network", "connection", "timeout", "dns", "socket"), "network"),
     (("rate", "limit", "throttl", "429"), "rate_limit"),
     (("browser", "launch", "dom", "playwright", "chromium"), "browser"),
     (("injection", "paste", "clipboard", "fill"), "injection"),

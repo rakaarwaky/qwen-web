@@ -102,4 +102,7 @@ def test_lifecycle_gate_rejects_skipped_predecessors_and_records_reason() -> Non
 def test_error_taxonomy_has_new_source_and_legacy_facade() -> None:
     assert LEGACY_QWEN_CLI_ERROR is QwenCliError
     assert ErrorCategory.categorize(RuntimeError("network timeout")) == "network"
-    assert ErrorCategory.categorize(ResponseDetectionTimeoutError("Response detection timeout after 10s")) == "response_timeout"
+    assert (
+        ErrorCategory.categorize(ResponseDetectionTimeoutError("Response detection timeout after 10s"))
+        == "response_timeout"
+    )

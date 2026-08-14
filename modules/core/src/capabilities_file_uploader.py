@@ -147,6 +147,13 @@ class FileUploader(IUploadProtocol):
 
     def _try_upload_attempt(self, page: Page, filepath: Path) -> bool:
         """Execute a single attempt to attach a file via the Qwen Web UI."""
+        direct_input = self._find_file_input(page)
+        if direct_input is not None:
+            log.debug("Setting file through direct Qwen file input selector")
+            direct_input.set_input_files(str(filepath))
+            self._wait_for_attachment_card(page)
+            return True
+
         log.debug("Opening mode-select dropdown using primary/fallback selectors")
         dropdown_element = first_visible_locator(page, self.dropdown_selectors, timeout_ms=1000)
 
@@ -156,9 +163,7 @@ class FileUploader(IUploadProtocol):
         dropdown_element.click(timeout=self.dropdown_timeout_ms)
 
         log.debug("Locating upload option using resilient selector fallbacks")
-        option_element = first_visible_locator(
-            page, self.upload_option_selectors, timeout_ms=self.option_timeout_ms
-        )
+        option_element = first_visible_locator(page, self.upload_option_selectors, timeout_ms=self.option_timeout_ms)
 
         if not option_element:
             raise TimeoutError(
@@ -172,6 +177,22 @@ class FileUploader(IUploadProtocol):
         log.debug("Setting file on file chooser: %s", filepath.name)
         fc.value.set_files(str(filepath))
 
+        self._wait_for_attachment_card(page)
+        return True
+
+    def _find_file_input(self, page: Page) -> Any | None:
+        """Find the stable hidden Qwen file input without requiring visibility."""
+        for selector in self.config.file_input_selectors:
+            locator = page.locator(selector).first
+            try:
+                if locator.count() > 0:
+                    return locator
+            except Exception:
+                continue
+        return None
+
+    def _wait_for_attachment_card(self, page: Page) -> None:
+        """Wait for a positive attachment indicator after setting a file."""
         log.debug("Waiting for file card attachment indicator to render and complete parsing")
         card_selector_str = ", ".join(self.card_selectors)
         page.locator(card_selector_str).first.wait_for(state="visible", timeout=self.card_render_timeout_ms)
@@ -180,8 +201,6 @@ class FileUploader(IUploadProtocol):
                 state="hidden", timeout=5000
             )
         time.sleep(2.0)
-
-        return True
 
     # ─── Block 3: Dunder Methods, Factories & Helpers ─────
 

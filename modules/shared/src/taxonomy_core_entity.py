@@ -9,6 +9,7 @@ import logging
 import time
 from collections import deque
 from collections.abc import Callable
+from typing import Protocol
 
 from modules.shared.src.taxonomy_core_constant import MAX_ATTEMPTS
 from modules.shared.src.taxonomy_core_event import (
@@ -175,10 +176,17 @@ class LifecycleState:
             setattr(self, flags[key], True)
 
 
+class LifecycleLogger(Protocol):
+    """Logger protocol accepted by lifecycle entities."""
+
+    def info(self, message: EventMessage) -> object:
+        """Record an informational lifecycle message."""
+
+
 class LifecycleGate:
     """Strict predecessor gate for the ordered processing lifecycle."""
 
-    def __init__(self, logger: Callable[..., object] | None = None) -> None:
+    def __init__(self, logger: Callable[..., object] | LifecycleLogger | None = None) -> None:
         self._logger = logger
         self._completed: list[QwenEventType] = []
         self.rejections: list[dict[str, str]] = []
@@ -210,20 +218,18 @@ class LifecycleGate:
             self._completed.append(event)
             return
 
-        rejection = {"event": str(event), "reason": reason}
+        rejection = {"event": event.value, "reason": reason}
         self.rejections.append(rejection)
-        self._log(f"lifecycle_gate_rejected event={event} reason={reason}")
+        self._log(EventMessage(f"lifecycle_gate_rejected event={event} reason={reason}"))
         raise RuntimeError(f"Lifecycle gate rejected {event}: {reason}")
 
-    def _log(self, message: str) -> None:
+    def _log(self, message: EventMessage) -> None:
         if self._logger is None:
             return
         if callable(self._logger):
             self._logger(message)
         else:
-            info = getattr(self._logger, "info", None)
-            if callable(info):
-                info(message)
+            self._logger.info(message)
 
 
 class LifecycleEmitter:
@@ -231,7 +237,7 @@ class LifecycleEmitter:
 
     def __init__(
         self,
-        logger: Callable[..., object] | None = None,
+        logger: Callable[..., object] | LifecycleLogger | None = None,
         gate: LifecycleGate | None = None,
     ) -> None:
         """Initialize callbacks, an optional logger, and an optional strict gate."""

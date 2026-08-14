@@ -40,6 +40,14 @@ class UploadConfig:
         )
     )
 
+    file_input_selectors: Sequence[str] = field(
+        default_factory=lambda: (
+            "#filesUpload",
+            "input[type='file'][aria-label='Upload files']",
+            "input[type='file']",
+        )
+    )
+
     upload_option_selectors: Sequence[str] = field(
         default_factory=lambda: (
             ".mode-select-dropdown-item",

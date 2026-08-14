@@ -88,6 +88,19 @@ class TestUploadAttachment:
             result = FileUploader().upload_attachment(page, f)
             assert result is True
 
+    def test_direct_qwen_file_input_is_preferred(self, tmp_path):
+        f = tmp_path / "test.md"
+        f.write_text("hello")
+        page = MagicMock()
+        direct_input = MagicMock()
+        direct_input.count.return_value = 1
+        page.locator.return_value.first = direct_input
+        with patch.object(FileUploader, "_wait_for_attachment_card"):
+            result = FileUploader().upload_attachment(page, f)
+        assert result is True
+        page.locator.assert_called_once_with("#filesUpload")
+        direct_input.set_input_files.assert_called_once_with(str(f))
+
     def test_emitter_called_on_success(self, tmp_path):
         f = tmp_path / "test.md"
         f.write_text("hello")

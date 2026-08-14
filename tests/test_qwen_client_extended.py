@@ -53,6 +53,7 @@ class TestSendFile:
         page = MagicMock()
         orch._sender.count_messages.return_value = 0
         orch._uploader.upload_attachment.return_value = True
+
         def timeout_stream(_page, _timeout, _before, emitter, **_kwargs):
             emitter.emit(EVENT_THINKING_STARTED)
             return None
@@ -71,6 +72,7 @@ class TestSendFile:
         page = MagicMock()
         orch._sender.count_messages.return_value = 2
         orch._uploader.upload_attachment.return_value = True
+
         def successful_stream(_page, _timeout, _before, emitter, **_kwargs):
             emitter.emit(EVENT_THINKING_STARTED)
             emitter.emit(EVENT_STREAMING_GENERATION, {"text_length": 12})

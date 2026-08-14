@@ -200,6 +200,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class UserId:
     """User identifier value object."""
+
     value: str
 
     def __post_init__(self) -> None:
@@ -210,6 +211,7 @@ class UserId:
 @dataclass(frozen=True)
 class Email:
     """Email value object."""
+
     value: str
 
     def __post_init__(self) -> None:
@@ -285,16 +287,13 @@ class IUserRepositoryProtocol(ABC):
     """
 
     @abstractmethod
-    def find_by_id(self, user_id: UserId) -> Optional[User]:
-        ...
+    def find_by_id(self, user_id: UserId) -> Optional[User]: ...
 
     @abstractmethod
-    def find_by_email(self, email: Email) -> Optional[User]:
-        ...
+    def find_by_email(self, email: Email) -> Optional[User]: ...
 
     @abstractmethod
-    def save(self, user: User) -> None:
-        ...
+    def save(self, user: User) -> None: ...
 ```
 
 ```python
@@ -313,12 +312,10 @@ class IUserAggregate(ABC):
     """
 
     @abstractmethod
-    def get_user(self, user_id: UserId) -> UserResponse:
-        ...
+    def get_user(self, user_id: UserId) -> UserResponse: ...
 
     @abstractmethod
-    def register_user(self, command: "RegisterCommand") -> UserResponse:
-        ...
+    def register_user(self, command: "RegisterCommand") -> UserResponse: ...
 ```
 
 ### Rules Enforced
@@ -369,6 +366,7 @@ def normalize_email(email: Email) -> Email:
 def generate_user_id() -> str:
     """Generate a UUID-based user identifier."""
     import uuid
+
     return str(uuid.uuid4())
 ```
 
@@ -428,7 +426,9 @@ class UserRepository(IUserRepositoryProtocol):
     def save(self, user: User) -> None:
         self._db.execute(
             "INSERT INTO users (id, email, name) VALUES (%s, %s, %s)",
-            user.id.value, user.email.value, user.name.value,
+            user.id.value,
+            user.email.value,
+            user.name.value,
         )
 ```
 
