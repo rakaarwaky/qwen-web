@@ -62,9 +62,9 @@ class CircuitBreaker:
         self._window_sec = window_sec
         self._refresh_state()
 
-    def _refresh_state(self, now: float | None = None) -> None:
+    def _refresh_state(self) -> None:
         """Discard expired failures and recompute the trip state."""
-        current = time.time() if now is None else now
+        current = time.time()
         while self._failures and (current - self._failures[0]) > self._window_sec:
             self._failures.popleft()
         self._trip = len(self._failures) >= self._threshold
