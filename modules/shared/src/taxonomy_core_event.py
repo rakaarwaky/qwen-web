@@ -68,8 +68,8 @@ EVENT_OUTPUT_COPIED = QwenEventType.OUTPUT_COPIED
 PIPELINE_EVENT_SEQUENCE: tuple[QwenEventType, ...] = (
     QwenEventType.WEB_LOADED,
     QwenEventType.FILE_UPLOADED,
-    QwenEventType.PROMPT_INJECTED,
     QwenEventType.DOCUMENT_PARSED,
+    QwenEventType.PROMPT_INJECTED,
     QwenEventType.SEND_CLICKED,
     QwenEventType.DISPATCH_ACKNOWLEDGED,
     QwenEventType.THINKING_STARTED,
