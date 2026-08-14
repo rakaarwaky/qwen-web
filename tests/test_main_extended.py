@@ -228,16 +228,19 @@ class TestMain:
             patch(
                 "modules.cli.src.surface_cli_interactive_controller.InteractiveController.run",
                 return_value={"success": True, "message": "Exited."},
-            ),
+            ) as mock_run,
         ):
             result = main()
             assert result == 0
+            mock_run.assert_called_once_with()
 
-    def test_main_non_tty_interactive_fails(self):
+    def test_main_non_tty_interactive_fails(self, capsys):
         with patch("sys.argv", ["qwen-cli"]), patch("sys.stdin") as mock_stdin:
             mock_stdin.isatty.return_value = False
             result = main()
+            captured = capsys.readouterr()
             assert result == 1
+            assert "Interactive mode requires a TTY" in captured.err
 
     def test_main_login_mode(self):
         with (
