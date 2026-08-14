@@ -334,6 +334,11 @@ class CoreOrchestrator(ICoreAggregate):
                 # The callback blocks inside this context, keeping the headed
                 # browser alive while the user logs in or resolves CAPTCHA.
                 wait_for_confirmation()
+                # Give the page time to stabilize after manual login before checking.
+                try:
+                    page.wait_for_timeout(2000)
+                except Exception:
+                    pass
             else:
                 # Non-CLI callers (for example MCP) have no ENTER prompt. Wait
                 # until the page becomes authenticated instead of closing the
