@@ -88,6 +88,21 @@ _container: SharedContainer | None = None
 _tool_execution: contextvars.ContextVar[bool] = contextvars.ContextVar("mcp_tool_execution", default=False)
 
 
+class _McpBufferProxy:
+    """Binary buffer proxy that routes writes to the active execution-context stream."""
+
+    def __init__(self, transport_buffer: Any, diagnostics_buffer: Any) -> None:
+        self._transport_buffer = transport_buffer
+        self._diagnostics_buffer = diagnostics_buffer
+
+    def write(self, data: bytes) -> int:
+        target = self._diagnostics_buffer if _tool_execution.get() else self._transport_buffer
+        return target.write(data)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._transport_buffer, name)
+
+
 class _McpStdoutProxy:
     """Keep FastMCP transport writes on stdout and tool diagnostics on stderr.
 
@@ -105,9 +120,18 @@ class _McpStdoutProxy:
         target = self._diagnostics if _tool_execution.get() else self._transport
         return target.write(text)
 
+    def writelines(self, lines: list[str]) -> None:
+        target = self._diagnostics if _tool_execution.get() else self._transport
+        target.writelines(lines)
+
     def flush(self) -> None:
         self._transport.flush()
         self._diagnostics.flush()
+
+    @property
+    def buffer(self) -> Any:
+        """Return a binary buffer proxy that routes writes to the active context stream."""
+        return _McpBufferProxy(self._transport.buffer, self._diagnostics.buffer)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._transport, name)

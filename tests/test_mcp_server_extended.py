@@ -129,6 +129,8 @@ class TestRunMcpServer:
 
         def send_prompt(*args, **kwargs):
             print("tool execution noise")
+            sys.stdout.writelines(["line1\n", "line2\n"])
+            sys.stdout.buffer.write(b"binary data\n")
             return "AI answer"
 
         tools.send_prompt.side_effect = send_prompt
@@ -154,3 +156,27 @@ class TestRunMcpServer:
         assert "json-rpc transport output" in transport_stdout.getvalue()
         assert "tool execution noise" not in transport_stdout.getvalue()
         assert "tool execution noise" in diagnostics_stderr.getvalue()
+        assert "line1" in diagnostics_stderr.getvalue()
+        assert "line2" in diagnostics_stderr.getvalue()
+        assert b"binary data" in diagnostics_stderr.buffer.getvalue()
+        assert sys.stdout is transport_stdout
+
+    def test_stdout_restored_after_app_run_exception(self):
+        transport_stdout = io.StringIO()
+        diagnostics_stderr = io.StringIO()
+        mock_app = MagicMock()
+        mock_app.tool.return_value = lambda fn: fn
+        mock_app.run.side_effect = RuntimeError("app.run failed")
+
+        with (
+            patch("modules.root_mcp_main_entry._get_mcp_app", return_value=mock_app),
+            patch("modules.core.src.capabilities_observability_setup.ObservabilitySetup.setup_observability"),
+            patch.object(sys, "stdout", transport_stdout),
+            patch.object(sys, "stderr", diagnostics_stderr),
+        ):
+            from modules.root_mcp_main_entry import run_mcp_server
+
+            with pytest.raises(RuntimeError, match="app.run failed"):
+                run_mcp_server()
+
+        assert sys.stdout is transport_stdout

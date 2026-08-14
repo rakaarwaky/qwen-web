@@ -40,6 +40,7 @@ The MCP surface (`modules/mcp`) exposes the Core aggregate as a Model Context Pr
 - **Business Rules**:
   - `run_mcp_server()` installs a proxy around the existing `sys.stdout` only for the lifetime of the server.
   - Writes made while a generated tool is executing are sent to `sys.stderr` through a context-local execution flag.
+  - The proxy isolates `write()`, `writelines()`, and `buffer.write()` so that tool output does not pollute the JSON-RPC stream.
   - Writes made by FastMCP outside tool execution continue to use the original stdout stream.
   - The previous stdout object is restored in a `finally` block when the server exits.
 - **Edge Cases**: Third-party libraries printing through `sys.stdout`, nested tool calls, and server shutdown after a tool exception.
