@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.core.src.utility_core_dom_query import count_messages, latest_message_text
-from modules.shared.src import LifecycleEmitter
+from modules.shared.src import LifecycleEmitter, SendDispatchError
 
 
 def _sender() -> SendDispatcher:
@@ -56,9 +58,10 @@ def test_click_send_all_failed():
     mock_locator.first.is_visible.return_value = False
     mock_page.locator.return_value = mock_locator
 
-    # No visible selector and Enter fails — click_send must not raise
+    # No visible selector and Enter fails — the public contract reports dispatch failure.
     mock_page.keyboard.press.side_effect = Exception("no textarea")
-    _sender().click_send(mock_page, mock_emitter)
+    with pytest.raises(SendDispatchError, match="send button and Enter fallback"):
+        _sender().click_send(mock_page, mock_emitter)
     mock_page.keyboard.press.assert_called_once()
 
 

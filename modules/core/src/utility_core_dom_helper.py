@@ -7,11 +7,11 @@ visibility checks, click helpers, locator selection, and selector-fallback itera
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from contextlib import suppress
 from typing import Any, TypeVar
 
 from playwright.sync_api import Error, Locator, Page
 
+from modules.shared.src.taxonomy_config_vo import SenderConfig
 from modules.shared.src.taxonomy_core_constant import SEND_SELECTORS
 
 T = TypeVar("T")
@@ -180,21 +180,36 @@ def any_visible_locator(
     return False
 
 
-def click_send(page: Page, _config: object = None) -> None:
-    """Click send button via selector fallback, Enter key as last resort.
+def click_send(
+    page: Page,
+    _config: SenderConfig | None = None,
+    *,
+    try_enter_fallback: bool | None = None,
+    timeout_ms: int | None = None,
+) -> bool:
+    """Click the send button and optionally use Enter as a last resort.
 
-    Parameters
-    ----------
-    page : Page
-        Active Playwright page.
-    config : optional
-        Unused — kept for API compatibility.
-
+    When a :class:`SenderConfig` is provided, it is the single source of truth
+    for the selector timeout and fallback policy. The explicit keyword options
+    are retained for callers that need to use this stateless helper directly.
     """
-    clicked = click_first_visible_enabled(page, SEND_SELECTORS, timeout_ms=3000)
-    if not clicked:
-        with suppress(Exception):
-            page.keyboard.press("Enter")
+    effective_timeout = timeout_ms if timeout_ms is not None else 3000
+    effective_fallback = try_enter_fallback if try_enter_fallback is not None else True
+    if _config is not None:
+        effective_timeout = _config.click_timeout_ms
+        if try_enter_fallback is None:
+            effective_fallback = _config.try_enter_key_fallback
+
+    clicked = click_first_visible_enabled(page, SEND_SELECTORS, timeout_ms=effective_timeout)
+    if clicked:
+        return True
+    if not effective_fallback:
+        return False
+    try:
+        page.keyboard.press("Enter")
+    except Exception:
+        return False
+    return True
 
 
 def is_any_visible(page: Page, selector: str) -> bool:

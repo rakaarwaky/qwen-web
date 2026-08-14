@@ -224,7 +224,9 @@ Lifecycle gates the agent must honor:
   - Must refuse send when `document_parsed` is false (attachment still
     parsing).
   - Click uses multi-selector send helpers (`button[aria-label*='Send']`,
-    submit, class/id fallbacks) with Enter-key fallback.
+    submit, class/id fallbacks) with an optional Enter-key fallback.
+  - An explicit per-call `SenderConfig` overrides the instance default; Enter is
+    attempted only when `try_enter_key_fallback` is true.
   - `count_messages` is the pre-send baseline for FR-006.
   - `latest_message_text` returns the longest non-chrome text block.
 - **Edge Cases**: send button disabled while file is parsing; selector drift;
@@ -236,7 +238,10 @@ Lifecycle gates the agent must honor:
   - [ ] Click is blocked when `document_parsed` is false.
   - [ ] Successful click emits `EVENT_SEND_CLICKED`.
   - [ ] `count_messages` matches assistant/turn nodes on the fixture.
-  - [ ] Enter fallback is attempted when the send button is not clickable.
+  - [ ] Enter fallback is attempted when the send button is not clickable and
+    enabled by configuration.
+  - [ ] Disabled fallback never presses Enter and failed dispatch raises
+    `SendDispatchError` without emitting `EVENT_SEND_CLICKED`.
 - **Tests**: `tests/test_sender.py`, `tests/test_sender_extended.py`,
   `tests/test_qwen_client_behavior.py`.
 
@@ -329,7 +334,11 @@ Lifecycle gates the agent must honor:
     `QUARANTINED`, …).
   - `log` writes the file-level result. On error it also appends
     `errors.log` and `errors.jsonl`.
-  - `get_audit_log(limit)` returns the last N non-empty JSONL lines.
+  - `get_audit_log(limit)` returns the last N non-empty JSONL lines by reading
+    backward in bounded blocks; memory use is proportional to the block size
+    and requested result count, not the complete history.
+  - Blank, malformed, or truncated tail lines are skipped; a non-positive
+    limit returns an empty JSON array.
   - Missing audit file returns a clear "does not exist yet" message, not an
     exception.
   - Workspace init is **not** owned here; optional `IWorkspaceProtocol` is
@@ -341,10 +350,12 @@ Lifecycle gates the agent must honor:
 - **Acceptance Criteria**:
   - [ ] Success `log` produces one JSON object with duration and char counts.
   - [ ] Failed `log` writes audit + `errors.log` + `errors.jsonl`.
-  - [ ] `get_audit_log(2)` returns at most two records.
+  - [ ] `get_audit_log(2)` returns at most two records without a full-file read.
+  - [ ] Empty, malformed, truncated-tail, and non-positive-limit cases are covered.
   - [ ] Missing file returns the explicit empty-state message.
-- **Tests**: `tests/test_pipeline_core.py`, `tests/test_pipeline_extended.py`,
-  MCP `qwen_get_audit_log` tests in `tests/test_mcp_server.py`.
+- **Tests**: `tests/test_audit_repository.py`, `tests/test_pipeline_core.py`,
+  `tests/test_pipeline_extended.py`, and MCP `qwen_get_audit_log` tests in
+  `tests/test_mcp_server.py`.
 
 ### FR-009: Observability Setup
 
@@ -353,7 +364,9 @@ Lifecycle gates the agent must honor:
 - **Description**: Bootstrap the telemetry stack (Sentry → OpenTelemetry →
   structlog) and process-wide exception hooks. In-memory metrics
   (`MetricsCounter`) and `status.json` (`StatusFileWriter`) are helper types
-  in this file — not standalone capabilities.
+  in this file — not standalone capabilities. The legacy `IMetricsProtocol`
+  and `IStatusProtocol` contracts remain helper-level compatibility contracts
+  owned by FR-009; they do not represent additional FRs or capabilities.
 - **Input**: log `Path`; env `SENTRY_DSN`, `OTEL_EXPORTER_OTLP_ENDPOINT`,
   `OTEL_SERVICE_NAME`, `ENVIRONMENT`.
 - **Output**: configured loggers (`stderr` + `app.jsonl`), optional OTLP
@@ -411,7 +424,12 @@ Lifecycle gates the agent must honor:
   - [ ] `release_lock` allows a subsequent acquire.
   - [ ] `sd_notify_ready` is a no-op without `NOTIFY_SOCKET`.
   - [ ] MCP container can be built with `use_linux_guard=False`.
-- **Tests**: `tests/test_linux.py`.
+  - [ ] The CLI root acquires the lock, emits `READY=1`, dispatches, emits
+    `STOPPING=1`, and releases the lock on both success and exception.
+- **Production caller**: `modules/root_cli_main_entry.py` owns the CLI lifecycle;
+  `modules/root_mcp_main_entry.py` explicitly constructs a lock-free container.
+- **Tests**: `tests/test_linux.py` covers the capability; `tests/test_cli_linux_guard.py`
+  covers the production CLI and MCP boundaries.
 
 ## Capability Inventory (exactly 10)
 
@@ -452,12 +470,12 @@ API. It sequences FR-001…FR-010; it does not implement their business rules.
 | FR-002 | `IUploadProtocol` | `capabilities_file_uploader.py` | `test_file_uploader.py` |
 | FR-003 | `ISaverProtocol` | `capabilities_output_saver.py` | `test_saver*.py` |
 | FR-004 | `IInjectionProtocol` | `capabilities_prompt_injector.py` | `test_prompt_injector*.py` |
-| FR-005 | `ISendProtocol` | `capabilities_send_dispatcher.py` | `test_sender*.py` |
+| FR-005 | `ISendProtocol` | `capabilities_send_dispatcher.py` | `test_sender*.py` (unit; includes enabled/disabled fallback) |
 | FR-006 | `IStreamProtocol` | `capabilities_stream_monitor.py` | `test_streamer*.py` |
 | FR-007 | `IWorkspaceProtocol` | `capabilities_workspace_provisioner.py` | `test_init_cmd.py` |
-| FR-008 | `IAuditProtocol` | `capabilities_audit_repository.py` | `test_pipeline_*.py` |
+| FR-008 | `IAuditProtocol` | `capabilities_audit_repository.py` | `test_audit_repository.py`, `test_pipeline_*.py` |
 | FR-009 | `IObservabilityProtocol` | `capabilities_observability_setup.py` | `test_observability*.py` |
-| FR-010 | `ILinuxProtocol` | `capabilities_linux_guard.py` | `test_linux.py` |
+| FR-010 | `ILinuxProtocol` | `capabilities_linux_guard.py` | `test_linux.py` (unit), `test_cli_linux_guard.py` (production path) |
 
 End-to-end locks: `tests/test_qwen_client_behavior.py`, `tests/test_e2e_pipeline.py` (manual/`e2e` mark).
 
@@ -486,7 +504,11 @@ End-to-end locks: `tests/test_qwen_client_behavior.py`, `tests/test_e2e_pipeline
 - [ ] FR-007: second `init` is idempotent.
 - [ ] FR-008: failed file produces `FAILED` audit + quarantine path (agent).
 - [ ] FR-009: process starts with empty `SENTRY_DSN` and no OTLP endpoint.
-- [ ] FR-010: two CLI processes cannot hold the same lock.
+- [ ] FR-010: two CLI processes cannot hold the same lock; the production root
+      lifecycle test verifies notification ordering and cleanup.
+- [ ] Aggregate boundary: failed batch items report `Failed: 1`, failed single
+      files return an error envelope, nested role routing is preserved, and a
+      supplied `AppConfig` reaches the browser session unchanged.
 
 ## Assumptions & Constraints
 
