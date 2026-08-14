@@ -117,10 +117,11 @@ class TestCircuitBreakerExtended:
 
     def test_is_tripped_reopens_after_window_expires(self):
         cb = CircuitBreaker(threshold=1, window_sec=1)
-        cb.record_failure()
-        assert cb.is_tripped is True
-        cb._failures[0] = time.time() - 2
-        assert cb.is_tripped is False
+        with patch("modules.shared.src.taxonomy_core_entity.time.time", return_value=100.0):
+            cb.record_failure()
+            assert cb.is_tripped is True
+        with patch("modules.shared.src.taxonomy_core_entity.time.time", return_value=102.0):
+            assert cb.is_tripped is False
 
     def test_success_resets_after_partial_failures(self):
         cb = CircuitBreaker(threshold=3, window_sec=30)
