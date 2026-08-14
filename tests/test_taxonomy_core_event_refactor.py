@@ -30,7 +30,7 @@ from modules.shared.src.taxonomy_core_vo import (
     EventDetails,
     EventOrderMap,
 )
-from modules.shared.src.taxonomy_domain_error import QwenCliError as LEGACY_QWEN_CLI_ERROR
+from modules.shared.src.taxonomy_core_error import QwenCliError as CANONICAL_QWEN_CLI_ERROR
 
 
 def test_pipeline_event_sequence_is_canonical_and_ordered() -> None:
@@ -104,7 +104,7 @@ def test_lifecycle_gate_rejects_skipped_predecessors_and_records_reason() -> Non
 
 
 def test_error_taxonomy_has_new_source_and_legacy_facade() -> None:
-    assert LEGACY_QWEN_CLI_ERROR is QwenCliError
+    assert CANONICAL_QWEN_CLI_ERROR is QwenCliError
     assert ErrorCategory.categorize(RuntimeError("network timeout")) == "network"
     assert (
         ErrorCategory.categorize(ResponseDetectionTimeoutError("Response detection timeout after 10s"))

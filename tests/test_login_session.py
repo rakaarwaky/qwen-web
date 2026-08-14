@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -176,3 +177,39 @@ def test_browser_check_session_requires_authenticated_chat_ui() -> None:
 
     page.url = "https://chat.qwen.ai/login"
     assert BrowserAdapter().check_session(page) is False
+
+
+def test_manual_login_delays_check_session_after_confirmation(tmp_path: Path) -> None:
+    """After wait_for_confirmation, setup_session waits before checking session.
+
+    This prevents the browser from being checked while the page is still
+    stabilizing after a manual login — which previously caused a hang.
+    """
+    import time
+
+    session_path = tmp_path / "session"
+    browser = _BrowserHarness([True])
+    wait_calls: list[int] = []
+
+    def _patch_page(page):
+        original_wait = page.wait_for_timeout
+        def recording_wait(ms=0):
+            wait_calls.append(ms)
+            # Actually sleep for the delay so timing test works
+            time.sleep(ms / 1000)
+        page.wait_for_timeout = recording_wait
+
+    _patch_page(browser.page)
+
+    confirmation = MagicMock()
+    start = time.monotonic()
+
+    result = _orchestrator(browser).setup_session(
+        wait_for_confirmation=confirmation,
+        session_path=session_path,
+    )
+
+    assert "completed successfully" in result
+    # The wait_for_timeout should have been called with ~2000ms
+    assert len(wait_calls) == 1
+    assert wait_calls[0] == 2000
