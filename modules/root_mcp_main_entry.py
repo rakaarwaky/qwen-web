@@ -10,7 +10,7 @@ import asyncio
 import logging
 import sys
 from collections.abc import Awaitable, Callable, Sequence
-from typing import Any
+from typing import Any, cast
 
 from mcp.server import InitializationOptions, Server
 from mcp.server.stdio import stdio_server
@@ -26,6 +26,7 @@ from mcp.types import (
 from mcp_types._types import ServerCapabilities, ToolsCapability
 
 from modules.core.src.capabilities_observability_setup import ObservabilitySetup
+from modules.core.src.root_core_container import SharedContainer
 from modules.mcp.src.surface_mcp_tool_command import McpToolCommand
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
 
@@ -46,8 +47,6 @@ _container: McpToolCommand | None = None
 def _get_tools() -> McpToolCommand:
     """Return the MCP surface tool command, wiring the container once."""
     global _container
-    from modules.core.src.root_core_container import SharedContainer
-
     if _container is None:
         shared = SharedContainer(use_linux_guard=False)
         shared.wire()
@@ -90,7 +89,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="qwen_send_prompt",
         description="Send a direct text prompt string to chat.qwen.ai and return AI answer.",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "prompt": {"type": "string"},
@@ -103,7 +102,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="qwen_process_single",
         description="Process a single Markdown prompt file (1:1 CLI Single File Mode).",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "input_file": {"type": "string"},
@@ -116,7 +115,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="qwen_process_batch",
         description="Process all prompt files inside an input directory (1:1 CLI Batch Mode).",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "input_dir": {"type": "string", "default": None},
@@ -128,7 +127,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="qwen_start_watcher",
         description="Run folder watcher loop to continuously monitor input/ for new files.",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "interval_sec": {"type": "integer", "default": 3},
@@ -139,12 +138,12 @@ TOOLS: list[Tool] = [
     Tool(
         name="qwen_setup_session",
         description="Launch visible browser on chat.qwen.ai for manual login / session setup.",
-        inputSchema={"type": "object", "properties": {}},
+        input_schema={"type": "object", "properties": {}},
     ),
     Tool(
         name="qwen_get_audit_log",
         description="Fetch latest entries from the JSONL audit trail log.",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {"limit": {"type": "integer", "default": 20}},
         },
@@ -171,35 +170,75 @@ qwen_start_watcher = _async_tool("qwen_start_watcher")
 qwen_setup_session = _async_tool("qwen_setup_session")
 qwen_get_audit_log = _async_tool("qwen_get_audit_log")
 
+
 # Legacy _tools() factory for mock patching
-def _tools():
+def _tools() -> McpToolCommand:
     """Legacy compatibility: return the MCP tool command instance."""
     return _get_tools()
+
 
 GENERATED_TOOLS = TOOL_HANDLERS  # For backward-compat imports
 
 # ─── Legacy MCP_TOOL_SPECS for test compatibility ──────────────────────────
 MCP_TOOL_SPECS: list[dict[str, Any]] = [
-    {"name": "qwen_send_prompt", "method": "send_prompt", "doc": "Send a direct text prompt string to chat.qwen.ai and return AI answer.", "params": [("prompt", "str", True), ("timeout_sec", "int", False, 120), ("headless", "bool", False, True)]},
-    {"name": "qwen_process_single", "method": "process_single", "doc": "Process a single Markdown prompt file (1:1 CLI Single File Mode).", "params": [("input_file", "str", True), ("output_file", "Any", False, None), ("headless", "bool", False, True)]},
-    {"name": "qwen_process_batch", "method": "process_batch", "doc": "Process all prompt files inside an input directory (1:1 CLI Batch Mode).", "params": [("input_dir", "Any", False, None), ("output_dir", "Any", False, None), ("headless", "bool", False, True)]},
-    {"name": "qwen_start_watcher", "method": "start_watcher", "doc": "Run folder watcher loop to continuously monitor input/ for new files.", "params": [("interval_sec", "int", False, 3), ("headless", "bool", False, True)]},
-    {"name": "qwen_setup_session", "method": "setup_session", "doc": "Launch visible browser on chat.qwen.ai for manual login / session setup.", "params": []},
-    {"name": "qwen_get_audit_log", "method": "get_audit_log", "doc": "Fetch latest entries from the JSONL audit trail log.", "params": [("limit", "int", False, 20)]},
+    {
+        "name": "qwen_send_prompt",
+        "method": "send_prompt",
+        "doc": "Send a direct text prompt string to chat.qwen.ai and return AI answer.",
+        "params": [("prompt", "str", True), ("timeout_sec", "int", False, 120), ("headless", "bool", False, True)],
+    },
+    {
+        "name": "qwen_process_single",
+        "method": "process_single",
+        "doc": "Process a single Markdown prompt file (1:1 CLI Single File Mode).",
+        "params": [("input_file", "str", True), ("output_file", "Any", False, None), ("headless", "bool", False, True)],
+    },
+    {
+        "name": "qwen_process_batch",
+        "method": "process_batch",
+        "doc": "Process all prompt files inside an input directory (1:1 CLI Batch Mode).",
+        "params": [
+            ("input_dir", "Any", False, None),
+            ("output_dir", "Any", False, None),
+            ("headless", "bool", False, True),
+        ],
+    },
+    {
+        "name": "qwen_start_watcher",
+        "method": "start_watcher",
+        "doc": "Run folder watcher loop to continuously monitor input/ for new files.",
+        "params": [("interval_sec", "int", False, 3), ("headless", "bool", False, True)],
+    },
+    {
+        "name": "qwen_setup_session",
+        "method": "setup_session",
+        "doc": "Launch visible browser on chat.qwen.ai for manual login / session setup.",
+        "params": [],
+    },
+    {
+        "name": "qwen_get_audit_log",
+        "method": "get_audit_log",
+        "doc": "Fetch latest entries from the JSONL audit trail log.",
+        "params": [("limit", "int", False, 20)],
+    },
 ]
 
+
 # ─── Legacy helpers for test compatibility ──────────────────────────────────
-def _get_mcp_app():
+def _get_mcp_app() -> Any:
     """Legacy: raise ImportError since MCP 2.0.0 uses Server."""
     raise ImportError("The 'mcp' Python package is required to run the MCP server. Install it via 'pip install mcp'.")
 
-def _register_tool(fn):
+
+def _register_tool(fn: Callable[..., Any]) -> Callable[..., Any]:
     """Legacy: no-op for MCP 2.0.0 (tools are registered via Server callbacks)."""
     return fn
 
-def _register_tools():
+
+def _register_tools() -> None:
     """Legacy: no-op for MCP 2.0.0."""
     pass
+
 
 async def _handle_list_tools() -> ListToolsResult:
     return ListToolsResult(tools=TOOLS)
@@ -220,23 +259,24 @@ async def _handle_call_tool(name: str, arguments: dict[str, Any] | None) -> Call
         return CallToolResult(content=[], is_error=True)
 
 
-async def _handle_list_resources():
+async def _handle_list_resources() -> ListResourcesResult:
     """Return empty resource list."""
     return ListResourcesResult(resources=[])
 
 
-async def _handle_read_resource(uri: str):
+async def _handle_read_resource(_uri: str) -> ReadResourceResult:
     """Return empty resource content."""
     return ReadResourceResult(contents=[])
 
 
 # ─── Server runner ──────────────────────────────────────────────────────────
 
+
 def run_mcp_server() -> None:
     """Run the MCP server over stdio."""
     ObservabilitySetup(DEFAULT_LOG).setup_observability()
 
-    async def serve():
+    async def serve() -> None:
         async with stdio_server() as (read_stream, write_stream):
             capabilities = ServerCapabilities(tools=ToolsCapability())
             init_opts = InitializationOptions(
@@ -247,10 +287,10 @@ def run_mcp_server() -> None:
             server = Server(
                 name="Qwen-Web",
                 version="4.1.0",
-                on_list_tools=_handle_list_tools,
-                on_call_tool=_handle_call_tool,
-                on_list_resources=_handle_list_resources,
-                on_read_resource=_handle_read_resource,
+                on_list_tools=cast(Any, _handle_list_tools),
+                on_call_tool=cast(Any, _handle_call_tool),
+                on_list_resources=cast(Any, _handle_list_resources),
+                on_read_resource=cast(Any, _handle_read_resource),
             )
             await server.run(read_stream, write_stream, initialization_options=init_opts)
 

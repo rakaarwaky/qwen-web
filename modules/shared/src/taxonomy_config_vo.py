@@ -47,6 +47,7 @@ class UploadConfig:
 
     upload_option_selectors: Sequence[str] = field(
         default_factory=lambda: (
+            "[role='menuitem']:has-text('Upload attachment')",
             "text='Upload attachment'",
             "text='Upload file'",
             ".mode-select-dropdown-item[data-action='upload']",

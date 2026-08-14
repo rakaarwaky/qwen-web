@@ -235,11 +235,8 @@ class FileUploader(IUploadProtocol):
             ("", normalized_name),
         ):
             try:
-                if selector:
-                    locator = page.locator(selector)
-                else:
-                    # Broadest fallback: find any visible text node containing the filename
-                    locator = page.locator("body")
+                # Broadest fallback: find any visible text node containing the filename
+                locator = page.locator(selector) if selector else page.locator("body")
                 visible_texts = []
                 for index in range(locator.count()):
                     item = locator.nth(index)
