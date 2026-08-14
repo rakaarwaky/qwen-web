@@ -288,6 +288,12 @@ def test_file_moves_to_done_on_success(tmp_path: Path, mocker: Any) -> None:
     proc_file.write_text("Test prompt content")
 
     mock_saver = mocker.MagicMock()
+
+    def write_output(path: Path, *_args: object, **_kwargs: object) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("Response text", encoding="utf-8")
+
+    mock_saver.write_output.side_effect = write_output
     mock_audit = mocker.MagicMock()
     orchestrator = _make_orchestrator(mocker, audit=mock_audit)
     orchestrator._saver = mock_saver

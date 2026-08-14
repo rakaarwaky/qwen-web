@@ -60,6 +60,23 @@ class UploadConfig:
         )
     )
 
+    parse_ready_selectors: Sequence[str] = field(
+        default_factory=lambda: (
+            ".fileitem-icon:not([class*='loading']):not([class*='spin'])",
+            "[class*='fileitem-icon']:not([class*='loading']):not([class*='spin'])",
+        )
+    )
+
+    parse_pending_selectors: Sequence[str] = field(
+        default_factory=lambda: (
+            ".fileitem-loading-icon",
+            "[class*='loading']",
+            "[class*='parsing']",
+            "[class*='spin']",
+            ".ant-spin",
+        )
+    )
+
     card_selectors: Sequence[str] = field(
         default_factory=lambda: (
             ".file-card-list",
@@ -68,6 +85,8 @@ class UploadConfig:
             "[class*='file-card']",
             "[class*='file-item']",
             "[class*='fileitem']",
+            "[class*='fileitem-file-name']",
+            "[class*='file-content-info']",
         )
     )
 

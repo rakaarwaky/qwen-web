@@ -432,6 +432,7 @@ class CoreOrchestrator(ICoreAggregate):
         custom_prompt_path: Path | None = None,
         rel_path: Path | None = None,
         cfg: AppConfig | None = None,
+        emitter: LifecycleEmitter | None = None,
     ) -> str:
         """Send a prompt file while enforcing event-backed lifecycle gates."""
         active_cfg = cfg or build_app_config(
@@ -443,7 +444,7 @@ class CoreOrchestrator(ICoreAggregate):
         logger = self._observability.get_logger()
         state = LifecycleState()
         gate = LifecycleGate(logger)
-        emitter = LifecycleEmitter(logger, gate=gate)
+        emitter = emitter or LifecycleEmitter(logger, gate=gate)
         for lifecycle_event in PIPELINE_EVENT_SEQUENCE:
 
             def mark_lifecycle_event(
@@ -483,11 +484,14 @@ class CoreOrchestrator(ICoreAggregate):
                 "EVENT_FILE_UPLOADED was not emitted"
             )
 
-        self._injector.inject_text(page, PromptText(prompt))
-        emitter.emit(EVENT_PROMPT_INJECTED, {"file": str(filepath), "char_count": len(prompt)})
         emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "file_size_bytes": filepath.stat().st_size})
         if not state.document_parsed:
-            raise RuntimeError("Cannot send prompt: document attachment parsing (EVENT_DOCUMENT_PARSED) is incomplete")
+            raise RuntimeError(
+                "Cannot inject prompt: document attachment parsing (EVENT_DOCUMENT_PARSED) is incomplete"
+            )
+
+        self._injector.inject_text(page, PromptText(prompt))
+        emitter.emit(EVENT_PROMPT_INJECTED, {"file": str(filepath), "char_count": len(prompt)})
 
         self._sender.click_send(page, emitter, document_parsed=HeadlessFlag(state.document_parsed))
         if not state.dispatch_acknowledged:
@@ -505,7 +509,6 @@ class CoreOrchestrator(ICoreAggregate):
 
         if response and len(response.strip()) > 0:
             logger.info("Received response (%d chars)", len(response))
-            emitter.emit(EVENT_OUTPUT_COPIED, {"file": str(filepath), "char_count": len(response.strip())})
             return response.strip()
         raise ResponseDetectionTimeoutError(
             f"Response detection timeout after {stream_timeout_sec}s: no response detected"
@@ -546,6 +549,7 @@ class CoreOrchestrator(ICoreAggregate):
         custom_prompt_path: Path | None,
         rel_path: Path | None,
         cfg: AppConfig | None = None,
+        emitter: LifecycleEmitter | None = None,
     ) -> str:
         """Send a prompt file and return the AI response text."""
         active_cfg = cfg or build_app_config(
@@ -557,7 +561,9 @@ class CoreOrchestrator(ICoreAggregate):
 
         with self._browser.browser_session(active_cfg) as bctx:
             page = bctx.pages[0] if bctx.pages else bctx.new_page()
-            return self.send_file(page, filepath, timeout_sec, custom_prompt_path, rel_path, active_cfg)
+            return self.send_file(
+                page, filepath, timeout_sec, custom_prompt_path, rel_path, active_cfg, emitter=emitter
+            )
 
     def _emitter(self) -> LifecycleEmitter:
         return LifecycleEmitter(self._observability.get_logger())
@@ -609,7 +615,10 @@ class CoreOrchestrator(ICoreAggregate):
         role_prompt = load_role_prompt(proc_file, cfg.prompt_file, rel_path)
         full_prompt = f"{role_prompt}\n\n{prompt}" if role_prompt else prompt
 
-        text = self._send_file(proc_file, cfg.request_timeout, cfg.prompt_file, rel_path, cfg)
+        emitter = LifecycleEmitter(
+            self._observability.get_logger(), gate=LifecycleGate(self._observability.get_logger())
+        )
+        text = self._send_file(proc_file, cfg.request_timeout, cfg.prompt_file, rel_path, cfg, emitter=emitter)
         dur = time.time() - t0
 
         text = strip_input_from_output(text, full_prompt)
@@ -618,6 +627,14 @@ class CoreOrchestrator(ICoreAggregate):
         self._saver.write_output(
             out_path, ResponseText(text), ctx, FilePath(str(rel_path)), dur, len(prompt), OutputChars(len(text))
         )
+        if not out_path.is_file() or out_path.stat().st_size <= 0:
+            raise OSError(f"Output artifact was not written successfully: {out_path}")
+        if QwenEventType.GENERATION_FINISHED in emitter.completed:
+            emitter.emit(EVENT_OUTPUT_COPIED, {"file": str(out_path), "char_count": len(text)})
+        else:
+            self._observability.get_logger().warning(
+                "Output saved without lifecycle emission: EVENT_GENERATION_FINISHED was not accepted"
+            )
         self._audit.log(
             "SUCCESS", ctx, FilePath(str(rel_path)), FilePath(str(out_path)), dur, len(prompt), OutputChars(len(text))
         )

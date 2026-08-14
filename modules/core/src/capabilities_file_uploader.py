@@ -5,7 +5,6 @@ Implements IUploadProtocol.
 
 from __future__ import annotations
 
-import contextlib
 import time
 from pathlib import Path
 from typing import Any
@@ -148,12 +147,21 @@ class FileUploader(IUploadProtocol):
     def _try_upload_attempt(self, page: Page, filepath: Path) -> bool:
         """Execute a single attempt to attach a file via the Qwen Web UI."""
         direct_input = self._find_file_input(page)
+        baseline_matches = self._attachment_match_count(page, filepath)
         if direct_input is not None:
-            log.debug("Setting file through direct Qwen file input selector")
-            direct_input.set_input_files(str(filepath))
-            self._wait_for_attachment_card(page)
-            return True
+            try:
+                log.debug("Setting file through direct Qwen file input selector")
+                direct_input.set_input_files(str(filepath))
+                self._wait_for_attachment_card(page, filepath, baseline_matches)
+                return True
+            except (TimeoutError, Error):
+                if self._attachment_match_count(page, filepath) > baseline_matches:
+                    log.debug("Direct upload rendered the exact attachment after timeout; skipping chooser fallback")
+                    return True
+                log.debug("Direct file input did not render an exact attachment; trying chooser fallback")
 
+        if self._attachment_match_count(page, filepath) > baseline_matches:
+            return True
         log.debug("Opening mode-select dropdown using primary/fallback selectors")
         dropdown_element = first_visible_locator(page, self.dropdown_selectors, timeout_ms=1000)
 
@@ -177,7 +185,7 @@ class FileUploader(IUploadProtocol):
         log.debug("Setting file on file chooser: %s", filepath.name)
         fc.value.set_files(str(filepath))
 
-        self._wait_for_attachment_card(page)
+        self._wait_for_attachment_card(page, filepath, baseline_matches)
         return True
 
     def _find_file_input(self, page: Page) -> Any | None:
@@ -191,16 +199,66 @@ class FileUploader(IUploadProtocol):
                 continue
         return None
 
-    def _wait_for_attachment_card(self, page: Page) -> None:
-        """Wait for a positive attachment indicator after setting a file."""
-        log.debug("Waiting for file card attachment indicator to render and complete parsing")
-        card_selector_str = ", ".join(self.card_selectors)
-        page.locator(card_selector_str).first.wait_for(state="visible", timeout=self.card_render_timeout_ms)
-        with contextlib.suppress(Exception):
-            page.locator("[class*='loading'], [class*='parsing'], [class*='spin'], .ant-spin").first.wait_for(
-                state="hidden", timeout=5000
-            )
-        time.sleep(2.0)
+    def _wait_for_attachment_card(self, page: Page, filepath: Path, baseline_matches: int = 0) -> None:
+        """Wait for a newly rendered exact filename node in Qwen's live attachment DOM."""
+        log.debug("Waiting for exact Qwen attachment filename node: %s", filepath.name)
+        deadline = time.monotonic() + (self.card_render_timeout_ms / 1000)
+        while time.monotonic() < deadline:
+            matches = self._attachment_match_count(page, filepath)
+            if matches > baseline_matches or (baseline_matches == 0 and matches > 0):
+                self._wait_for_parse_ready(page, filepath)
+                return
+            page.wait_for_timeout(100)
+        raise TimeoutError(f"Exact uploaded filename was not rendered in Qwen attachment DOM: {filepath.name}")
+
+    def _wait_for_parse_ready(self, page: Page, filepath: Path) -> None:
+        """Wait for Qwen's attachment-specific parse-ready icon before continuing."""
+        deadline = time.monotonic() + (self.card_render_timeout_ms / 1000)
+        while time.monotonic() < deadline:
+            card = page.locator(".fileitem-btn").filter(has_text=filepath.stem).last
+            try:
+                if card.count() == 0:
+                    page.wait_for_timeout(100)
+                    continue
+                pending = any(
+                    card.locator(selector).count() > 0 and card.locator(selector).last.is_visible()
+                    for selector in self.config.parse_pending_selectors
+                )
+                ready = any(
+                    card.locator(selector).count() > 0 and card.locator(selector).last.is_visible()
+                    for selector in self.config.parse_ready_selectors
+                )
+                if ready and not pending:
+                    log.debug("Qwen document parsing is ready for %s", filepath.name)
+                    return
+            except (TimeoutError, Error):
+                pass
+            page.wait_for_timeout(100)
+        raise TimeoutError(f"Qwen document parsing did not reach ready state: {filepath.name}")
+
+    def _attachment_match_count(self, page: Page, filepath: Path) -> int:
+        """Count exact filename matches, preferring full filename nodes over stem-only nodes."""
+        normalized_name = " ".join(filepath.name.split()).casefold()
+        normalized_stem = " ".join(filepath.stem.split()).casefold()
+        for selector, expected in (
+            (".fileitem-file-name", normalized_name),
+            ("[class*='fileitem-file-name']", normalized_name),
+            (".fileitem-file-name-text", normalized_stem),
+            ("[class*='fileitem-file-name-text']", normalized_stem),
+        ):
+            try:
+                locator = page.locator(selector)
+                visible_texts = []
+                for index in range(locator.count()):
+                    item = locator.nth(index)
+                    if item.is_visible():
+                        visible_texts.append(item.inner_text())
+            except (TimeoutError, Error):
+                continue
+            matches = sum(" ".join(text.split()).casefold() == expected for text in visible_texts)
+            if matches:
+                return matches
+        return 0
 
     # ─── Block 3: Dunder Methods, Factories & Helpers ─────
 

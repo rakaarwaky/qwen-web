@@ -71,11 +71,15 @@ class StreamMonitor(IStreamProtocol):
             return False
 
     def is_thinking_active(self, page: Page) -> bool:
-        """Check if thinking indicator is active."""
+        """Check whether Qwen's live thinking/status indicator is visible."""
         try:
-            typing_selector = ".thinking:not([style*='display: none']), [class*='thinking']"
-            return is_selector_visible(page, typing_selector)
-        except Error:
+            thinking_selector = (
+                "[class*='qwen-chat-thinking-status-card']:not([class*='completed']), "
+                "[class*='thinking']:not([class*='completed']), "
+                "[class*='typing'], [class*='streaming']"
+            )
+            return is_selector_visible(page, thinking_selector)
+        except Exception:
             return False
 
     def wait_for_response(
@@ -101,9 +105,6 @@ class StreamMonitor(IStreamProtocol):
         has_streaming = False
 
         log.info("Waiting for AI response (timeout: %ds)", timeout_sec)
-        emitter.emit(EVENT_THINKING_STARTED)
-        has_thinking = True
-
         baseline_text: str | None = _dom_latest(page)
 
         start = time.time()
@@ -113,9 +114,15 @@ class StreamMonitor(IStreamProtocol):
         while time.time() - start < timeout_sec:
             try:
                 count = count_messages(page)
-                if count >= msg_count_before:
+                if not has_thinking and self.is_thinking_active(page):
+                    emitter.emit(EVENT_THINKING_STARTED, {"source": "qwen-thinking-dom"})
+                    has_thinking = True
+                if count > msg_count_before:
                     text = _dom_latest(page)
                     if text is not None and should_treat_as_new_response(text, baseline_text, int(active_min_len)):
+                        if not has_thinking:
+                            emitter.emit(EVENT_THINKING_STARTED, {"source": "response-start-fallback"})
+                            has_thinking = True
                         if text == last_text:
                             stable_count += 1
                             is_complete = self.is_generation_complete(page)

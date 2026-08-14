@@ -61,7 +61,7 @@
     <input id="filesUpload" type="file" />
 
     <div class="message-input-column-file" id="attachmentCard">
-      <div class="fileitem-btn"><span id="attName">doc.md</span></div>
+      <div class="fileitem-btn"><span id="attIcon" class="fileitem-icon"></span><span id="attName" class="fileitem-file-name-text">doc.md</span></div>
       <div class="fileitem-file-size" id="attSize">0 B</div>
       <div class="fileitem-file-size" id="attStatus">Parsing...</div>
     </div>
@@ -96,6 +96,7 @@
   const modeSelect = $("modeSelect");
   const modeDropdown = $("modeDropdown");
   const attStatus = $("attStatus");
+  const attIcon = $("attIcon");
 
   function syncSendEnabled() {
     const hasText = chatInput.value.trim().length > 0;
@@ -126,10 +127,15 @@
     $("attName").textContent = file.name;
     $("attSize").textContent = file.size + " B";
     attStatus.textContent = "Parsing...";
+    attIcon.className = "fileitem-loading-icon";
     attachmentCard.classList.add("visible");
     syncSendEnabled();
     // simulate Qwen finishing parse after a short delay
-    setTimeout(() => { attStatus.textContent = "Ready"; syncSendEnabled(); }, 600);
+    setTimeout(() => {
+      attStatus.textContent = "Ready";
+      attIcon.className = "fileitem-icon";
+      syncSendEnabled();
+    }, 600);
   });
 
   // Send button -> emulate dispatch + assistant reply

@@ -37,8 +37,8 @@ def test_pipeline_event_sequence_is_canonical_and_ordered() -> None:
     assert PIPELINE_EVENT_SEQUENCE == (
         QwenEventType.WEB_LOADED,
         QwenEventType.FILE_UPLOADED,
-        QwenEventType.PROMPT_INJECTED,
         QwenEventType.DOCUMENT_PARSED,
+        QwenEventType.PROMPT_INJECTED,
         QwenEventType.SEND_CLICKED,
         QwenEventType.DISPATCH_ACKNOWLEDGED,
         QwenEventType.THINKING_STARTED,
@@ -47,8 +47,8 @@ def test_pipeline_event_sequence_is_canonical_and_ordered() -> None:
         QwenEventType.OUTPUT_COPIED,
     )
     assert EVENT_ORDER[QwenEventType.WEB_LOADED] < EVENT_ORDER[QwenEventType.FILE_UPLOADED]
-    assert EVENT_ORDER[QwenEventType.FILE_UPLOADED] < EVENT_ORDER[QwenEventType.PROMPT_INJECTED]
-    assert EVENT_ORDER[QwenEventType.PROMPT_INJECTED] < EVENT_ORDER[QwenEventType.DOCUMENT_PARSED]
+    assert EVENT_ORDER[QwenEventType.FILE_UPLOADED] < EVENT_ORDER[QwenEventType.DOCUMENT_PARSED]
+    assert EVENT_ORDER[QwenEventType.DOCUMENT_PARSED] < EVENT_ORDER[QwenEventType.PROMPT_INJECTED]
     assert EVENT_ORDER[QwenEventType.DOCUMENT_PARSED] < EVENT_ORDER[QwenEventType.SEND_CLICKED]
     assert EVENT_ORDER[QwenEventType.SEND_CLICKED] < EVENT_ORDER[QwenEventType.DISPATCH_ACKNOWLEDGED]
     assert EVENT_ORDER[QwenEventType.DISPATCH_ACKNOWLEDGED] < EVENT_ORDER[QwenEventType.THINKING_STARTED]
@@ -93,10 +93,14 @@ def test_entity_remains_for_stateful_runtime_behavior() -> None:
 def test_lifecycle_gate_rejects_skipped_predecessors_and_records_reason() -> None:
     gate = LifecycleGate()
     gate.validate(QwenEventType.WEB_LOADED)
-    with pytest.raises(RuntimeError, match="EVENT_FILE_UPLOADED"):
+    with pytest.raises(RuntimeError, match="EVENT_DOCUMENT_PARSED"):
         gate.validate(QwenEventType.PROMPT_INJECTED)
     assert gate.rejections[0]["event"] == "EVENT_PROMPT_INJECTED"
-    assert "EVENT_FILE_UPLOADED" in gate.rejections[0]["reason"]
+    assert "EVENT_DOCUMENT_PARSED" in gate.rejections[0]["reason"]
+
+    gate.validate(QwenEventType.FILE_UPLOADED)
+    with pytest.raises(RuntimeError, match="EVENT_DOCUMENT_PARSED"):
+        gate.validate(QwenEventType.PROMPT_INJECTED)
 
 
 def test_error_taxonomy_has_new_source_and_legacy_facade() -> None:
