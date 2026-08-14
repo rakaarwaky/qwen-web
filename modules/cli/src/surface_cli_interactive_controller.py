@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Literal
 
 from modules.cli.src.surface_cli_login_command import wait_for_login_confirmation
+from modules.cli.src.surface_cli_session_setup import run_session_setup
 from modules.core.src.utility_core_config_factory import build_app_config
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.taxonomy_config_vo import AppConfig
@@ -40,12 +41,12 @@ class InteractiveController:
             print("[ERROR] Interactive mode requires a TTY. Please provide CLI arguments.", file=sys.stderr)
             return None
 
-        print("\n╭─ qwen-cli interactive setup ─────────────────────╮")
-        print("│ 1. Watcher Mode (continuous)                     │")
-        print("│ 2. Batch Mode (folder)                           │")
+        print("\n╭─ qwen-cli interactive setup ───────────────────╮")
+        print("│ 1. Watcher Mode                                  │")
+        print("│ 2. Batch Mode                                    │")
         print("│ 3. Single File Mode                              │")
-        print("│ 4. Manual Login / Session Setup                  │")
-        print("│ 5. Initialize Workspace (.agents/skills & .qwen) │")
+        print("│ 4. Session Setup                                 │")
+        print("│ 5. Initialize Workspace                          │")
         print("│ 6. Exit                                          │")
         print("╰──────────────────────────────────────────────────╯")
 
@@ -118,11 +119,20 @@ class InteractiveController:
         if selected is None:
             return success_response("Exited.")
         if selected.mode == "login":
-            result = self._core.setup_session(
-                wait_for_confirmation=wait_for_login_confirmation,
-                session_path=selected.session_path,
-            )
-            return success_response(result)
+            valid, status = self._core.validate_session(session_path=selected.session_path)
+
+            def _do_login() -> None:
+                result = self._core.setup_session(
+                    wait_for_confirmation=wait_for_login_confirmation,
+                    session_path=selected.session_path,
+                )
+                print(result)
+
+            def _do_back() -> None:
+                print("Kembali ke menu utama.")
+
+            run_session_setup(status, on_login=_do_login, on_back=_do_back)
+            return success_response("Kembali ke menu utama.")
 
         result = self._core.process_mode(selected)
         return success_response(result)

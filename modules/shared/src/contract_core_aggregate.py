@@ -66,6 +66,10 @@ class ICoreAggregate(ABC):
         """Send a direct text prompt and return the AI response."""
 
     @abstractmethod
+    def validate_session(self, session_path: Path | None = None) -> tuple[bool, str]:
+        """Return session validity and a human-readable status message."""
+
+    @abstractmethod
     def setup_session(
         self,
         wait_for_confirmation: Callable[[], None] | None = None,

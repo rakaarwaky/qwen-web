@@ -348,6 +348,37 @@ class CoreOrchestrator(ICoreAggregate):
 
         return ResponseText("Manual login completed successfully. The Qwen session is valid for headless tasks.")
 
+    def validate_session(self, session_path: Path | None = None) -> tuple[bool, str]:
+        cfg = build_app_config(
+            mode="session-check",
+            input_path=DEFAULT_TODO,
+            output_path=DEFAULT_OUTPUT,
+            session_path=session_path,
+            headless=True,
+        )
+        if not cfg.session_path.is_dir():
+            return False, "Session tidak ditemukan. Silakan login terlebih dahulu."
+        if self._validate_saved_session(cfg):
+            return True, "Session tersimpan valid dan siap digunakan."
+        return False, "Session tersimpan tidak valid. Silakan login ulang."
+
+    def delete_session(self, session_path: Path | None = None) -> ResponseText:
+        cfg = build_app_config(
+            mode="session-check",
+            input_path=DEFAULT_TODO,
+            output_path=DEFAULT_OUTPUT,
+            session_path=session_path,
+            headless=True,
+        )
+        if not cfg.session_path.exists():
+            return ResponseText("Tidak ada session yang dapat dihapus.")
+        try:
+            import shutil
+            shutil.rmtree(cfg.session_path)
+            return ResponseText("Session berhasil dihapus.")
+        except Exception as exc:
+            raise QwenCliError(f"Gagal menghapus session: {exc}") from exc
+
     def _validate_saved_session(self, cfg: AppConfig) -> bool:
         """Check an existing profile without opening a visible login window."""
         validation_cfg = build_app_config(
