@@ -250,6 +250,11 @@ class LifecycleEmitter:
         """Return accepted events from the attached lifecycle gate."""
         return self._gate.completed if self._gate is not None else ()
 
+    def attach_gate(self, gate: LifecycleGate) -> None:
+        """Attach a strict gate when an emitter was supplied without one."""
+        if self._gate is None:
+            self._gate = gate
+
     def on(self, event_name: QwenEventType | str, callback: LifecycleCallback) -> None:
         """Register a callback for a named lifecycle event."""
         key = str(event_name)

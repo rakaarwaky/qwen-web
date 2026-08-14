@@ -444,7 +444,10 @@ class CoreOrchestrator(ICoreAggregate):
         logger = self._observability.get_logger()
         state = LifecycleState()
         gate = LifecycleGate(logger)
-        emitter = emitter or LifecycleEmitter(logger, gate=gate)
+        if emitter is None:
+            emitter = LifecycleEmitter(logger, gate=gate)
+        else:
+            emitter.attach_gate(gate)
         for lifecycle_event in PIPELINE_EVENT_SEQUENCE:
 
             def mark_lifecycle_event(

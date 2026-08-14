@@ -79,7 +79,7 @@ class StreamMonitor(IStreamProtocol):
                 "[class*='typing'], [class*='streaming']"
             )
             return is_selector_visible(page, thinking_selector)
-        except Exception:
+        except Error:
             return False
 
     def wait_for_response(
