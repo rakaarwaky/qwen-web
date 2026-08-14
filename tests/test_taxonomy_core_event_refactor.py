@@ -11,8 +11,8 @@ from modules.shared.src import (
     EVENT_WEB_LOADED,
     PIPELINE_EVENT_SEQUENCE,
 )
-from modules.shared.src.taxonomy_core_entity import LifecycleEmitter, LifecycleState
-from modules.shared.src.taxonomy_core_error import ErrorCategory, QwenCliError
+from modules.shared.src.taxonomy_core_entity import LifecycleEmitter, LifecycleGate, LifecycleState
+from modules.shared.src.taxonomy_core_error import ErrorCategory, QwenCliError, ResponseDetectionTimeoutError
 from modules.shared.src.taxonomy_core_event import (
     EVENT_DOCUMENT_PARSED,
     EVENT_GENERATION_FINISHED,
@@ -40,6 +40,7 @@ def test_pipeline_event_sequence_is_canonical_and_ordered() -> None:
         QwenEventType.PROMPT_INJECTED,
         QwenEventType.DOCUMENT_PARSED,
         QwenEventType.SEND_CLICKED,
+        QwenEventType.DISPATCH_ACKNOWLEDGED,
         QwenEventType.THINKING_STARTED,
         QwenEventType.STREAMING_GENERATION,
         QwenEventType.GENERATION_FINISHED,
@@ -49,7 +50,8 @@ def test_pipeline_event_sequence_is_canonical_and_ordered() -> None:
     assert EVENT_ORDER[QwenEventType.FILE_UPLOADED] < EVENT_ORDER[QwenEventType.PROMPT_INJECTED]
     assert EVENT_ORDER[QwenEventType.PROMPT_INJECTED] < EVENT_ORDER[QwenEventType.DOCUMENT_PARSED]
     assert EVENT_ORDER[QwenEventType.DOCUMENT_PARSED] < EVENT_ORDER[QwenEventType.SEND_CLICKED]
-    assert EVENT_ORDER[QwenEventType.SEND_CLICKED] < EVENT_ORDER[QwenEventType.THINKING_STARTED]
+    assert EVENT_ORDER[QwenEventType.SEND_CLICKED] < EVENT_ORDER[QwenEventType.DISPATCH_ACKNOWLEDGED]
+    assert EVENT_ORDER[QwenEventType.DISPATCH_ACKNOWLEDGED] < EVENT_ORDER[QwenEventType.THINKING_STARTED]
     assert EVENT_ORDER[QwenEventType.THINKING_STARTED] < EVENT_ORDER[QwenEventType.STREAMING_GENERATION]
     assert EVENT_ORDER[QwenEventType.STREAMING_GENERATION] < EVENT_ORDER[QwenEventType.GENERATION_FINISHED]
     assert EVENT_ORDER[QwenEventType.GENERATION_FINISHED] < EVENT_ORDER[QwenEventType.OUTPUT_COPIED]
@@ -88,6 +90,19 @@ def test_entity_remains_for_stateful_runtime_behavior() -> None:
     assert isinstance(LifecycleEmitter(), LifecycleEmitter)
 
 
+def test_lifecycle_gate_rejects_skipped_predecessors_and_records_reason() -> None:
+    gate = LifecycleGate()
+    gate.validate(QwenEventType.WEB_LOADED)
+    with pytest.raises(RuntimeError, match="EVENT_FILE_UPLOADED"):
+        gate.validate(QwenEventType.PROMPT_INJECTED)
+    assert gate.rejections[0]["event"] == "EVENT_PROMPT_INJECTED"
+    assert "EVENT_FILE_UPLOADED" in gate.rejections[0]["reason"]
+
+
 def test_error_taxonomy_has_new_source_and_legacy_facade() -> None:
     assert LEGACY_QWEN_CLI_ERROR is QwenCliError
     assert ErrorCategory.categorize(RuntimeError("network timeout")) == "network"
+    assert (
+        ErrorCategory.categorize(ResponseDetectionTimeoutError("Response detection timeout after 10s"))
+        == "response_timeout"
+    )

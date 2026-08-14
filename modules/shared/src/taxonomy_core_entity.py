@@ -9,10 +9,12 @@ import logging
 import time
 from collections import deque
 from collections.abc import Callable
+from typing import Protocol
 
 from modules.shared.src.taxonomy_core_constant import MAX_ATTEMPTS
 from modules.shared.src.taxonomy_core_event import (
     EVENT_DESCRIPTIONS,
+    PIPELINE_EVENT_SEQUENCE,
     CallbackRegistry,
     EventDetails,
     EventMessage,
@@ -145,26 +147,103 @@ class LifecycleState:
 
     def __init__(self) -> None:
         self.web_loaded = False
+        self.file_uploaded = False
+        self.prompt_injected = False
         self.document_parsed = False
+        self.send_clicked = False
         self.dispatch_acknowledged = False
+        self.thinking_started = False
+        self.streaming_generation = False
+        self.generation_finished = False
+        self.output_copied = False
 
     def mark(self, event_name: QwenEventType | str) -> None:
         """Advance exactly the gate represented by an emitted event."""
-        if event_name == QwenEventType.WEB_LOADED:
-            self.web_loaded = True
-        elif event_name == QwenEventType.DOCUMENT_PARSED:
-            self.document_parsed = True
-        elif event_name == QwenEventType.DISPATCH_ACKNOWLEDGED:
-            self.dispatch_acknowledged = True
+        key = str(event_name)
+        flags = {
+            str(QwenEventType.WEB_LOADED): "web_loaded",
+            str(QwenEventType.FILE_UPLOADED): "file_uploaded",
+            str(QwenEventType.PROMPT_INJECTED): "prompt_injected",
+            str(QwenEventType.DOCUMENT_PARSED): "document_parsed",
+            str(QwenEventType.SEND_CLICKED): "send_clicked",
+            str(QwenEventType.DISPATCH_ACKNOWLEDGED): "dispatch_acknowledged",
+            str(QwenEventType.THINKING_STARTED): "thinking_started",
+            str(QwenEventType.STREAMING_GENERATION): "streaming_generation",
+            str(QwenEventType.GENERATION_FINISHED): "generation_finished",
+            str(QwenEventType.OUTPUT_COPIED): "output_copied",
+        }
+        if key in flags:
+            setattr(self, flags[key], True)
+
+
+class LifecycleLogger(Protocol):
+    """Logger protocol accepted by lifecycle entities."""
+
+    def info(self, message: EventMessage) -> object:
+        """Record an informational lifecycle message."""
+
+
+class LifecycleGate:
+    """Strict predecessor gate for the ordered processing lifecycle."""
+
+    def __init__(self, logger: Callable[..., object] | LifecycleLogger | None = None) -> None:
+        self._logger = logger
+        self._completed: list[QwenEventType] = []
+        self.rejections: list[dict[str, str]] = []
+        self._predecessor = {
+            event: PIPELINE_EVENT_SEQUENCE[index - 1]
+            for index, event in enumerate(PIPELINE_EVENT_SEQUENCE)
+            if index > 0
+        }
+
+    @property
+    def completed(self) -> tuple[QwenEventType, ...]:
+        """Return the accepted event sequence in emission order."""
+        return tuple(self._completed)
+
+    def validate(self, event_name: QwenEventType | str) -> None:
+        """Accept an event or raise with an auditable predecessor reason."""
+        try:
+            event = event_name if isinstance(event_name, QwenEventType) else QwenEventType(str(event_name))
+        except ValueError:
+            return
+
+        predecessor = self._predecessor.get(event)
+        if event in self._completed:
+            reason = f"{event} was already emitted"
+        elif predecessor is not None and (not self._completed or self._completed[-1] != predecessor):
+            last_event = self._completed[-1] if self._completed else "none"
+            reason = f"requires successful predecessor {predecessor}; last event was {last_event}"
+        else:
+            self._completed.append(event)
+            return
+
+        rejection = {"event": event.value, "reason": reason}
+        self.rejections.append(rejection)
+        self._log(EventMessage(f"lifecycle_gate_rejected event={event} reason={reason}"))
+        raise RuntimeError(f"Lifecycle gate rejected {event}: {reason}")
+
+    def _log(self, message: EventMessage) -> None:
+        if self._logger is None:
+            return
+        if callable(self._logger):
+            self._logger(message)
+        else:
+            self._logger.info(message)
 
 
 class LifecycleEmitter:
     """Event bus for pipeline lifecycle events with typed dispatcher capability."""
 
-    def __init__(self, logger: Callable[..., object] | None = None) -> None:
-        """Initialize with an empty callback registry and an optional logger."""
+    def __init__(
+        self,
+        logger: Callable[..., object] | LifecycleLogger | None = None,
+        gate: LifecycleGate | None = None,
+    ) -> None:
+        """Initialize callbacks, an optional logger, and an optional strict gate."""
         self._callbacks: CallbackRegistry = {}
         self._logger = logger or logging.getLogger("lifecycle")
+        self._gate = gate
 
     def on(self, event_name: QwenEventType | str, callback: LifecycleCallback) -> None:
         """Register a callback for a named lifecycle event."""
@@ -174,6 +253,8 @@ class LifecycleEmitter:
     def emit(self, event_name: QwenEventType | str, details: EventDetails | None = None) -> LifecycleEvent:
         """Emit a lifecycle event to all registered callbacks."""
         key = str(event_name)
+        if self._gate is not None:
+            self._gate.validate(event_name)
         evt = LifecycleEvent(
             name=key,
             timestamp=time.time(),

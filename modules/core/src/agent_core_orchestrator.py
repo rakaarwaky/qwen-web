@@ -41,17 +41,27 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_OUTPUT,
     DEFAULT_TODO,
 )
-from modules.shared.src.taxonomy_core_entity import CircuitBreaker, LifecycleEmitter, LifecycleState, RateLimiter
+from modules.shared.src.taxonomy_core_entity import (
+    CircuitBreaker,
+    LifecycleEmitter,
+    LifecycleGate,
+    LifecycleState,
+    RateLimiter,
+)
 from modules.shared.src.taxonomy_core_error import (
     AuthRequiredError,
     CircuitBreakerOpenError,
     QwenCliError,
+    ResponseDetectionTimeoutError,
+    UploadFailureError,
 )
 from modules.shared.src.taxonomy_core_event import (
-    EVENT_DISPATCH_ACKNOWLEDGED,
     EVENT_DOCUMENT_PARSED,
     EVENT_OUTPUT_COPIED,
-    EVENT_WEB_LOADED,
+    EVENT_PROMPT_INJECTED,
+    PIPELINE_EVENT_SEQUENCE,
+    LifecycleEvent,
+    QwenEventType,
 )
 from modules.shared.src.taxonomy_core_vo import (
     FailureThreshold,
@@ -398,11 +408,19 @@ class CoreOrchestrator(ICoreAggregate):
             output_path=DEFAULT_OUTPUT,
             headless=True,
         )
-        emitter = self._emitter()
+        logger = self._observability.get_logger()
         state = LifecycleState()
-        emitter.on(EVENT_WEB_LOADED, lambda _event: state.mark(EVENT_WEB_LOADED))
-        emitter.on(EVENT_DOCUMENT_PARSED, lambda _event: state.mark(EVENT_DOCUMENT_PARSED))
-        emitter.on(EVENT_DISPATCH_ACKNOWLEDGED, lambda _event: state.mark(EVENT_DISPATCH_ACKNOWLEDGED))
+        gate = LifecycleGate(logger)
+        emitter = LifecycleEmitter(logger, gate=gate)
+        for lifecycle_event in PIPELINE_EVENT_SEQUENCE:
+
+            def mark_lifecycle_event(
+                _event: LifecycleEvent,
+                name: QwenEventType = lifecycle_event,
+            ) -> None:
+                state.mark(name)
+
+            emitter.on(lifecycle_event, mark_lifecycle_event)
         try:
             prompt = filepath.read_text(encoding="utf-8").strip()
         except OSError as e:
@@ -424,15 +442,21 @@ class CoreOrchestrator(ICoreAggregate):
         attached = self._uploader.upload_attachment(
             page, filepath, emitter=emitter, web_loaded=HeadlessFlag(state.web_loaded)
         )
-        if not attached:
-            self._observability.get_logger().warning(
-                "File upload failed, proceeding with text-only prompt: %s", filepath.name
+        if not attached or not state.file_uploaded:
+            upload_error = getattr(self._uploader, "last_error", None)
+            detail = f": {upload_error}" if upload_error else ""
+            logger.error("File upload could not be positively verified: %s%s", filepath.name, detail)
+            raise UploadFailureError(
+                f"Attachment upload failed or was not verified for {filepath.name}{detail}; "
+                "EVENT_FILE_UPLOADED was not emitted"
             )
-            emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "char_count": len(prompt), "fallback": True})
+
+        self._injector.inject_text(page, PromptText(prompt))
+        emitter.emit(EVENT_PROMPT_INJECTED, {"file": str(filepath), "char_count": len(prompt)})
+        emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "file_size_bytes": filepath.stat().st_size})
         if not state.document_parsed:
             raise RuntimeError("Cannot send prompt: document attachment parsing (EVENT_DOCUMENT_PARSED) is incomplete")
 
-        self._injector.inject_text(page, PromptText(prompt))
         self._sender.click_send(page, emitter, document_parsed=HeadlessFlag(state.document_parsed))
         if not state.dispatch_acknowledged:
             raise RuntimeError("Cannot wait for response: prompt dispatch (EVENT_DISPATCH_ACKNOWLEDGED) is incomplete")
@@ -448,10 +472,12 @@ class CoreOrchestrator(ICoreAggregate):
         )
 
         if response and len(response.strip()) > 0:
-            self._observability.get_logger().info("Received response (%d chars)", len(response))
+            logger.info("Received response (%d chars)", len(response))
             emitter.emit(EVENT_OUTPUT_COPIED, {"file": str(filepath), "char_count": len(response.strip())})
             return response.strip()
-        raise TimeoutError(f"Timeout after {stream_timeout_sec}s: no response detected")
+        raise ResponseDetectionTimeoutError(
+            f"Response detection timeout after {stream_timeout_sec}s: no response detected"
+        )
 
     # ─── Private orchestration helpers (Block 3) ─────────────────
     def _execute(self, fn: Callable[[], ResponseText]) -> ResponseText:

@@ -39,6 +39,10 @@ class NetworkTimeoutError(QwenCliError):
     """Raised when network operation times out or drops."""
 
 
+class ResponseDetectionTimeoutError(QwenCliError):
+    """Raised when a valid dispatch produces no detectable assistant response."""
+
+
 class OutputValidationError(QwenCliError):
     """Raised when response content fails sanity check, such as a challenge page."""
 
@@ -49,6 +53,10 @@ class FileUploadError(QwenCliError):
 
 class FileValidationError(FileUploadError):
     """Raised when file pre-flight validation fails."""
+
+
+class UploadFailureError(FileUploadError):
+    """Raised when an attachment cannot be positively verified as uploaded."""
 
 
 class UploadTimeoutError(FileUploadError):
@@ -77,6 +85,7 @@ class OutputWriteError(QwenCliError):
 
 _ERROR_CATEGORY_RULES: tuple[tuple[tuple[str, ...], str], ...] = (
     (("auth", "login", "captcha", "signin"), "auth"),
+    (("response detection", "response timeout", "stream timeout"), "response_timeout"),
     (("network", "connection", "timeout", "dns", "socket"), "network"),
     (("rate", "limit", "throttl", "429"), "rate_limit"),
     (("browser", "launch", "dom", "playwright", "chromium"), "browser"),
@@ -112,9 +121,11 @@ __all__ = [
     "SingleInstanceError",
     "ElementNotFoundError",
     "NetworkTimeoutError",
+    "ResponseDetectionTimeoutError",
     "OutputValidationError",
     "FileUploadError",
     "FileValidationError",
+    "UploadFailureError",
     "UploadTimeoutError",
     "UIInteractionError",
     "PipelineError",

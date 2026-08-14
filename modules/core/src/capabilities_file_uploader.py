@@ -18,7 +18,7 @@ from modules.shared.src.contract_core_protocol import IUploadProtocol
 from modules.shared.src.taxonomy_config_vo import DEFAULT_UPLOAD_CONFIG, UploadConfig
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_error import FileValidationError
-from modules.shared.src.taxonomy_core_event import EVENT_DOCUMENT_PARSED
+from modules.shared.src.taxonomy_core_event import EVENT_FILE_UPLOADED
 from modules.shared.src.taxonomy_core_vo import (
     BackoffDelaySec,
     CardRenderTimeoutMs,
@@ -55,6 +55,7 @@ class FileUploader(IUploadProtocol):
         self.dropdown_selectors = self.config.dropdown_selectors
         self.upload_option_selectors = self.config.upload_option_selectors
         self.card_selectors = self.config.card_selectors
+        self.last_error: Exception | None = None
 
     # ─── Block 2: Public Contract (IUploadProtocol ONLY) ──
     def upload_attachment(
@@ -73,14 +74,17 @@ class FileUploader(IUploadProtocol):
             self.max_file_size_mb = MaxFileSizeMb(config.get("max_file_size_mb", float(self.max_file_size_mb)))
             self.max_retries = MaxRetries(config.get("max_retries", int(self.max_retries)))
 
+        self.last_error = None
         try:
             size_bytes = FileSizeBytes(_validate_file_util(filepath, float(self.max_file_size_mb)))
         except FileValidationError as e:
+            self.last_error = e
             log.error("Pre-flight validation failed: %s", e)
             return False
 
         attempt = 0
         max_attempts = max(1, self.max_retries + 1)
+        started_at = time.monotonic()
 
         while attempt < max_attempts:
             attempt += 1
@@ -95,7 +99,7 @@ class FileUploader(IUploadProtocol):
             try:
                 success = self._try_upload_attempt(page, filepath)
                 if success:
-                    elapsed = time.monotonic()
+                    elapsed = time.monotonic() - started_at
                     log.info(
                         "File attached successfully in %.2fs (attempt %d): %s",
                         elapsed,
@@ -103,12 +107,17 @@ class FileUploader(IUploadProtocol):
                         filepath.name,
                     )
                     if emitter:
-                        emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "char_count": size_bytes})
+                        emitter.emit(
+                            EVENT_FILE_UPLOADED,
+                            {"file": str(filepath), "byte_count": int(size_bytes), "attempt": attempt},
+                        )
                     return True
             except TimeoutError as e:
+                self.last_error = e
                 log.warning("Timeout during upload attempt %d/%d: %s", attempt, max_attempts, e)
                 self._close_dropdown_if_open(page)
             except Error as e:
+                self.last_error = e
                 log.warning("Unexpected error during upload attempt %d/%d: %s", attempt, max_attempts, e)
                 self._close_dropdown_if_open(page)
 
@@ -119,7 +128,7 @@ class FileUploader(IUploadProtocol):
             "All %d upload attempts failed for %s after %.2fs",
             max_attempts,
             filepath.name,
-            time.monotonic() - size_bytes,
+            time.monotonic() - started_at,
         )
         return False
 
@@ -138,6 +147,13 @@ class FileUploader(IUploadProtocol):
 
     def _try_upload_attempt(self, page: Page, filepath: Path) -> bool:
         """Execute a single attempt to attach a file via the Qwen Web UI."""
+        direct_input = self._find_file_input(page)
+        if direct_input is not None:
+            log.debug("Setting file through direct Qwen file input selector")
+            direct_input.set_input_files(str(filepath))
+            self._wait_for_attachment_card(page)
+            return True
+
         log.debug("Opening mode-select dropdown using primary/fallback selectors")
         dropdown_element = first_visible_locator(page, self.dropdown_selectors, timeout_ms=1000)
 
@@ -146,13 +162,13 @@ class FileUploader(IUploadProtocol):
 
         dropdown_element.click(timeout=self.dropdown_timeout_ms)
 
-        log.debug("Locating 'Upload attachment' option")
-        option_element = first_visible_locator(page, self.upload_option_selectors, timeout_ms=1000)
+        log.debug("Locating upload option using resilient selector fallbacks")
+        option_element = first_visible_locator(page, self.upload_option_selectors, timeout_ms=self.option_timeout_ms)
 
         if not option_element:
-            option_element = page.locator(self.upload_option_selectors[0], has_text="Upload attachment").first
-            if not option_element.is_visible(timeout=self.option_timeout_ms):
-                option_element = page.locator("text='Upload attachment'").first
+            raise TimeoutError(
+                "Unable to locate a visible upload action using configured label, aria-label, or data-testid selectors"
+            )
 
         log.debug("Triggering file chooser")
         with page.expect_file_chooser(timeout=self.file_chooser_timeout_ms) as fc:
@@ -161,6 +177,22 @@ class FileUploader(IUploadProtocol):
         log.debug("Setting file on file chooser: %s", filepath.name)
         fc.value.set_files(str(filepath))
 
+        self._wait_for_attachment_card(page)
+        return True
+
+    def _find_file_input(self, page: Page) -> Any | None:
+        """Find the stable hidden Qwen file input without requiring visibility."""
+        for selector in self.config.file_input_selectors:
+            locator = page.locator(selector).first
+            try:
+                if locator.count() > 0:
+                    return locator
+            except Exception:
+                continue
+        return None
+
+    def _wait_for_attachment_card(self, page: Page) -> None:
+        """Wait for a positive attachment indicator after setting a file."""
         log.debug("Waiting for file card attachment indicator to render and complete parsing")
         card_selector_str = ", ".join(self.card_selectors)
         page.locator(card_selector_str).first.wait_for(state="visible", timeout=self.card_render_timeout_ms)
@@ -169,8 +201,6 @@ class FileUploader(IUploadProtocol):
                 state="hidden", timeout=5000
             )
         time.sleep(2.0)
-
-        return True
 
     # ─── Block 3: Dunder Methods, Factories & Helpers ─────
 

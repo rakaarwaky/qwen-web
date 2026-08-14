@@ -80,7 +80,7 @@ from .taxonomy_core_constant import (
 )
 
 # ─── Taxonomy: entities ───────────────────────────────────────
-from .taxonomy_core_entity import CircuitBreaker, LifecycleEmitter, LifecycleState, RateLimiter
+from .taxonomy_core_entity import CircuitBreaker, LifecycleEmitter, LifecycleGate, LifecycleState, RateLimiter
 
 # ─── Taxonomy: domain errors ──────────────────────────────────
 from .taxonomy_core_error import (
@@ -99,9 +99,11 @@ from .taxonomy_core_error import (
     QuarantineError,
     QwenCliError,
     RateLimitError,
+    ResponseDetectionTimeoutError,
     SendDispatchError,
     SingleInstanceError,
     UIInteractionError,
+    UploadFailureError,
     UploadTimeoutError,
 )
 
@@ -298,8 +300,10 @@ __all__ = [
     "ElementNotFoundError",
     "NetworkTimeoutError",
     "OutputValidationError",
+    "ResponseDetectionTimeoutError",
     "FileUploadError",
     "FileValidationError",
+    "UploadFailureError",
     "UploadTimeoutError",
     "UIInteractionError",
     "PipelineError",
@@ -345,6 +349,7 @@ __all__ = [
     "CircuitBreaker",
     "RateLimiter",
     "LifecycleState",
+    "LifecycleGate",
     # Events
     "LifecycleEmitter",
     # Contracts

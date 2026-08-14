@@ -12,6 +12,7 @@ from modules.core.src.capabilities_stream_monitor import (
 )
 from modules.shared.src import (
     CHALLENGE_KEYWORDS,
+    EVENT_STREAMING_GENERATION,
     AuthRequiredError,
     LifecycleEmitter,
     OutputValidationError,
@@ -205,6 +206,37 @@ class TestWaitForResponseEdgeCases:
                 polling_interval_sec=0,
             )
             assert result is None
+
+    def test_emits_streaming_event_once_for_multiple_response_updates(self):
+        page = MagicMock()
+        emitter = MagicMock(spec=LifecycleEmitter)
+        first_text = "The first streamed response chunk is long enough."
+        second_text = "The second streamed response chunk is also long enough."
+        msg_side_effect = [None, first_text, second_text, second_text, second_text]
+
+        with (
+            patch("modules.core.src.capabilities_stream_monitor.count_messages", return_value=2),
+            patch("modules.core.src.capabilities_stream_monitor._dom_latest", side_effect=msg_side_effect),
+            patch.object(StreamMonitor, "is_generation_complete", return_value=True),
+            patch("modules.core.src.capabilities_stream_monitor.time") as mock_time,
+        ):
+            mock_time.time.side_effect = [0] + [0.1] * 20
+            mock_time.sleep = MagicMock()
+
+            result = StreamMonitor().wait_for_response(
+                page,
+                timeout_sec=5,
+                msg_count_before=1,
+                emitter=emitter,
+                polling_interval_sec=0,
+                stability_checks=2,
+            )
+
+        assert result == second_text
+        streaming_events = [
+            call for call in emitter.emit.call_args_list if call.args and call.args[0] == EVENT_STREAMING_GENERATION
+        ]
+        assert len(streaming_events) == 1
 
     def test_returns_stable_text(self):
         page = MagicMock()

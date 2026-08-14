@@ -10,9 +10,14 @@ from playwright.sync_api import Error
 from modules.core.src.capabilities_prompt_injector import PromptInjector
 from modules.shared.src import (
     EVENT_DISPATCH_ACKNOWLEDGED,
-    EVENT_DOCUMENT_PARSED,
+    EVENT_FILE_UPLOADED,
+    EVENT_GENERATION_FINISHED,
+    EVENT_SEND_CLICKED,
+    EVENT_STREAMING_GENERATION,
+    EVENT_THINKING_STARTED,
     EVENT_WEB_LOADED,
     QwenCliError,
+    ResponseDetectionTimeoutError,
 )
 from tests.helpers import make_test_orchestrator
 
@@ -23,10 +28,11 @@ def _configure_lifecycle_mocks(orch) -> None:
 
     def upload(_page, _filepath, emitter=None, **_kwargs):
         assert emitter is not None
-        emitter.emit(EVENT_DOCUMENT_PARSED, {"file": "test"})
+        emitter.emit(EVENT_FILE_UPLOADED, {"file": "test"})
         return True
 
     def send(_page, emitter, **_kwargs):
+        emitter.emit(EVENT_SEND_CLICKED, {"file": "test"})
         emitter.emit(EVENT_DISPATCH_ACKNOWLEDGED, {"file": "test"})
 
     orch._browser.navigate_to_chat.side_effect = navigate
@@ -47,12 +53,17 @@ class TestSendFile:
         page = MagicMock()
         orch._sender.count_messages.return_value = 0
         orch._uploader.upload_attachment.return_value = True
-        orch._streamer.wait_for_response.return_value = None
+
+        def timeout_stream(_page, _timeout, _before, emitter, **_kwargs):
+            emitter.emit(EVENT_THINKING_STARTED)
+            return None
+
+        orch._streamer.wait_for_response.side_effect = timeout_stream
 
         f = tmp_path / "task.md"
         f.write_text("hello")
 
-        with pytest.raises(TimeoutError, match="Timeout"):
+        with pytest.raises(ResponseDetectionTimeoutError, match="Response detection timeout"):
             orch.send_file(page, f, timeout_sec=10)
 
     def test_send_file_delegates_to_capabilities(self, tmp_path):
@@ -61,7 +72,14 @@ class TestSendFile:
         page = MagicMock()
         orch._sender.count_messages.return_value = 2
         orch._uploader.upload_attachment.return_value = True
-        orch._streamer.wait_for_response.return_value = "the response"
+
+        def successful_stream(_page, _timeout, _before, emitter, **_kwargs):
+            emitter.emit(EVENT_THINKING_STARTED)
+            emitter.emit(EVENT_STREAMING_GENERATION, {"text_length": 12})
+            emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": 12})
+            return "the response"
+
+        orch._streamer.wait_for_response.side_effect = successful_stream
 
         f = tmp_path / "task.md"
         f.write_text("hello")

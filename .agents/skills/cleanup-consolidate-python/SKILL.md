@@ -128,17 +128,21 @@ If yes → **Consolidate into single module**
 def process(self) -> None:
     pass
 
+
 def get_value(self) -> str:
     return ""
+
 
 def get_items(self) -> list:
     return []
 
+
 def get_mapping(self) -> dict:
     return {}
 
-def compute(self) -> None:
-    ...
+
+def compute(self) -> None: ...
+
 
 def transform(self, data):
     raise NotImplementedError  # with no subclass implementing it
@@ -157,13 +161,16 @@ def transform(self, data):
 def get_name(self) -> str:
     return self.name
 
+
 # ❌ Simple comparison — trivially inlineable
 def is_active(self) -> bool:
     return self.status == "active"
 
+
 # ❌ Single-field delegation — no logic added
 def get_id(self) -> int:
     return self._inner.id
+
 
 # ❌ Trivial passthrough
 def save(self, data):
@@ -185,6 +192,8 @@ Same logic in multiple modules — keep in the module that **owns the domain log
 # ❌ In utils/helpers.py AND services/processor.py:
 def clamp(value: float, min_val: float, max_val: float) -> float:
     return max(min_val, min(value, max_val))
+
+
 # KEEP in utils/helpers.py (owns utility logic). Remove from services/.
 ```
 
@@ -229,7 +238,7 @@ If **any** check fails → **KEEP** and add comment: `# REVIEW: candidate for re
 ```python
 # ❌ Assigned but never read
 result = compute_something()  # result never used after this line
-_ = some_function()           # intentional discard — KEEP this pattern
+_ = some_function()  # intentional discard — KEEP this pattern
 
 # ❌ Loop variable never used
 for item in items:  # item never referenced in loop body
@@ -608,9 +617,9 @@ validators_url.py
 ### Detection Patterns: Split Functionality (Merge)
 
 ```python
-services/user_creator.py
-services/user_updater.py
-services/user_deleter.py
+services / user_creator.py
+services / user_updater.py
+services / user_deleter.py
 # All handle user CRUD → merge into services/user_service.py
 ```
 
