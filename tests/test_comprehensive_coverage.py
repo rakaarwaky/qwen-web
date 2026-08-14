@@ -14,17 +14,15 @@ from modules.root_mcp_main_entry import (
     qwen_get_audit_log,
     qwen_start_watcher,
 )
-from modules.shared.src import LifecycleEmitter
-from modules.shared.src.utility_core_path import (
+from modules.shared.src import (
+    LifecycleEmitter,
     cleanup_empty_dirs,
+    extract_prompt_text,
     list_input_files,
     should_process_file,
-)
-from modules.shared.src.utility_core_prompt import (
-    extract_prompt_text,
     strip_input_from_output,
+    validate_file,
 )
-from modules.shared.src.utility_core_validation import validate_file
 from tests.helpers import (
     bind_run_context,
     clean_stale_locks,

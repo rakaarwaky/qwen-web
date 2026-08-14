@@ -24,16 +24,18 @@ from tenacity import RetryCallState, Retrying, stop_after_attempt, wait_fixed
 from modules.core.src.utility_core_async_loop import isolate_thread_event_loop
 from modules.core.src.utility_core_browser_binary import find_chrome_binary
 from modules.core.src.utility_core_dom_helper import is_any_visible
-from modules.shared.src.contract_core_protocol import IBrowserProtocol
-from modules.shared.src.taxonomy_core_constant import (
+from modules.shared.src import (
     AUTH_KEYWORDS,
     CHAT_URL,
+    EVENT_NETWORK_RECONNECTING,
+    EVENT_WEB_LOADED,
     LOGIN_FORM_SELECTORS,
     TEXTAREA_SELECTOR,
+    AuthRequiredError,
+    BrowserLaunchError,
+    IBrowserProtocol,
+    LifecycleEmitter,
 )
-from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
-from modules.shared.src.taxonomy_core_error import AuthRequiredError, BrowserLaunchError
-from modules.shared.src.taxonomy_core_event import EVENT_NETWORK_RECONNECTING, EVENT_WEB_LOADED
 
 log = structlog.get_logger("browser")
 

@@ -18,8 +18,10 @@ from modules.core.src.capabilities_observability_setup import (
     _thread_excepthook,
 )
 from modules.root_mcp_main_entry import qwen_process_single, qwen_start_watcher
-from modules.shared.src import AppConfig, AuthRequiredError, LifecycleEmitter
-from modules.shared.src.utility_core_path import (
+from modules.shared.src import (
+    AppConfig,
+    AuthRequiredError,
+    LifecycleEmitter,
     cleanup_empty_dirs,
     list_input_files,
     should_process_file,

@@ -14,23 +14,23 @@ from playwright.sync_api import Error, Page
 
 from modules.core.src.utility_core_dom_helper import first_visible_locator
 from modules.core.src.utility_core_logger_factory import get_logger
-from modules.shared.src.contract_core_protocol import IUploadProtocol
-from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
-from modules.shared.src.taxonomy_core_error import FileValidationError
-from modules.shared.src.taxonomy_core_event import EVENT_DOCUMENT_PARSED
-from modules.shared.src.taxonomy_core_vo import (
+from modules.shared.src import (
     DEFAULT_UPLOAD_CONFIG,
+    EVENT_DOCUMENT_PARSED,
     BackoffDelaySec,
     CardRenderTimeoutMs,
     DropdownTimeoutMs,
     FileChooserTimeoutMs,
     FileSizeBytes,
+    FileValidationError,
+    IUploadProtocol,
+    LifecycleEmitter,
     MaxFileSizeMb,
     MaxRetries,
     OptionTimeoutMs,
     UploadConfig,
 )
-from modules.shared.src.utility_core_validation import validate_file as _validate_file_util
+from modules.shared.src import validate_file as _validate_file_util
 
 log = get_logger("capabilities_file_uploader")
 

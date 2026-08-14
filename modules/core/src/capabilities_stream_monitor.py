@@ -13,28 +13,27 @@ from modules.core.src.utility_core_dom_helper import is_any_visible, is_selector
 from modules.core.src.utility_core_dom_query import count_messages
 from modules.core.src.utility_core_dom_query import latest_message_text as _dom_latest
 from modules.core.src.utility_core_logger_factory import get_logger
-from modules.shared.src.contract_core_protocol import IStreamProtocol
-from modules.shared.src.taxonomy_core_constant import (
-    SEND_DISABLED_SELECTORS,
-    STOP_BUTTON_SELECTORS,
-    TYPING_INDICATOR_SELECTORS,
-)
-from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
-from modules.shared.src.taxonomy_core_error import AuthRequiredError, NetworkTimeoutError, OutputValidationError
-from modules.shared.src.taxonomy_core_event import (
+from modules.shared.src import (
     EVENT_GENERATION_FINISHED,
     EVENT_STREAMING_GENERATION,
     EVENT_THINKING_STARTED,
-)
-from modules.shared.src.taxonomy_core_vo import (
+    SEND_DISABLED_SELECTORS,
+    STOP_BUTTON_SELECTORS,
+    TYPING_INDICATOR_SELECTORS,
+    AuthRequiredError,
+    IStreamProtocol,
+    LifecycleEmitter,
     MinTextLength,
+    NetworkTimeoutError,
+    OutputValidationError,
     PollIntervalSec,
     ResponseText,
     StabilityChecks,
     StreamerConfig,
+    is_stability_satisfied,
+    should_treat_as_new_response,
+    validate_response_content,
 )
-from modules.shared.src.utility_core_events import is_stability_satisfied, should_treat_as_new_response
-from modules.shared.src.utility_core_validation import validate_response_content
 
 log = get_logger("capabilities_stream_monitor")
 

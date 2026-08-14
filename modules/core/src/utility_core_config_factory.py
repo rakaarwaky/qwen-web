@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from modules.shared.src.taxonomy_core_constant import (
+from modules.shared.src import (
     DEFAULT_DONE,
     DEFAULT_FAILED,
     DEFAULT_LOG,
@@ -15,8 +15,8 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_PROC,
     DEFAULT_SESSION,
     DEFAULT_TODO,
+    AppConfig,
 )
-from modules.shared.src.taxonomy_core_vo import AppConfig
 
 
 def build_app_config(

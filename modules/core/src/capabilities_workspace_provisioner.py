@@ -13,15 +13,15 @@ from pathlib import Path
 from typing import Any
 
 from modules.core.src.utility_core_io_writer import ensure_dir
-from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
-from modules.shared.src.taxonomy_core_constant import (
+from modules.shared.src import (
     BASE_DIR,
     DEFAULT_LOG,
     DEFAULT_OUTPUT,
     DEFAULT_TODO,
     XDG_SKILL_MD,
+    FilePath,
+    IWorkspaceProtocol,
 )
-from modules.shared.src.taxonomy_core_vo import FilePath
 
 # Block 1: Class Definition & Constructor
 

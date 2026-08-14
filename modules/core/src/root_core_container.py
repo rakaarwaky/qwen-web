@@ -18,9 +18,7 @@ from modules.core.src.capabilities_prompt_injector import PromptInjector
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.core.src.capabilities_stream_monitor import StreamMonitor
 from modules.core.src.capabilities_workspace_provisioner import WorkspaceProvisioner
-from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
-from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
-from modules.shared.src.taxonomy_core_vo import FailureThreshold, MaxPerMinute, WindowSec
+from modules.shared.src import DEFAULT_LOG, CircuitBreaker, FailureThreshold, MaxPerMinute, RateLimiter, WindowSec
 
 from .agent_core_orchestrator import CoreOrchestrator
 

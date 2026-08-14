@@ -6,8 +6,7 @@ import json
 
 from modules.core.src.capabilities_output_saver import Saver
 from modules.core.src.utility_core_io_writer import ensure_dir
-from modules.shared.src import RunContext, SaverConfig
-from modules.shared.src.utility_core_text import strip_ui_noise
+from modules.shared.src import RunContext, SaverConfig, strip_ui_noise
 
 
 class TestStripUiNoise:

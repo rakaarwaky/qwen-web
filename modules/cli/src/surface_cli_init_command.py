@@ -7,8 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from modules.shared.src.contract_core_aggregate import ICoreAggregate
-from modules.shared.src.utility_core_response import safe_handle, success_response
+from modules.shared.src import ICoreAggregate, safe_handle, success_response
 
 
 @safe_handle

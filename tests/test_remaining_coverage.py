@@ -10,8 +10,8 @@ from modules.shared.src import (
     LifecycleEmitter,
     RunContext,
     SaverConfig,
+    strip_ui_noise,
 )
-from modules.shared.src.utility_core_text import strip_ui_noise
 from tests.helpers import (
     _configure_logging,
     _configure_sentry,

@@ -20,8 +20,8 @@ from modules.shared.src import (
     CircuitBreakerOpenError,
     RateLimiter,
     RunContext,
+    cleanup_empty_dirs,
 )
-from modules.shared.src.utility_core_path import cleanup_empty_dirs
 
 
 class TestCleanupEmptyDirs:

@@ -5,9 +5,7 @@ Smart surface: maps parsed args to a config VO, delegates to the core aggregate.
 
 from __future__ import annotations
 
-from modules.shared.src.contract_core_aggregate import ICoreAggregate
-from modules.shared.src.taxonomy_core_vo import AppConfig
-from modules.shared.src.utility_core_response import error_response, safe_handle, success_response
+from modules.shared.src import AppConfig, ICoreAggregate, error_response, safe_handle, success_response
 
 
 @safe_handle

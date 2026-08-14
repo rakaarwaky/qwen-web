@@ -11,6 +11,7 @@ from .contract_core_aggregate import ICoreAggregate
 
 # ─── Contract: protocols ──────────────────────────────────────
 from .contract_core_protocol import (
+    IAuditProtocol,
     IBrowserProtocol,
     IInjectionProtocol,
     ILinuxProtocol,
@@ -20,6 +21,9 @@ from .contract_core_protocol import (
     IStreamProtocol,
     IUploadProtocol,
 )
+from .contract_metrics_protocol import IMetricsProtocol
+from .contract_status_protocol import IStatusProtocol
+from .contract_workspace_protocol import IWorkspaceProtocol
 
 # ─── Taxonomy: constants ──────────────────────────────────────
 from .taxonomy_core_constant import (
@@ -29,8 +33,11 @@ from .taxonomy_core_constant import (
     CHALLENGE_KEYWORDS,
     CHAT_URL,
     COMBINED_MESSAGE_SELECTOR,
+    DEFAULT_ATOMIC_WRITE,
     DEFAULT_DONE,
     DEFAULT_FAILED,
+    DEFAULT_GENERATE_SIDECAR,
+    DEFAULT_INCLUDE_HEADER,
     DEFAULT_LOG,
     DEFAULT_OUTPUT,
     DEFAULT_PROC,
@@ -102,7 +109,6 @@ from .taxonomy_core_event import (
     EVENT_WEB_LOADED,
     PIPELINE_EVENT_SEQUENCE,
     CallbackRegistry,
-    EventDetails,
     EventMessage,
     LifecycleCallback,
     LifecycleEvent,
@@ -126,15 +132,27 @@ from .taxonomy_core_vo import (
     DisableSandboxFlag,
     DropdownTimeoutMs,
     Environment,
+    EventDetails,
+    EventDetailsMapping,
+    EventId,
+    EventName,
+    EventOrderMap,
+    EventOrderMapping,
+    EventTimestamp,
+    ExitCode,
+    FailureThreshold,
     FileChooserTimeoutMs,
     FilePath,
+    FileSizeBytes,
     GenerateSidecarFlag,
     HeadlessFlag,
     IncludeHeaderFlag,
     InjectorConfig,
     InputChars,
     InputPath,
+    LoggerName,
     MaxFileSizeMb,
+    MaxPerMinute,
     MaxRetries,
     MCPServerConfig,
     MCPToolResponse,
@@ -158,7 +176,6 @@ from .taxonomy_core_vo import (
     RunIdHex,
     SaverConfig,
     SenderConfig,
-    ServerName,
     ServiceName,
     StabilityChecks,
     StabilityCount,
@@ -170,6 +187,7 @@ from .taxonomy_core_vo import (
     UploadConfig,
     UserAgent,
     WaitTimeoutMs,
+    WindowSec,
 )
 
 # ─── Utility: events ──────────────────────────────────────────
@@ -194,8 +212,14 @@ from .utility_core_prompt import (
     strip_input_from_output,
 )
 
+# ─── Utility: response ────────────────────────────────────────
+from .utility_core_response import error_response, safe_handle, success_response
+
+# ─── Utility: status ──────────────────────────────────────────
+from .utility_core_status import status_path_for
+
 # ─── Utility: text ────────────────────────────────────────────
-from .utility_core_text import build_metadata_header, strip_ui_noise
+from .utility_core_text import build_metadata_header, strip_ui_noise, utc_now_iso
 
 # ─── Utility: validation ──────────────────────────────────────
 from .utility_core_validation import validate_file, validate_response_content
@@ -211,6 +235,9 @@ __all__ = [
     "DisableSandboxFlag",
     "DropdownTimeoutMs",
     "Environment",
+    "ExitCode",
+    "FailureThreshold",
+    "FileSizeBytes",
     "ErrorCategory",
     "FileChooserTimeoutMs",
     "FilePath",
@@ -219,7 +246,9 @@ __all__ = [
     "IncludeHeaderFlag",
     "InputChars",
     "InputPath",
+    "LoggerName",
     "MaxFileSizeMb",
+    "MaxPerMinute",
     "MaxRetries",
     "MessageCount",
     "MinTextLength",
@@ -246,6 +275,7 @@ __all__ = [
     "TypingDelayMs",
     "UserAgent",
     "WaitTimeoutMs",
+    "WindowSec",
     "QwenEventType",
     "LifecycleEvent",
     "LifecycleCallback",
@@ -266,6 +296,12 @@ __all__ = [
     "CallbackRegistry",
     "EventDetails",
     "EventMessage",
+    "EventDetailsMapping",
+    "EventId",
+    "EventName",
+    "EventOrderMap",
+    "EventOrderMapping",
+    "EventTimestamp",
     # Config VOs
     "AppConfig",
     "BrowserConfig",
@@ -310,6 +346,9 @@ __all__ = [
     "XDG_STATE_HOME",
     "XDG_CACHE_HOME",
     "XDG_CONFIG_HOME",
+    "DEFAULT_ATOMIC_WRITE",
+    "DEFAULT_GENERATE_SIDECAR",
+    "DEFAULT_INCLUDE_HEADER",
     "DEFAULT_TODO",
     "DEFAULT_PROC",
     "DEFAULT_DONE",
@@ -345,6 +384,7 @@ __all__ = [
     "LifecycleEmitter",
     # Contracts
     "IUploadProtocol",
+    "IAuditProtocol",
     "IInjectionProtocol",
     "ISendProtocol",
     "IStreamProtocol",
@@ -353,6 +393,9 @@ __all__ = [
     "IObservabilityProtocol",
     "ILinuxProtocol",
     "ICoreAggregate",
+    "IMetricsProtocol",
+    "IStatusProtocol",
+    "IWorkspaceProtocol",
     # Utilities
     "extract_prompt_text",
     "get_role_search_directories",
@@ -366,6 +409,11 @@ __all__ = [
     "validate_file",
     "strip_ui_noise",
     "build_metadata_header",
+    "utc_now_iso",
+    "status_path_for",
+    "safe_handle",
+    "success_response",
+    "error_response",
     "ErrorCategory",
     "exit_code_for",
     "should_treat_as_new_response",

@@ -5,25 +5,26 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from modules.shared.src import (
-    EVENT_FILE_UPLOADED,
-    EVENT_ORDER,
-    EVENT_PROMPT_INJECTED,
-    EVENT_WEB_LOADED,
-    PIPELINE_EVENT_SEQUENCE,
-)
-from modules.shared.src.taxonomy_core_entity import LifecycleEmitter, LifecycleState
-from modules.shared.src.taxonomy_core_error import ErrorCategory, QwenCliError
-from modules.shared.src.taxonomy_core_event import (
     EVENT_DOCUMENT_PARSED,
+    EVENT_FILE_UPLOADED,
     EVENT_GENERATION_FINISHED,
+    EVENT_ORDER,
     EVENT_OUTPUT_COPIED,
+    EVENT_PROMPT_INJECTED,
     EVENT_SEND_CLICKED,
     EVENT_STREAMING_GENERATION,
     EVENT_THINKING_STARTED,
+    EVENT_WEB_LOADED,
+    PIPELINE_EVENT_SEQUENCE,
+    ErrorCategory,
+    EventDetails,
+    EventOrderMap,
+    LifecycleEmitter,
     LifecycleEvent,
+    LifecycleState,
+    QwenCliError,
     QwenEventType,
 )
-from modules.shared.src.taxonomy_core_vo import EventDetails, EventOrderMap
 
 
 def test_pipeline_event_sequence_is_canonical_and_ordered() -> None:

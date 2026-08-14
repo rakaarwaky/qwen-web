@@ -10,14 +10,15 @@ from playwright.sync_api import Page
 from modules.core.src.utility_core_dom_helper import click_send as _dom_click_send
 from modules.core.src.utility_core_dom_query import count_messages, latest_message_text
 from modules.core.src.utility_core_logger_factory import get_logger
-from modules.shared.src.contract_core_protocol import ISendProtocol
-from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
-from modules.shared.src.taxonomy_core_error import SendDispatchError
-from modules.shared.src.taxonomy_core_event import EVENT_DISPATCH_ACKNOWLEDGED, EVENT_SEND_CLICKED
-from modules.shared.src.taxonomy_core_vo import (
+from modules.shared.src import (
+    EVENT_DISPATCH_ACKNOWLEDGED,
+    EVENT_SEND_CLICKED,
     ClickTimeoutMs,
+    ISendProtocol,
+    LifecycleEmitter,
     MessageCount,
     ResponseText,
+    SendDispatchError,
     SenderConfig,
     TryEnterKeyFallbackFlag,
 )

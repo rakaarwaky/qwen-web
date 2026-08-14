@@ -10,7 +10,7 @@ import pytest
 from modules import root_mcp_main_entry
 from modules.core.src.capabilities_linux_guard import LinuxGuard
 from modules.root_cli_main_entry import _run_cli_lifecycle, main
-from modules.shared.src.taxonomy_core_error import SingleInstanceError
+from modules.shared.src import SingleInstanceError
 
 
 class TestCliLinuxLifecycle:

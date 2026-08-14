@@ -26,8 +26,7 @@ from modules.root_mcp_main_entry import (
     qwen_process_single,
     qwen_send_prompt,
 )
-from modules.shared.src import AppConfig, CircuitBreaker
-from modules.shared.src.taxonomy_core_entity import RateLimiter
+from modules.shared.src import AppConfig, CircuitBreaker, RateLimiter
 
 
 def _make_orchestrator():

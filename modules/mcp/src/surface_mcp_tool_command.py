@@ -5,10 +5,10 @@ Smart surface: 6 tools delegating to the shared core aggregate over stdio JSON-R
 
 from __future__ import annotations
 
-from modules.shared.src.contract_core_aggregate import ICoreAggregate
-from modules.shared.src.taxonomy_core_vo import (
+from modules.shared.src import (
     FilePath,
     HeadlessFlag,
+    ICoreAggregate,
     MessageCount,
     PromptText,
     ResponseText,

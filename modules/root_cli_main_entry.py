@@ -20,7 +20,7 @@ from modules.cli.src import (
     surface_cli_run_command,
 )
 from modules.core.src.root_core_container import SharedContainer
-from modules.shared.src.taxonomy_core_constant import (
+from modules.shared.src import (
     DEFAULT_DONE,
     DEFAULT_FAILED,
     DEFAULT_LOG,
@@ -28,9 +28,9 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_PROC,
     DEFAULT_SESSION,
     DEFAULT_TODO,
+    AppConfig,
+    SingleInstanceError,
 )
-from modules.shared.src.taxonomy_core_error import SingleInstanceError
-from modules.shared.src.taxonomy_core_vo import AppConfig
 
 _ERROR_PREFIX = "[ERROR]"
 

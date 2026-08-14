@@ -22,41 +22,34 @@ from modules.core.src.utility_core_config_factory import build_app_config
 from modules.core.src.utility_core_error_mapping import to_error_response
 from modules.core.src.utility_core_file_mover import move_file, move_to_processing
 from modules.core.src.utility_core_io_writer import ensure_dir
-from modules.shared.src.contract_core_aggregate import ICoreAggregate
-from modules.shared.src.contract_core_protocol import (
+from modules.shared.src import (
+    _WATCHER_SLEEP_CHUNK_SECS,
+    CHAT_URL,
+    DEFAULT_OUTPUT,
+    DEFAULT_TODO,
+    EVENT_DISPATCH_ACKNOWLEDGED,
+    EVENT_DOCUMENT_PARSED,
+    EVENT_OUTPUT_COPIED,
+    EVENT_WEB_LOADED,
+    AppConfig,
+    AuthRequiredError,
+    CircuitBreaker,
+    CircuitBreakerOpenError,
+    FailureThreshold,
+    FilePath,
+    HeadlessFlag,
     IAuditProtocol,
     IBrowserProtocol,
+    ICoreAggregate,
     IInjectionProtocol,
     IObservabilityProtocol,
     ISaverProtocol,
     ISendProtocol,
     IStreamProtocol,
     IUploadProtocol,
-)
-from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
-from modules.shared.src.taxonomy_core_constant import (
-    _WATCHER_SLEEP_CHUNK_SECS,
-    CHAT_URL,
-    DEFAULT_OUTPUT,
-    DEFAULT_TODO,
-)
-from modules.shared.src.taxonomy_core_entity import CircuitBreaker, LifecycleEmitter, LifecycleState, RateLimiter
-from modules.shared.src.taxonomy_core_error import (
-    AuthRequiredError,
-    CircuitBreakerOpenError,
-    QwenCliError,
-)
-from modules.shared.src.taxonomy_core_event import (
-    EVENT_DISPATCH_ACKNOWLEDGED,
-    EVENT_DOCUMENT_PARSED,
-    EVENT_OUTPUT_COPIED,
-    EVENT_WEB_LOADED,
-)
-from modules.shared.src.taxonomy_core_vo import (
-    AppConfig,
-    FailureThreshold,
-    FilePath,
-    HeadlessFlag,
+    IWorkspaceProtocol,
+    LifecycleEmitter,
+    LifecycleState,
     MaxPerMinute,
     MessageCount,
     OutputChars,
@@ -64,17 +57,18 @@ from modules.shared.src.taxonomy_core_vo import (
     ProcessingOutcome,
     ProcessingStatus,
     PromptText,
+    QwenCliError,
+    RateLimiter,
     ResponseText,
     RunContext,
     TimeoutSec,
     WindowSec,
-)
-from modules.shared.src.utility_core_path import (
     cleanup_empty_dirs,
+    load_role_prompt,
     resolve_role_paths,
     should_process_file,
+    strip_input_from_output,
 )
-from modules.shared.src.utility_core_prompt import load_role_prompt, strip_input_from_output
 
 _watcher_shutdown: threading.Event = threading.Event()
 

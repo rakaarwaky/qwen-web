@@ -23,7 +23,7 @@ except ImportError:
         FastMCP = None
 
 from modules.core.src.root_core_container import SharedContainer
-from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
+from modules.shared.src import DEFAULT_LOG
 
 # ─── MCP tool specification table ────────────────────────────────────────
 

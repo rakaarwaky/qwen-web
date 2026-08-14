@@ -6,7 +6,7 @@ Stateless function consumed by Agent orchestrator for error handling.
 
 from __future__ import annotations
 
-from modules.shared.src.taxonomy_core_vo import ResponseText
+from modules.shared.src import ResponseText
 
 
 def to_error_response(exc: BaseException) -> ResponseText:

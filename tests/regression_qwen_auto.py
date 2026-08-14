@@ -6,14 +6,14 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 from modules.core.src.agent_core_orchestrator import CoreOrchestrator
-from modules.shared.src import AppConfig
-from modules.shared.src.utility_core_path import (
-    list_input_files as _list_input_files,
-)
-from modules.shared.src.utility_core_path import (
+from modules.shared.src import (
+    AppConfig,
+    load_role_prompt,
     resolve_role_paths,
 )
-from modules.shared.src.utility_core_prompt import load_role_prompt
+from modules.shared.src import (
+    list_input_files as _list_input_files,
+)
 
 
 class TestQwenAutoRegression(unittest.TestCase):

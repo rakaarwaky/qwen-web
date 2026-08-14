@@ -17,14 +17,15 @@ import pytest
 
 from modules.core.src.capabilities_audit_repository import AuditRepository
 from modules.core.src.capabilities_output_saver import Saver
-from modules.shared.src import AppConfig, RunContext
-from modules.shared.src.utility_core_path import (
+from modules.shared.src import (
+    AppConfig,
+    RunContext,
+    load_role_prompt,
     resolve_role_paths,
 )
-from modules.shared.src.utility_core_path import (
+from modules.shared.src import (
     should_process_file as _should_process_file,
 )
-from modules.shared.src.utility_core_prompt import load_role_prompt
 
 ROLES = ["role-architect", "role-business-analyst", "role-tech-lead"]
 

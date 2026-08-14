@@ -9,12 +9,13 @@ from __future__ import annotations
 
 from playwright.sync_api import Error, Page
 
-from modules.shared.src.taxonomy_core_constant import (
+from modules.shared.src import (
     COMBINED_MESSAGE_SELECTOR,
     JS_COUNT_TURNS,
     JS_GET_RESPONSE_TEXT,
+    MessageCount,
+    ResponseText,
 )
-from modules.shared.src.taxonomy_core_vo import MessageCount, ResponseText
 
 
 def count_messages(page: Page) -> MessageCount:
