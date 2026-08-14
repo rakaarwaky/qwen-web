@@ -11,7 +11,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 from modules.root_mcp_main_entry import (
     GENERATED_TOOLS,
     MCP_TOOL_SPECS,
