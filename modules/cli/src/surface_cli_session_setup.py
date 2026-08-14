@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from textual.app import App, ComposeResult
 from textual.containers import Vertical
