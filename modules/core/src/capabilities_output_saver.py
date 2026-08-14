@@ -16,13 +16,13 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_GENERATE_SIDECAR,
     DEFAULT_INCLUDE_HEADER,
 )
+from modules.shared.src.taxonomy_core_error import OutputWriteError
 from modules.shared.src.taxonomy_core_vo import (
     AtomicWriteFlag,
     GenerateSidecarFlag,
     IncludeHeaderFlag,
     RunContext,
 )
-from modules.shared.src.taxonomy_domain_error import OutputWriteError
 from modules.shared.src.utility_core_text import build_metadata_header, strip_ui_noise, utc_now_iso
 
 log = get_logger("capabilities_saver")

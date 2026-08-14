@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 
 from modules.shared.src.taxonomy_core_constant import CHALLENGE_KEYWORDS
-from modules.shared.src.taxonomy_domain_error import (
+from modules.shared.src.taxonomy_core_error import (
     AuthRequiredError,
     FileValidationError,
     OutputValidationError,

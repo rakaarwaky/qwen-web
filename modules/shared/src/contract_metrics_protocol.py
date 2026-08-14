@@ -9,7 +9,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
-from modules.shared.src.taxonomy_core_vo import EventMessage, MessageCount
+from modules.shared.src.taxonomy_core_event import EventMessage
+from modules.shared.src.taxonomy_core_vo import MessageCount
 
 
 class IMetricsProtocol(ABC):

@@ -80,21 +80,57 @@ from .taxonomy_core_constant import (
 )
 
 # ─── Taxonomy: entities ───────────────────────────────────────
-# ─── Taxonomy: events ─────────────────────────────────────────
 from .taxonomy_core_entity import CircuitBreaker, LifecycleEmitter, LifecycleState, RateLimiter
 
-# ─── Taxonomy: core VOs ───────────────────────────────────────
-from .taxonomy_core_vo import (
+# ─── Taxonomy: domain errors ──────────────────────────────────
+from .taxonomy_core_error import (
+    AuthRequiredError,
+    BrowserLaunchError,
+    CircuitBreakerOpenError,
+    ElementNotFoundError,
+    ErrorCategory,
+    FileUploadError,
+    FileValidationError,
+    NetworkTimeoutError,
+    OutputValidationError,
+    OutputWriteError,
+    PipelineError,
+    PromptInjectionError,
+    QuarantineError,
+    QwenCliError,
+    RateLimitError,
+    SendDispatchError,
+    SingleInstanceError,
+    UIInteractionError,
+    UploadTimeoutError,
+)
+
+# ─── Taxonomy: events ─────────────────────────────────────────
+from .taxonomy_core_event import (
     EVENT_DESCRIPTIONS,
     EVENT_DISPATCH_ACKNOWLEDGED,
     EVENT_DOCUMENT_PARSED,
+    EVENT_FILE_UPLOADED,
     EVENT_GENERATION_FINISHED,
     EVENT_NETWORK_RECONNECTING,
+    EVENT_ORDER,
     EVENT_OUTPUT_COPIED,
+    EVENT_PROMPT_INJECTED,
     EVENT_SEND_CLICKED,
     EVENT_STREAMING_GENERATION,
     EVENT_THINKING_STARTED,
     EVENT_WEB_LOADED,
+    PIPELINE_EVENT_SEQUENCE,
+    CallbackRegistry,
+    EventDetails,
+    EventMessage,
+    LifecycleCallback,
+    LifecycleEvent,
+    QwenEventType,
+)
+
+# ─── Taxonomy: core VOs ───────────────────────────────────────
+from .taxonomy_core_vo import (
     AtomicWriteFlag,
     BackoffDelaySec,
     CardRenderTimeoutMs,
@@ -104,7 +140,6 @@ from .taxonomy_core_vo import (
     DisableSandboxFlag,
     DropdownTimeoutMs,
     Environment,
-    ErrorCategory,
     FileChooserTimeoutMs,
     FilePath,
     GenerateSidecarFlag,
@@ -112,8 +147,6 @@ from .taxonomy_core_vo import (
     IncludeHeaderFlag,
     InputChars,
     InputPath,
-    LifecycleCallback,
-    LifecycleEvent,
     MaxFileSizeMb,
     MaxRetries,
     MessageCount,
@@ -126,7 +159,6 @@ from .taxonomy_core_vo import (
     ProcessingOutcome,
     ProcessingStatus,
     PromptText,
-    QwenEventType,
     ResponseText,
     RunContext,
     RunContextId,
@@ -142,28 +174,6 @@ from .taxonomy_core_vo import (
     TypingDelayMs,
     UserAgent,
     WaitTimeoutMs,
-)
-
-# ─── Taxonomy: domain errors ──────────────────────────────────
-from .taxonomy_domain_error import (
-    AuthRequiredError,
-    BrowserLaunchError,
-    CircuitBreakerOpenError,
-    ElementNotFoundError,
-    FileUploadError,
-    FileValidationError,
-    NetworkTimeoutError,
-    OutputValidationError,
-    OutputWriteError,
-    PipelineError,
-    PromptInjectionError,
-    QuarantineError,
-    QwenCliError,
-    RateLimitError,
-    SendDispatchError,
-    SingleInstanceError,
-    UIInteractionError,
-    UploadTimeoutError,
 )
 
 # ─── Utility: events ──────────────────────────────────────────
@@ -246,6 +256,8 @@ __all__ = [
     "EVENT_DESCRIPTIONS",
     "EVENT_NETWORK_RECONNECTING",
     "EVENT_WEB_LOADED",
+    "EVENT_FILE_UPLOADED",
+    "EVENT_PROMPT_INJECTED",
     "EVENT_DOCUMENT_PARSED",
     "EVENT_SEND_CLICKED",
     "EVENT_DISPATCH_ACKNOWLEDGED",
@@ -253,6 +265,11 @@ __all__ = [
     "EVENT_STREAMING_GENERATION",
     "EVENT_GENERATION_FINISHED",
     "EVENT_OUTPUT_COPIED",
+    "PIPELINE_EVENT_SEQUENCE",
+    "EVENT_ORDER",
+    "CallbackRegistry",
+    "EventDetails",
+    "EventMessage",
     # Config VOs
     "AppConfig",
     "BrowserConfig",

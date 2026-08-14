@@ -32,11 +32,8 @@ from modules.shared.src.taxonomy_core_constant import (
     TEXTAREA_SELECTOR,
 )
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
-from modules.shared.src.taxonomy_core_vo import (
-    EVENT_NETWORK_RECONNECTING,
-    EVENT_WEB_LOADED,
-)
-from modules.shared.src.taxonomy_domain_error import AuthRequiredError, BrowserLaunchError
+from modules.shared.src.taxonomy_core_error import AuthRequiredError, BrowserLaunchError
+from modules.shared.src.taxonomy_core_event import EVENT_NETWORK_RECONNECTING, EVENT_WEB_LOADED
 
 log = structlog.get_logger("browser")
 
