@@ -16,6 +16,7 @@ from modules.shared.src import (
     LifecycleEmitter,
     OutputValidationError,
 )
+from modules.shared.src.taxonomy_core_error import ResponseTimeoutError
 
 # ─── validate_response_content ──────────────────────────────────────────────
 
@@ -185,9 +186,13 @@ class TestWaitForResponseEdgeCases:
                 page, timeout_sec=10, msg_count_before=0, emitter=emitter, dispatch_acknowledged=False
             )
 
-    def test_timeout_returns_none(self):
+    def test_timeout_raises_response_timeout_error(self):
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
+        # Configure can_emit to return True so we can test the timeout behavior
+        emitter.can_emit.return_value = True
+        # Configure emit to return an event (simulating successful emit)
+        emitter.emit.return_value = MagicMock()
 
         with (
             patch("modules.core.src.capabilities_stream_monitor.count_messages", return_value=1),
@@ -197,14 +202,14 @@ class TestWaitForResponseEdgeCases:
             mock_time.time.side_effect = [0, 0, 0, 9999]
             mock_time.sleep = MagicMock()
 
-            result = StreamMonitor().wait_for_response(
-                page,
-                timeout_sec=1,
-                msg_count_before=1,
-                emitter=emitter,
-                polling_interval_sec=0,
-            )
-            assert result is None
+            with pytest.raises(ResponseTimeoutError, match="no response detected"):
+                StreamMonitor().wait_for_response(
+                    page,
+                    timeout_sec=1,
+                    msg_count_before=1,
+                    emitter=emitter,
+                    polling_interval_sec=0,
+                )
 
     def test_returns_stable_text(self):
         page = MagicMock()

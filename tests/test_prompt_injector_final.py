@@ -9,6 +9,7 @@ from playwright.sync_api import Error
 
 from modules.core.src.capabilities_prompt_injector import PromptInjector
 from modules.shared.src import PromptInjectionError
+from modules.shared.src.taxonomy_core_error import PromptInjectionVerificationError
 
 
 class TestVerifyInjectionExtended:
@@ -56,7 +57,7 @@ class TestInjectTextExtended:
         # This causes all strategies to fail verification
         el.evaluate.return_value = ""
         page.evaluate.side_effect = [True, False]  # react inject, contenteditable
-        with pytest.raises(PromptInjectionError, match="All strategies executed but input verification failed"):
+        with pytest.raises(PromptInjectionVerificationError, match="All strategies executed but input verification failed"):
             PromptInjector().inject_text(page, "text via fill")
 
     def test_focus_failure_before_inject(self):

@@ -220,7 +220,12 @@ class BrowserAdapter(IBrowserProtocol):
 
     @contextmanager
     def browser_session(self, cfg: Any) -> Iterator[BrowserContext]:
-        """Manage persistent Chromium browser context with session caching and asset optimization."""
+        """Manage persistent Chromium browser context with session caching and asset optimization.
+
+        Browser cleanup is event-loop safe: closing the context is done within
+        the owning Playwright event loop, and errors during cleanup are logged
+        without masking the original domain failure.
+        """
         cfg.session_path.mkdir(parents=True, exist_ok=True)
         # Restore the execute bit on the profile dir: Chromium needs it to create
         # its ProcessSingleton lock, and a pre-existing dir with a missing x bit
@@ -265,6 +270,9 @@ class BrowserAdapter(IBrowserProtocol):
 
         isolate_thread_event_loop()
 
+        ctx: BrowserContext | None = None
+        original_exc: BaseException | None = None
+
         try:
             with sync_playwright() as p:
                 ctx = self._launch_context(p, kwargs)
@@ -275,16 +283,41 @@ class BrowserAdapter(IBrowserProtocol):
                     )
                 try:
                     yield ctx
+                except BaseException as e:
+                    # Preserve the original exception so we can re-raise after cleanup
+                    original_exc = e
+                    raise
                 finally:
-                    try:
-                        ctx.close()
-                    except Error as e:
-                        log.warning("Error closing browser context: %s", e)
+                    # Cleanup is event-loop safe: closing within the Playwright context
+                    self._safe_close_context(ctx)
         except AuthRequiredError:
             raise
         except Exception as e:
             log.critical("browser_launch_failed", error=str(e))
             raise BrowserLaunchError(f"Failed to launch browser: {e}") from e
+
+    def _safe_close_context(self, ctx: BrowserContext | None) -> None:
+        """Safely close browser context without masking original failure.
+
+        Errors during cleanup are logged but never raise, ensuring the
+        original domain failure remains the primary error in the audit record.
+        """
+        if ctx is None:
+            return
+        try:
+            ctx.close()
+        except RuntimeError as e:
+            # "no running event loop" - this is expected when cleanup runs
+            # after the event loop has exited. Log it but don't mask the original error.
+            if "no running event loop" in str(e).lower():
+                log.debug("browser_context_close_skipped_no_event_loop")
+            else:
+                log.warning("Error closing browser context: %s", e)
+        except Error as e:
+            log.warning("Playwright error closing browser context: %s", e)
+        except Exception as e:
+            # Catch-all for any unexpected error during cleanup
+            log.warning("Unexpected error during browser cleanup: %s", e)
 
     # Block 3: Dunder Methods, Factories & Helpers
 

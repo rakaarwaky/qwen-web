@@ -10,6 +10,7 @@ import pytest
 
 from modules.core.src.capabilities_file_uploader import FileUploader
 from modules.shared.src import FileValidationError, LifecycleEmitter
+from modules.shared.src.taxonomy_core_error import UploadVerificationError
 
 
 class TestValidateFile:
@@ -62,11 +63,11 @@ class TestUploadAttachment:
         with pytest.raises(RuntimeError, match="web page loading"):
             FileUploader().upload_attachment(page, Path("/fake.md"), web_loaded=False)
 
-    def test_file_validation_failure_returns_false(self, tmp_path):
+    def test_file_validation_failure_raises(self, tmp_path):
         f = tmp_path / "nope.md"
         page = MagicMock()
-        result = FileUploader().upload_attachment(page, f)
-        assert result is False
+        with pytest.raises(UploadVerificationError, match="Pre-flight validation failed"):
+            FileUploader().upload_attachment(page, f)
 
     def test_upload_returns_true(self, tmp_path):
         f = tmp_path / "test.md"
@@ -96,6 +97,7 @@ class TestUploadAttachment:
 
         with patch.object(FileUploader, "_try_upload_attempt", return_value=True):
             FileUploader().upload_attachment(page, f, emitter=emitter)
+            # Should emit EVENT_FILE_UPLOADED after successful upload
             emitter.emit.assert_called_once()
 
     def test_retry_on_failure(self, tmp_path):

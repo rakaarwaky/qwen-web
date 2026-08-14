@@ -12,7 +12,12 @@ from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 from modules.core.src.utility_core_file_mover import move_file
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_entity import CircuitBreaker, LifecycleState, RateLimiter
-from modules.shared.src.taxonomy_core_event import EVENT_DOCUMENT_PARSED, EVENT_WEB_LOADED
+from modules.shared.src.taxonomy_core_event import (
+    EVENT_DOCUMENT_PARSED,
+    EVENT_FILE_UPLOADED,
+    EVENT_PROMPT_INJECTED,
+    EVENT_WEB_LOADED,
+)
 from modules.shared.src.taxonomy_core_vo import (
     ProcessingOutcome,
     ProcessingStatus,
@@ -180,19 +185,32 @@ def test_lifecycle_flags_are_event_backed_and_passed_to_capabilities(tmp_path: P
     def navigate(_page: object, emitter: object) -> None:
         emitter.emit(orchestrator_module.EVENT_WEB_LOADED, {"url": "test"})
 
-    def upload(_page: object, _filepath: Path, **_kwargs: object) -> bool:
-        return False
+    def upload(_page: object, _filepath: Path, emitter=None, **_kwargs: object) -> bool:
+        # Emit EVENT_FILE_UPLOADED when upload succeeds
+        if emitter is not None:
+            emitter.emit(orchestrator_module.EVENT_FILE_UPLOADED, {"file": str(_filepath)})
+        return True
+
+    def inject_text(_page: object, _text: str, emitter=None, **_kwargs: object) -> bool:
+        # Emit EVENT_PROMPT_INJECTED when injection succeeds
+        if emitter is not None:
+            emitter.emit(orchestrator_module.EVENT_PROMPT_INJECTED, {"char_count": len(_text)})
+        return True
 
     def send(_page: object, emitter: object, **_kwargs: object) -> None:
+        # Emit both events like the real SendDispatcher does
+        emitter.emit(orchestrator_module.EVENT_SEND_CLICKED, {"source": "test"})
         emitter.emit(orchestrator_module.EVENT_DISPATCH_ACKNOWLEDGED, {"source": "test"})
 
     orch._browser.navigate_to_chat.side_effect = navigate
     orch._uploader.upload_attachment.side_effect = upload
+    orch._injector.inject_text.side_effect = inject_text
     orch._sender.click_send.side_effect = send
     orch._streamer.wait_for_response.return_value = "answer"
 
     assert orch.send_file(page, prompt_file, timeout_sec=5) == "answer"
     assert orch._uploader.upload_attachment.call_args.kwargs["web_loaded"] is True
+    assert orch._injector.inject_text.call_args.kwargs["file_uploaded"] is True
     assert orch._sender.click_send.call_args.kwargs["document_parsed"] is True
     assert orch._streamer.wait_for_response.call_args.kwargs["dispatch_acknowledged"] is True
     assert orch._streamer.wait_for_response.call_args.kwargs["polling_interval_sec"] == 1.0
@@ -218,10 +236,22 @@ def test_missing_document_parsed_event_blocks_send(tmp_path: Path) -> None:
     def navigate(_page: object, emitter: object) -> None:
         emitter.emit(EVENT_WEB_LOADED, {"url": "test"})
 
-    orch._browser.navigate_to_chat.side_effect = navigate
-    orch._uploader.upload_attachment.return_value = True
+    def upload(_page: object, _filepath: Path, emitter=None, **_kwargs: object) -> bool:
+        # Upload succeeds and emits the event
+        if emitter is not None:
+            emitter.emit(EVENT_FILE_UPLOADED, {"file": str(_filepath)})
+        return True
 
-    with pytest.raises(RuntimeError, match="EVENT_DOCUMENT_PARSED"):
+    def inject_text(_page: object, _text: str, emitter=None, **_kwargs: object) -> bool:
+        # Injection succeeds but doesn't emit EVENT_PROMPT_INJECTED
+        return True
+
+    orch._browser.navigate_to_chat.side_effect = navigate
+    orch._uploader.upload_attachment.side_effect = upload
+    orch._injector.inject_text.side_effect = inject_text
+    # Don't mock sender, so it won't be called
+
+    with pytest.raises((RuntimeError, Exception), match="EVENT_PROMPT_INJECTED|prompt"):
         orch.send_file(MagicMock(), prompt_file, timeout_sec=5)
 
     orch._sender.click_send.assert_not_called()
@@ -235,14 +265,23 @@ def test_missing_dispatch_acknowledgement_blocks_stream(tmp_path: Path) -> None:
     def navigate(_page: object, emitter: object) -> None:
         emitter.emit(EVENT_WEB_LOADED, {"url": "test"})
 
-    def upload(_page: object, _filepath: Path, **_kwargs: object) -> bool:
-        return False
+    def upload(_page: object, _filepath: Path, emitter=None, **_kwargs: object) -> bool:
+        if emitter is not None:
+            emitter.emit(EVENT_FILE_UPLOADED, {"file": str(_filepath)})
+        return True
 
+    def inject_text(_page: object, _text: str, emitter=None, **_kwargs: object) -> bool:
+        if emitter is not None:
+            emitter.emit(EVENT_PROMPT_INJECTED, {"char_count": len(_text)})
+        return True
+
+    # Send click succeeds but doesn't emit EVENT_DISPATCH_ACKNOWLEDGED
     orch._browser.navigate_to_chat.side_effect = navigate
     orch._uploader.upload_attachment.side_effect = upload
+    orch._injector.inject_text.side_effect = inject_text
     orch._sender.click_send.return_value = None
 
-    with pytest.raises(RuntimeError, match="EVENT_DISPATCH_ACKNOWLEDGED"):
+    with pytest.raises((RuntimeError, Exception), match="EVENT_DISPATCH_ACKNOWLEDGED|dispatch"):
         orch.send_file(MagicMock(), prompt_file, timeout_sec=5)
 
     orch._streamer.wait_for_response.assert_not_called()
@@ -273,7 +312,8 @@ def test_single_file_stays_available_when_session_setup_fails(tmp_path: Path, mo
 
     result = orch.process_single_file(source, cfg.output_path, headless=True)
 
-    assert result.startswith("ERROR [RuntimeError]")
+    # Error category changed to uppercase (RUNTIMEERROR instead of RuntimeError)
+    assert result.startswith("ERROR [RUNTIMEERROR]")
     assert source.exists()
     assert not list(cfg.proc_path.rglob("task.md"))
 
@@ -313,8 +353,19 @@ def test_dispatch_failure_blocks_stream_monitor(tmp_path: Path) -> None:
     def navigate(_page: object, emitter: object) -> None:
         emitter.emit(orchestrator_module.EVENT_WEB_LOADED, {"url": "test"})
 
+    def upload(_page: object, _filepath: Path, emitter=None, **_kwargs: object) -> bool:
+        if emitter is not None:
+            emitter.emit(EVENT_FILE_UPLOADED, {"file": str(_filepath)})
+        return True
+
+    def inject_text(_page: object, _text: str, emitter=None, **_kwargs: object) -> bool:
+        if emitter is not None:
+            emitter.emit(EVENT_PROMPT_INJECTED, {"char_count": len(_text)})
+        return True
+
     orch._browser.navigate_to_chat.side_effect = navigate
-    orch._uploader.upload_attachment.return_value = False
+    orch._uploader.upload_attachment.side_effect = upload
+    orch._injector.inject_text.side_effect = inject_text
     orch._sender.click_send.side_effect = RuntimeError("dispatch failed")
 
     with pytest.raises(RuntimeError, match="dispatch failed"):

@@ -75,13 +75,33 @@ class OutputWriteError(QwenCliError):
     """Raised when writing output or metadata sidecar fails."""
 
 
+class ResponseTimeoutError(QwenCliError):
+    """Raised when the AI response detection times out after dispatch."""
+
+    def __init__(self, message: str = "Response detection timed out", timeout_sec: int = 0) -> None:
+        super().__init__(message)
+        self.timeout_sec = timeout_sec
+
+
+class UploadVerificationError(QwenCliError):
+    """Raised when upload verification fails - file was not confirmed as uploaded."""
+
+
+class PromptInjectionVerificationError(QwenCliError):
+    """Raised when prompt injection verification fails - text not confirmed in input."""
+
+
 _ERROR_CATEGORY_RULES: tuple[tuple[tuple[str, ...], str], ...] = (
     (("auth", "login", "captcha", "signin"), "auth"),
-    (("network", "connection", "timeout", "dns", "socket"), "network"),
+    (("network", "connection", "dns", "socket"), "network"),
     (("rate", "limit", "throttl", "429"), "rate_limit"),
     (("browser", "launch", "dom", "playwright", "chromium"), "browser"),
     (("injection", "paste", "clipboard", "fill"), "injection"),
-    (("parse", "empty", "no response", "timeout"), "parsing"),
+    # Response timeout - specific phrases that indicate response/stream issues
+    (("no response detected", "response timeout", "timeout after"), "response_timeout"),
+    (("stream", "thinking", "generation"), "response_timeout"),
+    (("upload", "file_upload", "attachment"), "upload"),
+    (("parse", "empty"), "parsing"),
     (("file", "ioerror", "disk", "read", "write"), "file_io"),
 )
 
@@ -121,5 +141,8 @@ __all__ = [
     "QuarantineError",
     "SendDispatchError",
     "OutputWriteError",
+    "ResponseTimeoutError",
+    "UploadVerificationError",
+    "PromptInjectionVerificationError",
     "ErrorCategory",
 ]

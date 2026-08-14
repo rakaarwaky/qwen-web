@@ -11,6 +11,9 @@ from modules.core.src.capabilities_prompt_injector import PromptInjector
 from modules.shared.src import (
     EVENT_DISPATCH_ACKNOWLEDGED,
     EVENT_DOCUMENT_PARSED,
+    EVENT_FILE_UPLOADED,
+    EVENT_PROMPT_INJECTED,
+    EVENT_SEND_CLICKED,
     EVENT_WEB_LOADED,
     QwenCliError,
 )
@@ -18,19 +21,30 @@ from tests.helpers import make_test_orchestrator
 
 
 def _configure_lifecycle_mocks(orch) -> None:
+    """Configure mocks to emit events in the correct lifecycle order."""
     def navigate(_page, emitter):
         emitter.emit(EVENT_WEB_LOADED, {"url": "test"})
 
     def upload(_page, _filepath, emitter=None, **_kwargs):
         assert emitter is not None
-        emitter.emit(EVENT_DOCUMENT_PARSED, {"file": "test"})
+        # Emit EVENT_FILE_UPLOADED after successful upload
+        emitter.emit(EVENT_FILE_UPLOADED, {"file": str(_filepath)})
+        return True
+
+    def inject_text(_page, _text, emitter=None, **_kwargs):
+        # Emit EVENT_PROMPT_INJECTED after successful injection
+        if emitter is not None:
+            emitter.emit(EVENT_PROMPT_INJECTED, {"char_count": len(_text)})
         return True
 
     def send(_page, emitter, **_kwargs):
+        # Emit both events like the real SendDispatcher does
+        emitter.emit(EVENT_SEND_CLICKED, {"file": "test"})
         emitter.emit(EVENT_DISPATCH_ACKNOWLEDGED, {"file": "test"})
 
     orch._browser.navigate_to_chat.side_effect = navigate
     orch._uploader.upload_attachment.side_effect = upload
+    orch._injector.inject_text.side_effect = inject_text
     orch._sender.click_send.side_effect = send
 
 
@@ -46,13 +60,14 @@ class TestSendFile:
         _configure_lifecycle_mocks(orch)
         page = MagicMock()
         orch._sender.count_messages.return_value = 0
-        orch._uploader.upload_attachment.return_value = True
-        orch._streamer.wait_for_response.return_value = None
+        # Stream monitor now raises ResponseTimeoutError instead of returning None
+        from modules.shared.src.taxonomy_core_error import ResponseTimeoutError
+        orch._streamer.wait_for_response.side_effect = ResponseTimeoutError("Timeout after 10s — no response detected", timeout_sec=10)
 
         f = tmp_path / "task.md"
         f.write_text("hello")
 
-        with pytest.raises(TimeoutError, match="Timeout"):
+        with pytest.raises(ResponseTimeoutError, match="Timeout"):
             orch.send_file(page, f, timeout_sec=10)
 
     def test_send_file_delegates_to_capabilities(self, tmp_path):

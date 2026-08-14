@@ -9,11 +9,28 @@ from __future__ import annotations
 from modules.shared.src.taxonomy_core_vo import ResponseText
 
 
+# Error type to category mapping for structured error codes
+_ERROR_CATEGORIES: dict[str, str] = {
+    "AuthRequiredError": "AUTH_REQUIRED",
+    "ResponseTimeoutError": "RESPONSE_TIMEOUT",
+    "UploadVerificationError": "UPLOAD_FAILED",
+    "PromptInjectionVerificationError": "INJECTION_FAILED",
+    "UploadTimeoutError": "UPLOAD_TIMEOUT",
+    "UIInteractionError": "UI_INTERACTION_FAILED",
+    "BrowserLaunchError": "BROWSER_LAUNCH_FAILED",
+    "CircuitBreakerOpenError": "CIRCUIT_BREAKER_OPEN",
+    "QuarantineError": "QUARANTINED",
+    "SendDispatchError": "DISPATCH_FAILED",
+    "OutputValidationError": "OUTPUT_VALIDATION_FAILED",
+    "FileValidationError": "FILE_VALIDATION_FAILED",
+}
+
+
 def to_error_response(exc: BaseException) -> ResponseText:
     """Map an exception into a structured ResponseText error string.
 
-    AuthRequiredError maps to ERROR [AUTH_REQUIRED]: <message>.
-    All other exceptions map to ERROR [<ClassName>]: <message>.
+    Uses type-based categorization for common error types to provide
+    meaningful error codes in CLI output.
 
     Parameters
     ----------
@@ -26,6 +43,6 @@ def to_error_response(exc: BaseException) -> ResponseText:
         Formatted error response string.
 
     """
-    if type(exc).__name__ == "AuthRequiredError":
-        return ResponseText(f"ERROR [AUTH_REQUIRED]: {exc}")
-    return ResponseText(f"ERROR [{type(exc).__name__}]: {exc}")
+    exc_type = type(exc).__name__
+    category = _ERROR_CATEGORIES.get(exc_type, exc_type.upper())
+    return ResponseText(f"ERROR [{category}]: {exc}")

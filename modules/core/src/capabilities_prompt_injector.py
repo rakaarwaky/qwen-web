@@ -13,7 +13,13 @@ from modules.core.src.utility_core_dom_helper import first_visible_element_handl
 from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src.contract_core_protocol import IInjectionProtocol
 from modules.shared.src.taxonomy_config_vo import DEFAULT_INJECTOR_CONFIG, InjectorConfig
-from modules.shared.src.taxonomy_core_error import ElementNotFoundError, PromptInjectionError
+from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
+from modules.shared.src.taxonomy_core_error import (
+    ElementNotFoundError,
+    PromptInjectionError,
+    PromptInjectionVerificationError,
+)
+from modules.shared.src.taxonomy_core_event import EVENT_PROMPT_INJECTED
 
 log = get_logger("capabilities_prompt_injector")
 
@@ -49,8 +55,22 @@ class PromptInjector(IInjectionProtocol):
             raise ElementNotFoundError(f"Timed out waiting for input selector '{primary}' on chat.qwen.ai: {e}") from e
         raise ElementNotFoundError("Could not locate input element on chat.qwen.ai. UI may have changed.")
 
-    def inject_text(self, page: Page, text: str, config: InjectorConfig | None = None) -> None:
-        """Inject text into input via multi-tier strategy with automatic validation."""
+    def inject_text(
+        self,
+        page: Page,
+        text: str,
+        config: InjectorConfig | None = None,
+        emitter: LifecycleEmitter | None = None,
+        file_uploaded: bool = True,
+    ) -> bool:
+        """Inject text into input via multi-tier strategy with automatic validation.
+
+        Returns True only if injection is verified. Emits EVENT_PROMPT_INJECTED
+        after successful verification.
+        """
+        if not file_uploaded:
+            raise RuntimeError("Cannot inject prompt: file upload (EVENT_FILE_UPLOADED) is incomplete")
+
         if not text or not text.strip():
             raise PromptInjectionError("Cannot inject empty or whitespace-only prompt text.")
 
@@ -85,7 +105,8 @@ class PromptInjector(IInjectionProtocol):
             success = page.evaluate(js_react_inject, text)
             if success and (not cfg.verify_injection or self._verify_injection(el)):
                 log.info("Prompt injected via React value-setter (%d chars)", len(text))
-                return
+                self._emit_prompt_injected(emitter, text)
+                return True
         except Error as e:
             log.debug("React value-setter strategy bypassed/failed: %s", e)
 
@@ -102,7 +123,8 @@ class PromptInjector(IInjectionProtocol):
             success = page.evaluate(js_contenteditable_inject, text)
             if success and (not cfg.verify_injection or self._verify_injection(el)):
                 log.info("Prompt injected via ContentEditable setter (%d chars)", len(text))
-                return
+                self._emit_prompt_injected(emitter, text)
+                return True
         except Error as e:
             log.debug("ContentEditable injection strategy failed: %s", e)
 
@@ -112,7 +134,8 @@ class PromptInjector(IInjectionProtocol):
             el.fill(text)
             if not cfg.verify_injection or self._verify_injection(el):
                 log.info("Prompt injected via Playwright fill() (%d chars)", len(text))
-                return
+                self._emit_prompt_injected(emitter, text)
+                return True
         except Error as e:
             log.warning("fill() failed: %s — falling back to type()", e)
 
@@ -122,11 +145,19 @@ class PromptInjector(IInjectionProtocol):
             el.type(text, delay=cfg.typing_delay_ms)
             if not cfg.verify_injection or self._verify_injection(el):
                 log.info("Prompt injected via Playwright type() (%d chars)", len(text))
-                return
+                self._emit_prompt_injected(emitter, text)
+                return True
         except Error as exc:
             raise PromptInjectionError(f"All strategies failed for prompt: {exc}") from exc
 
-        raise PromptInjectionError("All strategies executed but input verification failed.")
+        raise PromptInjectionVerificationError("All strategies executed but input verification failed.")
+
+    def _emit_prompt_injected(self, emitter: LifecycleEmitter | None, text: str) -> None:
+        """Emit EVENT_PROMPT_INJECTED if an emitter is provided."""
+        if emitter is not None:
+            evt = emitter.emit(EVENT_PROMPT_INJECTED, {"char_count": len(text)})
+            if evt is None:
+                log.warning("EVENT_PROMPT_INJECTED was blocked by lifecycle gate")
 
     # Block 3: Dunder Methods, Factories & Helpers
 

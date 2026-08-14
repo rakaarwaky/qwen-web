@@ -19,6 +19,7 @@ from modules.core.src.capabilities_observability_setup import (
 )
 from modules.root_mcp_main_entry import qwen_process_single, qwen_start_watcher
 from modules.shared.src import AppConfig, AuthRequiredError, LifecycleEmitter
+from modules.shared.src.taxonomy_core_error import UploadVerificationError
 from modules.shared.src.utility_core_path import (
     cleanup_empty_dirs,
     list_input_files,
@@ -132,8 +133,8 @@ class TestFileUploaderCoverage:
     def test_upload_attachment_no_file_input(self):
         page = MagicMock()
         page.locator.return_value.count.return_value = 0
-        result = FileUploader().upload_attachment(page, Path("/tmp/test.md"))
-        assert result is False
+        with pytest.raises(UploadVerificationError, match="Pre-flight validation failed"):
+            FileUploader().upload_attachment(page, Path("/tmp/test.md"))
 
 
 # ─── mcp_server.py remaining async ──────────────────────────────────────────

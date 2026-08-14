@@ -21,7 +21,12 @@ from modules.shared.src.taxonomy_core_constant import (
     TYPING_INDICATOR_SELECTORS,
 )
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
-from modules.shared.src.taxonomy_core_error import AuthRequiredError, NetworkTimeoutError, OutputValidationError
+from modules.shared.src.taxonomy_core_error import (
+    AuthRequiredError,
+    NetworkTimeoutError,
+    OutputValidationError,
+    ResponseTimeoutError,
+)
 from modules.shared.src.taxonomy_core_event import (
     EVENT_GENERATION_FINISHED,
     EVENT_STREAMING_GENERATION,
@@ -89,9 +94,22 @@ class StreamMonitor(IStreamProtocol):
         min_text_length: int = 1,
         dispatch_acknowledged: bool = True,
     ) -> ResponseText | None:
-        """Wait for new assistant message with stability check and output validation."""
+        """Wait for new assistant message with stability check and output validation.
+
+        Raises ResponseTimeoutError if no response is detected within the timeout.
+        Uses lifecycle gate to prevent entry if dispatch was not acknowledged.
+        """
         if not dispatch_acknowledged:
             raise RuntimeError("Cannot wait for response: prompt dispatch (EVENT_DISPATCH_ACKNOWLEDGED) is incomplete")
+
+        # Check lifecycle gate before proceeding - this prevents entering the
+        # response wait if an earlier prerequisite has failed
+        if not emitter.can_emit(EVENT_THINKING_STARTED):
+            log.warning("Cannot enter response wait: lifecycle gate blocked EVENT_THINKING_STARTED")
+            raise ResponseTimeoutError(
+                "Cannot wait for response: pipeline failed before dispatch was acknowledged",
+                timeout_sec=timeout_sec,
+            )
 
         active_poll = PollIntervalSec(polling_interval_sec)
         active_checks = StabilityChecks(stability_checks)
@@ -101,7 +119,13 @@ class StreamMonitor(IStreamProtocol):
         has_streaming = False
 
         log.info("Waiting for AI response (timeout: %ds)", timeout_sec)
-        emitter.emit(EVENT_THINKING_STARTED)
+        # Emit with gate check - will be blocked if prerequisite failed
+        evt = emitter.emit(EVENT_THINKING_STARTED)
+        if evt is None:
+            raise ResponseTimeoutError(
+                "EVENT_THINKING_STARTED was blocked - upstream prerequisite failed",
+                timeout_sec=timeout_sec,
+            )
         has_thinking = True
 
         baseline_text: str | None = _dom_latest(page)
@@ -150,8 +174,12 @@ class StreamMonitor(IStreamProtocol):
             validate_response_content(last_text)
             return ResponseText(last_text)
 
+        # Timeout - classify as response timeout, not browser launch failure
         log.warning("Timeout after %ds — no response detected", timeout_sec)
-        return None
+        raise ResponseTimeoutError(
+            f"Timeout after {timeout_sec}s — no response detected",
+            timeout_sec=timeout_sec,
+        )
 
     def __repr__(self) -> str:
         """Return string representation of StreamMonitor."""

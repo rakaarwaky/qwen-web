@@ -46,11 +46,19 @@ from modules.shared.src.taxonomy_core_error import (
     AuthRequiredError,
     CircuitBreakerOpenError,
     QwenCliError,
+    ResponseTimeoutError,
+    UploadVerificationError,
 )
 from modules.shared.src.taxonomy_core_event import (
     EVENT_DISPATCH_ACKNOWLEDGED,
     EVENT_DOCUMENT_PARSED,
+    EVENT_FILE_UPLOADED,
     EVENT_OUTPUT_COPIED,
+    EVENT_PROMPT_INJECTED,
+    EVENT_SEND_CLICKED,
+    EVENT_STREAMING_GENERATION,
+    EVENT_GENERATION_FINISHED,
+    EVENT_THINKING_STARTED,
     EVENT_WEB_LOADED,
 )
 from modules.shared.src.taxonomy_core_vo import (
@@ -391,7 +399,12 @@ class CoreOrchestrator(ICoreAggregate):
         rel_path: Path | None = None,
         cfg: AppConfig | None = None,
     ) -> str:
-        """Send a prompt file while enforcing event-backed lifecycle gates."""
+        """Send a prompt file while enforcing event-backed lifecycle gates.
+
+        Uses LifecycleState attached to the emitter to enforce strict ordering:
+        each event can only be emitted if its predecessor has succeeded.
+        Upload and injection failures are properly propagated as exceptions.
+        """
         active_cfg = cfg or build_app_config(
             mode="single",
             input_path=filepath,
@@ -400,9 +413,21 @@ class CoreOrchestrator(ICoreAggregate):
         )
         emitter = self._emitter()
         state = LifecycleState()
+        # Attach state to emitter for gate enforcement
+        emitter.attach_state(state)
+
+        # Register callbacks to track event emission
         emitter.on(EVENT_WEB_LOADED, lambda _event: state.mark(EVENT_WEB_LOADED))
+        emitter.on(EVENT_FILE_UPLOADED, lambda _event: state.mark(EVENT_FILE_UPLOADED))
+        emitter.on(EVENT_PROMPT_INJECTED, lambda _event: state.mark(EVENT_PROMPT_INJECTED))
         emitter.on(EVENT_DOCUMENT_PARSED, lambda _event: state.mark(EVENT_DOCUMENT_PARSED))
+        emitter.on(EVENT_SEND_CLICKED, lambda _event: state.mark(EVENT_SEND_CLICKED))
         emitter.on(EVENT_DISPATCH_ACKNOWLEDGED, lambda _event: state.mark(EVENT_DISPATCH_ACKNOWLEDGED))
+        emitter.on(EVENT_THINKING_STARTED, lambda _event: state.mark(EVENT_THINKING_STARTED))
+        emitter.on(EVENT_STREAMING_GENERATION, lambda _event: state.mark(EVENT_STREAMING_GENERATION))
+        emitter.on(EVENT_GENERATION_FINISHED, lambda _event: state.mark(EVENT_GENERATION_FINISHED))
+        emitter.on(EVENT_OUTPUT_COPIED, lambda _event: state.mark(EVENT_OUTPUT_COPIED))
+
         try:
             prompt = filepath.read_text(encoding="utf-8").strip()
         except OSError as e:
@@ -413,45 +438,87 @@ class CoreOrchestrator(ICoreAggregate):
             prompt = f"{role_prompt}\n\n{prompt}"
 
         self._browser.navigate_to_chat(page, emitter)
-        if not state.web_loaded:
+
+        # Gate check: verify WEB_LOADED was emitted
+        if not emitter.can_emit(EVENT_FILE_UPLOADED):
+            state.mark_failed(EVENT_WEB_LOADED)
             raise RuntimeError("Cannot upload attachment: web page loading (EVENT_WEB_LOADED) is incomplete")
+
         self._browser.check_auth(page)
 
         self._observability.get_logger().info("Sending prompt to chat.qwen.ai (%d chars)", len(prompt))
         msg_count_before = self._sender.count_messages(page)
 
+        # File upload - raises UploadVerificationError on failure
         self._injector.find_input(page)
-        attached = self._uploader.upload_attachment(
-            page, filepath, emitter=emitter, web_loaded=HeadlessFlag(state.web_loaded)
-        )
-        if not attached:
-            self._observability.get_logger().warning(
-                "File upload failed, proceeding with text-only prompt: %s", filepath.name
+        try:
+            attached = self._uploader.upload_attachment(
+                page, filepath, emitter=emitter, web_loaded=HeadlessFlag(state.web_loaded)
             )
-            emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "char_count": len(prompt), "fallback": True})
-        if not state.document_parsed:
-            raise RuntimeError("Cannot send prompt: document attachment parsing (EVENT_DOCUMENT_PARSED) is incomplete")
+        except UploadVerificationError as e:
+            # Upload failed - mark failure and propagate
+            state.mark_failed(EVENT_FILE_UPLOADED)
+            self._observability.get_logger().error("upload_failed", file=str(filepath), error=str(e))
+            raise UploadVerificationError(f"File upload failed: {e}") from e
 
-        self._injector.inject_text(page, PromptText(prompt))
+        # After successful upload, check gate for prompt injection
+        if not emitter.can_emit(EVENT_PROMPT_INJECTED):
+            state.mark_failed(EVENT_FILE_UPLOADED)
+            raise RuntimeError("Cannot inject prompt: file upload (EVENT_FILE_UPLOADED) is incomplete")
+
+        # Prompt injection - now returns bool and emits EVENT_PROMPT_INJECTED
+        injected = self._injector.inject_text(
+            page,
+            PromptText(prompt),
+            emitter=emitter,
+            file_uploaded=state.file_uploaded,
+        )
+        if not injected:
+            state.mark_failed(EVENT_PROMPT_INJECTED)
+            raise QwenCliError("Prompt injection failed - could not verify text was injected")
+
+        # After injection, emit DOCUMENT_PARSED (document is ready to send)
+        evt = emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "char_count": len(prompt)})
+        if evt is None:
+            state.mark_failed(EVENT_DOCUMENT_PARSED)
+            raise RuntimeError("Cannot send prompt: document parsing event was blocked by lifecycle gate")
+
+        # Gate check for send
+        if not emitter.can_emit(EVENT_SEND_CLICKED):
+            state.mark_failed(EVENT_DOCUMENT_PARSED)
+            raise RuntimeError("Cannot send prompt: document parsing (EVENT_DOCUMENT_PARSED) is incomplete")
+
         self._sender.click_send(page, emitter, document_parsed=HeadlessFlag(state.document_parsed))
-        if not state.dispatch_acknowledged:
+
+        # Gate check for response wait
+        if not emitter.can_emit(EVENT_THINKING_STARTED):
+            state.mark_failed(EVENT_DISPATCH_ACKNOWLEDGED)
             raise RuntimeError("Cannot wait for response: prompt dispatch (EVENT_DISPATCH_ACKNOWLEDGED) is incomplete")
 
         stream_timeout_sec = min(timeout_sec, active_cfg.streaming_timeout)
-        response = self._streamer.wait_for_response(
-            page,
-            TimeoutSec(stream_timeout_sec),
-            MessageCount(msg_count_before),
-            emitter,
-            polling_interval_sec=PollIntervalSec(active_cfg.poll_interval),
-            dispatch_acknowledged=HeadlessFlag(state.dispatch_acknowledged),
-        )
+
+        try:
+            response = self._streamer.wait_for_response(
+                page,
+                TimeoutSec(stream_timeout_sec),
+                MessageCount(msg_count_before),
+                emitter,
+                polling_interval_sec=PollIntervalSec(active_cfg.poll_interval),
+                dispatch_acknowledged=HeadlessFlag(state.dispatch_acknowledged),
+            )
+        except ResponseTimeoutError as e:
+            state.mark_failed(EVENT_THINKING_STARTED)
+            self._observability.get_logger().error("response_timeout", timeout_sec=stream_timeout_sec, error=str(e))
+            raise
 
         if response and len(response.strip()) > 0:
             self._observability.get_logger().info("Received response (%d chars)", len(response))
             emitter.emit(EVENT_OUTPUT_COPIED, {"file": str(filepath), "char_count": len(response.strip())})
             return response.strip()
-        raise TimeoutError(f"Timeout after {stream_timeout_sec}s: no response detected")
+
+        # No response - this shouldn't happen as wait_for_response raises on timeout
+        state.mark_failed(EVENT_GENERATION_FINISHED)
+        raise ResponseTimeoutError(f"Timeout after {stream_timeout_sec}s: no response detected", timeout_sec=stream_timeout_sec)
 
     # ─── Private orchestration helpers (Block 3) ─────────────────
     def _execute(self, fn: Callable[[], ResponseText]) -> ResponseText:

@@ -61,8 +61,19 @@ class IInjectionProtocol(ABC):
         """Locate the input element; raise if not found."""
 
     @abstractmethod
-    def inject_text(self, page: Page, text: PromptText, config: InjectorConfig | None = None) -> None:
-        """Inject prompt text via multi-strategy DOM injection."""
+    def inject_text(
+        self,
+        page: Page,
+        text: PromptText,
+        config: InjectorConfig | None = None,
+        emitter: LifecycleEmitter | None = None,
+        file_uploaded: HeadlessFlag = HeadlessFlag(True),
+    ) -> bool:
+        """Inject prompt text via multi-strategy DOM injection.
+
+        Returns True only if injection is verified. Emits EVENT_PROMPT_INJECTED
+        after successful verification.
+        """
 
 
 class ISendProtocol(ABC):

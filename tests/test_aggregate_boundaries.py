@@ -63,7 +63,8 @@ def test_public_single_failure_is_not_success(mocker, tmp_path: Path) -> None:
 
     result = orchestrator.process_mode(cfg)
 
-    assert str(result).startswith("ERROR [RuntimeError]: browser failed")
+    # Error code is now uppercase (RUNTIMEERROR instead of RuntimeError)
+    assert str(result).startswith("ERROR [RUNTIMEERROR]: browser failed")
     assert "Successfully processed" not in result
 
 
