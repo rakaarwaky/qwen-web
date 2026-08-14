@@ -332,23 +332,24 @@ class CoreOrchestrator(ICoreAggregate):
 
             # For manual login (mode='login'), keep browser open until user closes it.
             # No ENTER press needed — user clicks X on browser window to trigger check.
-            try:
-                deadline = time.monotonic() + cfg.timeout
-                while True:
-                    try:
-                        if page.is_closed():
-                            break
-                    except Exception:
+            # A supplied wait_for_confirmation callback runs on each poll while the
+            # visible browser context is still open (manual login / CAPTCHA completion).
+            deadline = time.monotonic() + cfg.timeout
+            while True:
+                if callable(wait_for_confirmation):
+                    wait_for_confirmation()
+                try:
+                    if page.is_closed():
                         break
-                    remaining = deadline - time.monotonic()
-                    if remaining <= 0:
-                        break
-                    try:
-                        page.wait_for_timeout(min(500, max(1, int(remaining * 10))))
-                    except Exception:
-                        break
-            except Exception:
-                pass
+                except Exception:
+                    break
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                try:
+                    page.wait_for_timeout(min(500, max(1, int(remaining * 10))))
+                except Exception:
+                    break
 
         # After user closes the headed browser, validate the saved session in a new
         # headless context (same approach as _validate_saved_session).
