@@ -14,9 +14,6 @@ from enum import Enum
 from pathlib import Path
 from typing import NewType
 
-from .taxonomy_core_error import ErrorCategory  # noqa: F401
-from .taxonomy_core_event import *  # noqa: F403
-
 PromptText = NewType("PromptText", str)
 InputPath = NewType("InputPath", str)
 OutputPath = NewType("OutputPath", str)
@@ -31,6 +28,17 @@ TimeoutSec = NewType("TimeoutSec", int)
 PollIntervalSec = NewType("PollIntervalSec", float)
 HeadlessFlag = NewType("HeadlessFlag", bool)
 Mode = NewType("Mode", str)
+EventName = NewType("EventName", str)
+EventTimestamp = NewType("EventTimestamp", float)
+EventId = NewType("EventId", str)
+
+
+class EventDetails(dict[str, object]):
+    """Structured detail mapping attached to a lifecycle event."""
+
+
+class EventOrderMap(dict[object, int]):
+    """Mapping from event types to their strict pipeline positions."""
 
 
 class ProcessingStatus(str, Enum):
@@ -111,8 +119,63 @@ class RunContext:
     )
 
 
-# Compatibility re-exports are imported at module top; new code should use
-# taxonomy_core_event directly.
+_LEGACY_EVENT_EXPORTS = (
+    "QwenEventType",
+    "LifecycleEvent",
+    "LifecycleCallback",
+    "EventDetails",
+    "EventMessage",
+    "CallbackRegistry",
+    "EVENT_DESCRIPTIONS",
+    "PIPELINE_EVENT_SEQUENCE",
+    "EVENT_ORDER",
+    "EVENT_NETWORK_RECONNECTING",
+    "EVENT_WEB_LOADED",
+    "EVENT_FILE_UPLOADED",
+    "EVENT_PROMPT_INJECTED",
+    "EVENT_DOCUMENT_PARSED",
+    "EVENT_SEND_CLICKED",
+    "EVENT_DISPATCH_ACKNOWLEDGED",
+    "EVENT_THINKING_STARTED",
+    "EVENT_STREAMING_GENERATION",
+    "EVENT_GENERATION_FINISHED",
+    "EVENT_OUTPUT_COPIED",
+)
+
+_LEGACY_ERROR_EXPORTS = (
+    "QwenCliError",
+    "AuthRequiredError",
+    "PromptInjectionError",
+    "RateLimitError",
+    "CircuitBreakerOpenError",
+    "BrowserLaunchError",
+    "SingleInstanceError",
+    "ElementNotFoundError",
+    "NetworkTimeoutError",
+    "OutputValidationError",
+    "FileUploadError",
+    "FileValidationError",
+    "UploadTimeoutError",
+    "UIInteractionError",
+    "PipelineError",
+    "QuarantineError",
+    "SendDispatchError",
+    "OutputWriteError",
+    "ErrorCategory",
+)
+
+
+def __getattr__(name: str) -> object:
+    """Resolve event and error names lazily for legacy imports."""
+    if name in _LEGACY_EVENT_EXPORTS:
+        from . import taxonomy_core_event
+
+        return getattr(taxonomy_core_event, name)
+    if name in _LEGACY_ERROR_EXPORTS:
+        from . import taxonomy_core_error
+
+        return getattr(taxonomy_core_error, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 @dataclass
@@ -129,4 +192,61 @@ class StatusRecordVO:
     error: str | None = None
 
 
-# ErrorCategory is imported at module top for the legacy path.
+__all__ = [
+    "PromptText",
+    "InputPath",
+    "OutputPath",
+    "FilePath",
+    "RunId",
+    "RunIdHex",
+    "RunContextId",
+    "MessageCount",
+    "ResponseText",
+    "StabilityCount",
+    "TimeoutSec",
+    "PollIntervalSec",
+    "HeadlessFlag",
+    "Mode",
+    "EventName",
+    "EventTimestamp",
+    "EventId",
+    "EventDetails",
+    "EventOrderMap",
+    "ProcessingStatus",
+    "ProcessingOutcome",
+    "TypingDelayMs",
+    "WaitTimeoutMs",
+    "ClickTimeoutMs",
+    "BackoffDelaySec",
+    "MaxRetries",
+    "StabilityChecks",
+    "MinTextLength",
+    "MaxFileSizeMb",
+    "DropdownTimeoutMs",
+    "OptionTimeoutMs",
+    "FileChooserTimeoutMs",
+    "CardRenderTimeoutMs",
+    "InputChars",
+    "OutputChars",
+    "IncludeHeaderFlag",
+    "GenerateSidecarFlag",
+    "AtomicWriteFlag",
+    "ChromeProfile",
+    "ConfigPath",
+    "DisableSandboxFlag",
+    "UserAgent",
+    "ServerName",
+    "ServiceName",
+    "Environment",
+    "TryEnterKeyFallbackFlag",
+    "FailureThreshold",
+    "WindowSec",
+    "MaxPerMinute",
+    "FileSizeBytes",
+    "LoggerName",
+    "ExitCode",
+    "RunContext",
+    "StatusRecordVO",
+    *_LEGACY_EVENT_EXPORTS,
+    *_LEGACY_ERROR_EXPORTS,
+]

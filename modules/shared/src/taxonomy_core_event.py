@@ -11,7 +11,9 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, NewType
+from typing import NewType
+
+from .taxonomy_core_vo import EventDetails, EventId, EventName, EventOrderMap, EventTimestamp
 
 
 class QwenEventType(str, Enum):
@@ -59,21 +61,20 @@ PIPELINE_EVENT_SEQUENCE: tuple[QwenEventType, ...] = (
     QwenEventType.OUTPUT_COPIED,
 )
 
-EVENT_ORDER: dict[QwenEventType, int] = {event: index for index, event in enumerate(PIPELINE_EVENT_SEQUENCE)}
+EVENT_ORDER: EventOrderMap = EventOrderMap({event: index for index, event in enumerate(PIPELINE_EVENT_SEQUENCE)})
 
 
 @dataclass
 class LifecycleEvent:
     """Structured event emitted at a lifecycle boundary."""
 
-    name: str
-    timestamp: float = field(default_factory=time.time)
-    event_id: str = field(default_factory=lambda: uuid.uuid4().hex)
-    details: dict[str, Any] = field(default_factory=dict)
+    name: EventName
+    timestamp: EventTimestamp = field(default_factory=lambda: EventTimestamp(time.time()))
+    event_id: EventId = field(default_factory=lambda: EventId(uuid.uuid4().hex))
+    details: EventDetails = field(default_factory=EventDetails)
 
 
 LifecycleCallback = Callable[[LifecycleEvent], None]
-EventDetails = dict[str, object]
 EventMessage = NewType("EventMessage", str)
 CallbackRegistry = dict[str, list[LifecycleCallback]]
 
