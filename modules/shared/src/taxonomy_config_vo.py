@@ -68,6 +68,8 @@ class UploadConfig:
             "[class*='file-card']",
             "[class*='file-item']",
             "[class*='fileitem']",
+            "[class*='fileitem-file-name']",
+            "[class*='file-content-info']",
         )
     )
 

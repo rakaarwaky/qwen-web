@@ -151,8 +151,11 @@ class FileUploader(IUploadProtocol):
         if direct_input is not None:
             log.debug("Setting file through direct Qwen file input selector")
             direct_input.set_input_files(str(filepath))
-            self._wait_for_attachment_card(page)
-            return True
+            try:
+                self._wait_for_attachment_card(page, filepath)
+                return True
+            except (TimeoutError, Error):
+                log.debug("Direct file input did not render an attachment card; trying chooser fallback")
 
         log.debug("Opening mode-select dropdown using primary/fallback selectors")
         dropdown_element = first_visible_locator(page, self.dropdown_selectors, timeout_ms=1000)
@@ -177,7 +180,7 @@ class FileUploader(IUploadProtocol):
         log.debug("Setting file on file chooser: %s", filepath.name)
         fc.value.set_files(str(filepath))
 
-        self._wait_for_attachment_card(page)
+        self._wait_for_attachment_card(page, filepath)
         return True
 
     def _find_file_input(self, page: Page) -> Any | None:
@@ -191,13 +194,29 @@ class FileUploader(IUploadProtocol):
                 continue
         return None
 
-    def _wait_for_attachment_card(self, page: Page) -> None:
-        """Wait for a positive attachment indicator after setting a file."""
-        log.debug("Waiting for file card attachment indicator to render and complete parsing")
-        card_selector_str = ", ".join(self.card_selectors)
-        page.locator(card_selector_str).first.wait_for(state="visible", timeout=self.card_render_timeout_ms)
+    def _wait_for_attachment_card(self, page: Page, filepath: Path) -> None:
+        """Wait for the uploaded filename to appear in Qwen's live attachment DOM."""
+        log.debug("Waiting for Qwen attachment filename node: %s", filepath.name)
+        filename_stem = filepath.stem
+        filename_selectors = (
+            ".fileitem-file-name-text",
+            ".fileitem-file-name",
+            "[class*='fileitem-file-name-text']",
+            "[class*='fileitem-file-name']",
+        )
+        for selector in filename_selectors:
+            matching = page.locator(selector).filter(has_text=filename_stem).last
+            try:
+                matching.wait_for(state="visible", timeout=self.card_render_timeout_ms)
+                break
+            except (TimeoutError, Error):
+                continue
+        else:
+            card_selector_str = ", ".join(self.card_selectors)
+            page.locator(card_selector_str).last.wait_for(state="visible", timeout=self.card_render_timeout_ms)
+
         with contextlib.suppress(Exception):
-            page.locator("[class*='loading'], [class*='parsing'], [class*='spin'], .ant-spin").first.wait_for(
+            page.locator("[class*='loading'], [class*='parsing'], [class*='spin'], .ant-spin").last.wait_for(
                 state="hidden", timeout=5000
             )
         time.sleep(2.0)
