@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from modules.core.src.agent_core_orchestrator import CoreOrchestrator
-from modules.shared.src import AppConfig
+from modules.shared.src import AppConfig, ProcessingOutcome, ProcessingStatus
 
 
 def _orchestrator(mocker) -> CoreOrchestrator:
@@ -73,7 +73,7 @@ def test_public_batch_preserves_nested_role_routing(mocker, tmp_path: Path) -> N
     source.write_text("prompt", encoding="utf-8")
     cfg = _config(tmp_path, "batch", tmp_path / "input", tmp_path / "output")
     orchestrator = _orchestrator(mocker)
-    orchestrator._process_file = mocker.MagicMock()
+    orchestrator._process_file = mocker.MagicMock(return_value=ProcessingOutcome(ProcessingStatus.SUCCESS))
 
     result = orchestrator.process_mode(cfg)
 
