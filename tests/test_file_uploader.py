@@ -98,7 +98,7 @@ class TestUploadAttachment:
         with patch.object(FileUploader, "_wait_for_attachment_card"):
             result = FileUploader().upload_attachment(page, f)
         assert result is True
-        page.locator.assert_called_once_with("#filesUpload")
+        assert page.locator.call_args_list[0].args == ("#filesUpload",)
         direct_input.set_input_files.assert_called_once_with(str(f))
 
     def test_emitter_called_on_success(self, tmp_path):
