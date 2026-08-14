@@ -206,10 +206,7 @@ def _make_async_tool(spec: dict[str, Any]) -> Callable[..., Any]:
         name, type_name, required, *default_values = param
         if type_name not in _TYPE_ANNOTATIONS:
             raise ValueError(f"Unsupported MCP parameter type: {type_name}")
-        if required:
-            default = inspect.Parameter.empty
-        else:
-            default = default_values[0] if default_values else None
+        default = inspect.Parameter.empty if required else default_values[0] if default_values else None
         parameters.append(
             inspect.Parameter(
                 name=name,

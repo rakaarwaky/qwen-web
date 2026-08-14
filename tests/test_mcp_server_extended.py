@@ -12,15 +12,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-class _BufferStringIO(io.StringIO):
-    def __init__(self) -> None:
-        super().__init__()
-        self._binary_buffer = io.BytesIO()
-
-    @property
-    def buffer(self) -> io.BytesIO:
-        return self._binary_buffer
-
 from modules.root_mcp_main_entry import (
     GENERATED_TOOLS,
     MCP_TOOL_SPECS,
@@ -30,6 +21,16 @@ from modules.root_mcp_main_entry import (
     qwen_get_audit_log,
     qwen_send_prompt,
 )
+
+
+class _BufferStringIO(io.StringIO):
+    def __init__(self) -> None:
+        super().__init__()
+        self._binary_buffer = io.BytesIO()
+
+    @property
+    def buffer(self) -> io.BytesIO:
+        return self._binary_buffer
 
 
 class TestGetMcpApp:
