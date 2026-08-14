@@ -196,7 +196,8 @@ def click_send(
     effective_timeout = timeout_ms if timeout_ms is not None else 3000
     effective_fallback = try_enter_fallback if try_enter_fallback is not None else True
     if _config is not None:
-        effective_timeout = _config.click_timeout_ms
+        if timeout_ms is None:
+            effective_timeout = _config.click_timeout_ms
         if try_enter_fallback is None:
             effective_fallback = _config.try_enter_key_fallback
 
