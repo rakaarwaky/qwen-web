@@ -356,7 +356,10 @@ class CoreOrchestrator(ICoreAggregate):
         if self._validate_saved_session(cfg):
             return ResponseText("Manual login completed successfully. The Qwen session is valid for headless tasks.")
 
-        return ResponseText("Manual login did not produce a valid Qwen session. Please run 'qwen-web-cli --login' again and finish the login or CAPTCHA.")
+        return ResponseText(
+            "Manual login did not produce a valid Qwen session. Please run 'qwen-web-cli --login' "
+            "again and finish the login or CAPTCHA."
+        )
 
     def validate_session(self, session_path: Path | None = None) -> tuple[bool, str]:
         cfg = build_app_config(
