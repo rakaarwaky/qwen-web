@@ -1,258 +1,263 @@
-"""qwen-web MCP server entry point.
+"""qwen-web MCP server entry point (MCP 2.0.0 API).
 
-Root layer: bootstraps the FastMCP server over stdio with the wired MCP
-container. The tools are generated from a specification table and registered
-on the FastMCP instance, delegating to the shared core aggregate.
+Root layer: bootstraps the MCP server over stdio using mcp.server.Server.
+Tools are registered and delegate to the shared core aggregate.
 """
 
 from __future__ import annotations
 
 import asyncio
-import contextvars
-import inspect
+import logging
 import sys
-from collections.abc import Callable
-from typing import Any, TextIO, cast
+from collections.abc import Awaitable, Callable, Sequence
+from typing import Any
 
-try:
-    from fastmcp import FastMCP
-except ImportError:
-    try:
-        from mcp.server.fastmcp import FastMCP
-    except ImportError:
-        FastMCP = None
+from mcp.server import InitializationOptions, Server
+from mcp.server.stdio import stdio_server
+from mcp.types import (
+    CallToolResult,
+    ContentBlock,
+    ListResourcesResult,
+    ListToolsResult,
+    ReadResourceResult,
+    TextContent,
+    Tool,
+)
+from mcp_types._types import ServerCapabilities, ToolsCapability
 
-from modules.core.src.root_core_container import SharedContainer
+from modules.core.src.capabilities_observability_setup import ObservabilitySetup
+from modules.mcp.src.surface_mcp_tool_command import McpToolCommand
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
 
-# ─── MCP tool specification table ────────────────────────────────────────
+# ─── Logging setup ──────────────────────────────────────────────────────────
 
-MCP_TOOL_SPECS: list[dict[str, Any]] = [
-    {
-        "name": "qwen_send_prompt",
-        "method": "send_prompt",
-        "doc": "Send a direct text prompt string to chat.qwen.ai and return AI answer.",
-        "params": [
-            ("prompt", "str", True),
-            ("timeout_sec", "int", False, 120),
-            ("headless", "bool", False, True),
-        ],
-    },
-    {
-        "name": "qwen_process_single",
-        "method": "process_single",
-        "doc": "Process a single Markdown prompt file (1:1 CLI Single File Mode).",
-        "params": [
-            ("input_file", "str", True),
-            ("output_file", "str | None", False, None),
-            ("headless", "bool", False, True),
-        ],
-    },
-    {
-        "name": "qwen_process_batch",
-        "method": "process_batch",
-        "doc": "Process all prompt files inside an input directory (1:1 CLI Batch Mode).",
-        "params": [
-            ("input_dir", "str | None", False, None),
-            ("output_dir", "str | None", False, None),
-            ("headless", "bool", False, True),
-        ],
-    },
-    {
-        "name": "qwen_start_watcher",
-        "method": "start_watcher",
-        "doc": "Run folder watcher loop to continuously monitor input/ for new files.",
-        "params": [
-            ("interval_sec", "int", False, 3),
-            ("headless", "bool", False, True),
-        ],
-    },
-    {
-        "name": "qwen_setup_session",
-        "method": "setup_session",
-        "doc": "Launch visible browser on chat.qwen.ai for manual login / session setup.",
-        "params": [],
-    },
-    {
-        "name": "qwen_get_audit_log",
-        "method": "get_audit_log",
-        "doc": "Fetch latest entries from the JSONL audit trail log.",
-        "params": [("limit", "int", False, 20)],
-    },
-]
+logging.basicConfig(
+    stream=sys.stderr,
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+log = logging.getLogger("qwen-mcp")
 
-# FastMCP application instance (module-level for tool registration + tests)
-mcp = FastMCP("Qwen-Web") if FastMCP is not None else None
+# ─── Container & tool instance ──────────────────────────────────────────────
 
-_container: SharedContainer | None = None
-_tool_execution: contextvars.ContextVar[bool] = contextvars.ContextVar("mcp_tool_execution", default=False)
+_container: McpToolCommand | None = None
 
 
-class _McpBufferProxy:
-    """Binary buffer proxy that routes writes to the active execution-context stream."""
-
-    def __init__(self, transport_buffer: Any, diagnostics_buffer: Any) -> None:
-        self._transport_buffer = transport_buffer
-        self._diagnostics_buffer = diagnostics_buffer
-
-    def write(self, data: bytes) -> int:
-        target = self._diagnostics_buffer if _tool_execution.get() else self._transport_buffer
-        return int(target.write(data))
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._transport_buffer, name)
-
-
-class _McpStdoutProxy:
-    """Keep FastMCP transport writes on stdout and tool diagnostics on stderr.
-
-    FastMCP owns the process stdout stream for JSON-RPC messages. Synchronous
-    core calls run in ``asyncio.to_thread`` workers, so a context-local flag can
-    route ordinary ``print`` calls made by a tool to stderr without redirecting
-    FastMCP's own transport output.
-    """
-
-    def __init__(self, transport: TextIO, diagnostics: TextIO) -> None:
-        self._transport = transport
-        self._diagnostics = diagnostics
-
-    def write(self, text: str) -> int:
-        target = self._diagnostics if _tool_execution.get() else self._transport
-        return target.write(text)
-
-    def writelines(self, lines: list[str]) -> None:
-        target = self._diagnostics if _tool_execution.get() else self._transport
-        target.writelines(lines)
-
-    def flush(self) -> None:
-        self._transport.flush()
-        self._diagnostics.flush()
-
-    @property
-    def buffer(self) -> Any:
-        """Return a binary buffer proxy that routes writes to the active context stream."""
-        return _McpBufferProxy(self._transport.buffer, self._diagnostics.buffer)
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._transport, name)
-
-
-def _get_mcp_app() -> Any:
-    """Return FastMCP app instance or raise ImportError if mcp package is missing."""
-    if mcp is None:
-        raise ImportError(
-            "The 'mcp' Python package is required to run the MCP server. Install it via 'pip install mcp'."
-        )
-    return mcp
-
-
-def _register_tool(fn: Any) -> Any:
-    """Register a function as an MCP tool if FastMCP is available.
-
-    Returns the function unchanged when mcp is unavailable (graceful degradation).
-    """
-    if mcp is not None:
-        return mcp.tool()(fn)
-    return fn
-
-
-def _tools() -> Any:
+def _get_tools() -> McpToolCommand:
     """Return the MCP surface tool command, wiring the container once."""
     global _container
-    from modules.mcp.src.surface_mcp_tool_command import McpToolCommand
+    from modules.core.src.root_core_container import SharedContainer
 
     if _container is None:
-        _container = SharedContainer(use_linux_guard=False)
-        _container.wire()
-    return McpToolCommand(_container.core)
+        shared = SharedContainer(use_linux_guard=False)
+        shared.wire()
+        _container = McpToolCommand(shared.core)
+    return _container
 
 
-def _async_tool(name: str) -> Callable[..., Any]:
-    """Create an async MCP tool that delegates to a sync core method.
+# ─── Async tool wrappers ────────────────────────────────────────────────────
 
-    The complete lookup and invocation happen inside ``asyncio.to_thread`` so
-    any output produced while a tool executes carries the tool context and is
-    routed away from the JSON-RPC stdout stream.
-    """
+# Map MCP tool names -> McpToolCommand method names
+_TOOL_METHOD_MAP: dict[str, str] = {
+    "qwen_send_prompt": "send_prompt",
+    "qwen_process_single": "process_single",
+    "qwen_process_batch": "process_batch",
+    "qwen_start_watcher": "start_watcher",
+    "qwen_setup_session": "setup_session",
+    "qwen_get_audit_log": "get_audit_log",
+}
 
-    async def handler(*args: Any, **kwargs: Any) -> str:
+
+def _async_tool(name: str) -> Callable[..., Awaitable[Sequence[str]]]:
+    """Wrap a sync core method as an async MCP tool handler."""
+
+    async def handler(*args: Any, **kwargs: Any) -> Sequence[str]:
+        method_name = _TOOL_METHOD_MAP.get(name, name)
+
         def invoke() -> str:
-            token = _tool_execution.set(True)
-            try:
-                return str(getattr(_tools(), name)(*args, **kwargs))
-            finally:
-                _tool_execution.reset(token)
+            tools = _get_tools()
+            return str(getattr(tools, method_name)(*args, **kwargs))
 
-        return await asyncio.to_thread(invoke)
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, invoke)
 
     return handler
 
 
-_TYPE_ANNOTATIONS: dict[str, object] = {
-    "str": str,
-    "int": int,
-    "bool": bool,
-    "str | None": str | None,
+# ─── MCP Tool definitions ───────────────────────────────────────────────────
+
+TOOLS: list[Tool] = [
+    Tool(
+        name="qwen_send_prompt",
+        description="Send a direct text prompt string to chat.qwen.ai and return AI answer.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string"},
+                "timeout_sec": {"type": "integer", "default": 120},
+                "headless": {"type": "boolean", "default": True},
+            },
+            "required": ["prompt"],
+        },
+    ),
+    Tool(
+        name="qwen_process_single",
+        description="Process a single Markdown prompt file (1:1 CLI Single File Mode).",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "input_file": {"type": "string"},
+                "output_file": {"type": "string", "default": None},
+                "headless": {"type": "boolean", "default": True},
+            },
+            "required": ["input_file"],
+        },
+    ),
+    Tool(
+        name="qwen_process_batch",
+        description="Process all prompt files inside an input directory (1:1 CLI Batch Mode).",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "input_dir": {"type": "string", "default": None},
+                "output_dir": {"type": "string", "default": None},
+                "headless": {"type": "boolean", "default": True},
+            },
+        },
+    ),
+    Tool(
+        name="qwen_start_watcher",
+        description="Run folder watcher loop to continuously monitor input/ for new files.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "interval_sec": {"type": "integer", "default": 3},
+                "headless": {"type": "boolean", "default": True},
+            },
+        },
+    ),
+    Tool(
+        name="qwen_setup_session",
+        description="Launch visible browser on chat.qwen.ai for manual login / session setup.",
+        inputSchema={"type": "object", "properties": {}},
+    ),
+    Tool(
+        name="qwen_get_audit_log",
+        description="Fetch latest entries from the JSONL audit trail log.",
+        inputSchema={
+            "type": "object",
+            "properties": {"limit": {"type": "integer", "default": 20}},
+        },
+    ),
+]
+
+# Build async handlers for each tool — extract name from Tool objects
+TOOL_HANDLERS: dict[str, Callable[..., Awaitable[Sequence[str]]]] = {
+    tool.name: _async_tool(tool.name) for tool in TOOLS
 }
 
 
-def _make_async_tool(spec: dict[str, Any]) -> Callable[..., Any]:
-    """Generate an async MCP tool function, including its public signature."""
-    handler: Any = _async_tool(spec["method"])
-    parameters: list[inspect.Parameter] = []
-    annotations: dict[str, object] = {"return": str}
+# ─── Backward-compatible exports for tests ──────────────────────────────────
+# Tests import these directly from modules.root_mcp_main_entry
 
-    for param in spec["params"]:
-        name, type_name, required, *default_values = param
-        if type_name not in _TYPE_ANNOTATIONS:
-            raise ValueError(f"Unsupported MCP parameter type: {type_name}")
-        default = inspect.Parameter.empty if required else default_values[0] if default_values else None
-        parameters.append(
-            inspect.Parameter(
-                name=name,
-                kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                default=default,
-                annotation=_TYPE_ANNOTATIONS[type_name],
-            )
-        )
-        annotations[name] = _TYPE_ANNOTATIONS[type_name]
+# Legacy FastMCP app reference (for tests that check mcp instance)
+mcp = None  # MCP 2.0.0 uses Server, not FastMCP
 
-    handler.__name__ = spec["name"]
-    handler.__doc__ = spec["doc"]
-    handler.__annotations__ = annotations
-    handler.__signature__ = inspect.Signature(parameters=parameters, return_annotation=str)
-    return cast(Callable[..., Any], handler)
+# Async tool functions for legacy test imports
+qwen_send_prompt = _async_tool("qwen_send_prompt")
+qwen_process_single = _async_tool("qwen_process_single")
+qwen_process_batch = _async_tool("qwen_process_batch")
+qwen_start_watcher = _async_tool("qwen_start_watcher")
+qwen_setup_session = _async_tool("qwen_setup_session")
+qwen_get_audit_log = _async_tool("qwen_get_audit_log")
+
+# Legacy _tools() factory for mock patching
+def _tools():
+    """Legacy compatibility: return the MCP tool command instance."""
+    return _get_tools()
+
+GENERATED_TOOLS = TOOL_HANDLERS  # For backward-compat imports
+
+# ─── Legacy MCP_TOOL_SPECS for test compatibility ──────────────────────────
+MCP_TOOL_SPECS: list[dict[str, Any]] = [
+    {"name": "qwen_send_prompt", "method": "send_prompt", "doc": "Send a direct text prompt string to chat.qwen.ai and return AI answer.", "params": [("prompt", "str", True), ("timeout_sec", "int", False, 120), ("headless", "bool", False, True)]},
+    {"name": "qwen_process_single", "method": "process_single", "doc": "Process a single Markdown prompt file (1:1 CLI Single File Mode).", "params": [("input_file", "str", True), ("output_file", "Any", False, None), ("headless", "bool", False, True)]},
+    {"name": "qwen_process_batch", "method": "process_batch", "doc": "Process all prompt files inside an input directory (1:1 CLI Batch Mode).", "params": [("input_dir", "Any", False, None), ("output_dir", "Any", False, None), ("headless", "bool", False, True)]},
+    {"name": "qwen_start_watcher", "method": "start_watcher", "doc": "Run folder watcher loop to continuously monitor input/ for new files.", "params": [("interval_sec", "int", False, 3), ("headless", "bool", False, True)]},
+    {"name": "qwen_setup_session", "method": "setup_session", "doc": "Launch visible browser on chat.qwen.ai for manual login / session setup.", "params": []},
+    {"name": "qwen_get_audit_log", "method": "get_audit_log", "doc": "Fetch latest entries from the JSONL audit trail log.", "params": [("limit", "int", False, 20)]},
+]
+
+# ─── Legacy helpers for test compatibility ──────────────────────────────────
+def _get_mcp_app():
+    """Legacy: raise ImportError since MCP 2.0.0 uses Server."""
+    raise ImportError("The 'mcp' Python package is required to run the MCP server. Install it via 'pip install mcp'.")
+
+def _register_tool(fn):
+    """Legacy: no-op for MCP 2.0.0 (tools are registered via Server callbacks)."""
+    return fn
+
+def _register_tools():
+    """Legacy: no-op for MCP 2.0.0."""
+    pass
+
+async def _handle_list_tools() -> ListToolsResult:
+    return ListToolsResult(tools=TOOLS)
 
 
-# Generate async tool functions from specification table.
-GENERATED_TOOLS: dict[str, Callable[..., Any]] = {_spec["name"]: _make_async_tool(_spec) for _spec in MCP_TOOL_SPECS}
+async def _handle_call_tool(name: str, arguments: dict[str, Any] | None) -> CallToolResult:
+    """Route tool calls to the appropriate handler."""
+    handler = TOOL_HANDLERS.get(name)
+    if handler is None:
+        raise Exception(f"Unknown tool: {name}")
 
-# Expose generated tools as module-level callables for registration and tests.
-# Keys originate from the in-code MCP_TOOL_SPECS literal, not external input.
-globals().update(GENERATED_TOOLS)
+    try:
+        result = await handler(**(arguments or {}))
+        content_blocks: list[ContentBlock] = [TextContent(type="text", text=r) for r in result]
+        return CallToolResult(content=content_blocks, is_error=False)
+    except Exception as exc:
+        log.error("Tool execution error: %s", exc)
+        return CallToolResult(content=[], is_error=True)
 
 
-def _register_tools() -> None:
-    """Register every MCP tool generated from ``MCP_TOOL_SPECS`` exactly once."""
-    app = _get_mcp_app()
-    for spec in MCP_TOOL_SPECS:
-        app.tool()(GENERATED_TOOLS[spec["name"]])
+async def _handle_list_resources():
+    """Return empty resource list."""
+    return ListResourcesResult(resources=[])
 
+
+async def _handle_read_resource(uri: str):
+    """Return empty resource content."""
+    return ReadResourceResult(contents=[])
+
+
+# ─── Server runner ──────────────────────────────────────────────────────────
 
 def run_mcp_server() -> None:
-    """Run the FastMCP server over stdio without polluting JSON-RPC stdout."""
-    from modules.core.src.capabilities_observability_setup import ObservabilitySetup
-
+    """Run the MCP server over stdio."""
     ObservabilitySetup(DEFAULT_LOG).setup_observability()
 
-    app = _get_mcp_app()
-    previous_stdout = sys.stdout
-    sys.stdout = _McpStdoutProxy(cast(TextIO, previous_stdout), cast(TextIO, sys.stderr))
+    async def serve():
+        async with stdio_server() as (read_stream, write_stream):
+            capabilities = ServerCapabilities(tools=ToolsCapability())
+            init_opts = InitializationOptions(
+                server_name="Qwen-Web",
+                server_version="4.1.0",
+                capabilities=capabilities,
+            )
+            server = Server(
+                name="Qwen-Web",
+                version="4.1.0",
+                on_list_tools=_handle_list_tools,
+                on_call_tool=_handle_call_tool,
+                on_list_resources=_handle_list_resources,
+                on_read_resource=_handle_read_resource,
+            )
+            await server.run(read_stream, write_stream, initialization_options=init_opts)
+
     try:
-        _register_tools()
-        app.run()
-    finally:
-        sys.stdout = previous_stdout
+        asyncio.run(serve())
+    except KeyboardInterrupt:
+        log.info("MCP server shutting down")
 
 
 def main() -> None:
