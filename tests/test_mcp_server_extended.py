@@ -152,6 +152,7 @@ class TestRunMcpServer:
             from modules.root_mcp_main_entry import run_mcp_server
 
             run_mcp_server()
+            assert sys.stdout is transport_stdout
 
         assert "json-rpc transport output" in transport_stdout.getvalue()
         assert "tool execution noise" not in transport_stdout.getvalue()
@@ -159,7 +160,6 @@ class TestRunMcpServer:
         assert "line1" in diagnostics_stderr.getvalue()
         assert "line2" in diagnostics_stderr.getvalue()
         assert b"binary data" in diagnostics_stderr.buffer.getvalue()
-        assert sys.stdout is transport_stdout
 
     def test_stdout_restored_after_app_run_exception(self):
         transport_stdout = io.StringIO()
@@ -178,5 +178,4 @@ class TestRunMcpServer:
 
             with pytest.raises(RuntimeError, match="app.run failed"):
                 run_mcp_server()
-
-        assert sys.stdout is transport_stdout
+            assert sys.stdout is transport_stdout

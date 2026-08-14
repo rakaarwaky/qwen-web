@@ -97,7 +97,7 @@ class _McpBufferProxy:
 
     def write(self, data: bytes) -> int:
         target = self._diagnostics_buffer if _tool_execution.get() else self._transport_buffer
-        return target.write(data)
+        return int(target.write(data))
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._transport_buffer, name)
@@ -206,7 +206,10 @@ def _make_async_tool(spec: dict[str, Any]) -> Callable[..., Any]:
         name, type_name, required, *default_values = param
         if type_name not in _TYPE_ANNOTATIONS:
             raise ValueError(f"Unsupported MCP parameter type: {type_name}")
-        default = inspect.Parameter.empty if required else default_values[0]
+        if required:
+            default = inspect.Parameter.empty
+        else:
+            default = default_values[0] if default_values else None
         parameters.append(
             inspect.Parameter(
                 name=name,
