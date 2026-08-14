@@ -11,6 +11,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+
+class _BufferStringIO(io.StringIO):
+    def __init__(self) -> None:
+        super().__init__()
+        self._binary_buffer = io.BytesIO()
+
+    @property
+    def buffer(self) -> io.BytesIO:
+        return self._binary_buffer
+
 from modules.root_mcp_main_entry import (
     GENERATED_TOOLS,
     MCP_TOOL_SPECS,
@@ -123,8 +133,8 @@ class TestRunMcpServer:
             mock_app.run.assert_called_once()
 
     def test_tool_output_is_isolated_from_json_rpc_stdout(self):
-        transport_stdout = io.StringIO()
-        diagnostics_stderr = io.StringIO()
+        transport_stdout = _BufferStringIO()
+        diagnostics_stderr = _BufferStringIO()
         tools = MagicMock()
 
         def send_prompt(*args, **kwargs):
@@ -162,8 +172,8 @@ class TestRunMcpServer:
         assert b"binary data" in diagnostics_stderr.buffer.getvalue()
 
     def test_stdout_restored_after_app_run_exception(self):
-        transport_stdout = io.StringIO()
-        diagnostics_stderr = io.StringIO()
+        transport_stdout = _BufferStringIO()
+        diagnostics_stderr = _BufferStringIO()
         mock_app = MagicMock()
         mock_app.tool.return_value = lambda fn: fn
         mock_app.run.side_effect = RuntimeError("app.run failed")
