@@ -45,7 +45,7 @@ class TestMCPServerTools(unittest.TestCase):
         mock_tools = MagicMock()
         mock_tools.get_audit_log.return_value = "Audit log file does not exist yet."
         with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
-            res = qwen_get_audit_log()
+            res = asyncio.run(qwen_get_audit_log())
             self.assertEqual(res, "Audit log file does not exist yet.")
 
     def test_qwen_get_audit_log_records(self) -> None:
@@ -54,7 +54,7 @@ class TestMCPServerTools(unittest.TestCase):
         mock_tools = MagicMock()
         mock_tools.get_audit_log.return_value = records
         with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
-            res = qwen_get_audit_log(limit=5)
+            res = asyncio.run(qwen_get_audit_log(limit=5))
             data = json.loads(res)
             self.assertEqual(len(data), 1)
             self.assertEqual(data[0]["run_id"], "test1234")
