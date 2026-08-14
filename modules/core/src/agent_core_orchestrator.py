@@ -374,6 +374,7 @@ class CoreOrchestrator(ICoreAggregate):
             return ResponseText("Tidak ada session yang dapat dihapus.")
         try:
             import shutil
+
             shutil.rmtree(cfg.session_path)
             return ResponseText("Session berhasil dihapus.")
         except Exception as exc:

@@ -45,6 +45,9 @@ jobs:
       - name: Install lint deps
         run: uv pip install ruff mypy
 
+      - name: Install runtime deps
+        run: uv pip install textual
+
       - name: Ruff check
         run: uv run ruff check modules/ tests/
 
