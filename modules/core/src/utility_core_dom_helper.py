@@ -11,8 +11,8 @@ from typing import Any, TypeVar
 
 from playwright.sync_api import Error, Locator, Page
 
-from modules.shared.src.taxonomy_config_vo import SenderConfig
 from modules.shared.src.taxonomy_core_constant import SEND_SELECTORS
+from modules.shared.src.taxonomy_core_vo import SenderConfig
 
 T = TypeVar("T")
 

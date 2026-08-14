@@ -34,7 +34,6 @@ from modules.shared.src.contract_core_protocol import (
     IUploadProtocol,
 )
 from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
-from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
     _WATCHER_SLEEP_CHUNK_SECS,
     CHAT_URL,
@@ -54,6 +53,7 @@ from modules.shared.src.taxonomy_core_event import (
     EVENT_WEB_LOADED,
 )
 from modules.shared.src.taxonomy_core_vo import (
+    AppConfig,
     FailureThreshold,
     FilePath,
     HeadlessFlag,

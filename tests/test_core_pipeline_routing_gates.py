@@ -10,10 +10,10 @@ import pytest
 from modules.core.src import agent_core_orchestrator as orchestrator_module
 from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 from modules.core.src.utility_core_file_mover import move_file
-from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_entity import CircuitBreaker, LifecycleState, RateLimiter
 from modules.shared.src.taxonomy_core_event import EVENT_DOCUMENT_PARSED, EVENT_WEB_LOADED
 from modules.shared.src.taxonomy_core_vo import (
+    AppConfig,
     ProcessingOutcome,
     ProcessingStatus,
 )

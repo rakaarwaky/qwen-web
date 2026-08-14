@@ -6,7 +6,7 @@ import sys
 from collections.abc import Callable
 
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
-from modules.shared.src.taxonomy_config_vo import AppConfig
+from modules.shared.src.taxonomy_core_vo import AppConfig
 from modules.shared.src.utility_core_response import error_response, safe_handle, success_response
 
 

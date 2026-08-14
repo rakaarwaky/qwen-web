@@ -13,11 +13,11 @@ from typing import Literal
 from modules.cli.src.surface_cli_login_command import wait_for_login_confirmation
 from modules.core.src.utility_core_config_factory import build_app_config
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
-from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_OUTPUT,
     DEFAULT_TODO,
 )
+from modules.shared.src.taxonomy_core_vo import AppConfig
 from modules.shared.src.utility_core_path import list_input_files
 from modules.shared.src.utility_core_response import error_response, safe_handle, success_response
 

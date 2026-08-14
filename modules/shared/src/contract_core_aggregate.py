@@ -12,8 +12,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
 
-from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_vo import (
+    AppConfig,
     FilePath,
     MessageCount,
     PromptText,
