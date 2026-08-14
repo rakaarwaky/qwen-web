@@ -11,18 +11,16 @@ from collections import deque
 from collections.abc import Callable
 
 from modules.shared.src.taxonomy_core_constant import MAX_ATTEMPTS
-from modules.shared.src.taxonomy_core_vo import (
+from modules.shared.src.taxonomy_core_event import (
     EVENT_DESCRIPTIONS,
     CallbackRegistry,
     EventDetails,
     EventMessage,
-    FailureThreshold,
     LifecycleCallback,
     LifecycleEvent,
-    MaxPerMinute,
     QwenEventType,
-    WindowSec,
 )
+from modules.shared.src.taxonomy_core_vo import FailureThreshold, MaxPerMinute, WindowSec
 
 
 class CircuitBreaker:

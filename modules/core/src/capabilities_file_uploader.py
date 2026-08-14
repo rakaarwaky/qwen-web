@@ -17,8 +17,9 @@ from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src.contract_core_protocol import IUploadProtocol
 from modules.shared.src.taxonomy_config_vo import DEFAULT_UPLOAD_CONFIG, UploadConfig
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
+from modules.shared.src.taxonomy_core_error import FileValidationError
+from modules.shared.src.taxonomy_core_event import EVENT_DOCUMENT_PARSED
 from modules.shared.src.taxonomy_core_vo import (
-    EVENT_DOCUMENT_PARSED,
     BackoffDelaySec,
     CardRenderTimeoutMs,
     DropdownTimeoutMs,
@@ -28,7 +29,6 @@ from modules.shared.src.taxonomy_core_vo import (
     MaxRetries,
     OptionTimeoutMs,
 )
-from modules.shared.src.taxonomy_domain_error import FileValidationError
 from modules.shared.src.utility_core_validation import validate_file as _validate_file_util
 
 log = get_logger("capabilities_file_uploader")

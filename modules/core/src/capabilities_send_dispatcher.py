@@ -13,15 +13,14 @@ from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src.contract_core_protocol import ISendProtocol
 from modules.shared.src.taxonomy_config_vo import SenderConfig
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
+from modules.shared.src.taxonomy_core_error import SendDispatchError
+from modules.shared.src.taxonomy_core_event import EVENT_DISPATCH_ACKNOWLEDGED, EVENT_SEND_CLICKED
 from modules.shared.src.taxonomy_core_vo import (
-    EVENT_DISPATCH_ACKNOWLEDGED,
-    EVENT_SEND_CLICKED,
     ClickTimeoutMs,
     MessageCount,
     ResponseText,
     TryEnterKeyFallbackFlag,
 )
-from modules.shared.src.taxonomy_domain_error import SendDispatchError
 
 log = get_logger("capabilities_send_dispatcher")
 

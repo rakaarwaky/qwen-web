@@ -42,11 +42,18 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_TODO,
 )
 from modules.shared.src.taxonomy_core_entity import CircuitBreaker, LifecycleEmitter, LifecycleState, RateLimiter
-from modules.shared.src.taxonomy_core_vo import (
+from modules.shared.src.taxonomy_core_error import (
+    AuthRequiredError,
+    CircuitBreakerOpenError,
+    QwenCliError,
+)
+from modules.shared.src.taxonomy_core_event import (
     EVENT_DISPATCH_ACKNOWLEDGED,
     EVENT_DOCUMENT_PARSED,
     EVENT_OUTPUT_COPIED,
     EVENT_WEB_LOADED,
+)
+from modules.shared.src.taxonomy_core_vo import (
     FailureThreshold,
     FilePath,
     HeadlessFlag,
@@ -61,11 +68,6 @@ from modules.shared.src.taxonomy_core_vo import (
     RunContext,
     TimeoutSec,
     WindowSec,
-)
-from modules.shared.src.taxonomy_domain_error import (
-    AuthRequiredError,
-    CircuitBreakerOpenError,
-    QwenCliError,
 )
 from modules.shared.src.utility_core_path import (
     cleanup_empty_dirs,

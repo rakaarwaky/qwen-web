@@ -5,7 +5,7 @@ Taxonomy layer (utility): stateless functions, taxonomy imports only.
 
 from __future__ import annotations
 
-from modules.shared.src.taxonomy_domain_error import AuthRequiredError
+from modules.shared.src.taxonomy_core_error import AuthRequiredError
 
 
 def exit_code_for(exc: BaseException) -> int:

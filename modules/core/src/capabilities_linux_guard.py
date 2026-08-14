@@ -18,7 +18,7 @@ from typing import Any
 from typing_extensions import Self
 
 from modules.shared.src.contract_core_protocol import ILinuxProtocol
-from modules.shared.src.taxonomy_domain_error import SingleInstanceError
+from modules.shared.src.taxonomy_core_error import SingleInstanceError
 
 
 # Block 1: Class Definition & Constructor

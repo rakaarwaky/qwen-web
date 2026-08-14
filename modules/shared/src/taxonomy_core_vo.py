@@ -1,19 +1,19 @@
 """Core qwen-web domain value objects: brand (NewType) types, run context,
-lifecycle events, and the pipeline event enum.
+Core value objects only.
 
-Taxonomy layer (taxonomy(vo)): frozen dataclasses, enums, and brand aliases — no I/O.
+Taxonomy layer (taxonomy(vo)): immutable value contracts and brand aliases — no I/O.
+Lifecycle events live in taxonomy_core_event; domain errors live in taxonomy_core_error.
 """
 
 from __future__ import annotations
 
-import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, NewType
+from typing import NewType, TypeAlias
 
 PromptText = NewType("PromptText", str)
 InputPath = NewType("InputPath", str)
@@ -29,6 +29,19 @@ TimeoutSec = NewType("TimeoutSec", int)
 PollIntervalSec = NewType("PollIntervalSec", float)
 HeadlessFlag = NewType("HeadlessFlag", bool)
 Mode = NewType("Mode", str)
+EventName: TypeAlias = str
+EventTimestamp: TypeAlias = float
+EventId: TypeAlias = str
+EventDetailsMapping: TypeAlias = Mapping[str, object]
+EventOrderMapping: TypeAlias = dict[object, int]
+
+
+class EventDetails(dict[str, object]):
+    """Concrete detail mapping retained for legacy runtime construction."""
+
+
+class EventOrderMap(dict[object, int]):
+    """Concrete event-order mapping retained for legacy runtime behavior."""
 
 
 class ProcessingStatus(str, Enum):
@@ -109,50 +122,63 @@ class RunContext:
     )
 
 
-class QwenEventType(str, Enum):
-    """Enterprise-level enum for Qwen Web pipeline event types (chronologically ordered)."""
+_LEGACY_EVENT_EXPORTS = (
+    "QwenEventType",
+    "LifecycleEvent",
+    "LifecycleCallback",
+    "EventDetails",
+    "EventMessage",
+    "CallbackRegistry",
+    "EVENT_DESCRIPTIONS",
+    "PIPELINE_EVENT_SEQUENCE",
+    "EVENT_ORDER",
+    "EVENT_NETWORK_RECONNECTING",
+    "EVENT_WEB_LOADED",
+    "EVENT_FILE_UPLOADED",
+    "EVENT_PROMPT_INJECTED",
+    "EVENT_DOCUMENT_PARSED",
+    "EVENT_SEND_CLICKED",
+    "EVENT_DISPATCH_ACKNOWLEDGED",
+    "EVENT_THINKING_STARTED",
+    "EVENT_STREAMING_GENERATION",
+    "EVENT_GENERATION_FINISHED",
+    "EVENT_OUTPUT_COPIED",
+)
 
-    def __str__(self) -> str:
-        """Return the string value of the event type."""
-        return str(self.value)
-
-    NETWORK_RECONNECTING = "EVENT_NETWORK_RECONNECTING"  # Network reconnecting
-    WEB_LOADED = "EVENT_WEB_LOADED"  # Web page loaded
-    DOCUMENT_PARSED = "EVENT_DOCUMENT_PARSED"  # Document parsed
-    SEND_CLICKED = "EVENT_SEND_CLICKED"  # Send button clicked
-    DISPATCH_ACKNOWLEDGED = "EVENT_DISPATCH_ACKNOWLEDGED"  # Dispatch acknowledged
-    THINKING_STARTED = "EVENT_THINKING_STARTED"  # Qwen AI thinking
-    STREAMING_GENERATION = "EVENT_STREAMING_GENERATION"  # Qwen AI typing (realtime)
-    GENERATION_FINISHED = "EVENT_GENERATION_FINISHED"  # Generation finished
-    OUTPUT_COPIED = "EVENT_OUTPUT_COPIED"  # Output saved
-
-
-EVENT_NETWORK_RECONNECTING = QwenEventType.NETWORK_RECONNECTING
-EVENT_WEB_LOADED = QwenEventType.WEB_LOADED
-EVENT_DOCUMENT_PARSED = QwenEventType.DOCUMENT_PARSED
-EVENT_SEND_CLICKED = QwenEventType.SEND_CLICKED
-EVENT_DISPATCH_ACKNOWLEDGED = QwenEventType.DISPATCH_ACKNOWLEDGED
-EVENT_THINKING_STARTED = QwenEventType.THINKING_STARTED
-EVENT_STREAMING_GENERATION = QwenEventType.STREAMING_GENERATION
-EVENT_GENERATION_FINISHED = QwenEventType.GENERATION_FINISHED
-EVENT_OUTPUT_COPIED = QwenEventType.OUTPUT_COPIED
+_LEGACY_ERROR_EXPORTS = (
+    "QwenCliError",
+    "AuthRequiredError",
+    "PromptInjectionError",
+    "RateLimitError",
+    "CircuitBreakerOpenError",
+    "BrowserLaunchError",
+    "SingleInstanceError",
+    "ElementNotFoundError",
+    "NetworkTimeoutError",
+    "OutputValidationError",
+    "FileUploadError",
+    "FileValidationError",
+    "UploadTimeoutError",
+    "UIInteractionError",
+    "PipelineError",
+    "QuarantineError",
+    "SendDispatchError",
+    "OutputWriteError",
+    "ErrorCategory",
+)
 
 
-@dataclass
-class LifecycleEvent:
-    """Structured event emitted at every major lifecycle boundary."""
+def __getattr__(name: str) -> object:
+    """Resolve event and error names lazily for legacy imports."""
+    if name in _LEGACY_EVENT_EXPORTS:
+        from . import taxonomy_core_event
 
-    name: str
-    timestamp: float = field(default_factory=time.time)
-    event_id: str = field(default_factory=lambda: uuid.uuid4().hex)
-    details: dict[str, Any] = field(default_factory=dict)
+        return getattr(taxonomy_core_event, name)
+    if name in _LEGACY_ERROR_EXPORTS:
+        from . import taxonomy_core_error
 
-
-LifecycleCallback = Callable[[LifecycleEvent], None]
-
-EventDetails = dict[str, object]
-EventMessage = NewType("EventMessage", str)
-CallbackRegistry = dict[str, list[LifecycleCallback]]
+        return getattr(taxonomy_core_error, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 @dataclass
@@ -169,45 +195,61 @@ class StatusRecordVO:
     error: str | None = None
 
 
-_ERROR_CATEGORY_RULES: tuple[tuple[tuple[str, ...], str], ...] = (
-    (("auth", "login", "captcha", "signin"), "auth"),
-    (("network", "connection", "timeout", "dns", "socket"), "network"),
-    (("rate", "limit", "throttl", "429"), "rate_limit"),
-    (("browser", "launch", "dom", "playwright", "chromium"), "browser"),
-    (("injection", "paste", "clipboard", "fill"), "injection"),
-    (("parse", "empty", "no response", "timeout"), "parsing"),
-    (("file", "ioerror", "disk", "read", "write"), "file_io"),
-)
-
-
-class ErrorCategory:
-    """Categorize errors for dashboards and alerting."""
-
-    @staticmethod
-    def categorize(exc: BaseException) -> str:
-        """Return the error category string."""
-        exc_type = type(exc).__name__.lower()
-        msg = str(exc).lower()
-
-        # Check keyword rules first (before generic OSError catches TimeoutError)
-        for keywords, category in _ERROR_CATEGORY_RULES:
-            if any(k in msg or k in exc_type for k in keywords):
-                return category
-
-        if isinstance(exc, (OSError, IOError)):
-            return "file_io"
-
-        return "other"
-
-
-EVENT_DESCRIPTIONS: dict[QwenEventType, str] = {
-    QwenEventType.NETWORK_RECONNECTING: "Reconnecting to Qwen Web...",
-    QwenEventType.WEB_LOADED: "Qwen Web page loaded",
-    QwenEventType.DOCUMENT_PARSED: "Document parsed",
-    QwenEventType.SEND_CLICKED: "Send button clicked",
-    QwenEventType.DISPATCH_ACKNOWLEDGED: "Dispatch acknowledged",
-    QwenEventType.THINKING_STARTED: "Qwen AI thinking...",
-    QwenEventType.STREAMING_GENERATION: "Qwen AI typing...",
-    QwenEventType.GENERATION_FINISHED: "Generation finished",
-    QwenEventType.OUTPUT_COPIED: "Output saved",
-}
+__all__ = [
+    "PromptText",
+    "InputPath",
+    "OutputPath",
+    "FilePath",
+    "RunId",
+    "RunIdHex",
+    "RunContextId",
+    "MessageCount",
+    "ResponseText",
+    "StabilityCount",
+    "TimeoutSec",
+    "PollIntervalSec",
+    "HeadlessFlag",
+    "Mode",
+    "EventName",
+    "EventTimestamp",
+    "EventId",
+    "EventDetailsMapping",
+    "EventOrderMapping",
+    "EventDetails",
+    "EventOrderMap",
+    "ProcessingStatus",
+    "ProcessingOutcome",
+    "TypingDelayMs",
+    "WaitTimeoutMs",
+    "ClickTimeoutMs",
+    "BackoffDelaySec",
+    "MaxRetries",
+    "StabilityChecks",
+    "MinTextLength",
+    "MaxFileSizeMb",
+    "DropdownTimeoutMs",
+    "OptionTimeoutMs",
+    "FileChooserTimeoutMs",
+    "CardRenderTimeoutMs",
+    "InputChars",
+    "OutputChars",
+    "IncludeHeaderFlag",
+    "GenerateSidecarFlag",
+    "AtomicWriteFlag",
+    "ChromeProfile",
+    "ConfigPath",
+    "DisableSandboxFlag",
+    "UserAgent",
+    "ServerName",
+    "ServiceName",
+    "Environment",
+    "TryEnterKeyFallbackFlag",
+    "FailureThreshold",
+    "WindowSec",
+    "MaxPerMinute",
+    "FileSizeBytes",
+    "LoggerName",
+    "ExitCode",
+    "RunContext",
+    "StatusRecordVO",
+]

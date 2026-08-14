@@ -21,16 +21,18 @@ from modules.shared.src.taxonomy_core_constant import (
     TYPING_INDICATOR_SELECTORS,
 )
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
-from modules.shared.src.taxonomy_core_vo import (
+from modules.shared.src.taxonomy_core_error import AuthRequiredError, NetworkTimeoutError, OutputValidationError
+from modules.shared.src.taxonomy_core_event import (
     EVENT_GENERATION_FINISHED,
     EVENT_STREAMING_GENERATION,
     EVENT_THINKING_STARTED,
+)
+from modules.shared.src.taxonomy_core_vo import (
     MinTextLength,
     PollIntervalSec,
     ResponseText,
     StabilityChecks,
 )
-from modules.shared.src.taxonomy_domain_error import AuthRequiredError, NetworkTimeoutError, OutputValidationError
 from modules.shared.src.utility_core_events import is_stability_satisfied, should_treat_as_new_response
 from modules.shared.src.utility_core_validation import validate_response_content
 

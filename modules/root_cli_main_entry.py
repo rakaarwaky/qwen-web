@@ -30,7 +30,7 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_SESSION,
     DEFAULT_TODO,
 )
-from modules.shared.src.taxonomy_domain_error import SingleInstanceError
+from modules.shared.src.taxonomy_core_error import SingleInstanceError
 
 _ERROR_PREFIX = "[ERROR]"
 
