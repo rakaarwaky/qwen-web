@@ -30,6 +30,8 @@ def handle(_args: object, core: ICoreAggregate, cfg: AppConfig) -> dict[str, obj
             RuntimeError("Manual login requires an interactive terminal (TTY)."), "validation_error", "cli-400"
         )
 
+    core.delete_session(session_path=cfg.session_path)
+
     result = core.setup_session(
         wait_for_confirmation=_login_waiter(),
         session_path=cfg.session_path,

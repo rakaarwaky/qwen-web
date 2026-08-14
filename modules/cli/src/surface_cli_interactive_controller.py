@@ -122,6 +122,7 @@ class InteractiveController:
             valid, status = self._core.validate_session(session_path=selected.session_path)
 
             def _do_login() -> None:
+                self._core.delete_session(session_path=selected.session_path)
                 result = self._core.setup_session(
                     wait_for_confirmation=wait_for_login_confirmation,
                     session_path=selected.session_path,
