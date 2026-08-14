@@ -11,9 +11,25 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import NewType
+from types import MappingProxyType
+from typing import NewType, TypeAlias
 
-from .taxonomy_core_vo import EventDetails, EventId, EventName, EventOrderMap, EventTimestamp
+from .taxonomy_core_vo import (
+    EventDetails as EventDetailsValue,
+)
+from .taxonomy_core_vo import (
+    EventDetailsMapping,
+    EventId,
+    EventName,
+    EventOrderMapping,
+    EventTimestamp,
+)
+from .taxonomy_core_vo import (
+    EventOrderMap as EventOrderMapValue,
+)
+
+EventDetails: TypeAlias = EventDetailsMapping
+EventOrderMap: TypeAlias = EventOrderMapping
 
 
 class QwenEventType(str, Enum):
@@ -61,10 +77,12 @@ PIPELINE_EVENT_SEQUENCE: tuple[QwenEventType, ...] = (
     QwenEventType.OUTPUT_COPIED,
 )
 
-EVENT_ORDER: EventOrderMap = EventOrderMap({event: index for index, event in enumerate(PIPELINE_EVENT_SEQUENCE)})
+EVENT_ORDER: EventOrderMapValue = EventOrderMapValue(
+    {event: index for index, event in enumerate(PIPELINE_EVENT_SEQUENCE)}
+)
 
 
-@dataclass
+@dataclass(frozen=True)
 class LifecycleEvent:
     """Structured event emitted at a lifecycle boundary."""
 
@@ -72,6 +90,11 @@ class LifecycleEvent:
     timestamp: EventTimestamp = field(default_factory=time.time)
     event_id: EventId = field(default_factory=lambda: uuid.uuid4().hex)
     details: EventDetails = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        """Freeze detail payloads so callbacks observe the same event state."""
+        immutable_details = MappingProxyType(EventDetailsValue(self.details))
+        object.__setattr__(self, "details", immutable_details)
 
 
 LifecycleCallback = Callable[[LifecycleEvent], None]

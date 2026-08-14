@@ -1,5 +1,9 @@
 """Regression tests for the shared taxonomy event/error refactor."""
 
+from dataclasses import FrozenInstanceError
+
+import pytest
+
 from modules.shared.src import (
     EVENT_FILE_UPLOADED,
     EVENT_ORDER,
@@ -16,9 +20,16 @@ from modules.shared.src.taxonomy_core_event import (
     EVENT_SEND_CLICKED,
     EVENT_STREAMING_GENERATION,
     EVENT_THINKING_STARTED,
+    LifecycleEvent,
     QwenEventType,
 )
-from modules.shared.src.taxonomy_core_vo import EVENT_WEB_LOADED as LEGACY_EVENT_WEB_LOADED
+from modules.shared.src.taxonomy_core_vo import (
+    EVENT_WEB_LOADED as LEGACY_EVENT_WEB_LOADED,
+)
+from modules.shared.src.taxonomy_core_vo import (
+    EventDetails,
+    EventOrderMap,
+)
 from modules.shared.src.taxonomy_domain_error import QwenCliError as LEGACY_QWEN_CLI_ERROR
 
 
@@ -54,6 +65,19 @@ def test_event_exports_are_available_and_legacy_vo_alias_is_compatible() -> None
     assert EVENT_STREAMING_GENERATION == QwenEventType.STREAMING_GENERATION
     assert EVENT_GENERATION_FINISHED == QwenEventType.GENERATION_FINISHED
     assert EVENT_OUTPUT_COPIED == QwenEventType.OUTPUT_COPIED
+
+
+def test_lifecycle_event_is_immutable_and_legacy_vo_classes_are_constructible() -> None:
+    details = EventDetails({"source": "test"})
+    event = LifecycleEvent(name="EVENT_TEST", details=details)
+
+    assert isinstance(details, EventDetails)
+    assert isinstance(EventOrderMap({QwenEventType.WEB_LOADED: 0}), EventOrderMap)
+    assert dict(event.details) == {"source": "test"}
+    with pytest.raises(TypeError):
+        event.details["source"] = "changed"
+    with pytest.raises(FrozenInstanceError):
+        event.name = "EVENT_CHANGED"
 
 
 def test_entity_remains_for_stateful_runtime_behavior() -> None:

@@ -32,8 +32,16 @@ Mode = NewType("Mode", str)
 EventName: TypeAlias = str
 EventTimestamp: TypeAlias = float
 EventId: TypeAlias = str
-EventDetails: TypeAlias = Mapping[str, object]
-EventOrderMap: TypeAlias = dict[object, int]
+EventDetailsMapping: TypeAlias = Mapping[str, object]
+EventOrderMapping: TypeAlias = dict[object, int]
+
+
+class EventDetails(dict[str, object]):
+    """Concrete detail mapping retained for legacy runtime construction."""
+
+
+class EventOrderMap(dict[object, int]):
+    """Concrete event-order mapping retained for legacy runtime behavior."""
 
 
 class ProcessingStatus(str, Enum):
@@ -205,6 +213,8 @@ __all__ = [
     "EventName",
     "EventTimestamp",
     "EventId",
+    "EventDetailsMapping",
+    "EventOrderMapping",
     "EventDetails",
     "EventOrderMap",
     "ProcessingStatus",
