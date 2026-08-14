@@ -29,13 +29,20 @@ from modules.shared.src.taxonomy_core_vo import (
 
 
 def _make_orchestrator() -> CoreOrchestrator:
+    saver = MagicMock()
+
+    def write_output(path: Path, content: object, *_args: object, **_kwargs: object) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(str(content), encoding="utf-8")
+
+    saver.write_output.side_effect = write_output
     return CoreOrchestrator(
         browser=MagicMock(),
         injector=MagicMock(),
         sender=MagicMock(),
         streamer=MagicMock(),
         uploader=MagicMock(),
-        saver=MagicMock(),
+        saver=saver,
         audit=MagicMock(),
         observability=MagicMock(get_logger=MagicMock(return_value=MagicMock())),
         workspace=MagicMock(),

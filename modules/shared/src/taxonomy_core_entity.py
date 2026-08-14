@@ -245,6 +245,11 @@ class LifecycleEmitter:
         self._logger = logger or logging.getLogger("lifecycle")
         self._gate = gate
 
+    @property
+    def completed(self) -> tuple[QwenEventType, ...]:
+        """Return accepted events from the attached lifecycle gate."""
+        return self._gate.completed if self._gate is not None else ()
+
     def on(self, event_name: QwenEventType | str, callback: LifecycleCallback) -> None:
         """Register a callback for a named lifecycle event."""
         key = str(event_name)
