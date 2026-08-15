@@ -100,13 +100,13 @@ INPUT_SELECTORS: tuple[str, ...] = (
 )
 
 SEND_SELECTORS: tuple[str, ...] = (
-    "button[aria-label*='Send' i]:not([disabled])",
-    "button[type='submit']:not([disabled])",
-    "button[class*='send' i]:not([disabled])",
-    "button[class*='submit' i]:not([disabled])",
-    "button[id*='send' i]:not([disabled])",
-    ".message-input-send-button:not([disabled])",
-    "button:has(svg):not([disabled])",
+    "button.send-button:not(.disabled):not([disabled])",
+    "button[aria-label*='Send' i]:not(.disabled):not([disabled])",
+    "button[type='submit']:not(.disabled):not([disabled])",
+    "button[class*='send' i]:not(.disabled):not([disabled])",
+    "button[class*='submit' i]:not(.disabled):not([disabled])",
+    "button[id*='send' i]:not(.disabled):not([disabled])",
+    ".message-input-send-button:not(.disabled):not([disabled])",
 )
 
 MESSAGE_SELECTORS: tuple[str, ...] = (

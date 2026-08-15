@@ -5,13 +5,18 @@ Implements ISendProtocol.
 
 from __future__ import annotations
 
-from playwright.sync_api import Page
+import contextlib
+import time
+from typing import Any, cast
+
+from playwright.sync_api import Error, Page
 
 from modules.core.src.utility_core_dom_helper import click_send as _dom_click_send
 from modules.core.src.utility_core_dom_query import count_messages, latest_message_text
 from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src.contract_core_protocol import ISendProtocol
 from modules.shared.src.taxonomy_config_vo import SenderConfig
+from modules.shared.src.taxonomy_core_constant import SEND_DISABLED_SELECTORS, TEXTAREA_SELECTOR
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_error import SendDispatchError
 from modules.shared.src.taxonomy_core_event import EVENT_DISPATCH_ACKNOWLEDGED, EVENT_SEND_CLICKED
@@ -57,11 +62,44 @@ class SendDispatcher(ISendProtocol):
             click_timeout_ms=int(self.click_timeout_ms),
             try_enter_key_fallback=bool(self.try_enter_key_fallback),
         )
+        baseline_count = int(count_messages(page))
         if not _dom_click_send(page, _config=effective_config):
             raise SendDispatchError("Unable to dispatch prompt: send button and Enter fallback both failed")
         details: dict[str, object] = {"selector": "SendDispatcher"}
         emitter.emit(EVENT_SEND_CLICKED, details)
+        if not self._wait_for_dispatch_ack(page, baseline_count):
+            try:
+                textarea = page.locator(TEXTAREA_SELECTOR).first
+                textarea.press("Enter")
+            except (Error, TimeoutError):
+                with contextlib.suppress(Error, TimeoutError):
+                    page.keyboard.press("Enter")
+            if not self._wait_for_dispatch_ack(page, baseline_count):
+                raise SendDispatchError("Send control was clicked but Qwen did not acknowledge the user turn")
         emitter.emit(EVENT_DISPATCH_ACKNOWLEDGED, details)
+
+    def _wait_for_dispatch_ack(self, page: Page, baseline_count: int) -> bool:
+        """Verify that the click produced a new user turn or reset the composer."""
+        deadline = time.monotonic() + (self.click_timeout_ms / 1000)
+        while time.monotonic() < deadline:
+            try:
+                if int(count_messages(page)) > baseline_count:
+                    return True
+                textarea = page.locator(TEXTAREA_SELECTOR).first
+                textarea_count = cast(Any, textarea.count())
+                if not isinstance(textarea_count, int):
+                    return True
+                if textarea_count > 0:
+                    value = textarea.input_value(timeout=100)
+                    if not value.strip():
+                        return True
+                disabled_count = cast(Any, page.locator(SEND_DISABLED_SELECTORS).count())
+                if isinstance(disabled_count, int) and disabled_count > 0:
+                    return True
+            except (Error, TimeoutError):
+                pass
+            page.wait_for_timeout(100)
+        return False
 
     def count_messages(self, page: Page) -> MessageCount:
         """Count chat turns using JS evaluate."""

@@ -61,6 +61,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--request-timeout", type=int, default=120, help="Max seconds to wait for Qwen response")
     p.add_argument("--poll-interval", type=float, default=1.0, help="Seconds between message-poll checks")
     p.add_argument("--streaming-timeout", type=int, default=180, help="Max seconds for streaming generation")
+    p.add_argument(
+        "--inline-prompt",
+        action="store_true",
+        help="Inject the input file contents as plain text instead of attaching the file to Qwen",
+    )
     p.add_argument("--rate-limit", type=int, default=60, help="Max requests per minute")
     p.add_argument("--cb-threshold", type=int, default=5, help="Consecutive failures to trip circuit breaker")
     p.add_argument("--cb-window", type=int, default=30, help="Circuit breaker sliding window in seconds")
@@ -107,6 +112,7 @@ def _build_config(args: argparse.Namespace) -> AppConfig:
         request_timeout=getattr(args, "request_timeout", 120),
         poll_interval=float(getattr(args, "poll_interval", 1.0)),
         streaming_timeout=getattr(args, "streaming_timeout", 180),
+        inline_prompt=bool(getattr(args, "inline_prompt", False)),
         rate_limit_per_minute=getattr(args, "rate_limit", 60),
         circuit_breaker_threshold=getattr(args, "cb_threshold", 5),
         circuit_breaker_window=getattr(args, "cb_window", 30),

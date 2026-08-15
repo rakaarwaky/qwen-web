@@ -23,12 +23,13 @@ from tenacity import RetryCallState, Retrying, stop_after_attempt, wait_fixed
 
 from modules.core.src.utility_core_async_loop import isolate_thread_event_loop
 from modules.core.src.utility_core_browser_binary import find_chrome_binary
-from modules.core.src.utility_core_dom_helper import is_any_visible
+from modules.core.src.utility_core_dom_helper import click_first_visible_enabled, is_any_visible
 from modules.shared.src.contract_core_protocol import IBrowserProtocol
 from modules.shared.src.taxonomy_core_constant import (
     AUTH_KEYWORDS,
     CHAT_URL,
     LOGIN_FORM_SELECTORS,
+    NEW_CHAT_SELECTORS,
     TEXTAREA_SELECTOR,
 )
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
@@ -146,7 +147,17 @@ class BrowserAdapter(IBrowserProtocol):
         """Navigate to chat.qwen.ai, emit WEB_LOADED, and verify authenticated session."""
         self._goto_chat(page, 30_000, 15_000)
         _assert_on_chat_page(page)
+        self._start_new_chat(page)
         emitter.emit(EVENT_WEB_LOADED, {"url": page.url})
+
+    def _start_new_chat(self, page: Page) -> None:
+        """Start a clean Qwen conversation so stale cards cannot affect monitoring."""
+        try:
+            if click_first_visible_enabled(page, NEW_CHAT_SELECTORS, timeout_ms=1500):
+                page.wait_for_timeout(500)
+                log.debug("Started a clean Qwen chat before dispatch")
+        except Error as exc:
+            log.debug("New Chat reset unavailable; continuing with current chat: %s", exc)
 
     def check_auth(self, page: Page) -> None:
         """Raise AuthRequiredError if the page is on a login/auth URL or login form detected."""
@@ -281,13 +292,20 @@ class BrowserAdapter(IBrowserProtocol):
                         if message.type in {"error", "warning"}:
                             log.warning("browser_console_message", type=message.type, text=message.text)
 
+                    def on_request(request: Any) -> None:
+                        if request.method in {"POST", "PUT", "PATCH"} and "qwen.ai" in request.url:
+                            log.info("browser_mutation_request", method=request.method, url=request.url)
+
                     def on_response(response: Any) -> None:
                         url = response.url.lower()
                         if response.status >= 400 and any(
                             token in url for token in ("chat", "completion", "generate", "conversation", "api")
                         ):
                             log.warning("browser_http_error", status=response.status, url=response.url)
+                        elif response.request.method in {"POST", "PUT", "PATCH"} and "qwen.ai" in url:
+                            log.info("browser_mutation_response", status=response.status, url=response.url)
 
+                    page.on("request", on_request)
                     page.on("requestfailed", on_request_failed)
                     page.on("console", on_console)
                     page.on("response", on_response)
