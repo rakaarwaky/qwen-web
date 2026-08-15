@@ -82,13 +82,7 @@ class InteractiveController:
 
     @safe_handle
     def run(self, cfg: AppConfig | None = None, *, prompt: bool = True) -> dict[str, object]:
-        """Present the TUI menu and execute the selected mode.
-
-        ``main`` supplies a previously selected configuration with
-        ``prompt=False`` so the interactive selection has exactly one owner.
-        The optional arguments preserve the controller's original public API
-        for callers that want menu selection and execution in one call.
-        """
+        """Present the Textual Obsidian Nebula TUI and execute interactions."""
         if prompt and not sys.stdin.isatty():
             return error_response(
                 RuntimeError("Interactive mode requires a TTY. Please provide CLI arguments."),
@@ -96,25 +90,15 @@ class InteractiveController:
                 "cli-400",
             )
 
-        selected = self.interactive_prompt() if prompt else cfg
-        if selected is None:
+        if prompt:
+            from modules.cli.src.surface_cli_tui_app import QwenTuiApp
+
+            app = QwenTuiApp(self._core)
+            app.run()
+            return success_response("TUI Session Closed.")
+
+        if cfg is None:
             return success_response("Exited.")
-        if selected.mode == "login":
-            valid, status = self._core.validate_session(session_path=selected.session_path)
 
-            def _do_login() -> None:
-                self._core.delete_session(session_path=selected.session_path)
-                result = self._core.setup_session(
-                    wait_for_confirmation=None,
-                    session_path=selected.session_path,
-                )
-                print(result)
-
-            def _do_back() -> None:
-                print("Kembali ke menu utama.")
-
-            run_session_setup(status, on_login=_do_login, on_back=_do_back)
-            return success_response("Kembali ke menu utama.")
-
-        result = self._core.process_mode(selected)
+        result = self._core.process_mode(cfg)
         return success_response(result)
