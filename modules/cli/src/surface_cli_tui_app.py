@@ -192,18 +192,49 @@ FilePickerModal {
 }
 
 #modal-container {
-    width: 70%;
-    height: 70%;
-    background: #0e1c2d;
-    border: solid #c0c1ff;
+    width: 80%;
+    height: 80%;
+    background: #010f1f;
+    border: double #c0c1ff;
     padding: 1 2;
 }
 
+#modal-title {
+    background: #051424;
+    color: #c0c1ff;
+    text-style: bold;
+    padding: 0 1;
+    border-bottom: solid #464554;
+    height: 3;
+    width: 100%;
+}
+
 #modal-tree {
+    width: 100%;
     height: 1fr;
     background: #051424;
     border: solid #464554;
     margin: 1 0;
+    color: #d5e4fa;
+}
+
+#modal-btn-row {
+    height: 3;
+    width: 100%;
+    align: right middle;
+    margin-top: 1;
+}
+
+#btn-cancel-modal {
+    width: 16;
+    background: #1d2b3c;
+    color: #c0c1ff;
+    border: solid #464554;
+}
+
+#btn-cancel-modal:hover {
+    background: #EF4444;
+    color: #ffffff;
 }
 """
 
@@ -211,16 +242,18 @@ FilePickerModal {
 class FilePickerModal(ModalScreen[str | None]):
     """Modal screen for visual file picking using DirectoryTree."""
 
+    BINDINGS = [Binding("escape", "dismiss_modal", "Cancel")]
+
     def __init__(self, start_path: Path | None = None) -> None:
         super().__init__()
         self._start_path = start_path or Path.cwd()
 
     def compose(self) -> ComposeResult:
         with Vertical(id="modal-container"):
-            yield Label("[ SELECT FILE ]", classes="field-label")
+            yield Label("[ SELECT FILE — Navigate with arrows, press Enter on file to select ]", id="modal-title")
             yield DirectoryTree(str(self._start_path), id="modal-tree")
-            with Horizontal():
-                yield Button("Cancel", id="btn-cancel-modal", classes="btn-browse")
+            with Horizontal(id="modal-btn-row"):
+                yield Button("Cancel (Esc)", id="btn-cancel-modal")
 
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
         self.dismiss(str(event.path))
@@ -228,6 +261,9 @@ class FilePickerModal(ModalScreen[str | None]):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-cancel-modal":
             self.dismiss(None)
+
+    def action_dismiss_modal(self) -> None:
+        self.dismiss(None)
 
 
 class QwenTuiLogHandler(logging.Handler):
