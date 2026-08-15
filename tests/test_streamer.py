@@ -18,6 +18,7 @@ from modules.shared.src import (
     LifecycleEmitter,
     OutputValidationError,
 )
+from modules.shared.src.taxonomy_core_constant import JS_GET_RESPONSE_TEXT
 
 # ─── validate_response_content ──────────────────────────────────────────────
 
@@ -267,6 +268,14 @@ class TestWaitForResponseEdgeCases:
                 stability_checks=2,
             )
             assert result == stable_text
+
+
+class TestResponseExtractionContract:
+    def test_js_extraction_excludes_page_shell_fallback(self):
+        assert ".response-message-content" in JS_GET_RESPONSE_TEXT
+        assert ".qwen-markdown-text" in JS_GET_RESPONSE_TEXT
+        assert "document.querySelectorAll('div, p, pre, section, article, main')" not in JS_GET_RESPONSE_TEXT
+        assert "qwen-chat-message-assistant" not in JS_GET_RESPONSE_TEXT
 
 
 class TestPreSendBaseline:
