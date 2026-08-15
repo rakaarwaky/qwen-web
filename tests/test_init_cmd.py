@@ -30,15 +30,14 @@ class TestQwcInit(unittest.TestCase):
             self.assertTrue(dot_qwen.exists())
 
             log_link = dot_qwen / "log"
-            input_link = dot_qwen / "input"
             output_link = dot_qwen / "output"
+            session_link = dot_qwen / "qwen_session"
 
             self.assertTrue(log_link.is_symlink())
-            self.assertTrue(input_link.is_symlink())
             self.assertTrue(output_link.is_symlink())
+            self.assertTrue(session_link.is_symlink())
 
             self.assertEqual(log_link.resolve(), DEFAULT_LOG.resolve())
-            self.assertEqual(input_link.resolve(), DEFAULT_TODO.resolve())
             self.assertEqual(output_link.resolve(), DEFAULT_OUTPUT.resolve())
 
             # 3. Verify .gitignore

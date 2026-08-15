@@ -223,6 +223,8 @@ class AppConfig:
     timeout: int = 300
     headless: bool = False
     prompt_file: Path | None = None
+    prompt_path: Path | None = None
+    file_path: Path | None = None
 
     chrome_profile: str = "qwen-cli-profile"
     storage_state_file: Path | None = None

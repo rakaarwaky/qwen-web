@@ -40,7 +40,6 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
         target_path = Path(str(target_dir)).resolve()
 
         # 1. Ensure XDG directories exist
-        ensure_dir(DEFAULT_TODO)
         ensure_dir(DEFAULT_OUTPUT)
         ensure_dir(DEFAULT_LOG)
 
@@ -70,7 +69,6 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
 
         links: dict[str, Any] = {
             "log": DEFAULT_LOG,
-            "input": DEFAULT_TODO,
             "output": DEFAULT_OUTPUT,
             "qwen_session": DEFAULT_SESSION,
         }

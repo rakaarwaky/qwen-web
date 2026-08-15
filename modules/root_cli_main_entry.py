@@ -45,8 +45,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Initialize workspace with .agents/skills and .qwen-web symlinks",
     )
-    p.add_argument("-i", "--input", default=str(DEFAULT_TODO))
-    p.add_argument("-o", "--output", default=str(DEFAULT_OUTPUT))
+    p.add_argument("--prompt", "-p", dest="prompt", default=None, help="Path to prompt markdown/text file")
+    p.add_argument("--file", "-f", dest="file", default=None, help="Path to attachment file to upload")
+    p.add_argument("-i", "--input", default=None, help="Legacy input file/directory path")
+    p.add_argument("-o", "--output", default=None, help="Output destination file or directory (default: cwd)")
     p.add_argument("-d", "--done-dir", default=str(DEFAULT_DONE))
     p.add_argument("--failed-dir", default=str(DEFAULT_FAILED))
     p.add_argument("--proc-dir", default=str(DEFAULT_PROC))
@@ -74,33 +76,61 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def _build_config(args: argparse.Namespace) -> AppConfig:
-    """Build and validate AppConfig using the documented mode precedence.
+    """Build and validate AppConfig using explicit CLI precedence.
 
-    The mode precedence is explicit: ``login > init > watch > is_dir()``.
-    ``init`` is dispatched as a command by :func:`main`, so this function
-    resolves the remaining execution modes and validates their input path.
+    Direct single-file mode (`--prompt` and optional `--file`) processes in-place
+    without queue moves. Output defaults to current working directory.
     """
     login = bool(getattr(args, "login", False))
     watch = bool(getattr(args, "watch", False))
-    input_path = Path(getattr(args, "input", str(DEFAULT_TODO)))
+    prompt_arg = getattr(args, "prompt", None)
+    file_arg = getattr(args, "file", None)
+    input_arg = getattr(args, "input", None)
+    output_arg = getattr(args, "output", None)
+
+    prompt_p = Path(prompt_arg).resolve() if isinstance(prompt_arg, (str, Path)) else None
+    file_p = Path(file_arg).resolve() if isinstance(file_arg, (str, Path)) else None
+
+    if prompt_p and not prompt_p.exists():
+        raise ValueError(f"Prompt file not found: {prompt_arg}")
+    if file_p and not file_p.exists():
+        raise ValueError(f"Attachment file not found: {file_arg}")
 
     if login:
         mode_val = "login"
+        input_path = prompt_p or Path(input_arg or DEFAULT_TODO)
+    elif prompt_p:
+        mode_val = "single"
+        input_path = prompt_p
     elif watch:
+        input_path = Path(input_arg or DEFAULT_TODO)
         if not input_path.is_dir():
             raise ValueError(f"Watcher input path must be an existing directory: {input_path}")
         mode_val = "watcher"
-    elif input_path.is_dir():
-        mode_val = "batch"
-    elif input_path.is_file():
-        mode_val = "single"
+    elif input_arg:
+        input_path = Path(input_arg)
+        if input_path.is_dir():
+            mode_val = "batch"
+        elif input_path.is_file():
+            mode_val = "single"
+        else:
+            raise ValueError(f"Input path must be an existing file or directory: {input_path}")
     else:
-        raise ValueError(f"Input path must be an existing file or directory: {input_path}")
+        input_path = DEFAULT_TODO
+        mode_val = "batch"
+
+    # Default output path to cwd when output is unspecified
+    if output_arg:
+        out_p = Path(output_arg)
+    elif prompt_p:
+        out_p = Path.cwd() / f"{prompt_p.stem}_output.md"
+    else:
+        out_p = Path.cwd()
 
     return AppConfig(
         mode=mode_val,
         input_path=input_path,
-        output_path=Path(getattr(args, "output", str(DEFAULT_OUTPUT))),
+        output_path=out_p,
         done_path=Path(getattr(args, "done_dir", str(DEFAULT_DONE))),
         failed_path=Path(getattr(args, "failed_dir", str(DEFAULT_FAILED))),
         proc_path=Path(getattr(args, "proc_dir", str(DEFAULT_PROC))),
@@ -109,6 +139,9 @@ def _build_config(args: argparse.Namespace) -> AppConfig:
         interval=getattr(args, "interval", 3),
         timeout=getattr(args, "timeout", 300),
         headless=False if login else bool(getattr(args, "headless", False)),
+        prompt_file=prompt_p,
+        prompt_path=prompt_p,
+        file_path=file_p,
         request_timeout=getattr(args, "request_timeout", 120),
         poll_interval=float(getattr(args, "poll_interval", 1.0)),
         streaming_timeout=getattr(args, "streaming_timeout", 180),

@@ -9,11 +9,9 @@ from __future__ import annotations
 
 import contextlib
 import os
-import signal
 import tempfile
-import threading
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from pathlib import Path
 
 from playwright.sync_api import Page
@@ -21,8 +19,6 @@ from playwright.sync_api import Page
 from modules.core.src.utility_core_config_factory import build_app_config
 from modules.core.src.utility_core_dom_query import latest_message_text
 from modules.core.src.utility_core_error_mapping import to_error_response
-from modules.core.src.utility_core_file_mover import move_file, move_to_processing
-from modules.core.src.utility_core_io_writer import ensure_dir
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.contract_core_protocol import (
     IAuditProtocol,
@@ -37,7 +33,6 @@ from modules.shared.src.contract_core_protocol import (
 from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
-    _WATCHER_SLEEP_CHUNK_SECS,
     CHAT_URL,
     DEFAULT_OUTPUT,
     DEFAULT_TODO,
@@ -73,45 +68,13 @@ from modules.shared.src.taxonomy_core_vo import (
     MessageCount,
     OutputChars,
     PollIntervalSec,
-    ProcessingOutcome,
-    ProcessingStatus,
     PromptText,
     ResponseText,
     RunContext,
     TimeoutSec,
     WindowSec,
 )
-from modules.shared.src.utility_core_path import (
-    cleanup_empty_dirs,
-    resolve_role_paths,
-    should_process_file,
-)
 from modules.shared.src.utility_core_prompt import load_role_prompt, strip_input_from_output
-
-_watcher_shutdown: threading.Event = threading.Event()
-
-
-def request_watcher_shutdown() -> None:
-    """Signal watcher loop to shutdown gracefully."""
-    _watcher_shutdown.set()
-
-
-def is_watcher_shutdown_set() -> bool:
-    """Return True if watcher shutdown has been requested."""
-    return _watcher_shutdown.is_set()
-
-
-def _watcher_sleep(interval: int) -> None:
-    """Sleep in small chunks so shutdown remains responsive (module-level shim).
-
-    Delegates to the same logic used by CoreOrchestrator._watcher_sleep.
-    Kept for backward compatibility with callers that import this function
-    directly from the module.
-    """
-    for _ in range(max(1, interval)):
-        if _watcher_shutdown.is_set():
-            return
-        time.sleep(min(_WATCHER_SLEEP_CHUNK_SECS, interval))
 
 
 class CoreOrchestrator(ICoreAggregate):
@@ -169,105 +132,45 @@ class CoreOrchestrator(ICoreAggregate):
         output_dir: Path | str | None = None,
         headless: bool = True,
     ) -> ResponseText:
-        """Process all prompt files inside an input directory."""
-        cfg = build_app_config(
-            mode="batch",
-            input_path=Path(input_dir).resolve() if input_dir else DEFAULT_TODO,
-            output_path=Path(output_dir).resolve() if output_dir else DEFAULT_OUTPUT,
-            headless=headless,
-        )
-        return self._process_batch_with_config(cfg)
+        """Process batch files (delegates to single file processing)."""
+        in_p = Path(input_dir).resolve() if input_dir else DEFAULT_TODO
+        return self.process_single_file(in_p, output_file=output_dir, headless=headless)
 
     def process_watcher(self, interval_sec: int = 3, headless: bool = True) -> ResponseText:
-        """Run the continuous folder watcher."""
-        cfg = build_app_config(
-            mode="watcher",
-            input_path=DEFAULT_TODO,
-            output_path=DEFAULT_OUTPUT,
-            interval=interval_sec,
-            headless=headless,
-        )
-        return self._process_watcher_with_config(cfg)
+        """Watcher mode stub (watcher has been simplified/deprecated)."""
+        return ResponseText("Watcher mode has been removed. Use `qwen-web-cli --prompt <path>` instead.")
 
     def process_mode(self, cfg: AppConfig) -> ResponseText:
-        """Dispatch an already-built AppConfig without reconstructing it."""
-        if cfg.mode == "watcher":
-            return self._process_watcher_with_config(cfg)
-        if cfg.mode == "single":
-            return self._process_single_with_config(cfg)
-        return self._process_batch_with_config(cfg)
+        """Dispatch execution for the given AppConfig."""
+        return self._process_single_with_config(cfg)
 
     def _process_single_with_config(self, cfg: AppConfig) -> ResponseText:
-        """Acquire, process, and report one file using the exact supplied config."""
-        if not cfg.input_path.exists():
-            raise FileNotFoundError(f"Input file not found: {cfg.input_path}")
+        """Process a prompt file and optional attachment directly in-place."""
+        prompt_file = cfg.prompt_path or cfg.input_path
+        if not prompt_file.exists():
+            raise FileNotFoundError(f"Input file not found: {prompt_file}")
         self._apply_runtime_config(cfg)
         ctx = RunContext()
 
         def _fn() -> ResponseText:
             with self._browser.browser_session(cfg):
-                try:
-                    proc_file, rel_path = next(iter(self._iter_todo(cfg)))
-                except StopIteration:
-                    return ResponseText(f"ERROR [NO_INPUT_FILE]: No processable input file found at {cfg.input_path}")
-                outcome = self._process_file(proc_file, rel_path, cfg, ctx)
-            if outcome.status is ProcessingStatus.FAILED:
-                return ResponseText(f"ERROR [PROCESSING_FAILED]: {outcome.error}")
-            return ResponseText(f"Successfully processed {rel_path.name} -> {cfg.output_path}")
-
-        return self._execute(_fn)
-
-    def _process_batch_with_config(self, cfg: AppConfig) -> ResponseText:
-        """Process a batch while counting each terminal outcome exactly once."""
-        self._apply_runtime_config(cfg)
-        ctx = RunContext()
-        processed = 0
-        failed = 0
-
-        def _fn() -> ResponseText:
-            nonlocal processed, failed
-            with self._browser.browser_session(cfg):
-                for proc_file, rel_path in self._iter_todo(cfg):
-                    try:
-                        outcome = self._process_file(proc_file, rel_path, cfg, ctx)
-                        if outcome.status is ProcessingStatus.SUCCESS:
-                            processed += 1
-                        else:
-                            failed += 1
-                    except AuthRequiredError:
-                        raise
-                    except Exception as exc:  # preserve per-file isolation for acquisition/runtime failures
-                        failed += 1
-                        self._observability.get_logger().error("batch_file_failed", file=str(rel_path), error=str(exc))
-            return ResponseText(f"Batch processing complete. Successfully processed: {processed}, Failed: {failed}")
-
-        return self._execute(_fn)
-
-    def _process_watcher_with_config(self, cfg: AppConfig) -> ResponseText:
-        """Run the continuous folder watcher with the supplied AppConfig."""
-        self._apply_runtime_config(cfg)
-        ctx = RunContext()
-
-        def _fn() -> ResponseText:
-            processed = 0
-            failed = 0
-            with self._browser.browser_session(cfg):
-                for proc_file, rel_path in self._iter_todo(cfg):
-                    try:
-                        outcome = self._process_file(proc_file, rel_path, cfg, ctx)
-                        if outcome.status is ProcessingStatus.SUCCESS:
-                            processed += 1
-                        else:
-                            failed += 1
-                    except AuthRequiredError:
-                        raise
-                    except Exception as exc:
-                        failed += 1
-                        self._observability.get_logger().error(
-                            "watcher_file_failed", file=str(rel_path), error=str(exc)
-                        )
-                    _watcher_sleep(cfg.interval)
-            return ResponseText(f"Watcher loop completed. Successfully processed: {processed}, Failed: {failed}")
+                t0 = time.time()
+                text = self._send_file(prompt_file, cfg.request_timeout, cfg.prompt_file, None, cfg)
+                dur = time.time() - t0
+                prompt_len = prompt_file.stat().st_size if prompt_file.exists() else 0
+                out_path = cfg.output_path
+                if out_path.is_dir():
+                    out_path = out_path / f"{prompt_file.stem}_output.md"
+                self._saver.write_output(
+                    out_path,
+                    ResponseText(text),
+                    ctx,
+                    FilePath(str(prompt_file)),
+                    dur,
+                    prompt_len,
+                    OutputChars(len(text)),
+                )
+                return ResponseText(f"Successfully processed {prompt_file.name} -> {out_path}")
 
         return self._execute(_fn)
 
@@ -487,28 +390,33 @@ class CoreOrchestrator(ICoreAggregate):
         msg_count_before = self._sender.count_messages(page)
 
         self._injector.find_input(page)
-        if active_cfg.inline_prompt:
-            file_size = filepath.stat().st_size
-            emitter.emit(
-                EVENT_FILE_UPLOADED,
-                {"file": str(filepath), "byte_count": file_size, "transport": "inline_text"},
-            )
-            emitter.emit(
-                EVENT_DOCUMENT_PARSED,
-                {"file": str(filepath), "byte_count": file_size, "transport": "inline_text"},
-            )
-        else:
-            attached = self._uploader.upload_attachment(
-                page, filepath, emitter=emitter, web_loaded=HeadlessFlag(state.web_loaded)
-            )
-            if not attached or not state.file_uploaded:
-                upload_error = getattr(self._uploader, "last_error", None)
-                detail = f": {upload_error}" if upload_error else ""
-                logger.error("File upload could not be positively verified: %s%s", filepath.name, detail)
-                raise UploadFailureError(
-                    f"Attachment upload failed or was not verified for {filepath.name}{detail}; "
-                    "EVENT_FILE_UPLOADED was not emitted"
+        upload_target = active_cfg.file_path
+        if upload_target is not None and upload_target.exists():
+            if active_cfg.inline_prompt:
+                file_size = upload_target.stat().st_size
+                emitter.emit(
+                    EVENT_FILE_UPLOADED,
+                    {"file": str(upload_target), "byte_count": file_size, "transport": "inline_text"},
                 )
+                emitter.emit(
+                    EVENT_DOCUMENT_PARSED,
+                    {"file": str(upload_target), "byte_count": file_size, "transport": "inline_text"},
+                )
+            else:
+                attached = self._uploader.upload_attachment(
+                    page, upload_target, emitter=emitter, web_loaded=HeadlessFlag(state.web_loaded)
+                )
+                if not attached or not state.file_uploaded:
+                    upload_error = getattr(self._uploader, "last_error", None)
+                    detail = f": {upload_error}" if upload_error else ""
+                    logger.error("File upload could not be positively verified: %s%s", upload_target.name, detail)
+                    raise UploadFailureError(
+                        f"Attachment upload failed or was not verified for {upload_target.name}{detail}; "
+                        "EVENT_FILE_UPLOADED was not emitted"
+                    )
+        else:
+            state.mark(EVENT_FILE_UPLOADED)
+            state.mark(EVENT_DOCUMENT_PARSED)
 
         
         try:
@@ -593,225 +501,3 @@ class CoreOrchestrator(ICoreAggregate):
 
     def _emitter(self) -> LifecycleEmitter:
         return LifecycleEmitter(self._observability.get_logger())
-
-    def _process_file(
-        self,
-        proc_file: Path,
-        rel_path: Path,
-        cfg: AppConfig,
-        ctx: RunContext,
-    ) -> ProcessingOutcome:
-        """Process one file and return its terminal success or quarantine outcome."""
-        out_path, done_path, fail_path, _ = resolve_role_paths(rel_path, cfg)
-
-        if self._cb.is_tripped:
-            raise CircuitBreakerOpenError(
-                f"Circuit breaker tripped ({cfg.circuit_breaker_threshold} consecutive failures in "
-                f"{cfg.circuit_breaker_window}s). Aborting {rel_path}"
-            )
-
-        prompt = proc_file.read_text(encoding="utf-8").strip()
-        log = self._observability.get_logger()
-        log.info("processing_file", file=str(rel_path), chars=len(prompt))
-        t0 = time.time()
-        self._audit.log_step(ctx, "START_PROCESSING", FilePath(str(rel_path)), "STARTED", {"input_chars": len(prompt)})
-
-        try:
-            self._execute_single_attempt(proc_file, rel_path, cfg, ctx, t0, prompt, out_path, done_path)
-            return ProcessingOutcome(ProcessingStatus.SUCCESS)
-        except AuthRequiredError:
-            raise
-        except Exception as exc:  # boundary: quarantine the file on any unexpected failure
-            return self._handle_processing_failure(proc_file, rel_path, cfg, ctx, t0, prompt, out_path, fail_path, exc)
-
-    def _execute_single_attempt(
-        self,
-        proc_file: Path,
-        rel_path: Path,
-        cfg: AppConfig,
-        ctx: RunContext,
-        t0: float,
-        prompt: str,
-        out_path: Path,
-        done_path: Path,
-    ) -> str:
-        """Execute a single attempt to process a file."""
-        self._rl.acquire()
-
-        role_prompt = load_role_prompt(proc_file, cfg.prompt_file, rel_path)
-        full_prompt = f"{role_prompt}\n\n{prompt}" if role_prompt else prompt
-
-        emitter = LifecycleEmitter(
-            self._observability.get_logger(), gate=LifecycleGate(self._observability.get_logger())
-        )
-        text = self._send_file(proc_file, cfg.request_timeout, cfg.prompt_file, rel_path, cfg, emitter=emitter)
-        dur = time.time() - t0
-
-        text = strip_input_from_output(text, full_prompt)
-
-        self._cb.record_success()
-        self._saver.write_output(
-            out_path, ResponseText(text), ctx, FilePath(str(rel_path)), dur, len(prompt), OutputChars(len(text))
-        )
-        try:
-            output_size = out_path.stat().st_size
-            if not out_path.is_file() or output_size <= 0:
-                raise OSError(f"Output artifact was not written successfully: {out_path}")
-            with out_path.open("rb") as output_file:
-                if not output_file.read(1):
-                    raise OSError(f"Output artifact is not readable or empty: {out_path}")
-        except OSError as exc:
-            raise OSError(f"Output artifact verification failed: {out_path}") from exc
-        if QwenEventType.GENERATION_FINISHED in emitter.completed:
-            emitter.emit(
-                EVENT_OUTPUT_COPIED,
-                {"file": str(out_path), "char_count": len(text), "file_size_bytes": output_size},
-            )
-        else:
-            self._observability.get_logger().warning(
-                "Output saved without lifecycle emission: EVENT_GENERATION_FINISHED was not accepted"
-            )
-        self._audit.log(
-            "SUCCESS", ctx, FilePath(str(rel_path)), FilePath(str(out_path)), dur, len(prompt), OutputChars(len(text))
-        )
-        self._audit.log_step(
-            ctx,
-            "PROCESS_SUCCESS",
-            FilePath(str(rel_path)),
-            "SUCCESS",
-            {"duration_sec": dur, "output_chars": len(text)},
-        )
-
-        if out_path.resolve() == done_path.resolve():
-            with contextlib.suppress(Exception):
-                proc_file.unlink()
-        else:
-            move_file(proc_file, done_path)
-
-        cleanup_empty_dirs(proc_file.parent, cfg.proc_path)
-        return text
-
-    def _handle_processing_failure(
-        self,
-        proc_file: Path,
-        rel_path: Path,
-        cfg: AppConfig,
-        ctx: RunContext,
-        t0: float,
-        prompt: str,
-        out_path: Path,
-        fail_path: Path,
-        exc: Exception,
-    ) -> ProcessingOutcome:
-        """Record failure metrics, update circuit breaker, and quarantine file."""
-        dur = time.time() - t0
-        self._cb.record_failure()
-
-        err_msg = f"{type(exc).__name__}: {exc}"
-        self._audit.log(
-            "FAILED",
-            ctx,
-            FilePath(str(rel_path)),
-            FilePath(str(out_path)),
-            dur,
-            len(prompt),
-            OutputChars(0),
-            err_msg,
-        )
-        self._audit.log_step(ctx, "QUARANTINED", FilePath(str(rel_path)), "FAILED", {"error": err_msg})
-
-        if out_path.resolve() != fail_path.resolve() and proc_file.exists():
-            move_file(proc_file, fail_path)
-        else:
-            with contextlib.suppress(Exception):
-                proc_file.unlink()
-
-        cleanup_empty_dirs(proc_file.parent, cfg.proc_path)
-        self._observability.get_logger().error("file_quarantined", fail_path=str(fail_path), error=str(exc))
-        return ProcessingOutcome(ProcessingStatus.FAILED, err_msg, fail_path)
-
-    def _iter_todo(self, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
-        """Yield (proc_file, relative_path) tuples for the processing queue."""
-        src = cfg.input_path if cfg.input_path.is_dir() else DEFAULT_TODO
-        ensure_dir(src)
-        ensure_dir(cfg.proc_path)
-
-        if cfg.retry_failed:
-            yield from self._iter_todo_retry_failed(cfg)
-            return
-        if cfg.mode == "single":
-            yield from self._iter_todo_single(cfg)
-            return
-        if cfg.mode == "batch":
-            yield from self._iter_todo_batch(src, cfg)
-            return
-        yield from self._iter_todo_watcher(src, cfg)
-
-    def _yield_and_move(self, src: Path, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
-        """Yield (proc_file, rel_path) after moving each file to processing dir.
-
-        Common logic shared by _iter_todo_retry_failed, _iter_todo_batch,
-        and _iter_todo_watcher.  Watcher mode callers should check shutdown
-        flags between yields.
-        """
-        for f in sorted(f for f in src.rglob("*") if should_process_file(f, src)):
-            rel_path = f.resolve().relative_to(src.resolve())
-            _, _, _, proc_dest = resolve_role_paths(rel_path, cfg)
-            try:
-                move_to_processing(f, proc_dest)
-                yield proc_dest, rel_path
-            except OSError:
-                continue
-
-    def _iter_todo_retry_failed(self, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
-        """Yield files for retry-failed mode."""
-        src = cfg.failed_path
-        if not src.exists() or not src.is_dir():
-            return
-        yield from self._yield_and_move(src, cfg)
-
-    def _iter_todo_single(self, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
-        """Yield file for single mode."""
-        if not cfg.input_path.exists():
-            raise FileNotFoundError(cfg.input_path)
-        try:
-            rel_path = cfg.input_path.resolve().relative_to(DEFAULT_TODO.resolve())
-        except ValueError:
-            abs_p = cfg.input_path.resolve()
-            parts = abs_p.parts
-            role_idx = next((i for i, part in enumerate(parts) if part.startswith("role-")), None)
-            rel_path = Path(*parts[role_idx:]) if role_idx is not None else Path(cfg.input_path.name)
-
-        _, _, _, proc_file = resolve_role_paths(rel_path, cfg)
-        move_to_processing(cfg.input_path, proc_file)
-        yield proc_file, rel_path
-
-    def _iter_todo_batch(self, src: Path, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
-        """Yield files for batch mode."""
-        yield from self._yield_and_move(src, cfg)
-
-    def _iter_todo_watcher(self, src: Path, cfg: AppConfig) -> Iterator[tuple[Path, Path]]:
-        """Yield files continuously in watcher mode."""
-        self._install_watcher_signal_handlers()
-        while True:
-            for proc_dest, rel_path in self._yield_and_move(src, cfg):
-                if _watcher_shutdown.is_set():
-                    return
-                yield proc_dest, rel_path
-            if _watcher_shutdown.is_set():
-                return
-            _watcher_sleep(cfg.interval)
-
-    def _install_watcher_signal_handlers(self) -> None:
-        """Register SIGINT/SIGTERM handlers that request watcher shutdown."""
-        log = self._observability.get_logger()
-
-        def _handle_signal(signum: int, _frame: object) -> None:
-            log.info("watcher_shutdown_requested", signal=signum)
-            _watcher_shutdown.set()
-
-        try:
-            signal.signal(signal.SIGINT, _handle_signal)
-            signal.signal(signal.SIGTERM, _handle_signal)
-        except (OSError, ValueError):
-            pass
