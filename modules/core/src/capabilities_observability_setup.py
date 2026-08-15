@@ -209,6 +209,8 @@ class ObservabilitySetup(IObservabilityProtocol):
         root = logging.getLogger()
         root.setLevel(logging.INFO)
         for handler in list(root.handlers):
+            if handler.__class__.__name__.endswith("LogHandler"):
+                continue
             root.removeHandler(handler)
         stderr_handler = logging.StreamHandler(sys.stderr)
         stderr_handler.setFormatter(formatter)

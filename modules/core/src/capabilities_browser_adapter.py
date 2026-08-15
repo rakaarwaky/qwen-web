@@ -250,6 +250,8 @@ class BrowserAdapter(IBrowserProtocol):
         chrome_args = [
             "--disable-blink-features=AutomationControlled",
             "--no-sandbox",
+            "--disable-session-crashed-bubble",
+            "--disable-infobars",
         ]
 
         if cfg.headless:

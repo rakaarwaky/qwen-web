@@ -137,24 +137,23 @@ class CoreOrchestrator(ICoreAggregate):
         ctx = RunContext()
 
         def _fn() -> ResponseText:
-            with self._browser.browser_session(cfg):
-                t0 = time.time()
-                text = self._send_file(prompt_file, cfg.request_timeout, cfg.prompt_file, None, cfg)
-                dur = time.time() - t0
-                prompt_len = prompt_file.stat().st_size if prompt_file.exists() else 0
-                out_path = cfg.output_path
-                if out_path.is_dir():
-                    out_path = out_path / f"{prompt_file.stem}_output.md"
-                self._saver.write_output(
-                    out_path,
-                    ResponseText(text),
-                    ctx,
-                    FilePath(str(prompt_file)),
-                    dur,
-                    prompt_len,
-                    OutputChars(len(text)),
-                )
-                return ResponseText(f"Successfully processed {prompt_file.name} -> {out_path}")
+            t0 = time.time()
+            text = self._send_file(prompt_file, cfg.request_timeout, cfg.prompt_file, None, cfg)
+            dur = time.time() - t0
+            prompt_len = prompt_file.stat().st_size if prompt_file.exists() else 0
+            out_path = cfg.output_path
+            if out_path.is_dir():
+                out_path = out_path / f"{prompt_file.stem}_output.md"
+            self._saver.write_output(
+                out_path,
+                ResponseText(text),
+                ctx,
+                FilePath(str(prompt_file)),
+                dur,
+                prompt_len,
+                OutputChars(len(text)),
+            )
+            return ResponseText(f"Successfully processed {prompt_file.name} -> {out_path}")
 
         return self._execute(_fn)
 
@@ -181,8 +180,7 @@ class CoreOrchestrator(ICoreAggregate):
                 output_path=DEFAULT_OUTPUT,
                 headless=headless,
             )
-            with self._browser.browser_session(cfg):
-                return ResponseText(self._send_file(Path(tmp_path), timeout_sec, None, None, cfg))
+            return ResponseText(self._send_file(Path(tmp_path), timeout_sec, None, None, cfg))
 
         def _cleanup() -> None:
             p = Path(tmp_path)

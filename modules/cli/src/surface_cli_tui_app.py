@@ -437,6 +437,7 @@ class QwenTuiApp(App[None]):
 
     @work(thread=True)
     def _execute_worker(self, cfg: AppConfig) -> None:
+        self._ensure_log_handler()
         self.call_from_thread(self._update_status, "STATUS: RUNNING")
         prompt_name = cfg.prompt_path.name if cfg.prompt_path else cfg.input_path.name
         self.call_from_thread(self._log_msg, f"[bold #c0c1ff]>>> Starting automation for: {prompt_name}[/]")
@@ -458,11 +459,17 @@ class QwenTuiApp(App[None]):
 
     @work(thread=True)
     def _login_worker(self) -> None:
+        self._ensure_log_handler()
         try:
             res = self._core.setup_session()
             self.call_from_thread(self._log_msg, f"[bold #10B981]LOGIN RESULT:[/] {res}")
         except Exception as exc:
             self.call_from_thread(self._log_msg, f"[bold #EF4444]LOGIN FAILED:[/] {exc}")
+
+    def _ensure_log_handler(self) -> None:
+        root = logging.getLogger()
+        if hasattr(self, "_log_handler") and not any(isinstance(h, QwenTuiLogHandler) for h in root.handlers):
+            root.addHandler(self._log_handler)
 
     def action_init_action(self) -> None:
         try:
