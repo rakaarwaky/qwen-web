@@ -19,7 +19,6 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_LOG,
     DEFAULT_OUTPUT,
     DEFAULT_SESSION,
-    DEFAULT_TODO,
     XDG_SKILL_MD,
 )
 from modules.shared.src.taxonomy_core_vo import FilePath

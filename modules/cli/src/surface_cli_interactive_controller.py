@@ -9,7 +9,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from modules.cli.src.surface_cli_session_setup import run_session_setup
 from modules.core.src.utility_core_config_factory import build_app_config
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.taxonomy_config_vo import AppConfig

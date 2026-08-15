@@ -25,6 +25,7 @@ from textual.widgets import (
     Switch,
 )
 
+from modules.core.src.utility_core_config_factory import build_app_config
 from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import DEFAULT_OUTPUT
@@ -145,14 +146,6 @@ Switch {
 
 Switch.-on {
     background: #8083ff;
-}
-
-.timeout-input {
-    width: 12;
-    background: #051424;
-    border: solid #464554;
-    color: #d5e4fa;
-    text-align: right;
 }
 
 #btn-run {
@@ -294,16 +287,6 @@ class QwenTuiApp(App[None]):
                         yield Label("Run automation in background without browser UI", classes="toggle-subtext")
                     yield Switch(value=True, id="switch-headless")
 
-                with Horizontal(classes="toggle-row"):
-                    with Vertical(classes="toggle-label-box"):
-                        yield Label("Inline Prompt Only", classes="field-label")
-                        yield Label("Inject file text directly instead of uploading", classes="toggle-subtext")
-                    yield Switch(value=False, id="switch-inline")
-
-                with Horizontal(classes="toggle-row"):
-                    yield Label("Timeout (seconds)", classes="field-label")
-                    yield Input(value="120", id="input-timeout", classes="timeout-input")
-
                 yield Button("⚡ RUN AUTOMATION [Enter]", variant="primary", id="btn-run")
 
             # ─── Right Pane: Log Monitor ────────────────────────
@@ -362,13 +345,8 @@ class QwenTuiApp(App[None]):
         out_path = Path(out_val).resolve() if out_val else DEFAULT_OUTPUT
 
         headless_val = self.query_one("#switch-headless", Switch).value
-        inline_val = self.query_one("#switch-inline", Switch).value
-        try:
-            timeout_val = int(self.query_one("#input-timeout", Input).value.strip() or "120")
-        except ValueError:
-            timeout_val = 120
 
-        cfg = AppConfig(
+        cfg = build_app_config(
             mode="single",
             input_path=p_path,
             output_path=out_path,
@@ -376,8 +354,7 @@ class QwenTuiApp(App[None]):
             prompt_path=p_path,
             file_path=f_path,
             headless=headless_val,
-            inline_prompt=inline_val,
-            request_timeout=timeout_val,
+            request_timeout=120,
         )
 
         self._execute_worker(cfg)
@@ -386,7 +363,8 @@ class QwenTuiApp(App[None]):
     def _execute_worker(self, cfg: AppConfig) -> None:
         badge = self.query_one("#status-badge", Label)
         badge.update("STATUS: RUNNING")
-        self._log_msg(f"[bold #c0c1ff]>>> Starting automation for: {cfg.prompt_path.name}[/]")  # type: ignore[union-attr]
+        prompt_name = cfg.prompt_path.name if cfg.prompt_path else cfg.input_path.name
+        self._log_msg(f"[bold #c0c1ff]>>> Starting automation for: {prompt_name}[/]")
         if cfg.file_path:
             self._log_msg(f"[#b9c8dd]    Attaching: {cfg.file_path.name}[/]")
         self._log_msg(f"[#908fa0]    Headless: {cfg.headless} | Timeout: {cfg.request_timeout}s[/]")

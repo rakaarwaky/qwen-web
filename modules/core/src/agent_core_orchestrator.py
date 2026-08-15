@@ -46,7 +46,6 @@ from modules.shared.src.taxonomy_core_entity import (
 )
 from modules.shared.src.taxonomy_core_error import (
     AuthRequiredError,
-    CircuitBreakerOpenError,
     QwenCliError,
     ResponseDetectionTimeoutError,
     UploadFailureError,
@@ -54,7 +53,6 @@ from modules.shared.src.taxonomy_core_error import (
 from modules.shared.src.taxonomy_core_event import (
     EVENT_DOCUMENT_PARSED,
     EVENT_FILE_UPLOADED,
-    EVENT_OUTPUT_COPIED,
     EVENT_PROMPT_INJECTED,
     PIPELINE_EVENT_SEQUENCE,
     LifecycleEvent,
@@ -74,7 +72,7 @@ from modules.shared.src.taxonomy_core_vo import (
     TimeoutSec,
     WindowSec,
 )
-from modules.shared.src.utility_core_prompt import load_role_prompt, strip_input_from_output
+from modules.shared.src.utility_core_prompt import load_role_prompt
 
 
 class CoreOrchestrator(ICoreAggregate):
