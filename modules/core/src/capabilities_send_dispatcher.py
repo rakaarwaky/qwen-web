@@ -80,7 +80,10 @@ class SendDispatcher(ISendProtocol):
 
     def _wait_for_dispatch_ack(self, page: Page, baseline_count: int) -> bool:
         """Verify that the click produced a new user turn or reset the composer."""
+        from modules.core.src.utility_core_dom_query import latest_message_text as _latest_message_text
+
         deadline = time.monotonic() + (self.click_timeout_ms / 1000)
+        baseline_text = _latest_message_text(page)
         while time.monotonic() < deadline:
             try:
                 if int(count_messages(page)) > baseline_count:
@@ -95,6 +98,9 @@ class SendDispatcher(ISendProtocol):
                         return True
                 disabled_count = cast(Any, page.locator(SEND_DISABLED_SELECTORS).count())
                 if isinstance(disabled_count, int) and disabled_count > 0:
+                    return True
+                current_text = _latest_message_text(page)
+                if current_text != baseline_text and current_text is not None:
                     return True
             except (Error, TimeoutError):
                 pass

@@ -105,9 +105,14 @@ class FileUploader(IUploadProtocol):
                         attempt,
                         filepath.name,
                     )
+                    self._wait_for_parse_ready(page, filepath)
                     if emitter:
                         emitter.emit(
                             EVENT_FILE_UPLOADED,
+                            {"file": str(filepath), "byte_count": int(size_bytes), "attempt": attempt},
+                        )
+                        emitter.emit(
+                            EVENT_DOCUMENT_PARSED,
                             {"file": str(filepath), "byte_count": int(size_bytes), "attempt": attempt},
                         )
                     return True

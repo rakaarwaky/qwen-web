@@ -493,6 +493,10 @@ class CoreOrchestrator(ICoreAggregate):
                 EVENT_FILE_UPLOADED,
                 {"file": str(filepath), "byte_count": file_size, "transport": "inline_text"},
             )
+            emitter.emit(
+                EVENT_DOCUMENT_PARSED,
+                {"file": str(filepath), "byte_count": file_size, "transport": "inline_text"},
+            )
         else:
             attached = self._uploader.upload_attachment(
                 page, filepath, emitter=emitter, web_loaded=HeadlessFlag(state.web_loaded)
@@ -506,17 +510,7 @@ class CoreOrchestrator(ICoreAggregate):
                     "EVENT_FILE_UPLOADED was not emitted"
                 )
 
-        emitter.emit(
-            EVENT_DOCUMENT_PARSED,
-            {"file": str(filepath), "file_size_bytes": filepath.stat().st_size, "transport": "inline_text"}
-            if active_cfg.inline_prompt
-            else {"file": str(filepath), "file_size_bytes": filepath.stat().st_size},
-        )
-        if not state.document_parsed:
-            raise RuntimeError(
-                "Cannot inject prompt: document attachment parsing (EVENT_DOCUMENT_PARSED) is incomplete"
-            )
-
+        
         try:
             baseline_response = latest_message_text(page)
         except Exception:
