@@ -144,13 +144,17 @@ JS_COUNT_TURNS: str = """
 }
 """
 
-AUTH_KEYWORDS = ("login", "passport", "auth", "signin", "account", "sso")
+AUTH_KEYWORDS = ("login", "passport", "auth", "signin", "account", "sso", "guest")
 
 LOGIN_FORM_SELECTORS: tuple[str, ...] = (
     "input[type='password']",
     "input[name='password']",
     "button:has-text('Log in')",
+    "a:has-text('Log in')",
     "button:has-text('Sign in')",
+    "a:has-text('Sign in')",
+    "button:has-text('Sign up')",
+    "a:has-text('Sign up')",
     ".login-form",
     "[class*='login']",
     "[class*='passport']",

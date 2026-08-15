@@ -87,22 +87,23 @@ class SessionCheck:
 
 
 def _assert_on_chat_page(page: Page) -> None:
-    """Raise AuthRequiredError if the page is a login/auth page (URL + DOM triple-check)."""
+    """Raise AuthRequiredError if the page is a login/auth/guest page (URL + DOM check)."""
     current_url = page.url.lower()
 
     if any(k in current_url for k in AUTH_KEYWORDS):
         raise AuthRequiredError(
-            f"Not authenticated — browser is on login page ({page.url}). "
-            "Run 'qwen-web-cli --login' to save your session first."
+            f"Not authenticated — browser is on login or guest page ({page.url}). "
+            "Please run 'qwen-web-cli --login' or click Login in TUI to authenticate first."
+        )
+
+    combined_login = ", ".join(LOGIN_FORM_SELECTORS)
+    if is_any_visible(page, combined_login):
+        raise AuthRequiredError(
+            f"Not authenticated — login form/button detected on page ({page.url}). "
+            "Please run 'qwen-web-cli --login' or click Login in TUI to authenticate first."
         )
 
     if not page.query_selector(TEXTAREA_SELECTOR):
-        combined_login = ", ".join(LOGIN_FORM_SELECTORS)
-        if is_any_visible(page, combined_login):
-            raise AuthRequiredError(
-                f"Not authenticated — login form detected ({LOGIN_FORM_SELECTORS}). "
-                "Run 'qwen-web-cli --login' to save your session first."
-            )
         log.warning("chat_textarea_missing_but_no_login_form_detected", url=page.url)
 
 

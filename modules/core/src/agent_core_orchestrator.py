@@ -372,7 +372,7 @@ class CoreOrchestrator(ICoreAggregate):
         msg_count_before = self._sender.count_messages(page)
 
         self._injector.find_input(page)
-        upload_target = active_cfg.file_path
+        upload_target = active_cfg.file_path if active_cfg.file_path is not None else filepath
         if upload_target is not None and upload_target.exists():
             if active_cfg.inline_prompt:
                 file_size = upload_target.stat().st_size
@@ -397,8 +397,8 @@ class CoreOrchestrator(ICoreAggregate):
                         "EVENT_FILE_UPLOADED was not emitted"
                     )
         else:
-            state.mark(EVENT_FILE_UPLOADED)
-            state.mark(EVENT_DOCUMENT_PARSED)
+            emitter.emit(EVENT_FILE_UPLOADED, {"file": "none"})
+            emitter.emit(EVENT_DOCUMENT_PARSED, {"file": "none"})
 
         
         try:
