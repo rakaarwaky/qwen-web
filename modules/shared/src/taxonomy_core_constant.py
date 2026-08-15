@@ -19,26 +19,6 @@ BASE_DIR = Path(__file__).resolve().parents[3]
 
 STATUS_FILENAME: str = "status.json"
 
-# ─── Role path skip sets ──────────────────────────────────────
-SKIP_DIRS: frozenset[str] = frozenset(
-    {
-        "done",
-        "failed",
-        ".processing",
-        "proc",
-    }
-)
-
-ROLE_PATH_SKIP_DIRS: frozenset[str] = frozenset(
-    {
-        "todo",
-        "done",
-        "failed",
-        ".processing",
-        "proc",
-    }
-)
-
 # ─── Application paths ────────────────────────────────────────
 
 XDG_DATA_HOME = (
@@ -62,18 +42,17 @@ XDG_CONFIG_HOME = (
     else Path.home() / ".config/qwen-web"
 )
 
-DEFAULT_TODO = XDG_DATA_HOME / "input"
-DEFAULT_PROC = XDG_CACHE_HOME / ".processing"
-DEFAULT_DONE = XDG_DATA_HOME / "input" / "done"
-DEFAULT_FAILED = XDG_DATA_HOME / "input" / "failed"
 DEFAULT_OUTPUT = XDG_DATA_HOME / "output"
 DEFAULT_LOG = XDG_STATE_HOME / "log"
 DEFAULT_SESSION = XDG_DATA_HOME / "qwen_session"
+DEFAULT_TODO = XDG_DATA_HOME / "input"
+DEFAULT_DONE = XDG_DATA_HOME / "input" / "done"
+DEFAULT_FAILED = XDG_DATA_HOME / "input" / "failed"
+DEFAULT_PROC = XDG_CACHE_HOME / ".processing"
 XDG_SKILL_MD = XDG_DATA_HOME / "SKILL.md"
 CHAT_URL = "https://chat.qwen.ai/"
 
 MAX_ATTEMPTS = 3
-_WATCHER_SLEEP_CHUNK_SECS = 1
 
 SERVICE_NAME = "qwen-web"
 

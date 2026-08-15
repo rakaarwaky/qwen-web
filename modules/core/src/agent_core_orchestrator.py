@@ -126,20 +126,6 @@ class CoreOrchestrator(ICoreAggregate):
         )
         return self._process_single_with_config(cfg)
 
-    def process_batch(
-        self,
-        input_dir: Path | str | None = None,
-        output_dir: Path | str | None = None,
-        headless: bool = True,
-    ) -> ResponseText:
-        """Process batch files (delegates to single file processing)."""
-        in_p = Path(input_dir).resolve() if input_dir else DEFAULT_TODO
-        return self.process_single_file(in_p, output_file=output_dir, headless=headless)
-
-    def process_watcher(self, interval_sec: int = 3, headless: bool = True) -> ResponseText:
-        """Watcher mode stub (watcher has been simplified/deprecated)."""
-        return ResponseText("Watcher mode has been removed. Use `qwen-web-cli --prompt <path>` instead.")
-
     def process_mode(self, cfg: AppConfig) -> ResponseText:
         """Dispatch execution for the given AppConfig."""
         return self._process_single_with_config(cfg)

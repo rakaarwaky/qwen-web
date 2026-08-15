@@ -43,7 +43,6 @@ from .taxonomy_config_vo import (
 
 # ─── Taxonomy: constants ──────────────────────────────────────
 from .taxonomy_core_constant import (
-    _WATCHER_SLEEP_CHUNK_SECS,
     AUTH_KEYWORDS,
     BASE_DIR,
     CHALLENGE_KEYWORDS,
@@ -327,7 +326,6 @@ __all__ = [
     "DEFAULT_SESSION",
     "XDG_SKILL_MD",
     "MAX_ATTEMPTS",
-    "_WATCHER_SLEEP_CHUNK_SECS",
     "SD_NOTIFY_READY",
     "SD_NOTIFY_STOPPING",
     "SD_NOTIFY_RELOADING",

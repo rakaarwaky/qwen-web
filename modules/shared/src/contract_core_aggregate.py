@@ -36,25 +36,8 @@ class ICoreAggregate(ABC):
         """Process a single prompt file."""
 
     @abstractmethod
-    def process_batch(
-        self,
-        input_dir: Path | FilePath | None = None,
-        output_dir: Path | FilePath | None = None,
-        headless: bool = True,
-    ) -> ResponseText:
-        """Process a directory of prompt files."""
-
-    @abstractmethod
-    def process_watcher(
-        self,
-        interval_sec: TimeoutSec = TimeoutSec(3),
-        headless: bool = True,
-    ) -> ResponseText:
-        """Run the continuous folder watcher."""
-
-    @abstractmethod
     def process_mode(self, cfg: AppConfig) -> ResponseText:
-        """Dispatch processing based on AppConfig.mode (watcher/single/batch)."""
+        """Dispatch processing for the given configuration."""
 
     @abstractmethod
     def send_prompt(

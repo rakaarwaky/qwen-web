@@ -38,23 +38,6 @@ class McpToolCommand:
             FilePath(input_file), FilePath(output_file) if output_file else None, HeadlessFlag(headless)
         )
 
-    def process_batch(
-        self,
-        input_dir: str | None = None,
-        output_dir: str | None = None,
-        headless: bool = True,
-    ) -> ResponseText:
-        """Process all prompt files inside an input directory."""
-        return self._core.process_batch(
-            FilePath(input_dir) if input_dir else None,
-            FilePath(output_dir) if output_dir else None,
-            HeadlessFlag(headless),
-        )
-
-    def start_watcher(self, interval_sec: int = 3, headless: bool = True) -> ResponseText:
-        """Run the folder watcher loop."""
-        return self._core.process_watcher(TimeoutSec(interval_sec), HeadlessFlag(headless))
-
     def setup_session(self) -> ResponseText:
         """Launch a visible browser for manual login / session setup."""
         return self._core.setup_session()

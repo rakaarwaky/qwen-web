@@ -113,29 +113,6 @@ TOOLS: list[Tool] = [
         },
     ),
     Tool(
-        name="qwen_process_batch",
-        description="Process all prompt files inside an input directory (1:1 CLI Batch Mode).",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "input_dir": {"type": "string", "default": None},
-                "output_dir": {"type": "string", "default": None},
-                "headless": {"type": "boolean", "default": True},
-            },
-        },
-    ),
-    Tool(
-        name="qwen_start_watcher",
-        description="Run folder watcher loop to continuously monitor input/ for new files.",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "interval_sec": {"type": "integer", "default": 3},
-                "headless": {"type": "boolean", "default": True},
-            },
-        },
-    ),
-    Tool(
         name="qwen_setup_session",
         description="Launch visible browser on chat.qwen.ai for manual login / session setup.",
         input_schema={"type": "object", "properties": {}},
@@ -155,31 +132,14 @@ TOOL_HANDLERS: dict[str, Callable[..., Awaitable[Sequence[str]]]] = {
     tool.name: _async_tool(tool.name) for tool in TOOLS
 }
 
-
-# ─── Backward-compatible exports for tests ──────────────────────────────────
-# Tests import these directly from modules.root_mcp_main_entry
-
-# Legacy FastMCP app reference (for tests that check mcp instance)
-mcp = None  # MCP 2.0.0 uses Server, not FastMCP
-
-# Async tool functions for legacy test imports
+# Async tool functions for direct surface calls
 qwen_send_prompt = _async_tool("qwen_send_prompt")
 qwen_process_single = _async_tool("qwen_process_single")
-qwen_process_batch = _async_tool("qwen_process_batch")
-qwen_start_watcher = _async_tool("qwen_start_watcher")
 qwen_setup_session = _async_tool("qwen_setup_session")
 qwen_get_audit_log = _async_tool("qwen_get_audit_log")
 
+GENERATED_TOOLS = TOOL_HANDLERS
 
-# Legacy _tools() factory for mock patching
-def _tools() -> McpToolCommand:
-    """Legacy compatibility: return the MCP tool command instance."""
-    return _get_tools()
-
-
-GENERATED_TOOLS = TOOL_HANDLERS  # For backward-compat imports
-
-# ─── Legacy MCP_TOOL_SPECS for test compatibility ──────────────────────────
 MCP_TOOL_SPECS: list[dict[str, Any]] = [
     {
         "name": "qwen_send_prompt",
@@ -194,22 +154,6 @@ MCP_TOOL_SPECS: list[dict[str, Any]] = [
         "params": [("input_file", "str", True), ("output_file", "Any", False, None), ("headless", "bool", False, True)],
     },
     {
-        "name": "qwen_process_batch",
-        "method": "process_batch",
-        "doc": "Process all prompt files inside an input directory (1:1 CLI Batch Mode).",
-        "params": [
-            ("input_dir", "Any", False, None),
-            ("output_dir", "Any", False, None),
-            ("headless", "bool", False, True),
-        ],
-    },
-    {
-        "name": "qwen_start_watcher",
-        "method": "start_watcher",
-        "doc": "Run folder watcher loop to continuously monitor input/ for new files.",
-        "params": [("interval_sec", "int", False, 3), ("headless", "bool", False, True)],
-    },
-    {
         "name": "qwen_setup_session",
         "method": "setup_session",
         "doc": "Launch visible browser on chat.qwen.ai for manual login / session setup.",
@@ -222,22 +166,6 @@ MCP_TOOL_SPECS: list[dict[str, Any]] = [
         "params": [("limit", "int", False, 20)],
     },
 ]
-
-
-# ─── Legacy helpers for test compatibility ──────────────────────────────────
-def _get_mcp_app() -> Any:
-    """Legacy: raise ImportError since MCP 2.0.0 uses Server."""
-    raise ImportError("The 'mcp' Python package is required to run the MCP server. Install it via 'pip install mcp'.")
-
-
-def _register_tool(fn: Callable[..., Any]) -> Callable[..., Any]:
-    """Legacy: no-op for MCP 2.0.0 (tools are registered via Server callbacks)."""
-    return fn
-
-
-def _register_tools() -> None:
-    """Legacy: no-op for MCP 2.0.0."""
-    pass
 
 
 async def _handle_list_tools() -> ListToolsResult:

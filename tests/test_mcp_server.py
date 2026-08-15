@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from modules.root_mcp_main_entry import (
-    mcp,
     qwen_get_audit_log,
     qwen_process_single,
     qwen_send_prompt,
@@ -35,16 +34,11 @@ def _reset_event_loop():
 class TestMCPServerTools(unittest.TestCase):
     """Unit tests for MCP server tools."""
 
-    def test_mcp_instance_registered(self) -> None:
-        """Verify FastMCP app instance is initialized."""
-        if mcp is not None:
-            self.assertEqual(mcp.name, "Qwen-Web")
-
     def test_qwen_get_audit_log_missing(self) -> None:
         """Test qwen_get_audit_log when log file does not exist."""
         mock_tools = MagicMock()
         mock_tools.get_audit_log.return_value = "Audit log file does not exist yet."
-        with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
+        with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
             res = asyncio.run(qwen_get_audit_log())
             self.assertEqual(res, "Audit log file does not exist yet.")
 
@@ -53,7 +47,7 @@ class TestMCPServerTools(unittest.TestCase):
         records = json.dumps([{"run_id": "test1234", "status": "SUCCESS", "duration_sec": 1.2}])
         mock_tools = MagicMock()
         mock_tools.get_audit_log.return_value = records
-        with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
+        with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
             res = asyncio.run(qwen_get_audit_log(limit=5))
             data = json.loads(res)
             self.assertEqual(len(data), 1)
@@ -63,7 +57,7 @@ class TestMCPServerTools(unittest.TestCase):
         """Test qwen_send_prompt tool execution with mocked tools."""
         mock_tools = MagicMock()
         mock_tools.send_prompt.return_value = "Mocked AI Response"
-        with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
+        with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
             result = asyncio.run(qwen_send_prompt("Hello Qwen", timeout_sec=30, headless=True))
             self.assertEqual(result, "Mocked AI Response")
 
@@ -71,7 +65,7 @@ class TestMCPServerTools(unittest.TestCase):
         """Test qwen_process_single with valid file input."""
         mock_tools = MagicMock()
         mock_tools.process_single.return_value = "Successfully processed prompt.md"
-        with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
+        with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
             res = asyncio.run(qwen_process_single("/tmp/prompt.md", "/tmp/output.md"))
             self.assertIn("Successfully processed", res)
 
@@ -79,7 +73,7 @@ class TestMCPServerTools(unittest.TestCase):
         """Test qwen_setup_session manual login trigger."""
         mock_tools = MagicMock()
         mock_tools.setup_session.return_value = "Browser session saved to 'x'"
-        with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
+        with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
             res = asyncio.run(qwen_setup_session())
             self.assertIn("Browser session saved", res)
 
@@ -87,7 +81,7 @@ class TestMCPServerTools(unittest.TestCase):
         """Test qwen_send_prompt returns clear error string when AuthRequiredError is raised."""
         mock_tools = MagicMock()
         mock_tools.send_prompt.return_value = "ERROR [AUTH_REQUIRED]: No active login session found"
-        with patch("modules.root_mcp_main_entry._tools", return_value=mock_tools):
+        with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
             result = asyncio.run(qwen_send_prompt("Test prompt", timeout_sec=30, headless=True))
             self.assertIn("ERROR [AUTH_REQUIRED]", result)
             self.assertIn("No active login session found", result)

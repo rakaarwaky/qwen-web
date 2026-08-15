@@ -7,7 +7,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from modules.shared.src.taxonomy_config_vo import AppConfig
-from modules.shared.src.taxonomy_core_constant import ROLE_PATH_SKIP_DIRS, SKIP_DIRS
+
+SKIP_DIRS: frozenset[str] = frozenset({"done", "failed", ".processing", "proc"})
+ROLE_PATH_SKIP_DIRS: frozenset[str] = frozenset({"todo", "done", "failed", ".processing", "proc"})
 
 
 def _normalize_sub_parts(parts: tuple[str, ...], fallback_name: str) -> Path:
