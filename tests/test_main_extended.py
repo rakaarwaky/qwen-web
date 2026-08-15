@@ -300,3 +300,43 @@ class TestMain:
         ):
             result = main()
             assert result == 1
+
+
+class TestQwenTuiLogHandler:
+    def test_emit_info_and_error_levels(self):
+        import logging
+        from modules.cli.src.surface_cli_tui_app import QwenTuiApp, QwenTuiLogHandler
+
+        mock_app = MagicMock(spec=QwenTuiApp)
+        handler = QwenTuiLogHandler(mock_app)
+
+        info_rec = logging.LogRecord("test_logger", logging.INFO, "path/to/file", 10, "Test info message", (), None)
+        handler.emit(info_rec)
+        assert mock_app.call_from_thread.called
+        call_args = mock_app.call_from_thread.call_args[0]
+        assert "Test info message" in call_args[1]
+
+        mock_app.reset_mock()
+        err_rec = logging.LogRecord("test_logger", logging.ERROR, "path/to/file", 20, "Test error message", (), None)
+        handler.emit(err_rec)
+        assert mock_app.call_from_thread.called
+        call_args = mock_app.call_from_thread.call_args[0]
+        assert "Test error message" in call_args[1]
+        assert "ERROR" in call_args[1]
+
+    def test_on_mount_and_unmount_hooks_handler(self):
+        import logging
+        from modules.cli.src.surface_cli_tui_app import QwenTuiApp, QwenTuiLogHandler
+
+        app = QwenTuiApp(MagicMock())
+        with patch.object(app, "query_one") as mock_query:
+            mock_log = MagicMock()
+            mock_query.return_value = mock_log
+            app.on_mount()
+
+            root_logger = logging.getLogger()
+            assert any(isinstance(h, QwenTuiLogHandler) for h in root_logger.handlers)
+
+            app.on_unmount()
+            assert not any(isinstance(h, QwenTuiLogHandler) for h in root_logger.handlers)
+

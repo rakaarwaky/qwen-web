@@ -6,6 +6,7 @@ attachment selection, live logging, and session setup.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from textual import work
@@ -229,6 +230,36 @@ class FilePickerModal(ModalScreen[str | None]):
             self.dismiss(None)
 
 
+class QwenTuiLogHandler(logging.Handler):
+    """Logging handler streaming stdlib and structlog records to Textual RichLog in real-time."""
+
+    def __init__(self, app: QwenTuiApp) -> None:
+        super().__init__()
+        self._app = app
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            msg = record.getMessage()
+            name = record.name
+            lvl = record.levelname
+
+            if record.levelno >= logging.ERROR:
+                line = f"[bold #EF4444][{lvl}][{name}][/] [#EF4444]{msg}[/]"
+            elif record.levelno >= logging.WARNING:
+                line = f"[bold #F59E0B][{lvl}][{name}][/] [#F59E0B]{msg}[/]"
+            elif record.levelno >= logging.INFO:
+                line = f"[bold #3B82F6][{name}][/] [#d5e4fa]{msg}[/]"
+            else:
+                line = f"[#64748B][{name}][/] [#908fa0]{msg}[/]"
+
+            try:
+                self._app.call_from_thread(self._app._log_msg, line)
+            except RuntimeError:
+                pass
+        except Exception:
+            self.handleError(record)
+
+
 class QwenTuiApp(App[None]):
     """Obsidian Nebula Terminal User Interface for Qwen Web Automation."""
 
@@ -303,6 +334,15 @@ class QwenTuiApp(App[None]):
         log.write("[bold #c0c1ff]Qwen Web Automation CLI initialized.[/]")
         log.write("[#908fa0]Ready for prompt dispatch. Fill fields on the left and hit Enter.[/]\n")
 
+        self._log_handler = QwenTuiLogHandler(self)
+        self._log_handler.setLevel(logging.INFO)
+        root = logging.getLogger()
+        root.addHandler(self._log_handler)
+
+    def on_unmount(self) -> None:
+        if hasattr(self, "_log_handler"):
+            logging.getLogger().removeHandler(self._log_handler)
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id
         if button_id == "btn-run":
@@ -361,21 +401,20 @@ class QwenTuiApp(App[None]):
 
     @work(thread=True)
     def _execute_worker(self, cfg: AppConfig) -> None:
-        badge = self.query_one("#status-badge", Label)
-        badge.update("STATUS: RUNNING")
+        self.call_from_thread(self._update_status, "STATUS: RUNNING")
         prompt_name = cfg.prompt_path.name if cfg.prompt_path else cfg.input_path.name
-        self._log_msg(f"[bold #c0c1ff]>>> Starting automation for: {prompt_name}[/]")
+        self.call_from_thread(self._log_msg, f"[bold #c0c1ff]>>> Starting automation for: {prompt_name}[/]")
         if cfg.file_path:
-            self._log_msg(f"[#b9c8dd]    Attaching: {cfg.file_path.name}[/]")
-        self._log_msg(f"[#908fa0]    Headless: {cfg.headless} | Timeout: {cfg.request_timeout}s[/]")
+            self.call_from_thread(self._log_msg, f"[#b9c8dd]    Attaching: {cfg.file_path.name}[/]")
+        self.call_from_thread(self._log_msg, f"[#908fa0]    Headless: {cfg.headless} | Timeout: {cfg.request_timeout}s[/]")
 
         try:
             res = self._core.process_mode(cfg)
-            self._log_msg(f"[bold #10B981]SUCCESS:[/] {res}")
+            self.call_from_thread(self._log_msg, f"[bold #10B981]SUCCESS:[/] {res}")
         except Exception as exc:
-            self._log_msg(f"[bold #EF4444]FAILED:[/] {exc}")
+            self.call_from_thread(self._log_msg, f"[bold #EF4444]FAILED:[/] {exc}")
         finally:
-            badge.update("STATUS: READY")
+            self.call_from_thread(self._update_status, "STATUS: READY")
 
     def action_login_action(self) -> None:
         self._log_msg("[bold #c0c1ff]>>> Launching interactive session setup...[/]")
@@ -385,9 +424,9 @@ class QwenTuiApp(App[None]):
     def _login_worker(self) -> None:
         try:
             res = self._core.setup_session()
-            self._log_msg(f"[bold #10B981]LOGIN RESULT:[/] {res}")
+            self.call_from_thread(self._log_msg, f"[bold #10B981]LOGIN RESULT:[/] {res}")
         except Exception as exc:
-            self._log_msg(f"[bold #EF4444]LOGIN FAILED:[/] {exc}")
+            self.call_from_thread(self._log_msg, f"[bold #EF4444]LOGIN FAILED:[/] {exc}")
 
     def action_init_action(self) -> None:
         try:
@@ -402,6 +441,16 @@ class QwenTuiApp(App[None]):
         self.query_one("#input-output", Input).value = str(DEFAULT_OUTPUT)
         self._log_msg("[#908fa0]Form reset to defaults.[/]")
 
+    def _update_status(self, text: str) -> None:
+        try:
+            badge = self.query_one("#status-badge", Label)
+            badge.update(text)
+        except Exception:
+            pass
+
     def _log_msg(self, msg: str) -> None:
-        log = self.query_one("#log-view", RichLog)
-        log.write(msg)
+        try:
+            log = self.query_one("#log-view", RichLog)
+            log.write(msg)
+        except Exception:
+            pass
