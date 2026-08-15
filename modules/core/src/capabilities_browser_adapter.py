@@ -253,9 +253,6 @@ class BrowserAdapter(IBrowserProtocol):
             "user_data_dir": str(cfg.session_path),
             "headless": cfg.headless,
             "permissions": ["clipboard-read", "clipboard-write"],
-            "user_agent": (
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-            ),
             "args": chrome_args,
             "viewport": {"width": 1280, "height": 800},
         }
@@ -275,6 +272,29 @@ class BrowserAdapter(IBrowserProtocol):
                         "**/*.{png,jpg,jpeg,gif,webp,mp4,mp3,woff,woff2,ttf,otf}",
                         lambda r: r.abort(),
                     )
+
+                def attach_page_diagnostics(page: Page) -> None:
+                    def on_request_failed(request: Any) -> None:
+                        log.warning("browser_request_failed", url=request.url, error=request.failure)
+
+                    def on_console(message: Any) -> None:
+                        if message.type in {"error", "warning"}:
+                            log.warning("browser_console_message", type=message.type, text=message.text)
+
+                    def on_response(response: Any) -> None:
+                        url = response.url.lower()
+                        if response.status >= 400 and any(
+                            token in url for token in ("chat", "completion", "generate", "conversation", "api")
+                        ):
+                            log.warning("browser_http_error", status=response.status, url=response.url)
+
+                    page.on("requestfailed", on_request_failed)
+                    page.on("console", on_console)
+                    page.on("response", on_response)
+
+                for existing_page in ctx.pages:
+                    attach_page_diagnostics(existing_page)
+                ctx.on("page", attach_page_diagnostics)
                 try:
                     yield ctx
                 finally:

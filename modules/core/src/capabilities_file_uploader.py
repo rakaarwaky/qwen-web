@@ -203,18 +203,22 @@ class FileUploader(IUploadProtocol):
         raise TimeoutError(f"Exact uploaded filename was not rendered in Qwen attachment DOM: {filepath.name}")
 
     def _wait_for_parse_ready(self, page: Page, filepath: Path) -> None:
-        """Wait for Qwen's document parsing to complete by checking text state."""
+        """Wait until Qwen's matching attachment card exposes a ready state."""
         deadline = time.monotonic() + (self.card_render_timeout_ms / 1000)
         while time.monotonic() < deadline:
-            card = page.locator(".fileitem-btn").filter(has_text=filepath.stem).last
+            card_selector = ", ".join(self.config.card_selectors)
+            card = page.locator(card_selector).filter(has_text=filepath.stem).last
             try:
                 if card.count() == 0:
                     page.wait_for_timeout(100)
                     continue
-                # Check for parsing text (e.g., "Parsing...", size + "Parsing...")
                 card_text = card.inner_text().casefold()
-                has_parsing = "parsing" in card_text
-                if not has_parsing:
+                pending_visible = any(
+                    card.locator(selector).count() > 0 and card.locator(selector).first.is_visible(timeout=100)
+                    for selector in self.config.parse_pending_selectors
+                )
+
+                if not pending_visible and "parsing" not in card_text:
                     log.debug("Qwen document parsing is ready for %s", filepath.name)
                     return
             except (TimeoutError, Error):
