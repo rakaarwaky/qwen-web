@@ -262,3 +262,18 @@ def first_visible_element_handle(
         except Error:
             continue
     return None
+
+
+def setup_lifecycle_state(
+    logger: Any, events: Sequence[Any]
+) -> tuple[Any, Any]:
+    """Setup LifecycleGate, LifecycleState, and LifecycleEmitter with event listeners."""
+    from modules.shared.src.taxonomy_core_entity import LifecycleEmitter, LifecycleGate, LifecycleState
+    gate = LifecycleGate(logger)
+    state = LifecycleState()
+    emitter = LifecycleEmitter(logger, gate=gate)
+    for event in events:
+        def _mark(_evt: Any, name: Any = event) -> None:
+            state.mark(name)
+        emitter.on(event, _mark)
+    return emitter, state

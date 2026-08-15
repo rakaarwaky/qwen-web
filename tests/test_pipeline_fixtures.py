@@ -6,6 +6,8 @@ The fixture environment is a 1:1 mirror of the production runtime structure.
 """
 
 from __future__ import annotations
+import pytest
+pytest.skip("Legacy test — watcher/batch pipeline removed in AES migration", allow_module_level=True)
 
 import json
 import shutil

@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from modules.core.src.agent_core_orchestrator import CoreOrchestrator
+from modules.core.src.agent_direct_prompt_orchestrator import DirectPromptOrchestrator as CoreOrchestrator
 from modules.shared.src import ResponseDetectionTimeoutError
 
 

@@ -45,10 +45,6 @@ XDG_CONFIG_HOME = (
 DEFAULT_OUTPUT = XDG_DATA_HOME / "output"
 DEFAULT_LOG = XDG_STATE_HOME / "log"
 DEFAULT_SESSION = XDG_DATA_HOME / "qwen_session"
-DEFAULT_TODO = XDG_DATA_HOME / "input"
-DEFAULT_DONE = XDG_DATA_HOME / "input" / "done"
-DEFAULT_FAILED = XDG_DATA_HOME / "input" / "failed"
-DEFAULT_PROC = XDG_CACHE_HOME / ".processing"
 XDG_SKILL_MD = XDG_DATA_HOME / "SKILL.md"
 CHAT_URL = "https://chat.qwen.ai/"
 

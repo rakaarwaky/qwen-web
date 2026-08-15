@@ -1,10 +1,18 @@
 """Root: MCP container entry point.
 
-Re-exports SharedContainer for MCP surface.
+Instantiates and wires SharedContainer for MCP surface.
 """
 
 from __future__ import annotations
 
 from modules.core.src.root_core_container import SharedContainer
 
-__all__ = ["SharedContainer"]
+
+def create_mcp_container() -> SharedContainer:
+    """Instantiate and wire SharedContainer for MCP surface."""
+    container = SharedContainer(use_linux_guard=False)
+    container.wire()
+    return container
+
+
+__all__ = ["SharedContainer", "create_mcp_container"]

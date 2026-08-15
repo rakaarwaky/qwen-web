@@ -31,10 +31,10 @@ from modules.shared.src.taxonomy_core_entity import (
     LifecycleEmitter,
     LifecycleGate,
     LifecycleState,
-    UploadFailureError,
 )
 from modules.shared.src.taxonomy_core_error import (
     ResponseDetectionTimeoutError,
+    UploadFailureError,
 )
 from modules.shared.src.taxonomy_core_event import (
     EVENT_PROMPT_INJECTED,

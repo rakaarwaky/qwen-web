@@ -13,22 +13,16 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from modules.cli.src import (
-    surface_cli_init_command,
-    surface_cli_interactive_controller,
-    surface_cli_login_command,
-    surface_cli_run_command,
-)
+import modules.cli.src.surface_cli_init_command as surface_cli_init_command
+import modules.cli.src.surface_cli_interactive_controller as surface_cli_interactive_controller
+import modules.cli.src.surface_cli_login_command as surface_cli_login_command
+import modules.cli.src.surface_cli_run_command as surface_cli_run_command
 from modules.core.src.root_core_container import SharedContainer
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
-    DEFAULT_DONE,
-    DEFAULT_FAILED,
     DEFAULT_LOG,
     DEFAULT_OUTPUT,
-    DEFAULT_PROC,
     DEFAULT_SESSION,
-    DEFAULT_TODO,
 )
 from modules.shared.src.taxonomy_core_error import SingleInstanceError
 
@@ -96,27 +90,21 @@ def _build_config(args: argparse.Namespace) -> AppConfig:
     if file_p and not file_p.exists():
         raise ValueError(f"Attachment file not found: {file_arg}")
 
+    dummy_path = Path("/dev/null")
     if login:
         mode_val = "login"
-        input_path = prompt_p or Path(input_arg or DEFAULT_TODO)
+        input_path = prompt_p or dummy_path
     elif prompt_p:
         mode_val = "single"
         input_path = prompt_p
     elif watch:
-        input_path = Path(input_arg or DEFAULT_TODO)
-        if not input_path.is_dir():
-            raise ValueError(f"Watcher input path must be an existing directory: {input_path}")
+        input_path = Path(input_arg) if input_arg else dummy_path
         mode_val = "watcher"
     elif input_arg:
         input_path = Path(input_arg)
-        if input_path.is_dir():
-            mode_val = "batch"
-        elif input_path.is_file():
-            mode_val = "single"
-        else:
-            raise ValueError(f"Input path must be an existing file or directory: {input_path}")
+        mode_val = "batch" if input_path.is_dir() else "single"
     else:
-        input_path = DEFAULT_TODO
+        input_path = dummy_path
         mode_val = "batch"
 
     # Default output path to output folder (.qwen-web/output or DEFAULT_OUTPUT) when unspecified
@@ -134,9 +122,9 @@ def _build_config(args: argparse.Namespace) -> AppConfig:
         mode=mode_val,
         input_path=input_path,
         output_path=out_p,
-        done_path=Path(getattr(args, "done_dir", str(DEFAULT_DONE))),
-        failed_path=Path(getattr(args, "failed_dir", str(DEFAULT_FAILED))),
-        proc_path=Path(getattr(args, "proc_dir", str(DEFAULT_PROC))),
+        done_path=dummy_path,
+        failed_path=dummy_path,
+        proc_path=dummy_path,
         session_path=Path(getattr(args, "data_dir", str(DEFAULT_SESSION))),
         log_path=Path(getattr(args, "log_dir", str(DEFAULT_LOG))),
         interval=getattr(args, "interval", 3),

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from modules.core.src.agent_core_orchestrator import CoreOrchestrator
+from modules.core.src.agent_direct_prompt_orchestrator import DirectPromptOrchestrator as CoreOrchestrator
 from modules.shared.src import AppConfig, ProcessingOutcome, ProcessingStatus
 
 

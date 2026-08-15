@@ -27,7 +27,6 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_OUTPUT,
 )
 from modules.shared.src.taxonomy_core_entity import (
-    HeadlessFlag,
     LifecycleEmitter,
     LifecycleGate,
     LifecycleState,
@@ -48,6 +47,7 @@ from modules.shared.src.taxonomy_core_event import (
     QwenEventType,
 )
 from modules.shared.src.taxonomy_core_vo import (
+    HeadlessFlag,
     MessageCount,
     PollIntervalSec,
     PromptText,

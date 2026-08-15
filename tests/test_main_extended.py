@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from modules.cli.src.surface_cli_interactive_controller import InteractiveController
-from modules.core.src.agent_core_orchestrator import CoreOrchestrator
+from modules.core.src.agent_direct_prompt_orchestrator import DirectPromptOrchestrator as CoreOrchestrator
 from modules.root_cli_main_entry import (
     _interactive_prompt,
     main,

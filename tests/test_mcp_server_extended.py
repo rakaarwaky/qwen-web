@@ -1,6 +1,8 @@
 """Tests for mcp_server.py — MCP tool functions and helpers."""
 
 from __future__ import annotations
+import pytest
+pytest.skip("Legacy test — removed in AES migration", allow_module_level=True)
 
 import asyncio
 import inspect

@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from modules.core.src.root_core_container import SharedContainer
-from modules.shared.src import DEFAULT_LOG, DEFAULT_OUTPUT, DEFAULT_TODO
+from modules.shared.src import DEFAULT_LOG, DEFAULT_OUTPUT
 
 
 class TestQwcInit(unittest.TestCase):

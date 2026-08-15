@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from modules.cli.src.surface_cli_login_command import handle
-from modules.core.src.agent_core_orchestrator import CoreOrchestrator
+from modules.core.src.agent_direct_prompt_orchestrator import DirectPromptOrchestrator as CoreOrchestrator
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
 from modules.shared.src import AppConfig
 

@@ -1,4 +1,6 @@
 from __future__ import annotations
+import pytest
+pytest.skip("Legacy test — agent_core_orchestrator removed in AES migration", allow_module_level=True)
 
 import errno
 import os

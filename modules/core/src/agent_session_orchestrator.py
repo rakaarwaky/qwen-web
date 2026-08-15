@@ -17,7 +17,6 @@ from modules.shared.src.contract_core_protocol import (
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_OUTPUT,
-    DEFAULT_TODO,
 )
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_error import QwenCliError

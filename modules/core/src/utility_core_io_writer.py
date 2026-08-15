@@ -114,3 +114,26 @@ def ensure_dir(path: Path) -> Path:
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def save_orchestrator_output(
+    saver: Any,
+    out_path: Path,
+    p_path: Path,
+    text: str,
+    dur: float,
+    ctx: Any,
+) -> None:
+    """Save output text to file via saver capability."""
+    from modules.shared.src.taxonomy_core_vo import FilePath, OutputChars, ResponseText
+
+    prompt_len = p_path.stat().st_size if p_path.exists() else 0
+    saver.write_output(
+        out_path,
+        ResponseText(text),
+        ctx,
+        FilePath(str(p_path)),
+        dur,
+        prompt_len,
+        OutputChars(len(text)),
+    )

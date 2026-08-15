@@ -10,7 +10,11 @@ from pathlib import Path
 
 from playwright.sync_api import Page
 
-from modules.core.src.utility_core_config_factory import build_app_config
+from modules.core.src.utility_core_config_factory import (
+    build_app_config,
+    resolve_pipeline_output_path,
+)
+from modules.core.src.utility_core_io_writer import save_orchestrator_output
 from modules.core.src.utility_core_dom_query import latest_message_text
 from modules.core.src.utility_core_error_mapping import to_error_response
 from modules.shared.src.contract_core_aggregate import IPromptFileAggregate
@@ -23,30 +27,24 @@ from modules.shared.src.contract_core_protocol import (
     IStreamProtocol,
 )
 from modules.shared.src.taxonomy_config_vo import AppConfig
-from modules.shared.src.taxonomy_core_constant import (
-    DEFAULT_OUTPUT,
-)
-from modules.shared.src.taxonomy_core_entity import (
-    HeadlessFlag,
-    LifecycleEmitter,
-    LifecycleGate,
-    LifecycleState,
-)
+
 from modules.shared.src.taxonomy_core_error import (
     ResponseDetectionTimeoutError,
 )
 from modules.shared.src.taxonomy_core_event import (
-    EVENT_DOCUMENT_PARSED,
-    EVENT_FILE_UPLOADED,
+    EVENT_DISPATCH_ACKNOWLEDGED,
+    EVENT_GENERATION_FINISHED,
+    EVENT_OUTPUT_COPIED,
     EVENT_PROMPT_INJECTED,
-    PIPELINE_EVENT_SEQUENCE,
-    LifecycleEvent,
+    EVENT_SEND_CLICKED,
+    EVENT_STREAMING_GENERATION,
+    EVENT_THINKING_STARTED,
+    EVENT_WEB_LOADED,
     QwenEventType,
 )
 from modules.shared.src.taxonomy_core_vo import (
-    FilePath,
+    HeadlessFlag,
     MessageCount,
-    OutputChars,
     OutputPath,
     PollIntervalSec,
     PromptPath,
@@ -84,14 +82,7 @@ class PromptFileOrchestrator(IPromptFileAggregate):
     ) -> ResponseText:
         """Pipeline 2: Process a prompt file from disk without attachment."""
         try:
-            p_path = Path(prompt_file).resolve()
-            if not p_path.exists():
-                raise FileNotFoundError(f"Input file not found: {p_path}")
-
-            out_path = Path(output_file).resolve() if output_file else DEFAULT_OUTPUT / p_path.name
-            if out_path.is_dir():
-                out_path = out_path / f"{p_path.stem}_output.md"
-
+            p_path, out_path = resolve_pipeline_output_path(prompt_file, output_file)
             cfg = build_app_config(
                 input_path=p_path,
                 output_path=out_path,
@@ -104,16 +95,7 @@ class PromptFileOrchestrator(IPromptFileAggregate):
                 page = bctx.pages[0] if bctx.pages else bctx.new_page()
                 text = self._execute_file_on_page(page, p_path, cfg.request_timeout, cfg)
             dur = time.time() - t0
-            prompt_len = p_path.stat().st_size if p_path.exists() else 0
-            self._saver.write_output(
-                out_path,
-                ResponseText(text),
-                ctx,
-                FilePath(str(p_path)),
-                dur,
-                prompt_len,
-                OutputChars(len(text)),
-            )
+            save_orchestrator_output(self._saver, out_path, p_path, text, dur, ctx)
             return ResponseText(f"Successfully processed {p_path.name} -> {out_path}")
         except Exception as exc:
             return to_error_response(exc)
@@ -122,13 +104,18 @@ class PromptFileOrchestrator(IPromptFileAggregate):
         self, page: Page, filepath: Path, timeout_sec: int, active_cfg: AppConfig
     ) -> str:
         logger = self._observability.get_logger()
-        gate = LifecycleGate(logger)
-        state = LifecycleState()
-        emitter = LifecycleEmitter(logger, gate=gate)
-        for event in PIPELINE_EVENT_SEQUENCE:
-            def _mark(_evt: LifecycleEvent, name: QwenEventType = event) -> None:
-                state.mark(name)
-            emitter.on(event, _mark)
+        file_prompt_events: tuple[QwenEventType, ...] = (
+            EVENT_WEB_LOADED,
+            EVENT_PROMPT_INJECTED,
+            EVENT_SEND_CLICKED,
+            EVENT_DISPATCH_ACKNOWLEDGED,
+            EVENT_THINKING_STARTED,
+            EVENT_STREAMING_GENERATION,
+            EVENT_GENERATION_FINISHED,
+            EVENT_OUTPUT_COPIED,
+        )
+        from modules.core.src.utility_core_dom_helper import setup_lifecycle_state
+        emitter, state = setup_lifecycle_state(logger, file_prompt_events)
 
         prompt = filepath.read_text(encoding="utf-8").strip()
 
@@ -137,8 +124,6 @@ class PromptFileOrchestrator(IPromptFileAggregate):
         msg_count_before = self._sender.count_messages(page)
 
         self._injector.find_input(page)
-        emitter.emit(EVENT_FILE_UPLOADED, {"file": "none"})
-        emitter.emit(EVENT_DOCUMENT_PARSED, {"file": "none"})
 
         try:
             baseline_response = latest_message_text(page)
@@ -148,7 +133,7 @@ class PromptFileOrchestrator(IPromptFileAggregate):
         self._injector.inject_text(page, PromptText(prompt))
         emitter.emit(EVENT_PROMPT_INJECTED, {"file": str(filepath), "char_count": len(prompt)})
 
-        self._sender.click_send(page, emitter, document_parsed=HeadlessFlag(state.document_parsed))
+        self._sender.click_send(page, emitter, document_parsed=HeadlessFlag(True))
         if not state.dispatch_acknowledged:
             raise RuntimeError("Cannot wait for response: prompt dispatch is incomplete")
 
