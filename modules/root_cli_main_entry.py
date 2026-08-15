@@ -184,7 +184,7 @@ def _dispatch(
 ) -> int:
     """Dispatch one already-parsed CLI invocation inside the Linux lifecycle."""
     if args is None:
-        result = surface_cli_interactive_controller.InteractiveController(container.core).run()
+        result = surface_cli_interactive_controller.InteractiveController(container.agent_setup_orchestrator).run()
         return _result_exit_code(result)
 
     action = getattr(args, "action", None)
@@ -196,7 +196,7 @@ def _dispatch(
         return _run_manual_login(cfg, container)
 
     if action == "init":
-        result = surface_cli_init_command.handle(args, container.core)
+        result = surface_cli_init_command.handle(args, container.agent_setup_orchestrator)
         return _result_exit_code(result)
 
     if cfg is None:
@@ -204,7 +204,7 @@ def _dispatch(
         return 1
 
     args._cfg = cfg
-    result = surface_cli_run_command.handle(args, container.core)
+    result = surface_cli_run_command.handle(args, container.agent_setup_orchestrator)
     return _result_exit_code(result)
 
 
