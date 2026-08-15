@@ -372,7 +372,7 @@ class CoreOrchestrator(ICoreAggregate):
         msg_count_before = self._sender.count_messages(page)
 
         self._injector.find_input(page)
-        upload_target = active_cfg.file_path if active_cfg.file_path is not None else filepath
+        upload_target = active_cfg.file_path
         if upload_target is not None and upload_target.exists():
             if active_cfg.inline_prompt:
                 file_size = upload_target.stat().st_size
