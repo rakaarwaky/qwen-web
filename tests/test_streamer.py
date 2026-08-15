@@ -12,6 +12,7 @@ from modules.core.src.capabilities_stream_monitor import (
 )
 from modules.shared.src import (
     CHALLENGE_KEYWORDS,
+    EVENT_GENERATION_FINISHED,
     EVENT_STREAMING_GENERATION,
     AuthRequiredError,
     LifecycleEmitter,
@@ -266,3 +267,37 @@ class TestWaitForResponseEdgeCases:
                 stability_checks=2,
             )
             assert result == stable_text
+
+
+class TestPreSendBaseline:
+    def test_detects_response_when_first_poll_already_has_new_text(self):
+        page = MagicMock()
+        emitter = MagicMock(spec=LifecycleEmitter)
+        baseline = "Previous assistant answer"
+        response = "A newly generated response that is already rendered before polling starts."
+
+        with (
+            patch("modules.core.src.capabilities_stream_monitor.count_messages", return_value=2),
+            patch(
+                "modules.core.src.capabilities_stream_monitor._dom_latest",
+                side_effect=[response, response, response],
+            ),
+            patch.object(StreamMonitor, "is_generation_complete", return_value=True),
+            patch("modules.core.src.capabilities_stream_monitor.time") as mock_time,
+        ):
+            mock_time.time.side_effect = [0, 0.1, 0.2, 0.3, 0.4]
+            mock_time.sleep = MagicMock()
+            result = StreamMonitor().wait_for_response(
+                page,
+                timeout_sec=5,
+                msg_count_before=1,
+                emitter=emitter,
+                polling_interval_sec=0,
+                stability_checks=2,
+                baseline_text=baseline,
+            )
+
+        assert result == response
+        event_names = [call.args[0] for call in emitter.emit.call_args_list]
+        assert EVENT_STREAMING_GENERATION in event_names
+        assert EVENT_GENERATION_FINISHED in event_names

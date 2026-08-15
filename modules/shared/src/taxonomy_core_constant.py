@@ -127,6 +127,7 @@ MESSAGE_SELECTORS: tuple[str, ...] = (
 )
 
 COMBINED_MESSAGE_SELECTOR: str = ", ".join(MESSAGE_SELECTORS)
+RESPONSE_CONTENT_SELECTOR: str = ".response-message-content, .qwen-markdown-text"
 
 STOP_BUTTON_SELECTORS: str = (
     "button[aria-label*='Stop' i], button:has-text('Stop'), [class*='stop-btn'], [class*='icon-stop']"
@@ -141,28 +142,14 @@ TYPING_INDICATOR_SELECTORS: str = (
 JS_GET_RESPONSE_TEXT: str = """
 () => {
     var responseNodes = document.querySelectorAll(
-        '.chat-response-message .response-message-content .qwen-markdown-text,' +
-        '.chat-response-message .response-message-content .qwen-markdown,' +
-        '.chat-response-message .response-message-content,' +
-        '.chat-response-message .qwen-markdown-text'
+        '.response-message-content, .qwen-markdown-text, ' +
+        '.chat-response-message .qwen-markdown, .qwen-chat-message-assistant .qwen-markdown'
     );
     for (var ri = responseNodes.length - 1; ri >= 0; ri--) {
         var responseNode = responseNodes[ri];
         if (responseNode.closest('.qwen-chat-message-user')) continue;
         var responseText = (responseNode.innerText || '').trim();
         if (responseText.length > 0) return responseText;
-    }
-    var containers = ['#chatLog', '[class*="chat-log"]', '[class*="virtual-list"]',
-                      '[class*="message-list"]', '[class*="conversation-body"]',
-                      '[class*="dialog-content"]', '.chat-messages-container',
-                      '.chat-response-message', '.qwen-chat-message-assistant'];
-    for (var ci = 0; ci < containers.length; ci++) {
-        var container = document.querySelector(containers[ci]);
-        if (container && container.children.length > 0) {
-            var lastChild = container.children[container.children.length - 1];
-            var txt = (lastChild.innerText || '').trim();
-            if (txt.length > 20) return txt;
-        }
     }
     var SKIP_CLASSES = [
         'model-selector', 'fileitem', 'placeholder', 'message-input',
@@ -186,17 +173,14 @@ JS_GET_RESPONSE_TEXT: str = """
         }
         return false;
     }
-    var best = null;
-    var bestLen = 0;
-    var all = document.querySelectorAll('div, p, pre, section, article, main');
-    for (var i = 0; i < all.length; i++) {
-        var el = all[i];
-        if (['SCRIPT','STYLE','TEXTAREA','INPUT','BUTTON'].indexOf(el.tagName) >= 0) continue;
-        if (isInChrome(el)) continue;
-        var txt2 = (el.innerText || '').trim();
-        if (txt2.length > bestLen) { bestLen = txt2.length; best = txt2; }
+    var assistantNodes = document.querySelectorAll(
+        '.qwen-chat-message-assistant, .chat-message-assistant, [data-role="assistant"]'
+    );
+    for (var ai = assistantNodes.length - 1; ai >= 0; ai--) {
+        var assistantText = (assistantNodes[ai].innerText || '').trim();
+        if (assistantText.length > 0 && !isInChrome(assistantNodes[ai])) return assistantText;
     }
-    return best;
+    return null;
 }
 """
 

@@ -19,6 +19,7 @@ from pathlib import Path
 from playwright.sync_api import Page
 
 from modules.core.src.utility_core_config_factory import build_app_config
+from modules.core.src.utility_core_dom_query import latest_message_text
 from modules.core.src.utility_core_error_mapping import to_error_response
 from modules.core.src.utility_core_file_mover import move_file, move_to_processing
 from modules.core.src.utility_core_io_writer import ensure_dir
@@ -503,6 +504,10 @@ class CoreOrchestrator(ICoreAggregate):
                 "Cannot inject prompt: document attachment parsing (EVENT_DOCUMENT_PARSED) is incomplete"
             )
 
+        try:
+            baseline_response = latest_message_text(page)
+        except Exception:
+            baseline_response = None
         self._injector.inject_text(page, PromptText(prompt))
         emitter.emit(EVENT_PROMPT_INJECTED, {"file": str(filepath), "char_count": len(prompt)})
 
@@ -518,6 +523,7 @@ class CoreOrchestrator(ICoreAggregate):
             emitter,
             polling_interval_sec=PollIntervalSec(active_cfg.poll_interval),
             dispatch_acknowledged=HeadlessFlag(state.dispatch_acknowledged),
+            baseline_text=baseline_response,
         )
 
         if response and len(response.strip()) > 0:

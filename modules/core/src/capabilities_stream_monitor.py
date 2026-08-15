@@ -92,10 +92,12 @@ class StreamMonitor(IStreamProtocol):
         stability_checks: int = 4,
         min_text_length: int = 1,
         dispatch_acknowledged: bool = True,
+        baseline_text: ResponseText | None = None,
     ) -> ResponseText | None:
         """Wait for new assistant message with stability check and output validation."""
         if not dispatch_acknowledged:
             raise RuntimeError("Cannot wait for response: prompt dispatch (EVENT_DISPATCH_ACKNOWLEDGED) is incomplete")
+        _ = msg_count_before
 
         active_poll = PollIntervalSec(polling_interval_sec)
         active_checks = StabilityChecks(stability_checks)
@@ -105,7 +107,7 @@ class StreamMonitor(IStreamProtocol):
         has_streaming = False
 
         log.info("Waiting for AI response (timeout: %ds)", timeout_sec)
-        baseline_text: str | None = _dom_latest(page)
+        previous_text: str | None = str(baseline_text) if baseline_text is not None else _dom_latest(page)
 
         start = time.time()
         last_text: str | None = None
@@ -113,35 +115,32 @@ class StreamMonitor(IStreamProtocol):
 
         while time.time() - start < timeout_sec:
             try:
-                count = count_messages(page)
+                count_messages(page)
                 if not has_thinking and self.is_thinking_active(page):
                     emitter.emit(EVENT_THINKING_STARTED, {"source": "qwen-thinking-dom"})
                     has_thinking = True
-                if count > msg_count_before:
-                    text = _dom_latest(page)
-                    if text is not None and should_treat_as_new_response(text, baseline_text, int(active_min_len)):
-                        if not has_thinking:
-                            emitter.emit(EVENT_THINKING_STARTED, {"source": "response-start-fallback"})
-                            has_thinking = True
-                        if text == last_text:
-                            stable_count += 1
-                            is_complete = self.is_generation_complete(page)
-                            if is_stability_satisfied(
-                                stable_count, int(active_checks), has_thinking, has_streaming, is_complete
-                            ):
-                                log.info(
-                                    "Response stabilized after %d checks (is_complete=%s)", stable_count, is_complete
-                                )
-                                validate_response_content(text)
-                                emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(text)})
-                                return ResponseText(text)
-                        else:
-                            if has_thinking:
-                                if not has_streaming:
-                                    has_streaming = True
-                                    emitter.emit(EVENT_STREAMING_GENERATION, {"text_length": len(text)})
-                                stable_count = 0
-                                last_text = text
+                text = _dom_latest(page)
+                if text is not None and should_treat_as_new_response(text, previous_text, int(active_min_len)):
+                    if not has_thinking:
+                        emitter.emit(EVENT_THINKING_STARTED, {"source": "response-start-fallback"})
+                        has_thinking = True
+                    if text == last_text:
+                        stable_count += 1
+                        is_complete = self.is_generation_complete(page)
+                        if is_stability_satisfied(
+                            stable_count, int(active_checks), has_thinking, has_streaming, is_complete
+                        ):
+                            log.info("Response stabilized after %d checks (is_complete=%s)", stable_count, is_complete)
+                            validate_response_content(text)
+                            emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(text)})
+                            return ResponseText(text)
+                    else:
+                        if has_thinking:
+                            if not has_streaming:
+                                has_streaming = True
+                                emitter.emit(EVENT_STREAMING_GENERATION, {"text_length": len(text)})
+                            stable_count = 0
+                            last_text = text
                 time.sleep(active_poll)
             except TimeoutError as e:
                 raise NetworkTimeoutError(f"Browser network timeout during streaming poll: {e}") from e
