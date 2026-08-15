@@ -1,7 +1,17 @@
-"""qwen-cli v4: Production-grade automation for chat.qwen.ai.
+"""qwen-web-arwaky v5: Production-grade automation for chat.qwen.ai.
 
-Root layer: CLI entry point — argument parsing, validation, lifecycle guards,
-and dispatch to the CLI surface commands via the auto-wired DI container.
+Root layer: CLI entry point — subcommand-based argument parsing, validation,
+lifecycle guards, and dispatch to the CLI surface commands via DI container.
+
+Usage:
+  qwen-web-arwaky init                              [--dir TARGET_DIR]
+  qwen-web-arwaky login                             [--headless]
+  qwen-web-arwaky prompt-direct  --text "..."       [--output-path FILE] [--headless]
+  qwen-web-arwaky prompt-only    --prompt-path FILE [--output-path FILE] [--headless]
+  qwen-web-arwaky prompt-with-attachment \\
+                                 --prompt-path FILE --attachment-path FILE \\
+                                 [--output-path FILE] [--headless]
+  qwen-web-arwaky mcp
 """
 
 from __future__ import annotations
@@ -30,117 +40,106 @@ _ERROR_PREFIX = "[ERROR]"
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    """Parse CLI arguments for qwen-cli subcommands and options."""
-    p = argparse.ArgumentParser(prog="qwen-cli", description="Automate chat.qwen.ai")
-    p.add_argument("command", nargs="?", default=None, help="Subcommand (e.g. init)")
-    p.add_argument("target_dir", nargs="?", default=None, help="Target directory for init subcommand")
-    p.add_argument(
-        "--init",
-        action="store_true",
-        help="Initialize workspace with .agents/skills and .qwen-web symlinks",
+    """Parse CLI arguments using subcommand-based interface."""
+    p = argparse.ArgumentParser(
+        prog="qwen-web-arwaky",
+        description="Automate chat.qwen.ai without an API key.",
     )
-    p.add_argument("--prompt", "-p", dest="prompt", default=None, help="Path to prompt markdown/text file")
-    p.add_argument("--file", "-f", dest="file", default=None, help="Path to attachment file to upload")
-    p.add_argument("-i", "--input", default=None, help="Legacy input file/directory path")
-    p.add_argument("-o", "--output", default=None, help="Output destination file or directory (default: cwd)")
-    p.add_argument("-d", "--done-dir", default=str(DEFAULT_DONE))
-    p.add_argument("--failed-dir", default=str(DEFAULT_FAILED))
-    p.add_argument("--proc-dir", default=str(DEFAULT_PROC))
-    p.add_argument("--log-dir", default=str(DEFAULT_LOG))
-    p.add_argument("-w", "--watch", action="store_true")
-    p.add_argument("--interval", type=int, default=3)
-    p.add_argument("--headless", action="store_true", help="Run browser headlessly (default: show window)")
-    p.add_argument("--data-dir", default=str(DEFAULT_SESSION))
-    p.add_argument("--timeout", type=int, default=300)
-    p.add_argument("--login", action="store_true", help="Open browser to log in manually and save session")
-    p.add_argument("--mcp", action="store_true", help="Run as Model Context Protocol (MCP) server over stdio")
-    p.add_argument("--request-timeout", type=int, default=120, help="Max seconds to wait for Qwen response")
-    p.add_argument("--poll-interval", type=float, default=1.0, help="Seconds between message-poll checks")
-    p.add_argument("--streaming-timeout", type=int, default=180, help="Max seconds for streaming generation")
-    p.add_argument(
-        "--inline-prompt",
-        action="store_true",
-        help="Inject the input file contents as plain text instead of attaching the file to Qwen",
-    )
-    p.add_argument("--rate-limit", type=int, default=60, help="Max requests per minute")
-    p.add_argument("--cb-threshold", type=int, default=5, help="Consecutive failures to trip circuit breaker")
-    p.add_argument("--cb-window", type=int, default=30, help="Circuit breaker sliding window in seconds")
-    p.add_argument("--retry-failed", action="store_true", help="Process files in failed/ directory on next run")
+    sub = p.add_subparsers(dest="action", metavar="ACTION")
+
+    # ── init ──────────────────────────────────────────────────────────────────
+    p_init = sub.add_parser("init", help="Initialize workspace (.agents/skills + .qwen-web symlinks)")
+    p_init.add_argument("--dir", dest="target_dir", default=None, help="Target directory (default: cwd)")
+
+    # ── login ─────────────────────────────────────────────────────────────────
+    p_login = sub.add_parser("login", help="Open browser for manual login and save session")
+    p_login.add_argument("--headless", action="store_true", help="Run browser headlessly")
+
+    # ── prompt-direct ─────────────────────────────────────────────────────────
+    p_direct = sub.add_parser("prompt-direct", help="Send an inline text prompt to Qwen")
+    p_direct.add_argument("--text", required=True, help="Prompt text to send directly")
+    p_direct.add_argument("--output-path", default=None, help="Output file path")
+    p_direct.add_argument("--headless", action="store_true", help="Run browser headlessly")
+
+    # ── prompt-only ───────────────────────────────────────────────────────────
+    p_only = sub.add_parser("prompt-only", help="Process a prompt file (no attachment)")
+    p_only.add_argument("--prompt-path", required=True, help="Path to prompt markdown/text file")
+    p_only.add_argument("--output-path", default=None, help="Output file path")
+    p_only.add_argument("--headless", action="store_true", help="Run browser headlessly")
+
+    # ── prompt-with-attachment ────────────────────────────────────────────────
+    p_attach = sub.add_parser("prompt-with-attachment", help="Process a prompt file with a file attachment")
+    p_attach.add_argument("--prompt-path", required=True, help="Path to prompt markdown/text file")
+    p_attach.add_argument("--attachment-path", required=True, help="Path to file to attach")
+    p_attach.add_argument("--output-path", default=None, help="Output file path")
+    p_attach.add_argument("--headless", action="store_true", help="Run browser headlessly")
+
+    # ── mcp ───────────────────────────────────────────────────────────────────
+    sub.add_parser("mcp", help="Run as Model Context Protocol (MCP) server over stdio")
+
     return p.parse_args(argv)
 
 
 def _build_config(args: argparse.Namespace) -> AppConfig:
-    """Build and validate AppConfig using explicit CLI precedence.
-
-    Direct single-file mode (`--prompt` and optional `--file`) processes in-place
-    without queue moves. Output defaults to current working directory.
-    """
-    login = bool(getattr(args, "login", False))
-    watch = bool(getattr(args, "watch", False))
-    prompt_arg = getattr(args, "prompt", None)
-    file_arg = getattr(args, "file", None)
-    input_arg = getattr(args, "input", None)
-    output_arg = getattr(args, "output", None)
-
-    prompt_p = Path(prompt_arg).resolve() if isinstance(prompt_arg, (str, Path)) else None
-    file_p = Path(file_arg).resolve() if isinstance(file_arg, (str, Path)) else None
-
-    if prompt_p and not prompt_p.exists():
-        raise ValueError(f"Prompt file not found: {prompt_arg}")
-    if file_p and not file_p.exists():
-        raise ValueError(f"Attachment file not found: {file_arg}")
-
+    """Build AppConfig from parsed subcommand args using hardcoded defaults."""
+    action = args.action
+    headless = bool(getattr(args, "headless", False))
     dummy_path = Path("/dev/null")
-    if login:
-        mode_val = "login"
-        input_path = prompt_p or dummy_path
-    elif prompt_p:
-        mode_val = "single"
-        input_path = prompt_p
-    elif watch:
-        input_path = Path(input_arg) if input_arg else dummy_path
-        mode_val = "watcher"
-    elif input_arg:
-        input_path = Path(input_arg)
-        mode_val = "batch" if input_path.is_dir() else "single"
-    else:
-        input_path = dummy_path
-        mode_val = "batch"
 
-    # Default output path to output folder (.qwen-web/output or DEFAULT_OUTPUT) when unspecified
-    if output_arg:
-        out_p = Path(output_arg)
+    prompt_p: Path | None = None
+    file_p: Path | None = None
+    out_p: Path | None = None
+    text: str | None = getattr(args, "text", None)
+
+    raw_prompt = getattr(args, "prompt_path", None)
+    raw_attach = getattr(args, "attachment_path", None)
+    raw_output = getattr(args, "output_path", None)
+
+    if raw_prompt:
+        prompt_p = Path(raw_prompt).resolve()
+        if not prompt_p.exists():
+            raise ValueError(f"Prompt file not found: {prompt_p}")
+
+    if raw_attach:
+        file_p = Path(raw_attach).resolve()
+        if not file_p.exists():
+            raise ValueError(f"Attachment file not found: {file_p}")
+
+    if raw_output:
+        out_p = Path(raw_output)
     else:
         local_out = Path.cwd() / ".qwen-web" / "output"
-        target_dir = local_out if local_out.exists() else DEFAULT_OUTPUT
+        base_dir = local_out if local_out.exists() else DEFAULT_OUTPUT
         if prompt_p:
-            out_p = target_dir / f"{prompt_p.stem}_output.md"
+            out_p = base_dir / f"{prompt_p.stem}_output.md"
+        elif text:
+            out_p = base_dir / "direct_output.md"
         else:
-            out_p = target_dir
+            out_p = base_dir
+
+    mode_map = {
+        "login": "login",
+        "prompt-direct": "direct",
+        "prompt-only": "single",
+        "prompt-with-attachment": "single",
+        "init": "init",
+        "mcp": "mcp",
+    }
 
     return AppConfig(
-        mode=mode_val,
-        input_path=input_path,
+        mode=mode_map.get(action, "direct"),
+        input_path=prompt_p or dummy_path,
         output_path=out_p,
         done_path=dummy_path,
         failed_path=dummy_path,
         proc_path=dummy_path,
-        session_path=Path(getattr(args, "data_dir", str(DEFAULT_SESSION))),
-        log_path=Path(getattr(args, "log_dir", str(DEFAULT_LOG))),
-        interval=getattr(args, "interval", 3),
-        timeout=getattr(args, "timeout", 300),
-        headless=False if login else bool(getattr(args, "headless", False)),
+        session_path=DEFAULT_SESSION,
+        log_path=DEFAULT_LOG,
+        headless=headless,
         prompt_file=prompt_p,
         prompt_path=prompt_p,
         file_path=file_p,
-        request_timeout=getattr(args, "request_timeout", 120),
-        poll_interval=float(getattr(args, "poll_interval", 1.0)),
-        streaming_timeout=getattr(args, "streaming_timeout", 180),
-        inline_prompt=bool(getattr(args, "inline_prompt", False)),
-        rate_limit_per_minute=getattr(args, "rate_limit", 60),
-        circuit_breaker_threshold=getattr(args, "cb_threshold", 5),
-        circuit_breaker_window=getattr(args, "cb_window", 30),
-        retry_failed=bool(getattr(args, "retry_failed", False)),
+        inline_prompt=action == "prompt-direct",
     )
 
 
@@ -160,13 +159,7 @@ def _result_exit_code(result: dict[str, object]) -> int:
 
 
 def _run_cli_lifecycle(dispatch: Callable[[SharedContainer], int]) -> int:
-    """Own the CLI-only LinuxGuard lifecycle.
-
-    MCP does not call this function and constructs its container with
-    ``use_linux_guard=False``. A CLI lock is acquired before dispatch, READY is
-    emitted after container initialization, and STOPPING plus lock release are
-    guaranteed by the finalizer.
-    """
+    """Own the CLI-only LinuxGuard lifecycle."""
     container = _default_container()
     linux = container.linux
     lock: Any = None
@@ -190,38 +183,38 @@ def _dispatch(
     cfg: AppConfig | None,
 ) -> int:
     """Dispatch one already-parsed CLI invocation inside the Linux lifecycle."""
-    # Explicit precedence: login wins over init, including --login --init.
-    if args is not None and bool(getattr(args, "login", False)):
+    if args is None:
+        result = surface_cli_interactive_controller.InteractiveController(container.core).run()
+        return _result_exit_code(result)
+
+    action = getattr(args, "action", None)
+
+    if action == "login":
         if cfg is None:
             print(f"{_ERROR_PREFIX} Missing login configuration.", file=sys.stderr)
             return 1
         return _run_manual_login(cfg, container)
 
-    # Init is an action rather than an AppConfig mode. It wins over watcher
-    # and path inference when login is absent.
-    if args is not None and (getattr(args, "command", None) == "init" or bool(getattr(args, "init", False))):
+    if action == "init":
         result = surface_cli_init_command.handle(args, container.core)
         return _result_exit_code(result)
 
-    if not raw_argv:
-        result = surface_cli_interactive_controller.InteractiveController(container.core).run()
-        return _result_exit_code(result)
-
-    if args is None or cfg is None:
+    if cfg is None:
         print(f"{_ERROR_PREFIX} Missing CLI configuration.", file=sys.stderr)
         return 1
+
     args._cfg = cfg
     result = surface_cli_run_command.handle(args, container.core)
     return _result_exit_code(result)
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the main entrypoint for qwen-cli."""
+    """Run the main entrypoint for qwen-web-arwaky."""
     raw_argv = list(sys.argv[1:] if argv is None else argv)
     args = _parse_args(raw_argv) if raw_argv else None
 
-    # MCP is a separate runtime and must never enter the CLI LinuxGuard path.
-    if args and getattr(args, "mcp", False):
+    # MCP is a separate runtime — never enters CLI LinuxGuard path.
+    if args and getattr(args, "action", None) == "mcp":
         from modules.root_mcp_main_entry import run_mcp_server
 
         run_mcp_server()
@@ -229,8 +222,8 @@ def main(argv: list[str] | None = None) -> int:
 
     cfg: AppConfig | None = None
     if args is not None:
-        is_init = getattr(args, "command", None) == "init" or bool(getattr(args, "init", False))
-        if not is_init or bool(getattr(args, "login", False)):
+        action = getattr(args, "action", None)
+        if action not in ("init",):
             try:
                 cfg = _build_config(args)
             except (OSError, ValueError) as exc:
@@ -242,7 +235,7 @@ def main(argv: list[str] | None = None) -> int:
     except SingleInstanceError as exc:
         print(f"{_ERROR_PREFIX} {exc}", file=sys.stderr)
         return 1
-    except Exception as exc:  # boundary: user-facing error after lifecycle cleanup
+    except Exception as exc:
         print(f"{_ERROR_PREFIX} {exc}", file=sys.stderr)
         return 1
 
