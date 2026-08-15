@@ -101,6 +101,7 @@ class IStreamProtocol(ABC):
         stability_checks: StabilityChecks = StabilityChecks(4),
         min_text_length: MinTextLength = MinTextLength(1),
         dispatch_acknowledged: HeadlessFlag = HeadlessFlag(True),
+        baseline_text: ResponseText | None = None,
     ) -> ResponseText | None:
         """Wait for a stable assistant response; return its text."""
 
