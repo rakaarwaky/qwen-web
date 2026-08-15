@@ -24,7 +24,7 @@ jobs:
     if: >
       github.event.pull_request.merged == true &&
       github.event.pull_request.base.ref == 'main' &&
-      github.event.pull_request.user.login == 'github-actions[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release/v') &&
       startsWith(github.event.pull_request.title, 'chore(release):')
     steps:
@@ -54,7 +54,12 @@ jobs:
           fi
           TAG="v${VERSION}"
           if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag ${TAG} already exists."
+            EXISTING_SHA=$(git rev-list -n 1 "$TAG")
+            if [ "$EXISTING_SHA" != "$MERGE_SHA" ]; then
+              echo "Tag ${TAG} already points to ${EXISTING_SHA}, not ${MERGE_SHA}."
+              exit 1
+            fi
+            echo "Tag ${TAG} already exists at the expected merge commit."
             echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -73,4 +78,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_VERSION: ${{ steps.tag.outputs.version }}
         run: |
-          gh workflow run release.yml --ref "v${RELEASE_VERSION}" -f "tag=v${RELEASE_VERSION}"
+          sleep 2
+          gh workflow run release.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref "v${RELEASE_VERSION}" \
+            -f "tag=v${RELEASE_VERSION}"
+            --repo "$GITHUB_REPOSITORY" \
+            --ref "v${RELEASE_VERSION}" \
+            -f "tag=v${RELEASE_VERSION}"
