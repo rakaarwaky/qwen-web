@@ -78,7 +78,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_VERSION: ${{ steps.tag.outputs.version }}
         run: |
+          sleep 2
           gh workflow run release.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref "v${RELEASE_VERSION}" \
+            -f "tag=v${RELEASE_VERSION}"
             --repo "$GITHUB_REPOSITORY" \
             --ref "v${RELEASE_VERSION}" \
             -f "tag=v${RELEASE_VERSION}"
