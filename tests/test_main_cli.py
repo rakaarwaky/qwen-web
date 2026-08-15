@@ -207,14 +207,12 @@ class TestRunInit:
         with (
             patch("modules.core.src.capabilities_workspace_provisioner.BASE_DIR", tmp_path),
             patch("modules.core.src.capabilities_workspace_provisioner.XDG_SKILL_MD", tmp_path / "nonexistent"),
-            patch("modules.core.src.capabilities_workspace_provisioner.DEFAULT_TODO", xdg_input),
             patch("modules.core.src.capabilities_workspace_provisioner.DEFAULT_OUTPUT", xdg_output),
             patch("modules.core.src.capabilities_workspace_provisioner.DEFAULT_LOG", xdg_log),
         ):
             SharedContainer().core.init_workspace(tmp_path)
             dot_qwen = tmp_path / ".qwen-web"
             assert dot_qwen.exists()
-            assert (dot_qwen / "input").exists()
             assert (dot_qwen / "output").exists()
             assert (dot_qwen / "log").exists()
 

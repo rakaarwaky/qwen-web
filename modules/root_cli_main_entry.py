@@ -119,13 +119,16 @@ def _build_config(args: argparse.Namespace) -> AppConfig:
         input_path = DEFAULT_TODO
         mode_val = "batch"
 
-    # Default output path to cwd when output is unspecified
+    # Default output path to output folder (.qwen-web/output or DEFAULT_OUTPUT) when unspecified
     if output_arg:
         out_p = Path(output_arg)
-    elif prompt_p:
-        out_p = Path.cwd() / f"{prompt_p.stem}_output.md"
     else:
-        out_p = Path.cwd()
+        local_out = Path.cwd() / ".qwen-web" / "output"
+        target_dir = local_out if local_out.exists() else DEFAULT_OUTPUT
+        if prompt_p:
+            out_p = target_dir / f"{prompt_p.stem}_output.md"
+        else:
+            out_p = target_dir
 
     return AppConfig(
         mode=mode_val,
