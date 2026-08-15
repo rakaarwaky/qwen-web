@@ -58,6 +58,7 @@ from modules.shared.src.taxonomy_core_error import (
 )
 from modules.shared.src.taxonomy_core_event import (
     EVENT_DOCUMENT_PARSED,
+    EVENT_FILE_UPLOADED,
     EVENT_OUTPUT_COPIED,
     EVENT_PROMPT_INJECTED,
     PIPELINE_EVENT_SEQUENCE,
@@ -486,19 +487,31 @@ class CoreOrchestrator(ICoreAggregate):
         msg_count_before = self._sender.count_messages(page)
 
         self._injector.find_input(page)
-        attached = self._uploader.upload_attachment(
-            page, filepath, emitter=emitter, web_loaded=HeadlessFlag(state.web_loaded)
-        )
-        if not attached or not state.file_uploaded:
-            upload_error = getattr(self._uploader, "last_error", None)
-            detail = f": {upload_error}" if upload_error else ""
-            logger.error("File upload could not be positively verified: %s%s", filepath.name, detail)
-            raise UploadFailureError(
-                f"Attachment upload failed or was not verified for {filepath.name}{detail}; "
-                "EVENT_FILE_UPLOADED was not emitted"
+        if active_cfg.inline_prompt:
+            file_size = filepath.stat().st_size
+            emitter.emit(
+                EVENT_FILE_UPLOADED,
+                {"file": str(filepath), "byte_count": file_size, "transport": "inline_text"},
             )
+        else:
+            attached = self._uploader.upload_attachment(
+                page, filepath, emitter=emitter, web_loaded=HeadlessFlag(state.web_loaded)
+            )
+            if not attached or not state.file_uploaded:
+                upload_error = getattr(self._uploader, "last_error", None)
+                detail = f": {upload_error}" if upload_error else ""
+                logger.error("File upload could not be positively verified: %s%s", filepath.name, detail)
+                raise UploadFailureError(
+                    f"Attachment upload failed or was not verified for {filepath.name}{detail}; "
+                    "EVENT_FILE_UPLOADED was not emitted"
+                )
 
-        emitter.emit(EVENT_DOCUMENT_PARSED, {"file": str(filepath), "file_size_bytes": filepath.stat().st_size})
+        emitter.emit(
+            EVENT_DOCUMENT_PARSED,
+            {"file": str(filepath), "file_size_bytes": filepath.stat().st_size, "transport": "inline_text"}
+            if active_cfg.inline_prompt
+            else {"file": str(filepath), "file_size_bytes": filepath.stat().st_size},
+        )
         if not state.document_parsed:
             raise RuntimeError(
                 "Cannot inject prompt: document attachment parsing (EVENT_DOCUMENT_PARSED) is incomplete"

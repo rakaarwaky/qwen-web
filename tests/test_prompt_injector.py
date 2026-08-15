@@ -37,14 +37,13 @@ def test_inject_text_empty():
         PromptInjector().inject_text(mock_page, "")
 
 
-def test_inject_text_react_strategy_success():
+def test_inject_text_fill_first_success():
     mock_page = MagicMock()
     mock_el = MagicMock()
     mock_page.wait_for_selector.return_value = mock_el
-    mock_page.evaluate.side_effect = [True, True]  # JS evaluate success, verification success
 
     PromptInjector().inject_text(mock_page, "Hello Qwen")
-    assert mock_page.evaluate.call_count >= 1
+    mock_el.fill.assert_called_once_with("Hello Qwen")
 
 
 def test_inject_text_fallback_to_fill():

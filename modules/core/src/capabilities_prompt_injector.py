@@ -62,6 +62,15 @@ class PromptInjector(IInjectionProtocol):
         except Error as e:
             log.warning("Element focus failed before injection: %s", e)
 
+        # Strategy 0: Playwright fill keeps React controlled-input state synchronized.
+        try:
+            el.fill(text)
+            if not cfg.verify_injection or self._verify_injection(el):
+                log.info("Prompt injected via Playwright fill (%d chars)", len(text))
+                return
+        except Error as e:
+            log.debug("Initial Playwright fill failed; trying DOM injection strategies: %s", e)
+
         # Strategy 1: React value setter for textarea
         js_react_inject = """(text) => {
             const selectors = ['textarea.message-input-textarea', 'textarea', '#chat-input', '.chat-input'];
