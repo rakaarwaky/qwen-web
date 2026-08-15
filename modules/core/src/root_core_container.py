@@ -1,13 +1,26 @@
 """Root: single DI container for CLI and MCP features.
 
-root_core_container.py is the only container file. Both entry points use it.
-No new files are created — no root_shared_container.py, no duplicate containers.
+Wires the 5 specialized agent orchestrators with capability implementations.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
+# agent_attachment_prompt_orchestrator
+from modules.core.src.agent_attachment_prompt_orchestrator import AttachmentPromptOrchestrator
+
+# agent_direct_prompt_orchestrator
+from modules.core.src.agent_direct_prompt_orchestrator import DirectPromptOrchestrator
+
+# agent_prompt_file_orchestrator
+from modules.core.src.agent_prompt_file_orchestrator import PromptFileOrchestrator
+
+# agent_session_orchestrator
+from modules.core.src.agent_session_orchestrator import SessionOrchestrator
+
+# agent_setup_orchestrator
+from modules.core.src.agent_setup_orchestrator import SetupOrchestrator
 from modules.core.src.capabilities_audit_repository import AuditRepository
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
 from modules.core.src.capabilities_file_uploader import FileUploader
@@ -18,11 +31,16 @@ from modules.core.src.capabilities_prompt_injector import PromptInjector
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.core.src.capabilities_stream_monitor import StreamMonitor
 from modules.core.src.capabilities_workspace_provisioner import WorkspaceProvisioner
+from modules.shared.src.contract_core_aggregate import (
+    IAttachmentPromptAggregate,
+    IDirectPromptAggregate,
+    IPromptFileAggregate,
+    ISessionAggregate,
+    ISetupAggregate,
+)
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
 from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
 from modules.shared.src.taxonomy_core_vo import FailureThreshold, MaxPerMinute, WindowSec
-
-from .agent_core_orchestrator import CoreOrchestrator
 
 
 class SharedContainer:
@@ -36,21 +54,6 @@ class SharedContainer:
         circuit_breaker_window: int = 30,
         rate_limit_per_minute: int = 60,
     ) -> None:
-        """Wire capabilities with injected dependencies.
-
-        Parameters
-        ----------
-        log_path : optional
-            Override for the application log directory. Defaults to DEFAULT_LOG.
-        use_linux_guard : bool
-            Include LinuxGuard (CLI-only). MCP sets False.
-        circuit_breaker_threshold : int
-            Number of consecutive failures before the circuit opens.
-        circuit_breaker_window : int
-            Time window in seconds for counting consecutive failures.
-        rate_limit_per_minute : int
-            Maximum number of requests per minute.
-        """
         log = Path(log_path) if log_path else DEFAULT_LOG
 
         self.cb = CircuitBreaker(
@@ -67,19 +70,40 @@ class SharedContainer:
         self.saver = Saver()
         self.audit = AuditRepository(log)
         self.observability = ObservabilitySetup(log)
+        self.workspace = WorkspaceProvisioner()
 
-        self.core = CoreOrchestrator(
+        # The 5 specialized agent orchestrators
+        self.agent_direct_prompt_orchestrator: IDirectPromptAggregate = DirectPromptOrchestrator(
+            browser=self.browser,
+            injector=self.injector,
+            sender=self.sender,
+            streamer=self.streamer,
+            observability=self.observability,
+        )
+        self.agent_prompt_file_orchestrator: IPromptFileAggregate = PromptFileOrchestrator(
+            browser=self.browser,
+            injector=self.injector,
+            sender=self.sender,
+            streamer=self.streamer,
+            saver=self.saver,
+            observability=self.observability,
+        )
+        self.agent_attachment_prompt_orchestrator: IAttachmentPromptAggregate = AttachmentPromptOrchestrator(
             browser=self.browser,
             injector=self.injector,
             sender=self.sender,
             streamer=self.streamer,
             uploader=self.uploader,
             saver=self.saver,
-            audit=self.audit,
             observability=self.observability,
-            workspace=WorkspaceProvisioner(),
-            circuit_breaker=self.cb,
-            rate_limiter=self.rl,
+        )
+        self.agent_session_orchestrator: ISessionAggregate = SessionOrchestrator(
+            browser=self.browser,
+            observability=self.observability,
+        )
+        self.agent_setup_orchestrator: ISetupAggregate = SetupOrchestrator(
+            browser=self.browser,
+            observability=self.observability,
         )
 
         # LinuxGuard is CLI-only

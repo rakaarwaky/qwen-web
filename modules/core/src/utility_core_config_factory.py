@@ -20,7 +20,7 @@ from modules.shared.src.taxonomy_core_constant import (
 
 
 def build_app_config(
-    mode: str,
+    mode: str = "",
     *,
     input_path: Path | None = None,
     output_path: Path | None = None,

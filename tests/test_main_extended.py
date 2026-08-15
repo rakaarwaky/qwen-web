@@ -16,35 +16,23 @@ from modules.shared.src import AppConfig
 
 class TestInteractivePrompt:
     def test_exit_choice(self):
-        with patch("builtins.input", return_value="6"):
+        with patch("builtins.input", return_value="4"), patch("sys.stdin") as mock_stdin:
+            mock_stdin.isatty.return_value = True
             result = _interactive_prompt()
             assert result is None
 
     def test_init_choice(self):
-        with patch("builtins.input", return_value="5"), patch.object(CoreOrchestrator, "init_workspace"):
+        with patch("builtins.input", return_value="3"), patch("sys.stdin") as mock_stdin, patch.object(CoreOrchestrator, "init_workspace"):
+            mock_stdin.isatty.return_value = True
             result = _interactive_prompt()
             assert result is None
 
     def test_login_choice(self):
-        with patch("builtins.input", return_value="4"), patch("sys.stdin") as mock_stdin:
+        with patch("builtins.input", return_value="2"), patch("sys.stdin") as mock_stdin:
             mock_stdin.isatty.return_value = True
             result = _interactive_prompt()
             assert result is not None
             assert result.mode == "login"
-
-    def test_watcher_choice(self):
-        with patch("builtins.input", side_effect=["1", "n"]), patch("sys.stdin") as mock_stdin:
-            mock_stdin.isatty.return_value = True
-            result = _interactive_prompt()
-            assert result is not None
-            assert result.mode == "watcher"
-
-    def test_batch_choice(self):
-        with patch("builtins.input", side_effect=["2", "y"]), patch("sys.stdin") as mock_stdin:
-            mock_stdin.isatty.return_value = True
-            result = _interactive_prompt()
-            assert result is not None
-            assert result.mode == "batch"
 
     def test_single_mode_with_files(self, tmp_path):
         todo = tmp_path / "todo" / "role-dev" / "todo"

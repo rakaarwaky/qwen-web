@@ -38,7 +38,7 @@ class SendDispatcher(ISendProtocol):
 
     def __init__(
         self,
-        click_timeout_ms: ClickTimeoutMs = ClickTimeoutMs(3000),
+        click_timeout_ms: ClickTimeoutMs = ClickTimeoutMs(10000),
         try_enter_key_fallback: TryEnterKeyFallbackFlag = TryEnterKeyFallbackFlag(True),
     ) -> None:
         self.click_timeout_ms = click_timeout_ms
@@ -62,6 +62,7 @@ class SendDispatcher(ISendProtocol):
             click_timeout_ms=int(self.click_timeout_ms),
             try_enter_key_fallback=bool(self.try_enter_key_fallback),
         )
+        self._wait_for_send_enabled(page, timeout_ms=effective_config.click_timeout_ms)
         baseline_count = int(count_messages(page))
         if not _dom_click_send(page, _config=effective_config):
             raise SendDispatchError("Unable to dispatch prompt: send button and Enter fallback both failed")
@@ -106,6 +107,24 @@ class SendDispatcher(ISendProtocol):
                 pass
             page.wait_for_timeout(100)
         return False
+
+    def _wait_for_send_enabled(self, page: Page, timeout_ms: int = 5000) -> None:
+        """Wait until Qwen's send button is active/enabled and any attachment upload spinner is done."""
+        deadline = time.monotonic() + (timeout_ms / 1000)
+        while time.monotonic() < deadline:
+            try:
+                for selector in (
+                    "button.send-button:not([disabled]):not(.disabled)",
+                    "button[aria-label*='Send' i]:not([disabled]):not(.disabled)",
+                    "button[type='submit']:not([disabled]):not(.disabled)",
+                    "button[class*='send' i]:not([disabled]):not(.disabled)",
+                ):
+                    loc = page.locator(selector).first
+                    if loc.count() > 0 and loc.is_visible(timeout=100) and loc.is_enabled(timeout=100):
+                        return
+            except (Error, TimeoutError):
+                pass
+            page.wait_for_timeout(200)
 
     def count_messages(self, page: Page) -> MessageCount:
         """Count chat turns using JS evaluate."""

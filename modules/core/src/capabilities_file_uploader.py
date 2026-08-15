@@ -106,6 +106,7 @@ class FileUploader(IUploadProtocol):
                         filepath.name,
                     )
                     self._wait_for_parse_ready(page, filepath)
+                    page.wait_for_timeout(500)
                     if emitter:
                         emitter.emit(
                             EVENT_FILE_UPLOADED,

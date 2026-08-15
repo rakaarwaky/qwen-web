@@ -45,7 +45,7 @@ class TestSendFile:
         orch = make_test_orchestrator()
         page = MagicMock()
         with pytest.raises(QwenCliError, match="Failed to read"):
-            orch.send_file(page, tmp_path / "nonexistent.md", timeout_sec=10)
+            orch._execute_pipeline_on_page(page, tmp_path / "nonexistent.md", timeout_sec=10)
 
     def test_send_file_timeout_error(self, tmp_path):
         orch = make_test_orchestrator()
@@ -64,7 +64,7 @@ class TestSendFile:
         f.write_text("hello")
 
         with pytest.raises(ResponseDetectionTimeoutError, match="Response detection timeout"):
-            orch.send_file(page, f, timeout_sec=10)
+            orch._execute_pipeline_on_page(page, f, timeout_sec=10)
 
     def test_send_file_delegates_to_capabilities(self, tmp_path):
         orch = make_test_orchestrator()
@@ -84,7 +84,7 @@ class TestSendFile:
         f = tmp_path / "task.md"
         f.write_text("hello")
 
-        result = orch.send_file(page, f, timeout_sec=10)
+        result = orch._execute_pipeline_on_page(page, f, timeout_sec=10)
 
         assert result == "the response"
         orch._streamer.wait_for_response.assert_called_once()

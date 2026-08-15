@@ -1,9 +1,7 @@
-"""Core aggregate contract — the single business-logic API for all surfaces.
+"""Core aggregate contracts — business-logic APIs for all surfaces.
 
-Taxonomy layer (contract(aggregate)): implemented by the agent orchestrator and
-consumed by both the CLI and MCP surfaces. Depends only on taxonomy +
-contract(protocol). The CLI and MCP features are 1:1 — they share this one
-aggregate; surfaces only handle front-end concerns (arg parsing, TUI, JSON-RPC).
+Taxonomy layer (contract(aggregate)): implemented by agent orchestrators and
+consumed by CLI and MCP surfaces.
 """
 
 from __future__ import annotations
@@ -12,45 +10,77 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
 
-from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_vo import (
+    AttachmentPath,
     FilePath,
+    HeadlessFlag,
     MessageCount,
+    OutputPath,
+    PromptPath,
     PromptText,
     ResponseText,
     TimeoutSec,
 )
 
 
-class ICoreAggregate(ABC):
-    """Core processing aggregate consumed by CLI and MCP surfaces."""
+class IDirectPromptAggregate(ABC):
+    """Direct string prompt processing aggregate contract."""
 
-    # ─── Processing API (used by CLI run + MCP tools) ───────────
     @abstractmethod
-    def process_single_file(
+    def process_direct_prompt(
         self,
-        input_file: Path | FilePath,
-        output_file: Path | FilePath | None = None,
-        headless: bool = True,
-    ) -> ResponseText:
-        """Process a single prompt file."""
-
-    @abstractmethod
-    def process_mode(self, cfg: AppConfig) -> ResponseText:
-        """Dispatch processing for the given configuration."""
-
-    @abstractmethod
-    def send_prompt(
-        self,
-        prompt: PromptText,
+        prompt: PromptText | str,
         timeout_sec: TimeoutSec = TimeoutSec(120),
-        headless: bool = True,
+        headless: HeadlessFlag = HeadlessFlag(True),
     ) -> ResponseText:
-        """Send a direct text prompt and return the AI response."""
+        """Process a direct text prompt string."""
+
+
+class IPromptFileAggregate(ABC):
+    """Prompt file processing aggregate contract."""
+
+    @abstractmethod
+    def process_prompt_file_only(
+        self,
+        prompt_file: Path | PromptPath | str,
+        output_file: Path | OutputPath | str | None = None,
+        headless: HeadlessFlag = HeadlessFlag(True),
+    ) -> ResponseText:
+        """Process a prompt file from disk without attachment."""
+
+
+class IAttachmentPromptAggregate(ABC):
+    """Attachment prompt processing aggregate contract."""
+
+    @abstractmethod
+    def process_prompt_with_attachment(
+        self,
+        prompt_file: Path | PromptPath | str,
+        attachment_file: Path | AttachmentPath | str,
+        output_file: Path | OutputPath | str | None = None,
+        headless: HeadlessFlag = HeadlessFlag(True),
+    ) -> ResponseText:
+        """Process a prompt file from disk with document attachment."""
+
+
+class IPipelineAggregate(IDirectPromptAggregate, IPromptFileAggregate, IAttachmentPromptAggregate, ABC):
+    """Unified pipeline aggregate contract."""
+
+
+class ISessionAggregate(ABC):
+    """Session aggregate contract for session validation and deletion."""
 
     @abstractmethod
     def validate_session(self, session_path: Path | None = None) -> tuple[bool, str]:
         """Return session validity and a human-readable status message."""
+
+    @abstractmethod
+    def delete_session(self, session_path: Path | None = None) -> ResponseText:
+        """Delete the persistent login session at ``session_path``."""
+
+
+class ISetupAggregate(ABC):
+    """Setup aggregate contract for interactive manual login."""
 
     @abstractmethod
     def setup_session(
@@ -58,24 +88,27 @@ class ICoreAggregate(ABC):
         wait_for_confirmation: Callable[[], None] | None = None,
         session_path: Path | None = None,
     ) -> ResponseText:
-        """Validate or establish a persistent manual login session.
+        """Validate or establish a persistent manual login session."""
 
-        ``wait_for_confirmation`` is supplied by interactive surfaces so the
-        browser context remains open while the user completes login or CAPTCHA.
-        """
 
-    @abstractmethod
-    def delete_session(self, session_path: Path | None = None) -> ResponseText:
-        """Delete the persistent login session at ``session_path``."""
+class ICoreAggregate(IPipelineAggregate, ISessionAggregate, ISetupAggregate, ABC):
+    """Unified core processing aggregate combining pipeline, session, and setup aggregates."""
 
     @abstractmethod
     def get_audit_log(self, limit: MessageCount = MessageCount(20)) -> ResponseText:
         """Return recent audit log entries as JSON text."""
 
-    # ─── Workspace API (back-end; I/O delegated to capabilities) ─
     @abstractmethod
     def init_workspace(self, target_dir: Path | FilePath = FilePath(".")) -> None:
         """Initialize the workspace (.agents/skills + .qwen-web symlinks)."""
 
 
-__all__ = ["ICoreAggregate"]
+__all__ = [
+    "IAttachmentPromptAggregate",
+    "ICoreAggregate",
+    "IDirectPromptAggregate",
+    "IPipelineAggregate",
+    "IPromptFileAggregate",
+    "ISessionAggregate",
+    "ISetupAggregate",
+]

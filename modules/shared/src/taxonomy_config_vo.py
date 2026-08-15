@@ -210,7 +210,6 @@ DEFAULT_SAVER_CONFIG = SaverConfig()
 class AppConfig:
     """Application configuration with defaults and validation."""
 
-    mode: str
     input_path: Path
     output_path: Path
     done_path: Path
@@ -218,6 +217,7 @@ class AppConfig:
     proc_path: Path
     session_path: Path
     log_path: Path = DEFAULT_LOG
+    mode: str = ""
 
     interval: int = 3
     timeout: int = 300

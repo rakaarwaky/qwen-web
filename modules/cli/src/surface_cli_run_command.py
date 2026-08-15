@@ -32,7 +32,12 @@ def handle(args: object, core: ICoreAggregate) -> dict[str, object]:
             RuntimeError("Missing AppConfig — run command requires a built config."), "validation_error", "cli-400"
         )
 
-    result = core.process_mode(cfg)
+    result = core.process_single_file(
+        input_file=cfg.prompt_path or cfg.input_path,
+        attachment_file=cfg.file_path,
+        output_file=cfg.output_path,
+        headless=cfg.headless,
+    )
     failure = _processing_failure_message(result)
     if failure is not None:
         return error_response(RuntimeError(failure), "processing_failed", "cli-422")

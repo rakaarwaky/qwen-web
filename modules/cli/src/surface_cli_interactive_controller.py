@@ -99,5 +99,10 @@ class InteractiveController:
         if cfg is None:
             return success_response("Exited.")
 
-        result = self._core.process_mode(cfg)
+        result = self._core.process_single_file(
+            input_file=cfg.prompt_path or cfg.input_path,
+            attachment_file=cfg.file_path,
+            output_file=cfg.output_path,
+            headless=cfg.headless,
+        )
         return success_response(result)

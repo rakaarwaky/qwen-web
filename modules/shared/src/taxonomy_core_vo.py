@@ -16,9 +16,11 @@ from pathlib import Path
 from typing import NewType, TypeAlias
 
 PromptText = NewType("PromptText", str)
-InputPath = NewType("InputPath", str)
-OutputPath = NewType("OutputPath", str)
-FilePath = NewType("FilePath", str)
+PromptPath = NewType("PromptPath", Path)
+AttachmentPath = NewType("AttachmentPath", Path)
+InputPath = NewType("InputPath", Path)
+OutputPath = NewType("OutputPath", Path)
+FilePath = NewType("FilePath", Path)
 RunId = NewType("RunId", str)
 RunIdHex = NewType("RunIdHex", str)
 RunContextId = NewType("RunContextId", str)

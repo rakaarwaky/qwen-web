@@ -266,6 +266,9 @@ class FilePickerModal(ModalScreen[str | None]):
         self.dismiss(None)
 
 
+from rich.markup import escape
+
+
 class QwenTuiLogHandler(logging.Handler):
     """Logging handler streaming stdlib and structlog records to Textual RichLog in real-time."""
 
@@ -279,14 +282,18 @@ class QwenTuiLogHandler(logging.Handler):
             name = record.name
             lvl = record.levelname
 
+            msg_esc = escape(msg)
+            name_esc = escape(name)
+            lvl_esc = escape(lvl)
+
             if record.levelno >= logging.ERROR:
-                line = f"[bold #EF4444][{lvl}][{name}][/] [#EF4444]{msg}[/]"
+                line = f"[bold #EF4444][{lvl_esc}][{name_esc}][/] [#EF4444]{msg_esc}[/]"
             elif record.levelno >= logging.WARNING:
-                line = f"[bold #F59E0B][{lvl}][{name}][/] [#F59E0B]{msg}[/]"
+                line = f"[bold #F59E0B][{lvl_esc}][{name_esc}][/] [#F59E0B]{msg_esc}[/]"
             elif record.levelno >= logging.INFO:
-                line = f"[bold #3B82F6][{name}][/] [#d5e4fa]{msg}[/]"
+                line = f"[bold #3B82F6][{name_esc}][/] [#d5e4fa]{msg_esc}[/]"
             else:
-                line = f"[#64748B][{name}][/] [#908fa0]{msg}[/]"
+                line = f"[#64748B][{name_esc}][/] [#908fa0]{msg_esc}[/]"
 
             try:
                 self._app.call_from_thread(self._app._log_msg, line)
@@ -294,6 +301,28 @@ class QwenTuiLogHandler(logging.Handler):
                 pass
         except Exception:
             self.handleError(record)
+
+
+def _default_prompt_value() -> str:
+    candidates = [
+        Path.cwd() / ".qwen-web" / "input" / "PROMPT.md",
+        Path.cwd() / ".agents" / "prompts" / "PROMPT.md",
+    ]
+    for p in candidates:
+        if p.exists():
+            return str(p)
+    return str(candidates[0])
+
+
+def _default_file_value() -> str:
+    candidates = [
+        Path.cwd() / ".qwen-web" / "input" / "FILE.md",
+        Path.cwd() / ".agents" / "prompts" / "DOC.md",
+    ]
+    for p in candidates:
+        if p.exists():
+            return str(p)
+    return str(candidates[0])
 
 
 class QwenTuiApp(App[None]):
@@ -324,16 +353,29 @@ class QwenTuiApp(App[None]):
             with ScrollableContainer(id="left-pane"):
                 yield Static("[ EXECUTION CONFIGURATION ]", classes="pane-title")
 
+                default_prompt = _default_prompt_value()
+                default_file = _default_file_value()
+
                 # Prompt file
                 yield Label("Prompt File (Required) *", classes="field-label")
                 with Horizontal(classes="field-row"):
-                    yield Input(placeholder="path/to/prompt.md", id="input-prompt", classes="field-input")
+                    yield Input(
+                        value=default_prompt,
+                        placeholder="path/to/prompt.md",
+                        id="input-prompt",
+                        classes="field-input",
+                    )
                     yield Button("Browse", id="btn-browse-prompt", classes="btn-browse")
 
                 # Attachment file
                 yield Label("Attachment File (Optional)", classes="field-label")
                 with Horizontal(classes="field-row"):
-                    yield Input(placeholder="path/to/attachment.file", id="input-file", classes="field-input")
+                    yield Input(
+                        value=default_file,
+                        placeholder="path/to/attachment.file",
+                        id="input-file",
+                        classes="field-input",
+                    )
                     yield Button("Browse", id="btn-browse-file", classes="btn-browse")
 
                 # Output path
@@ -366,9 +408,9 @@ class QwenTuiApp(App[None]):
         yield Footer()
 
     def on_mount(self) -> None:
-        log = self.query_one("#log-view", RichLog)
-        log.write("[bold #c0c1ff]Qwen Web Automation CLI initialized.[/]")
-        log.write("[#908fa0]Ready for prompt dispatch. Fill fields on the left and hit Enter.[/]\n")
+        self._log_view = self.query_one("#log-view", RichLog)
+        self._log_view.write("[bold #c0c1ff]Qwen Web Automation CLI initialized.[/]")
+        self._log_view.write("[#908fa0]Ready for prompt dispatch. Fill fields on the left and hit Enter.[/]\n")
 
         self._log_handler = QwenTuiLogHandler(self)
         self._log_handler.setLevel(logging.INFO)
@@ -446,7 +488,12 @@ class QwenTuiApp(App[None]):
         self.call_from_thread(self._log_msg, f"[#908fa0]    Headless: {cfg.headless} | Timeout: {cfg.request_timeout}s[/]")
 
         try:
-            res = self._core.process_mode(cfg)
+            res = self._core.process_single_file(
+                input_file=cfg.prompt_path or cfg.input_path,
+                attachment_file=cfg.file_path,
+                output_file=cfg.output_path,
+                headless=cfg.headless,
+            )
             self.call_from_thread(self._log_msg, f"[bold #10B981]SUCCESS:[/] {res}")
         except Exception as exc:
             self.call_from_thread(self._log_msg, f"[bold #EF4444]FAILED:[/] {exc}")
@@ -479,10 +526,10 @@ class QwenTuiApp(App[None]):
             self._log_msg(f"[bold #EF4444]INIT ERROR:[/] {exc}")
 
     def action_reset_action(self) -> None:
-        self.query_one("#input-prompt", Input).value = ""
-        self.query_one("#input-file", Input).value = ""
+        self.query_one("#input-prompt", Input).value = _default_prompt_value()
+        self.query_one("#input-file", Input).value = _default_file_value()
         self.query_one("#input-output", Input).value = str(DEFAULT_OUTPUT)
-        self._log_msg("[#908fa0]Form reset to defaults.[/]")
+        self._log_msg("[#908fa0]Form reset to default test paths.[/]")
 
     def _update_status(self, text: str) -> None:
         try:
@@ -493,7 +540,7 @@ class QwenTuiApp(App[None]):
 
     def _log_msg(self, msg: str) -> None:
         try:
-            log = self.query_one("#log-view", RichLog)
+            log = getattr(self, "_log_view", None) or self.query_one("#log-view", RichLog)
             log.write(msg)
         except Exception:
             pass

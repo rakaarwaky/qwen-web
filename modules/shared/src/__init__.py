@@ -194,8 +194,6 @@ from .utility_core_path import (
 # ─── Utility: prompt ──────────────────────────────────────────
 from .utility_core_prompt import (
     extract_prompt_text,
-    get_role_search_directories,
-    load_role_prompt,
     strip_input_from_output,
 )
 
@@ -362,8 +360,6 @@ __all__ = [
     "ICoreAggregate",
     # Utilities
     "extract_prompt_text",
-    "get_role_search_directories",
-    "load_role_prompt",
     "strip_input_from_output",
     "resolve_role_paths",
     "should_process_file",

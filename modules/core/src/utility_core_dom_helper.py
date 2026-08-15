@@ -114,7 +114,7 @@ def click_first_visible_enabled(
     for selector in selectors:
         try:
             loc = page.locator(selector).first
-            if loc.is_visible(timeout=timeout_ms):
+            if loc.is_visible(timeout=timeout_ms) and loc.is_enabled(timeout=timeout_ms):
                 loc.click()
                 return True
         except Error:
