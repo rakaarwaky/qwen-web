@@ -143,42 +143,13 @@ JS_GET_RESPONSE_TEXT: str = """
 () => {
     var responseNodes = document.querySelectorAll(
         '.response-message-content, .qwen-markdown-text, ' +
-        '.chat-response-message .qwen-markdown, .qwen-chat-message-assistant .qwen-markdown'
+        '.chat-response-message .qwen-markdown'
     );
     for (var ri = responseNodes.length - 1; ri >= 0; ri--) {
         var responseNode = responseNodes[ri];
         if (responseNode.closest('.qwen-chat-message-user')) continue;
         var responseText = (responseNode.innerText || '').trim();
         if (responseText.length > 0) return responseText;
-    }
-    var SKIP_CLASSES = [
-        'model-selector', 'fileitem', 'placeholder', 'message-input',
-        'header', 'footer', 'feedback', 'downLoad', 'sidebar',
-        'mode-select', 'send-button', 'toolbar', 'nav', 'spinner',
-        'thinking', 'attachment', 'file-card', 'file-content',
-        'chat-footer', 'chat-prompt-recommend'
-    ];
-    function isInChrome(el) {
-        var p = el;
-        while (p) {
-            var cls = p.className;
-            if (cls && typeof cls === 'string') {
-                for (var i = 0; i < SKIP_CLASSES.length; i++) {
-                    if (cls.indexOf(SKIP_CLASSES[i]) >= 0) return true;
-                }
-            }
-            if (p.tagName === 'HEADER' || p.tagName === 'FOOTER' ||
-                p.tagName === 'NAV' || p.tagName === 'ASIDE') return true;
-            p = p.parentElement;
-        }
-        return false;
-    }
-    var assistantNodes = document.querySelectorAll(
-        '.qwen-chat-message-assistant, .chat-message-assistant, [data-role="assistant"]'
-    );
-    for (var ai = assistantNodes.length - 1; ai >= 0; ai--) {
-        var assistantText = (assistantNodes[ai].innerText || '').trim();
-        if (assistantText.length > 0 && !isInChrome(assistantNodes[ai])) return assistantText;
     }
     return null;
 }
