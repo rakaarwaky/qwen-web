@@ -124,7 +124,6 @@ class StreamMonitor(IStreamProtocol):
         # Step 3: Poll DOM for thinking/streaming status & content stability
         while time.time() - start < timeout_sec:
             try:
-                count_messages(page)
                 if not has_thinking and self.is_thinking_active(page):
                     emitter.emit(EVENT_THINKING_STARTED, {"source": "qwen-thinking-dom"})
                     has_thinking = True

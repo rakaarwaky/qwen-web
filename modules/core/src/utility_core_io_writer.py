@@ -13,9 +13,11 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
+from modules.shared.src.taxonomy_core_error import OutputWriteError
+
 
 def _atomic_write(target: Path, content: str) -> None:
-    """Write content to a file atomically via temp + rename.
+    """Write content to a file atomically via temp + replace.
 
     Parameters
     ----------
@@ -25,10 +27,15 @@ def _atomic_write(target: Path, content: str) -> None:
         Text content to write.
 
     """
-    tmp_path = target.with_suffix(".tmp")
-    tmp_path.write_text(content, encoding="utf-8")
-    with suppress(OSError):
-        tmp_path.rename(target)
+    tmp_path = target.with_suffix(f".tmp_{target.name}")
+    try:
+        tmp_path.write_text(content, encoding="utf-8")
+        tmp_path.replace(target)
+    except OSError as err:
+        if tmp_path.exists():
+            with suppress(OSError):
+                tmp_path.unlink()
+        raise OutputWriteError(f"Atomic write failed for {target}: {err}") from err
 
 
 def atomic_write_text(target: Path, data: str) -> None:
