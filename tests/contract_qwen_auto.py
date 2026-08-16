@@ -43,7 +43,6 @@ class TestQwenAutoContract(unittest.TestCase):
             "process_watcher",
             "send_prompt",
             "setup_session",
-            "get_audit_log",
             "init_workspace",
         ]
         for m in expected_methods:

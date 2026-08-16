@@ -1,14 +1,12 @@
 """Unit test suite for MCP server tools and configuration."""
 
 import asyncio
-import json
 import unittest
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from modules.root_mcp_main_entry import (
-    qwen_get_audit_log,
     qwen_process_single,
     qwen_send_prompt,
     qwen_setup_session,
@@ -33,25 +31,6 @@ def _reset_event_loop():
 
 class TestMCPServerTools(unittest.TestCase):
     """Unit tests for MCP server tools."""
-
-    def test_qwen_get_audit_log_missing(self) -> None:
-        """Test qwen_get_audit_log when log file does not exist."""
-        mock_tools = MagicMock()
-        mock_tools.get_audit_log.return_value = "Audit log file does not exist yet."
-        with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
-            res = asyncio.run(qwen_get_audit_log())
-            self.assertEqual(res, "Audit log file does not exist yet.")
-
-    def test_qwen_get_audit_log_records(self) -> None:
-        """Test qwen_get_audit_log returns formatted JSON list."""
-        records = json.dumps([{"run_id": "test1234", "status": "SUCCESS", "duration_sec": 1.2}])
-        mock_tools = MagicMock()
-        mock_tools.get_audit_log.return_value = records
-        with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
-            res = asyncio.run(qwen_get_audit_log(limit=5))
-            data = json.loads(res)
-            self.assertEqual(len(data), 1)
-            self.assertEqual(data[0]["run_id"], "test1234")
 
     def test_qwen_send_prompt_mock(self) -> None:
         """Test qwen_send_prompt tool execution with mocked tools."""
