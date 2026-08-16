@@ -142,8 +142,13 @@ class FileUploader(IUploadProtocol):
             return False
 
         # ── Step 3: Wait until document backend parsing is 100% complete ──
-        self._wait_for_parse_ready(page, filepath)
-        page.wait_for_timeout(500)
+        try:
+            self._wait_for_parse_ready(page, filepath)
+            page.wait_for_timeout(500)
+        except TimeoutError as e:
+            self.last_error = e
+            log.error("Document parsing timed out for %s: %s", filepath.name, e)
+            return False
 
         # ── Step 4: Emit EVENT_DOCUMENT_PARSED & return success ──
         if emitter:
@@ -214,7 +219,7 @@ class FileUploader(IUploadProtocol):
         raise TimeoutError(f"Exact uploaded filename was not rendered in Qwen attachment DOM: {filepath.name}")
 
     def _attachment_match_count(self, page: Page, filepath: Path) -> int:
-        """Count exact filename matches, preferring full filename nodes over stem-only nodes."""
+        """Count exact filename matches using card-scoped and filename selectors ONLY."""
         normalized_name = " ".join(filepath.name.split()).casefold()
         normalized_stem = " ".join(filepath.stem.split()).casefold()
         for selector, expected in (
@@ -222,10 +227,13 @@ class FileUploader(IUploadProtocol):
             ("[class*='fileitem-file-name']", normalized_name),
             (".fileitem-file-name-text", normalized_stem),
             ("[class*='fileitem-file-name-text']", normalized_stem),
-            ("", normalized_name),
+            (".message-input-column-file", normalized_name),
+            ("[class*='fileitem']", normalized_name),
+            ("[class*='file-card']", normalized_name),
+            ("[class*='file-item']", normalized_name),
         ):
             try:
-                locator = page.locator(selector) if selector else page.locator("body")
+                locator = page.locator(selector)
                 visible_texts = []
                 for index in range(locator.count()):
                     item = locator.nth(index)
@@ -239,14 +247,6 @@ class FileUploader(IUploadProtocol):
             matches = sum("".join(text.split()).casefold() == expected for text in visible_texts)
             if matches:
                 return matches
-            try:
-                body_text = page.locator("body").first.inner_text()
-                stripped_body = "".join(body_text.split()).casefold()
-                stripped_name = "".join(normalized_name.split())
-                if stripped_name in stripped_body:
-                    return 1
-            except (TimeoutError, Error):
-                pass
         return 0
 
     # ── Helper for Step 3: Sequential document parse ready check ──

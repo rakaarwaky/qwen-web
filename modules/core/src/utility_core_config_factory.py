@@ -77,8 +77,8 @@ def resolve_pipeline_output_path(
 ) -> tuple[Path, Path]:
     """Resolve prompt file and output file paths cleanly for prompt pipeline agents."""
     p_path = Path(prompt_file).resolve()
-    if not p_path.exists():
-        raise FileNotFoundError(f"Input file not found: {p_path}")
+    if not p_path.is_file():
+        raise FileNotFoundError(f"Input file not found or is a directory: {p_path}")
     out_path = Path(output_file).resolve() if output_file else DEFAULT_OUTPUT / p_path.name
     if out_path.is_dir():
         out_path = out_path / f"{p_path.stem}_output.md"

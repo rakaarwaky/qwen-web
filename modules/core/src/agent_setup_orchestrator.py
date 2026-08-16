@@ -57,10 +57,11 @@ class SetupOrchestrator(ISetupAggregate):
             page = bctx.pages[0] if bctx.pages else bctx.new_page()
             page.goto(CHAT_URL, wait_until="domcontentloaded")
 
+            if callable(wait_for_confirmation):
+                wait_for_confirmation()
+
             deadline = time.monotonic() + cfg.timeout
             while True:
-                if callable(wait_for_confirmation):
-                    wait_for_confirmation()
                 try:
                     if page.is_closed():
                         break

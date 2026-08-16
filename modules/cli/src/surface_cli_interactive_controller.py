@@ -94,4 +94,7 @@ class InteractiveController:
                 RuntimeError(f"Unsupported CLI mode: {mode}"), "validation_error", "cli-400"
             )
 
+        res_str = str(result)
+        if res_str.startswith("Execution failed") or res_str.startswith("Error:"):
+            return error_response(RuntimeError(res_str), "execution_error", "cli-500")
         return success_response(result)

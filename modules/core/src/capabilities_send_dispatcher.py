@@ -31,16 +31,25 @@ log = get_logger("capabilities_send_dispatcher")
 
 
 def _is_parse_toast_visible(page: Page) -> bool:
-    """Safely check if Qwen's document parsing warning toast is visible."""
-    try:
-        toast = page.locator("body").filter(
-            has_text="Please wait until the uploaded or currently parsing file"
-        )
-        c = toast.count()
-        if isinstance(c, int) and c > 0:
-            return bool(toast.first.is_visible(timeout=100))
-    except Exception:
-        pass
+    """Safely check if Qwen's document parsing warning toast is visible in notification containers."""
+    toast_selectors = (
+        ".ant-message",
+        "[role='alert']",
+        "[class*='toast']",
+        "[class*='notification']",
+        "[class*='message-notice']",
+    )
+    for selector in toast_selectors:
+        try:
+            toast = page.locator(selector).filter(
+                has_text="parsing file"
+            )
+            c = toast.count()
+            if isinstance(c, int) and c > 0:
+                if toast.first.is_visible(timeout=100):
+                    return True
+        except Exception:
+            pass
     return False
 
 
@@ -130,7 +139,7 @@ class SendDispatcher(ISendProtocol):
             emitter.emit(EVENT_SEND_CLICKED, details)
 
             # Step 4: Verify dispatch acknowledgment (with Enter fallback if needed)
-            if not self._wait_for_dispatch_ack(page, baseline_count):
+            if not self._wait_for_dispatch_ack(page, baseline_count, timeout_ms=int(effective_config.click_timeout_ms)):
                 if _is_parse_toast_visible(page):
                     page.wait_for_timeout(1000)
                     continue
@@ -140,7 +149,7 @@ class SendDispatcher(ISendProtocol):
                 except (Error, TimeoutError):
                     with contextlib.suppress(Error, TimeoutError):
                         page.keyboard.press("Enter")
-                if not self._wait_for_dispatch_ack(page, baseline_count):
+                if not self._wait_for_dispatch_ack(page, baseline_count, timeout_ms=int(effective_config.click_timeout_ms)):
                     if _is_parse_toast_visible(page):
                         page.wait_for_timeout(1000)
                         continue
@@ -150,11 +159,12 @@ class SendDispatcher(ISendProtocol):
 
         raise SendDispatchError("Send control dispatch timed out waiting for document parsing or user turn ACK")
 
-    def _wait_for_dispatch_ack(self, page: Page, baseline_count: int) -> bool:
+    def _wait_for_dispatch_ack(self, page: Page, baseline_count: int, timeout_ms: int | None = None) -> bool:
         """Verify that the click produced a new user turn or reset the composer."""
         from modules.core.src.utility_core_dom_query import latest_message_text as _latest_message_text
 
-        deadline = time.monotonic() + (self.click_timeout_ms / 1000)
+        effective_timeout = timeout_ms if timeout_ms is not None else int(self.click_timeout_ms)
+        deadline = time.monotonic() + (effective_timeout / 1000)
         baseline_text = _latest_message_text(page)
         while time.monotonic() < deadline:
             try:
@@ -179,7 +189,7 @@ class SendDispatcher(ISendProtocol):
             page.wait_for_timeout(100)
         return False
 
-    def _wait_for_send_enabled(self, page: Page, timeout_ms: int = 5000) -> None:
+    def _wait_for_send_enabled(self, page: Page, timeout_ms: int = 5000) -> bool:
         """Wait until send is safe: no file parsing in progress AND button is enabled."""
         deadline = time.monotonic() + (timeout_ms / 1000)
         while time.monotonic() < deadline:
@@ -206,10 +216,11 @@ class SendDispatcher(ISendProtocol):
                     loc = page.locator(selector).first
                     c = loc.count()
                     if isinstance(c, int) and c > 0 and loc.is_visible(timeout=100) and loc.is_enabled(timeout=100):
-                        return
+                        return True
             except (Error, TimeoutError):
                 pass
             page.wait_for_timeout(200)
+        return False
 
     def count_messages(self, page: Page) -> MessageCount:
         """Count chat turns using JS evaluate."""

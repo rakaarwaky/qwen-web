@@ -516,7 +516,13 @@ class QwenTuiApp(App[None]):
                     output_file=cfg.output_path,
                     headless=HeadlessFlag(cfg.headless),
                 )
-            self.call_from_thread(self._log_msg, f"[bold #10B981]SUCCESS:[/] {res}")
+            res_str = str(res)
+            if isinstance(res, dict) and res.get("status") in {"error", "failure", "failed"}:
+                self.call_from_thread(self._log_msg, f"[bold #EF4444]FAILED:[/] {res_str}")
+            elif "fail" in res_str.lower() and "success" not in res_str.lower():
+                self.call_from_thread(self._log_msg, f"[bold #EF4444]FAILED:[/] {res_str}")
+            else:
+                self.call_from_thread(self._log_msg, f"[bold #10B981]SUCCESS:[/] {res_str}")
         except Exception as exc:
             self.call_from_thread(self._log_msg, f"[bold #EF4444]FAILED:[/] {exc}")
         finally:

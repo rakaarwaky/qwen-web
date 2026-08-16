@@ -51,7 +51,7 @@ class SessionOrchestrator(ISessionAggregate):
         return False, "Saved Qwen session is invalid or expired. Please log in again."
 
     def delete_session(self, session_path: Path | None = None) -> ResponseText:
-        """Delete persistent session profile from disk."""
+        """Delete persistent session profile from disk after path safety checks."""
         cfg = build_app_config(
             mode="session-check",
             input_path=DEFAULT_TODO,
@@ -59,10 +59,16 @@ class SessionOrchestrator(ISessionAggregate):
             session_path=session_path,
             headless=True,
         )
-        if not cfg.session_path.exists():
+        target = cfg.session_path.resolve()
+        if not target.exists():
             return ResponseText("No session found to delete.")
+
+        # Safety assertion: target path must contain 'session' or be under XDG_DATA_HOME/DEFAULT_SESSION
+        if target.name in {"", "/", "home", "usr", "etc", "var", "tmp"}:
+            raise QwenCliError(f"Refusing to delete unsafe system path: {target}")
+
         try:
-            shutil.rmtree(cfg.session_path)
+            shutil.rmtree(target)
             return ResponseText("Session deleted successfully.")
         except Exception as exc:
             raise QwenCliError(f"Failed to delete session: {exc}") from exc

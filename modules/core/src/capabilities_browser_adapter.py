@@ -170,8 +170,10 @@ class BrowserAdapter(IBrowserProtocol):
         emitter.emit(EVENT_WEB_LOADED, {"url": page.url})
         emitter.emit(EVENT_LOGIN_VERIFIED, {"url": page.url})
 
-    def _start_new_chat(self, page: Page) -> None:
+    def _start_new_chat(self, page: Page, opt_in: bool = True) -> None:
         """Start a clean Qwen conversation so stale cards cannot affect monitoring."""
+        if not opt_in:
+            return
         try:
             if click_first_visible_enabled(page, NEW_CHAT_SELECTORS, timeout_ms=1500):
                 page.wait_for_timeout(800)
@@ -308,9 +310,18 @@ class BrowserAdapter(IBrowserProtocol):
                         lambda r: r.abort(),
                     )
 
+                def _sanitize_url(url: str) -> str:
+                    """Sanitize URL for logging to prevent credential/query token exfiltration."""
+                    try:
+                        from urllib.parse import urlparse, urlunparse
+                        parsed = urlparse(url)
+                        return urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
+                    except Exception:
+                        return url.split("?")[0]
+
                 def attach_page_diagnostics(page: Page) -> None:
                     def on_request_failed(request: Any) -> None:
-                        log.warning("browser_request_failed", url=request.url, error=request.failure)
+                        log.warning("browser_request_failed", url=_sanitize_url(request.url), error=request.failure)
 
                     def on_console(message: Any) -> None:
                         if message.type in {"error", "warning"}:
@@ -318,16 +329,16 @@ class BrowserAdapter(IBrowserProtocol):
 
                     def on_request(request: Any) -> None:
                         if request.method in {"POST", "PUT", "PATCH"} and "qwen.ai" in request.url:
-                            log.info("browser_mutation_request", method=request.method, url=request.url)
+                            log.info("browser_mutation_request", method=request.method, url=_sanitize_url(request.url))
 
                     def on_response(response: Any) -> None:
                         url = response.url.lower()
                         if response.status >= 400 and any(
                             token in url for token in ("chat", "completion", "generate", "conversation", "api")
                         ):
-                            log.warning("browser_http_error", status=response.status, url=response.url)
+                            log.warning("browser_http_error", status=response.status, url=_sanitize_url(response.url))
                         elif response.request.method in {"POST", "PUT", "PATCH"} and "qwen.ai" in url:
-                            log.info("browser_mutation_response", status=response.status, url=response.url)
+                            log.info("browser_mutation_response", status=response.status, url=_sanitize_url(response.url))
 
                     page.on("request", on_request)
                     page.on("requestfailed", on_request_failed)

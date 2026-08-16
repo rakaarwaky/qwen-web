@@ -10,19 +10,11 @@ import asyncio
 import logging
 import sys
 from collections.abc import Awaitable, Callable, Sequence
-from typing import Any, cast
+from typing import Any
 
 from mcp.server import InitializationOptions, Server
 from mcp.server.stdio import stdio_server
-from mcp.types import (
-    CallToolResult,
-    ContentBlock,
-    ListResourcesResult,
-    ListToolsResult,
-    ReadResourceResult,
-    TextContent,
-    Tool,
-)
+from mcp.types import TextContent, Tool
 from mcp_types._types import ServerCapabilities, ToolsCapability
 
 from modules.core.src.capabilities_observability_setup import ObservabilitySetup
@@ -221,14 +213,28 @@ def run_mcp_server() -> None:
                 server_version="4.1.0",
                 capabilities=capabilities,
             )
-            server = Server(
-                name="Qwen-Web",
-                version="4.1.0",
-                on_list_tools=cast(Any, _handle_list_tools),
-                on_call_tool=cast(Any, _handle_call_tool),
-                on_list_resources=cast(Any, _handle_list_resources),
-                on_read_resource=cast(Any, _handle_read_resource),
-            )
+            server = Server("Qwen-Web")
+
+            @server.list_tools()
+            async def handle_list_tools() -> list[Tool]:
+                return TOOLS
+
+            @server.call_tool()
+            async def handle_call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextContent]:
+                handler = TOOL_HANDLERS.get(name)
+                if handler is None:
+                    raise ValueError(f"Unknown tool: {name}")
+                result = await handler(**(arguments or {}))
+                return [TextContent(type="text", text=r) for r in result]
+
+            @server.list_resources()
+            async def handle_list_resources() -> list[Any]:
+                return []
+
+            @server.read_resource()
+            async def handle_read_resource(_uri: Any) -> str:
+                return ""
+
             await server.run(read_stream, write_stream, initialization_options=init_opts)
 
     try:

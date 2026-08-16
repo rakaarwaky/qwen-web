@@ -19,7 +19,9 @@ def handle(
     The user logs in manually in the headed browser, then closes it — that
     triggers the session check. No ENTER press needed.
     """
-    session.delete_session(session_path=cfg.session_path)
+    val_res = session.validate_session(session_path=cfg.session_path)
+    if isinstance(val_res, (tuple, list)) and len(val_res) == 2 and val_res[0]:
+        return success_response(f"Existing session is valid and ready: {cfg.session_path}")
 
     result = setup.setup_session(
         wait_for_confirmation=None,
