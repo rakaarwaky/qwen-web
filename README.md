@@ -2,12 +2,12 @@
 
 > Unlimited Qwen 3.8-Max Intelligence — Zero API Keys. Zero Rate Limits. 100% Uninterrupted.
 
-[![Python](https://img.shields.io/badge/python-3.10%2B-000000?style=flat-square)](https://www.python.org/)
-[![Playwright](https://img.shields.io/badge/playwright-1.62%2B-000000?style=flat-square)](https://playwright.dev/python/)
-[![MCP Protocol](https://img.shields.io/badge/mcp-2.0%2B-000000?style=flat-square)](https://modelcontextprotocol.io/)
-[![AES Architecture](https://img.shields.io/badge/aes--7--layer-compliant-000000?style=flat-square)](#architecture-aes-7-layer-pattern)
-[![Tests](https://img.shields.io/badge/tests-227%20passed-000000?style=flat-square)](#testing--quality)
-[![License](https://img.shields.io/badge/license-MIT-000000?style=flat-square)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![Playwright](https://img.shields.io/badge/Playwright-1.62%2B-2EAD33?style=flat-square&logo=playwright&logoColor=white)](https://playwright.dev/python/)
+[![MCP Protocol](https://img.shields.io/badge/MCP-2.0%2B-7C3AED?style=flat-square&logo=anthropic&logoColor=white)](https://modelcontextprotocol.io/)
+[![AES Architecture](https://img.shields.io/badge/AES_Architecture-7--Layer-2563EB?style=flat-square&logo=architecture&logoColor=white)](#architecture-aes-7-layer-pattern)
+[![Tests](https://img.shields.io/badge/Tests-227%20passed-22C55E?style=flat-square&logo=pytest&logoColor=white)](#testing--quality)
+[![License](https://img.shields.io/badge/License-MIT-F59E0B?style=flat-square)](LICENSE)
 
 ---
 
@@ -32,12 +32,33 @@
 
 ## Quick Start in 60 Seconds
 
-### 1. Installation
+### 1. Installation (Cross-Platform)
+
+#### Automated Setup (Recommended)
+
+- **Linux / macOS**:
+  ```bash
+  git clone https://github.com/rakaarwaky/qwen-web.git
+  cd qwen-web
+  ./scripts/install.sh
+  ```
+
+- **Windows (PowerShell)**:
+  ```powershell
+  git clone https://github.com/rakaarwaky/qwen-web.git
+  cd qwen-web
+  .\scripts\install.ps1
+  ```
+
+- **Universal Python Installer**:
+  ```bash
+  python3 scripts/install.py  # (or `python scripts/install.py` on Windows)
+  ```
+
+#### Manual Setup
 
 ```bash
-git clone https://github.com/rakaarwaky/qwen-web.git
-cd qwen-web
-pip install -r requirements.txt
+pip install -e .
 python3 -m playwright install chromium
 ```
 
