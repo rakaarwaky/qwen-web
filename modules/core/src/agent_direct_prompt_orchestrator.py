@@ -33,6 +33,7 @@ from modules.shared.src.taxonomy_core_error import (
 from modules.shared.src.taxonomy_core_event import (
     EVENT_DISPATCH_ACKNOWLEDGED,
     EVENT_GENERATION_FINISHED,
+    EVENT_LOGIN_VERIFIED,
     EVENT_OUTPUT_COPIED,
     EVENT_PROMPT_INJECTED,
     EVENT_SEND_CLICKED,
@@ -106,6 +107,7 @@ class DirectPromptOrchestrator(IDirectPromptAggregate):
         logger = self._observability.get_logger()
         direct_prompt_events: tuple[QwenEventType, ...] = (
             EVENT_WEB_LOADED,
+            EVENT_LOGIN_VERIFIED,
             EVENT_PROMPT_INJECTED,
             EVENT_SEND_CLICKED,
             EVENT_DISPATCH_ACKNOWLEDGED,

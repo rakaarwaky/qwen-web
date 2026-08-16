@@ -90,9 +90,9 @@ def test_navigate_to_chat_emits_web_loaded():
 
     BrowserAdapter().navigate_to_chat(mock_page, mock_emitter)
 
-    # navigate_to_chat emits EVENT_LOGIN_VERIFIED then EVENT_WEB_LOADED, in order.
+    # navigate_to_chat emits EVENT_WEB_LOADED then EVENT_LOGIN_VERIFIED, in order.
     emitted_events = [call.args[0] for call in mock_emitter.emit.call_args_list]
-    assert emitted_events == [EVENT_LOGIN_VERIFIED, EVENT_WEB_LOADED]
+    assert emitted_events == [EVENT_WEB_LOADED, EVENT_LOGIN_VERIFIED]
 
 
 def test_clean_stale_locks(tmp_path: Path):

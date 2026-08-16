@@ -160,8 +160,8 @@ class BrowserAdapter(IBrowserProtocol):
         self._goto_chat(page, 30_000, 15_000)
         _assert_on_chat_page(page)
         self._start_new_chat(page)
-        emitter.emit(EVENT_LOGIN_VERIFIED, {"url": page.url})
         emitter.emit(EVENT_WEB_LOADED, {"url": page.url})
+        emitter.emit(EVENT_LOGIN_VERIFIED, {"url": page.url})
 
     def _start_new_chat(self, page: Page) -> None:
         """Start a clean Qwen conversation so stale cards cannot affect monitoring."""

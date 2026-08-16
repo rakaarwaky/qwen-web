@@ -271,7 +271,7 @@ def setup_lifecycle_state(
     from modules.shared.src.taxonomy_core_entity import LifecycleEmitter, LifecycleGate, LifecycleState
     from modules.shared.src.taxonomy_core_event import EVENT_LOGIN_VERIFIED
 
-    gate_sequence = (EVENT_LOGIN_VERIFIED, *events)
+    gate_sequence = tuple(events) if EVENT_LOGIN_VERIFIED in events else (EVENT_LOGIN_VERIFIED, *events)
     gate = LifecycleGate(logger, gate_sequence)
     state = LifecycleState()
     emitter = LifecycleEmitter(logger, gate=gate)

@@ -70,6 +70,9 @@ def client(browser_ctx: BrowserContext, page) -> DirectPromptOrchestrator:
         mode="batch",
         input_path=ROOT / "input",
         output_path=ROOT / "output",
+        done_path=ROOT / "done",
+        failed_path=ROOT / "failed",
+        proc_path=ROOT / "processing",
         session_path=ROOT / "qwen_session",
         headless=True,
     )

@@ -41,8 +41,8 @@ def _make_attachment_orchestrator() -> AttachmentPromptOrchestrator:
 
 def _configure_lifecycle_mocks(orch) -> None:
     def navigate(_page, emitter):
-        emitter.emit(EVENT_LOGIN_VERIFIED, {"url": "test"})
         emitter.emit(EVENT_WEB_LOADED, {"url": "test"})
+        emitter.emit(EVENT_LOGIN_VERIFIED, {"url": "test"})
 
     def upload(_page, _filepath, emitter=None, **_kwargs):
         assert emitter is not None

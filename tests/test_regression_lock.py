@@ -502,21 +502,29 @@ class TestWriteOutputLock:
 # ─── CoreOrchestrator DI contract lock ───────────────────────────────────────
 
 
+def _make_orchestrator():
+    from unittest.mock import MagicMock
+    from modules.core.src.agent_attachment_prompt_orchestrator import AttachmentPromptOrchestrator
+    return AttachmentPromptOrchestrator(
+        browser=MagicMock(),
+        injector=MagicMock(),
+        sender=MagicMock(),
+        streamer=MagicMock(),
+        uploader=MagicMock(),
+        saver=MagicMock(),
+        observability=MagicMock(),
+    )
+
+
 class TestCoreOrchestratorDiLock:
     def test_init_with_mock_capabilities(self):
         orch = _make_orchestrator()
         assert orch._browser is not None
-        assert orch._audit is not None
+        assert orch._uploader is not None
 
     def test_send_file_raises_without_page(self, tmp_path: Path):
         orch = _make_orchestrator()
         f = tmp_path / "doc.md"
         f.write_text("content")
-        with pytest.raises(Exception):
-            orch.send_file(None, f, timeout_sec=1)  # type: ignore[arg-type]
-
-    def test_backward_compatible_init_with_cfg(self, tmp_path: Path):
-        cfg = _make_cfg(tmp_path)
-        orch = _make_orchestrator()
-        assert orch._cb is not None
-        assert cfg is not None
+        res = orch.process_prompt_with_attachment(None, f, tmp_path / "out.md")  # type: ignore[arg-type]
+        assert "ERROR" in str(res) or "Exception" in str(res)
