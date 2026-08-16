@@ -69,7 +69,6 @@ EVENT_LOGIN_VERIFIED = QwenEventType.LOGIN_VERIFIED
 
 PIPELINE_EVENT_SEQUENCE: tuple[QwenEventType, ...] = (
     QwenEventType.WEB_LOADED,
-    QwenEventType.LOGIN_VERIFIED,
     QwenEventType.FILE_UPLOADED,
     QwenEventType.DOCUMENT_PARSED,
     QwenEventType.PROMPT_INJECTED,

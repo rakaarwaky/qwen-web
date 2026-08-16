@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from modules.cli.src.surface_cli_login_command import handle
-from modules.core.src.agent_direct_prompt_orchestrator import DirectPromptOrchestrator as CoreOrchestrator
+from modules.core.src.agent_setup_orchestrator import SetupOrchestrator
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
 from modules.shared.src import AppConfig
 
@@ -55,21 +55,11 @@ class _BrowserHarness:
         return None
 
 
-def _orchestrator(browser: _BrowserHarness) -> CoreOrchestrator:
+def _orchestrator(browser: _BrowserHarness) -> SetupOrchestrator:
     """Build an orchestrator with the non-browser capabilities mocked."""
     observability = MagicMock()
     observability.get_logger.return_value = MagicMock()
-    return CoreOrchestrator(
-        browser=browser,
-        injector=MagicMock(),
-        sender=MagicMock(),
-        streamer=MagicMock(),
-        uploader=MagicMock(),
-        saver=MagicMock(),
-        audit=MagicMock(),
-        observability=observability,
-        workspace=MagicMock(),
-    )
+    return SetupOrchestrator(browser=browser, observability=observability)
 
 
 def test_existing_valid_session_skips_visible_login(tmp_path: Path) -> None:
@@ -159,15 +149,16 @@ def test_cli_login_passes_confirmation_callback_to_core(tmp_path: Path) -> None:
         proc_path=tmp_path / "proc",
         session_path=tmp_path / "session",
     )
-    core = MagicMock()
-    core.setup_session.return_value = "Manual login completed successfully."
+    session = MagicMock()
+    setup = MagicMock()
+    setup.setup_session.return_value = "Manual login completed successfully."
 
     with patch("sys.stdin"):
-        result = handle(None, core, cfg)
+        result = handle(None, session, setup, cfg)
 
     assert result == {"success": True, "message": "Manual login completed successfully."}
-    core.setup_session.assert_called_once()
-    kwargs = core.setup_session.call_args.kwargs
+    setup.setup_session.assert_called_once()
+    kwargs = setup.setup_session.call_args.kwargs
     assert kwargs["session_path"] == cfg.session_path
     assert kwargs["wait_for_confirmation"] is None
 
@@ -178,6 +169,8 @@ def test_browser_check_session_requires_authenticated_chat_ui() -> None:
     page.url = "https://chat.qwen.ai/"
     page.evaluate.return_value = "complete"
     page.query_selector.return_value = MagicMock()
+    page.locator.return_value.count.return_value = 0
+    page.locator.return_value.first.is_visible.return_value = False
     assert BrowserAdapter().check_session(page) is True
 
     page.url = "https://chat.qwen.ai/login"

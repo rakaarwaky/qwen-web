@@ -82,8 +82,6 @@ def _make_task(
     return f
 
 
-from tests.helpers import make_test_orchestrator as _make_orchestrator
-
 # ─── Exception hierarchy lock ─────────────────────────────────────────────────
 
 
@@ -385,21 +383,17 @@ class TestResolveRolePathsLock:
 
 
 class TestLoadRolePromptLock:
-    def test_strips_frontmatter_from_prompt(self, tmp_path: Path):
+    def test_returns_empty_string_stub(self, tmp_path: Path):
+        """load_role_prompt is a legacy stub after the prompt-role migration; it
+        no longer reads PROMPT.md and returns an empty string."""
         task = _make_task(tmp_path)
         (tmp_path / "input" / "role-architect" / "PROMPT.md").write_text(
             "---\nname: role-architect\n---\n# Architect Instructions"
         )
-        result = load_role_prompt(task)
-        assert "# Architect Instructions" in result
-        assert "name: role-architect" not in result
-        assert not result.startswith("---")
-
-    def test_custom_prompt_path_takes_priority(self, tmp_path: Path):
-        task = _make_task(tmp_path)
+        assert load_role_prompt(task) == ""
         custom = tmp_path / "CUSTOM_PROMPT.md"
         custom.write_text("---\nname: custom\n---\n# Custom Instructions")
-        assert "# Custom Instructions" in load_role_prompt(task, custom_prompt_path=custom)
+        assert load_role_prompt(task, custom_prompt_path=custom) == ""
 
     def test_returns_empty_when_no_prompt_found(self, tmp_path: Path):
         task = tmp_path / "orphan.md"
