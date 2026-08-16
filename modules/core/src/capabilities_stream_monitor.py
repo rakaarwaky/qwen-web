@@ -73,12 +73,17 @@ class StreamMonitor(IStreamProtocol):
     def is_thinking_active(self, page: Page) -> bool:
         """Check whether Qwen's live thinking/status indicator is visible."""
         try:
-            thinking_selector = (
-                "[class*='qwen-chat-thinking-status-card']:not([class*='completed']), "
-                "[class*='thinking']:not([class*='completed']), "
-                "[class*='typing'], [class*='streaming']"
+            if is_selector_visible(page, TYPING_INDICATOR_SELECTORS):
+                return True
+            js_check = (
+                "() => {"
+                "  const el = document.querySelector('[class*=\"thinking\"], [class*=\"status-card\"]');"
+                "  if (!el) return false;"
+                "  const txt = (el.innerText || '').toLowerCase();"
+                "  return txt.includes('thinking') && !txt.includes('completed') && !txt.includes('complete');"
+                "}"
             )
-            return is_selector_visible(page, thinking_selector)
+            return bool(page.evaluate(js_check))
         except Exception:
             return False
 
@@ -129,26 +134,27 @@ class StreamMonitor(IStreamProtocol):
             now = time.time()
             elapsed = now - start
 
+            # Active thinking & generation detection
+            is_active_generating = self.is_thinking_active(page) or not self.is_generation_complete(page)
+
+            if elapsed >= timeout_sec:
+                if is_active_generating and elapsed < max_duration:
+                    log.info("120s milestone check: Qwen AI is still actively generating/thinking (%ds elapsed). Extending monitoring...", int(elapsed))
+                elif last_text is not None and len(last_text.strip()) > 0:
+                    validate_response_content(last_text)
+                    emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(last_text), "fallback": is_active_generating})
+                    return ResponseText(last_text)
+                elif elapsed >= max_duration:
+                    break
+
             # Periodic 100s cloud reload sync trigger
-            if (now - last_reload_time) >= 100.0 and not self.is_generation_complete(page):
+            if (now - last_reload_time) >= 100.0 and elapsed < max_duration:
                 log.info("Periodic 100s cloud reload sync: refreshing page to pull Qwen Cloud state (elapsed: %ds)...", int(elapsed))
                 last_reload_time = now
                 with contextlib.suppress(Exception):
                     page.reload(wait_until="domcontentloaded", timeout=15_000)
                     page.wait_for_timeout(2000)
                     continue
-
-            # 120s milestone check & soft timeout extension
-            if elapsed >= timeout_sec:
-                is_active = not self.is_generation_complete(page) or self.is_thinking_active(page)
-                if is_active and elapsed < max_duration:
-                    log.info("120s milestone check: Qwen AI is still actively generating (%ds elapsed). Extending monitoring...", int(elapsed))
-                else:
-                    if last_text is not None and len(last_text.strip()) > 0:
-                        validate_response_content(last_text)
-                        emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(last_text), "fallback": True})
-                        return ResponseText(last_text)
-                    break
 
             try:
                 # Active thinking detection

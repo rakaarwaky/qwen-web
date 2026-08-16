@@ -88,12 +88,17 @@ RESPONSE_CONTENT_SELECTOR: str = ".qwen-markdown, .markdown-body, .response-mess
 
 STOP_BUTTON_SELECTORS: str = (
     "button[aria-label*='Stop' i], .message-input-right-button-send button:has(svg rect), "
-    "button:has(svg rect), [class*='stop-btn'], [class*='icon-stop']"
+    "button:has(svg rect), [class*='stop-btn'], [class*='icon-stop'], [class*='stopButton']"
 )
-SEND_DISABLED_SELECTORS: str = "button[aria-label*='Send' i][disabled], button[class*='send' i][disabled]"
+SEND_DISABLED_SELECTORS: str = (
+    "button[aria-label*='Send' i][disabled], button[class*='send' i][disabled], "
+    ".message-input-right-button-send button[disabled]"
+)
 TYPING_INDICATOR_SELECTORS: str = (
-    ".thinking:not([style*='display: none']):not([class*='completed']), "
-    "[class*='qwen-chat-thinking-status-card']:not([class*='completed']), "
+    ".thinking:not([style*='display: none']):not([class*='completed']):not([class*='complete']), "
+    "[class*='qwen-chat-thinking-status-card']:not([class*='completed']):not([class*='complete']), "
+    "[class*='thinking-status-card']:not([class*='completed']):not([class*='complete']), "
+    "[class*='thinking-process'], [class*='thinking']:not([class*='completed']):not([class*='complete']), "
     "[class*='typing'], [class*='streaming']"
 )
 
