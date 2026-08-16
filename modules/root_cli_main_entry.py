@@ -140,6 +140,7 @@ def _build_config(args: argparse.Namespace) -> AppConfig:
         prompt_path=prompt_p,
         file_path=file_p,
         inline_prompt=action == "prompt-direct",
+        inline_prompt_text=text if action == "prompt-direct" else None,
     )
 
 
@@ -178,13 +179,19 @@ def _run_cli_lifecycle(dispatch: Callable[[SharedContainer], int]) -> int:
 
 def _dispatch(
     container: SharedContainer,
-    raw_argv: list[str],
+    _raw_argv: list[str],
     args: argparse.Namespace | None,
     cfg: AppConfig | None,
 ) -> int:
     """Dispatch one already-parsed CLI invocation inside the Linux lifecycle."""
     if args is None:
-        result = surface_cli_interactive_controller.InteractiveController(container.agent_setup_orchestrator).run()
+        result = surface_cli_interactive_controller.InteractiveController(
+            container.workspace,
+            container.agent_direct_prompt_orchestrator,
+            container.agent_prompt_file_orchestrator,
+            container.agent_attachment_prompt_orchestrator,
+            container.agent_setup_orchestrator,
+        ).run()
         return _result_exit_code(result)
 
     action = getattr(args, "action", None)
@@ -196,7 +203,7 @@ def _dispatch(
         return _run_manual_login(cfg, container)
 
     if action == "init":
-        result = surface_cli_init_command.handle(args, container.agent_setup_orchestrator)
+        result = surface_cli_init_command.handle(args, container.workspace)
         return _result_exit_code(result)
 
     if cfg is None:
@@ -204,7 +211,13 @@ def _dispatch(
         return 1
 
     args._cfg = cfg
-    result = surface_cli_run_command.handle(args, container.agent_setup_orchestrator)
+    result = surface_cli_run_command.handle(
+        args,
+        cfg,
+        container.agent_direct_prompt_orchestrator,
+        container.agent_prompt_file_orchestrator,
+        container.agent_attachment_prompt_orchestrator,
+    )
     return _result_exit_code(result)
 
 
@@ -240,18 +253,16 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
 
-def _interactive_prompt(core: Any | None = None) -> AppConfig | None:
-    """Display the interactive menu and build AppConfig from user selections."""
-    if core is None:
-        core = _default_container().core
-    return surface_cli_interactive_controller.InteractiveController(core).interactive_prompt()
-
-
 def _run_manual_login(cfg: AppConfig, container: SharedContainer | None = None) -> int:
     """Launch visible browser for interactive login."""
     if container is None:
         container = _default_container()
-    result = surface_cli_login_command.handle(None, container.core, cfg)
+    result = surface_cli_login_command.handle(
+        None,
+        container.agent_session_orchestrator,
+        container.agent_setup_orchestrator,
+        cfg,
+    )
     return _result_exit_code(result)
 
 

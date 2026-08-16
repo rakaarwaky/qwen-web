@@ -1,83 +1,44 @@
-"""CLI surface: interactive controller — TUI menu, headless prompt, file picker.
+"""CLI surface: interactive controller — TUI entry wrapper.
 
-Smart surface: presentation and TTY interaction only; all back-end work is
-delegated to the shared core aggregate.
+Smart surface: presentation only. Interactive mode is owned by the Textual
+TUI app (surface_cli_tui_app.QwenTuiApp); this wrapper injects the specialized
+pipeline orchestrators, workspace provisioner, and setup orchestrator, and also
+supports headless single-file execution when a config is supplied.
 """
 
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
-from modules.core.src.utility_core_config_factory import build_app_config
-from modules.shared.src.contract_core_aggregate import ICoreAggregate
+from modules.shared.src.contract_core_aggregate import (
+    IAttachmentPromptAggregate,
+    IDirectPromptAggregate,
+    IPromptFileAggregate,
+    ISetupAggregate,
+)
+from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
 from modules.shared.src.taxonomy_config_vo import AppConfig
+from modules.shared.src.taxonomy_core_vo import HeadlessFlag
 from modules.shared.src.utility_core_response import error_response, safe_handle, success_response
 
 
-def _base_config(mode: str, headless: bool = False) -> AppConfig:
-    """Build an AppConfig with default XDG paths."""
-    return build_app_config(mode=mode, headless=headless)
-
-
 class InteractiveController:
-    """Interactive TUI controller — presentation only, delegates to the aggregate."""
+    """Interactive TUI controller — delegates to the TUI app and orchestrators."""
 
-    def __init__(self, core: ICoreAggregate) -> None:
-        """Inject the core aggregate."""
-        self._core = core
-
-    def interactive_prompt(self) -> AppConfig | None:
-        """Display interactive TUI menu and build AppConfig from user selections."""
-        if not sys.stdin.isatty():
-            print("[ERROR] Interactive mode requires a TTY. Please provide CLI arguments.", file=sys.stderr)
-            return None
-
-        print("\n╭─ qwen-cli interactive setup ───────────────────╮")
-        print("│ 1. Run Prompt (Single Mode)                      │")
-        print("│ 2. Session Setup (Login)                         │")
-        print("│ 3. Initialize Workspace                          │")
-        print("│ 4. Exit                                          │")
-        print("╰──────────────────────────────────────────────────╯")
-
-        choice = input("Select [1-4, default=1]: ").strip() or "1"
-        if choice == "4":
-            print("Goodbye!")
-            return None
-
-        if choice == "3":
-            self._core.init_workspace(Path.cwd())
-            return None
-
-        if choice == "2":
-            return _base_config("login", headless=False)
-
-        headless = input("Run headless? [y/N, default=N]: ").strip().lower() == "y"
-        prompt_file = input("Enter prompt file path: ").strip()
-        if not prompt_file:
-            print("[ERROR] Prompt file is required.", file=sys.stderr)
-            return None
-
-        p_path = Path(prompt_file).resolve()
-        if not p_path.exists():
-            print(f"[ERROR] File not found: {prompt_file}", file=sys.stderr)
-            return None
-
-        file_upload = input("Enter optional attachment file path [skip]: ").strip()
-        f_path = Path(file_upload).resolve() if file_upload else None
-
-        output_file = input("Enter output path [default: output folder]: ").strip()
-        out_path = Path(output_file).resolve() if output_file else None
-
-        return build_app_config(
-            mode="single",
-            input_path=p_path,
-            output_path=out_path,
-            prompt_file=p_path,
-            prompt_path=p_path,
-            file_path=f_path,
-            headless=headless,
-        )
+    def __init__(
+        self,
+        workspace: IWorkspaceProtocol,
+        direct: IDirectPromptAggregate,
+        file_only: IPromptFileAggregate,
+        attachment: IAttachmentPromptAggregate,
+        setup: ISetupAggregate | None = None,
+    ) -> None:
+        """Inject the specialized pipeline orchestrators, workspace, and setup."""
+        self._workspace = workspace
+        self._direct = direct
+        self._file_only = file_only
+        self._attachment = attachment
+        self._setup = setup
 
     @safe_handle
     def run(self, cfg: AppConfig | None = None, *, prompt: bool = True) -> dict[str, object]:
@@ -92,17 +53,45 @@ class InteractiveController:
         if prompt:
             from modules.cli.src.surface_cli_tui_app import QwenTuiApp
 
-            app = QwenTuiApp(self._core)
+            app = QwenTuiApp(
+                self._workspace,
+                self._direct,
+                self._file_only,
+                self._attachment,
+                self._setup,
+            )
             app.run()
             return success_response("TUI Session Closed.")
 
         if cfg is None:
             return success_response("Exited.")
 
-        result = self._core.process_single_file(
-            input_file=cfg.prompt_path or cfg.input_path,
-            attachment_file=cfg.file_path,
-            output_file=cfg.output_path,
-            headless=cfg.headless,
-        )
+        mode = cfg.mode
+        if mode == "direct":
+            prompt_text = cfg.inline_prompt_text
+            if not prompt_text:
+                return error_response(
+                    RuntimeError("Missing inline prompt text for direct mode."), "validation_error", "cli-400"
+                )
+            result = self._direct.process_direct_prompt(prompt=prompt_text, headless=HeadlessFlag(cfg.headless))
+        elif mode == "single":
+            prompt_file = cfg.prompt_path or cfg.input_path
+            if cfg.file_path:
+                result = self._attachment.process_prompt_with_attachment(
+                    prompt_file=prompt_file,
+                    attachment_file=cfg.file_path,
+                    output_file=cfg.output_path,
+                    headless=HeadlessFlag(cfg.headless),
+                )
+            else:
+                result = self._file_only.process_prompt_file_only(
+                    prompt_file=prompt_file,
+                    output_file=cfg.output_path,
+                    headless=HeadlessFlag(cfg.headless),
+                )
+        else:
+            return error_response(
+                RuntimeError(f"Unsupported CLI mode: {mode}"), "validation_error", "cli-400"
+            )
+
         return success_response(result)

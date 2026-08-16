@@ -27,10 +27,16 @@ from textual.widgets import (
 )
 
 from modules.core.src.utility_core_config_factory import build_app_config
-from modules.shared.src.contract_core_aggregate import ICoreAggregate
+from modules.shared.src.contract_core_aggregate import (
+    IAttachmentPromptAggregate,
+    IDirectPromptAggregate,
+    IPromptFileAggregate,
+    ISetupAggregate,
+)
+from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
 from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import DEFAULT_OUTPUT
-from modules.shared.src.taxonomy_core_vo import FilePath
+from modules.shared.src.taxonomy_core_vo import FilePath, HeadlessFlag
 
 TUI_CSS = """
 /* ─── Obsidian Nebula Theme Colors ────────────────────────── */
@@ -341,9 +347,20 @@ class QwenTuiApp(App[None]):
         Binding("q", "quit", "Quit"),
     ]
 
-    def __init__(self, core: ICoreAggregate) -> None:
+    def __init__(
+        self,
+        workspace: IWorkspaceProtocol,
+        direct: IDirectPromptAggregate,
+        file_only: IPromptFileAggregate,
+        attachment: IAttachmentPromptAggregate,
+        setup: ISetupAggregate | None = None,
+    ) -> None:
         super().__init__()
-        self._core = core
+        self._workspace = workspace
+        self._direct = direct
+        self._file_only = file_only
+        self._attachment = attachment
+        self._setup = setup
         self._target_field_for_picker: str | None = None
 
     def compose(self) -> ComposeResult:
@@ -488,12 +505,19 @@ class QwenTuiApp(App[None]):
         self.call_from_thread(self._log_msg, f"[#908fa0]    Headless: {cfg.headless} | Timeout: {cfg.request_timeout}s[/]")
 
         try:
-            res = self._core.process_single_file(
-                input_file=cfg.prompt_path or cfg.input_path,
-                attachment_file=cfg.file_path,
-                output_file=cfg.output_path,
-                headless=cfg.headless,
-            )
+            if cfg.file_path:
+                res = self._attachment.process_prompt_with_attachment(
+                    prompt_file=cfg.prompt_path or cfg.input_path,
+                    attachment_file=cfg.file_path,
+                    output_file=cfg.output_path,
+                    headless=HeadlessFlag(cfg.headless),
+                )
+            else:
+                res = self._file_only.process_prompt_file_only(
+                    prompt_file=cfg.prompt_path or cfg.input_path,
+                    output_file=cfg.output_path,
+                    headless=HeadlessFlag(cfg.headless),
+                )
             self.call_from_thread(self._log_msg, f"[bold #10B981]SUCCESS:[/] {res}")
         except Exception as exc:
             self.call_from_thread(self._log_msg, f"[bold #EF4444]FAILED:[/] {exc}")
@@ -508,7 +532,9 @@ class QwenTuiApp(App[None]):
     def _login_worker(self) -> None:
         self._ensure_log_handler()
         try:
-            res = self._core.setup_session()
+            if self._setup is None:
+                raise RuntimeError("Session setup orchestrator not available.")
+            res = self._setup.setup_session()
             self.call_from_thread(self._log_msg, f"[bold #10B981]LOGIN RESULT:[/] {res}")
         except Exception as exc:
             self.call_from_thread(self._log_msg, f"[bold #EF4444]LOGIN FAILED:[/] {exc}")
@@ -520,7 +546,7 @@ class QwenTuiApp(App[None]):
 
     def action_init_action(self) -> None:
         try:
-            self._core.init_workspace(FilePath(str(Path.cwd())))
+            self._workspace.init_workspace(FilePath(Path(str(Path.cwd()))))
             self._log_msg(f"[bold #10B981]INIT:[/] Workspace initialized in {Path.cwd()}")
         except Exception as exc:
             self._log_msg(f"[bold #EF4444]INIT ERROR:[/] {exc}")

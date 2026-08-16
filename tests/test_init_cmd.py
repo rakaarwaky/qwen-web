@@ -17,7 +17,7 @@ class TestQwcInit(unittest.TestCase):
 
             # Execute init via core aggregate directly
             container = SharedContainer()
-            container.core.init_workspace(target_path)
+            container.workspace.init_workspace(target_path)
 
             # 1. Verify .agents/skills/qwen-web/SKILL.md
             skill_md = target_path / ".agents" / "skills" / "qwen-web" / "SKILL.md"
@@ -54,13 +54,13 @@ class TestQwcInit(unittest.TestCase):
 
             # First run
             container = SharedContainer()
-            container.core.init_workspace(target_path)
+            container.workspace.init_workspace(target_path)
             gi_content = gitignore.read_text(encoding="utf-8")
             self.assertIn("existing_file.txt", gi_content)
             self.assertIn(".qwen-web/", gi_content)
 
             # Second run (idempotency check)
-            container.core.init_workspace(target_path)
+            container.workspace.init_workspace(target_path)
             gi_content_2 = gitignore.read_text(encoding="utf-8")
             self.assertEqual(gi_content_2.count(".qwen-web/"), 1)
 

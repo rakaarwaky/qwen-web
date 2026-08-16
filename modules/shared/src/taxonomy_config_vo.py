@@ -234,6 +234,7 @@ class AppConfig:
     poll_interval: float = 1.0
     streaming_timeout: int = 180
     inline_prompt: bool = False
+    inline_prompt_text: str | None = None
 
     rate_limit_per_minute: int = 60
     circuit_breaker_threshold: int = 5
