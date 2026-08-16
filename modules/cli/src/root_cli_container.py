@@ -10,7 +10,7 @@ from modules.core.src.root_core_container import SharedContainer
 
 def create_cli_container() -> SharedContainer:
     """Instantiate and wire SharedContainer for CLI surface."""
-    container = SharedContainer(use_linux_guard=True)
+    container = SharedContainer()
     container.wire()
     return container
 

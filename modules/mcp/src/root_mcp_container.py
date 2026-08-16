@@ -10,7 +10,7 @@ from modules.core.src.root_core_container import SharedContainer
 
 def create_mcp_container() -> SharedContainer:
     """Instantiate and wire SharedContainer for MCP surface."""
-    container = SharedContainer(use_linux_guard=False)
+    container = SharedContainer()
     container.wire()
     return container
 

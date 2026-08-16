@@ -221,26 +221,6 @@ class IAuditProtocol(ABC):
         """Return recent audit log entries as JSON text."""
 
 
-class ILinuxProtocol(ABC):
-    """Linux-native single-instance lock and sd_notify contract."""
-
-    @abstractmethod
-    def acquire_lock(self) -> Any:
-        """Acquire the single-instance file lock; raise SingleInstanceError if held."""
-
-    @abstractmethod
-    def release_lock(self, lock: Any) -> None:
-        """Release a previously acquired lock."""
-
-    @abstractmethod
-    def sd_notify_ready(self) -> None:
-        """Notify systemd that the app is ready."""
-
-    @abstractmethod
-    def sd_notify_stop(self) -> None:
-        """Notify systemd that the app is stopping."""
-
-
 __all__ = [
     "IUploadProtocol",
     "IInjectionProtocol",
@@ -250,5 +230,4 @@ __all__ = [
     "ISaverProtocol",
     "IObservabilityProtocol",
     "IAuditProtocol",
-    "ILinuxProtocol",
 ]

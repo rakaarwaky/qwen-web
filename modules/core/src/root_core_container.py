@@ -21,10 +21,8 @@ from modules.core.src.agent_session_orchestrator import SessionOrchestrator
 
 # agent_setup_orchestrator
 from modules.core.src.agent_setup_orchestrator import SetupOrchestrator
-from modules.core.src.capabilities_audit_repository import AuditRepository
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
 from modules.core.src.capabilities_file_uploader import FileUploader
-from modules.core.src.capabilities_linux_guard import LinuxGuard
 from modules.core.src.capabilities_observability_setup import ObservabilitySetup
 from modules.core.src.capabilities_output_saver import Saver
 from modules.core.src.capabilities_prompt_injector import PromptInjector
@@ -49,7 +47,6 @@ class SharedContainer:
     def __init__(
         self,
         log_path: Path | str | None = None,
-        use_linux_guard: bool = True,
         circuit_breaker_threshold: int = 5,
         circuit_breaker_window: int = 30,
         rate_limit_per_minute: int = 60,
@@ -68,7 +65,6 @@ class SharedContainer:
         self.streamer = StreamMonitor()
         self.uploader = FileUploader()
         self.saver = Saver()
-        self.audit = AuditRepository(log)
         self.observability = ObservabilitySetup(log)
         self.workspace = WorkspaceProvisioner()
 
@@ -105,10 +101,6 @@ class SharedContainer:
             browser=self.browser,
             observability=self.observability,
         )
-
-        # LinuxGuard is CLI-only
-        linux: LinuxGuard | None = LinuxGuard() if use_linux_guard else None
-        self.linux = linux
 
     def wire(self) -> None:
         """Wire the container (idempotent — attributes already composed)."""

@@ -27,10 +27,6 @@ class BrowserLaunchError(QwenCliError):
     """Raised when the browser context cannot be launched."""
 
 
-class SingleInstanceError(RuntimeError):
-    """Raised when another instance of qwen-cli is already running."""
-
-
 class ElementNotFoundError(QwenCliError):
     """Raised when a required DOM element is not found on the page."""
 
@@ -118,7 +114,6 @@ __all__ = [
     "RateLimitError",
     "CircuitBreakerOpenError",
     "BrowserLaunchError",
-    "SingleInstanceError",
     "ElementNotFoundError",
     "NetworkTimeoutError",
     "ResponseDetectionTimeoutError",

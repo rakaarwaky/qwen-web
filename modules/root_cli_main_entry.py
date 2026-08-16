@@ -21,8 +21,6 @@ import sys
 from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
-
 import modules.cli.src.surface_cli_init_command as surface_cli_init_command
 import modules.cli.src.surface_cli_interactive_controller as surface_cli_interactive_controller
 import modules.cli.src.surface_cli_login_command as surface_cli_login_command
@@ -34,7 +32,6 @@ from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_OUTPUT,
     DEFAULT_SESSION,
 )
-from modules.shared.src.taxonomy_core_error import SingleInstanceError
 
 _ERROR_PREFIX = "[ERROR]"
 
@@ -159,24 +156,6 @@ def _result_exit_code(result: dict[str, object]) -> int:
     return 1
 
 
-def _run_cli_lifecycle(dispatch: Callable[[SharedContainer], int]) -> int:
-    """Own the CLI-only LinuxGuard lifecycle."""
-    container = _default_container()
-    linux = container.linux
-    lock: Any = None
-    try:
-        if linux is not None:
-            lock = linux.acquire_lock()
-            linux.sd_notify_ready()
-        return dispatch(container)
-    finally:
-        if linux is not None and lock is not None:
-            try:
-                linux.sd_notify_stop()
-            finally:
-                linux.release_lock(lock)
-
-
 def _dispatch(
     container: SharedContainer,
     _raw_argv: list[str],
@@ -226,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
     raw_argv = list(sys.argv[1:] if argv is None else argv)
     args = _parse_args(raw_argv) if raw_argv else None
 
-    # MCP is a separate runtime — never enters CLI LinuxGuard path.
+    # MCP is a separate runtime — never enters the CLI lifecycle path.
     if args and getattr(args, "action", None) == "mcp":
         from modules.root_mcp_main_entry import run_mcp_server
 
@@ -244,10 +223,7 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
 
     try:
-        return _run_cli_lifecycle(lambda container: _dispatch(container, raw_argv, args, cfg))
-    except SingleInstanceError as exc:
-        print(f"{_ERROR_PREFIX} {exc}", file=sys.stderr)
-        return 1
+        return _dispatch(_default_container(), raw_argv, args, cfg)
     except Exception as exc:
         print(f"{_ERROR_PREFIX} {exc}", file=sys.stderr)
         return 1

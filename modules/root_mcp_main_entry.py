@@ -48,7 +48,7 @@ def _get_tools() -> McpToolCommand:
     """Return the MCP surface tool command, wiring the container once."""
     global _container
     if _container is None:
-        shared = SharedContainer(use_linux_guard=False)
+        shared = SharedContainer()
         shared.wire()
         _container = McpToolCommand(shared.core)
     return _container

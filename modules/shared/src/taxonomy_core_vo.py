@@ -154,7 +154,6 @@ _LEGACY_ERROR_EXPORTS = (
     "RateLimitError",
     "CircuitBreakerOpenError",
     "BrowserLaunchError",
-    "SingleInstanceError",
     "ElementNotFoundError",
     "NetworkTimeoutError",
     "OutputValidationError",

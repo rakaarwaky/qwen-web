@@ -13,7 +13,6 @@ from .contract_core_aggregate import ICoreAggregate
 from .contract_core_protocol import (
     IBrowserProtocol,
     IInjectionProtocol,
-    ILinuxProtocol,
     IObservabilityProtocol,
     ISaverProtocol,
     ISendProtocol,
@@ -96,7 +95,6 @@ from .taxonomy_core_error import (
     RateLimitError,
     ResponseDetectionTimeoutError,
     SendDispatchError,
-    SingleInstanceError,
     UIInteractionError,
     UploadFailureError,
     UploadTimeoutError,
@@ -291,7 +289,6 @@ __all__ = [
     "RateLimitError",
     "CircuitBreakerOpenError",
     "BrowserLaunchError",
-    "SingleInstanceError",
     "ElementNotFoundError",
     "NetworkTimeoutError",
     "OutputValidationError",
@@ -350,7 +347,6 @@ __all__ = [
     "IBrowserProtocol",
     "ISaverProtocol",
     "IObservabilityProtocol",
-    "ILinuxProtocol",
     "ICoreAggregate",
     # Utilities
     "extract_prompt_text",
