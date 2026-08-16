@@ -92,7 +92,8 @@ COMBINED_MESSAGE_SELECTOR: str = ", ".join(MESSAGE_SELECTORS)
 RESPONSE_CONTENT_SELECTOR: str = ".qwen-markdown, .markdown-body, .response-message-content, .qwen-markdown-text"
 
 STOP_BUTTON_SELECTORS: str = (
-    "button[aria-label*='Stop' i], .message-input-right-button-send button:has(svg rect), button:has(svg rect), [class*='stop-btn'], [class*='icon-stop']"
+    "button[aria-label*='Stop' i], .message-input-right-button-send button:has(svg rect), "
+    "button:has(svg rect), [class*='stop-btn'], [class*='icon-stop']"
 )
 SEND_DISABLED_SELECTORS: str = "button[aria-label*='Send' i][disabled], button[class*='send' i][disabled]"
 TYPING_INDICATOR_SELECTORS: str = (
@@ -114,7 +115,8 @@ JS_GET_RESPONSE_TEXT: str = r"""
         var targetNode = outerContainer || responseNode;
         var clone = targetNode.cloneNode(true);
         var removeNodes = clone.querySelectorAll(
-            '.margin, .line-numbers, .monaco-editor-margin, [class*="line-numbers"], [class*="margin-view"], [class*="thinking"], [class*="status-card"], button, svg'
+            '.margin, .line-numbers, .monaco-editor-margin, [class*="line-numbers"], ' +
+            '[class*="margin-view"], [class*="thinking"], [class*="status-card"], button, svg'
         );
         for (var m = 0; m < removeNodes.length; m++) {
             removeNodes[m].remove();

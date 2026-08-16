@@ -5,6 +5,7 @@ Implements IUploadProtocol.
 
 from __future__ import annotations
 
+import contextlib
 import time
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,7 @@ class FileUploader(IUploadProtocol):
         self.option_timeout_ms = OptionTimeoutMs(int(self.config.option_timeout_ms))
         self.file_chooser_timeout_ms = FileChooserTimeoutMs(int(self.config.file_chooser_timeout_ms))
         self.card_render_timeout_ms = CardRenderTimeoutMs(int(self.config.card_render_timeout_ms))
+        self.parse_ready_timeout_ms = int(self.config.parse_ready_timeout_ms)
         self.max_retries = MaxRetries(int(self.config.max_retries))
         self.backoff_delay_sec = BackoffDelaySec(float(self.config.backoff_delay_sec))
 
@@ -105,18 +107,13 @@ class FileUploader(IUploadProtocol):
                         attempt,
                         filepath.name,
                     )
-                    self._wait_for_parse_ready(page, filepath)
-                    page.wait_for_timeout(500)
                     if emitter:
                         emitter.emit(
                             EVENT_FILE_UPLOADED,
                             {"file": str(filepath), "byte_count": int(size_bytes), "attempt": attempt},
                         )
-                        emitter.emit(
-                            EVENT_DOCUMENT_PARSED,
-                            {"file": str(filepath), "byte_count": int(size_bytes), "attempt": attempt},
-                        )
-                    return True
+                    # Upload retry loop ends here — parse wait is NOT retried on upload failure
+                    break
             except TimeoutError as e:
                 self.last_error = e
                 log.warning("Timeout during upload attempt %d/%d: %s", attempt, max_attempts, e)
@@ -128,14 +125,25 @@ class FileUploader(IUploadProtocol):
 
             if attempt < max_attempts:
                 time.sleep(self.backoff_delay_sec * attempt)
+        else:
+            log.error(
+                "All %d upload attempts failed for %s after %.2fs",
+                max_attempts,
+                filepath.name,
+                time.monotonic() - started_at,
+            )
+            return False
 
-        log.error(
-            "All %d upload attempts failed for %s after %.2fs",
-            max_attempts,
-            filepath.name,
-            time.monotonic() - started_at,
-        )
-        return False
+        # File card is in DOM — now wait (with long dedicated timeout) for backend parsing
+        self._wait_for_parse_ready(page, filepath)
+        page.wait_for_timeout(500)
+
+        if emitter:
+            emitter.emit(
+                EVENT_DOCUMENT_PARSED,
+                {"file": str(filepath), "byte_count": int(size_bytes), "attempt": attempt},
+            )
+        return True
 
     def validate_file(self, filepath: Path, max_size_mb: float = 100.0) -> FileSizeBytes:
         """Public protocol method — pre-flight validation returning size in bytes."""
@@ -185,16 +193,6 @@ class FileUploader(IUploadProtocol):
         self._wait_for_attachment_card(page, filepath, baseline_matches)
         return True
 
-    def _find_file_input(self, page: Page) -> Any | None:
-        """Find the stable hidden Qwen file input without requiring visibility."""
-        for selector in self.config.file_input_selectors:
-            locator = page.locator(selector).first
-            try:
-                if locator.count() > 0:
-                    return locator
-            except Exception:
-                continue
-        return None
 
     def _wait_for_attachment_card(self, page: Page, filepath: Path, baseline_matches: int = 0) -> None:
         """Wait for a newly rendered exact filename node in Qwen's live attachment DOM."""
@@ -203,28 +201,54 @@ class FileUploader(IUploadProtocol):
         while time.monotonic() < deadline:
             matches = self._attachment_match_count(page, filepath)
             if matches > baseline_matches or (baseline_matches == 0 and matches > 0):
-                self._wait_for_parse_ready(page, filepath)
                 return
             page.wait_for_timeout(100)
         raise TimeoutError(f"Exact uploaded filename was not rendered in Qwen attachment DOM: {filepath.name}")
 
     def _wait_for_parse_ready(self, page: Page, filepath: Path) -> None:
         """Wait until Qwen's matching attachment card exposes a ready state."""
-        deadline = time.monotonic() + (self.card_render_timeout_ms / 1000)
+        deadline = time.monotonic() + (self.parse_ready_timeout_ms / 1000)
+        container_selectors = (
+            ".message-input-column-file",
+            "[class*='fileitem-btn']",
+            "[class*='file-card']",
+            "[class*='file-item']",
+            "[class*='fileitem']",
+        )
+        card_selector = ", ".join(container_selectors)
+
         while time.monotonic() < deadline:
-            card_selector = ", ".join(self.config.card_selectors)
-            card = page.locator(card_selector).filter(has_text=filepath.stem).last
             try:
-                if card.count() == 0:
+                toast_visible = False
+                with contextlib.suppress(Exception):
+                    toast = page.locator("body").filter(
+                        has_text="Please wait until the uploaded or currently parsing file"
+                    )
+                    tc = toast.count()
+                    if isinstance(tc, int) and tc > 0:
+                        toast_visible = bool(toast.first.is_visible(timeout=100))
+
+                cards = page.locator(card_selector).filter(has_text=filepath.stem)
+                cc = cards.count()
+                if not isinstance(cc, int) or cc == 0:
                     page.wait_for_timeout(100)
                     continue
+
+                card = cards.last
                 card_text = card.inner_text().casefold()
                 pending_visible = any(
                     card.locator(selector).count() > 0 and card.locator(selector).first.is_visible(timeout=100)
                     for selector in self.config.parse_pending_selectors
                 )
 
-                if not pending_visible and "parsing" not in card_text:
+                is_ready = (
+                    not toast_visible
+                    and not pending_visible
+                    and "parsing" not in card_text
+                    and "processing" not in card_text
+                )
+                if is_ready:
+                    page.wait_for_timeout(500)
                     log.debug("Qwen document parsing is ready for %s", filepath.name)
                     return
             except (TimeoutError, Error):

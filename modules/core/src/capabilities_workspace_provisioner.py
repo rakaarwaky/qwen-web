@@ -73,7 +73,8 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
         if not prompt_sample.exists():
             prompt_sample.write_text(
                 "# Instruksi Pengujian Otomasi Qwen-Web\n\n"
-                "Tolong analisis dokumen terlampir (`FILE.md`) dan berikan tanggapan komprehensif dengan struktur berikut:\n"
+                "Tolong analisis dokumen terlampir (`FILE.md`) dan "
+                "berikan tanggapan komprehensif dengan struktur berikut:\n"
                 "1. **Ringkasan Poin Utama** (3-5 poin penting dari dokumen)\n"
                 "2. **Analisis Detail** (penjelasan mendalam mengenai isi dokumen)\n"
                 "3. **Kesimpulan & Rekomendasi**\n\n"
@@ -86,11 +87,13 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
             file_sample.write_text(
                 "# Dokumen Pengujian: Arsitektur & Performa Otomasi Web Qwen\n\n"
                 "## 1. Latar Belakang & Pendahuluan\n"
-                "Sistem otomasi antarmuka web Qwen dirancang untuk mengintegrasikan kapabilitas LLM dengan browser engine modern secara efisien.\n\n"
+                "Sistem otomasi antarmuka web Qwen dirancang untuk mengintegrasikan "
+                "kapabilitas LLM dengan browser engine modern secara efisien.\n\n"
                 "## 2. Fitur Utama yang Diuji\n"
                 "- **Persistent Session Manager**: Menyimpan cookies dan data sesi Chromium.\n"
                 "- **Event-Driven Observability**: Logging real-time terhubung ke TUI RichLog.\n"
-                "- **Adaptive Send & Input Dispatcher**: Penanganan otomatis terhadap injeksi teks dan dokumen lampiran.\n\n"
+                "- **Adaptive Send & Input Dispatcher**: Penanganan otomatis terhadap "
+                "injeksi teks dan dokumen lampiran.\n\n"
                 "## 3. Hasil Pengujian yang Diharapkan\n"
                 "1. Berkas lampiran berhasil diunggah.\n"
                 "2. Teks instruksi diinjeksi dengan tepat.\n"

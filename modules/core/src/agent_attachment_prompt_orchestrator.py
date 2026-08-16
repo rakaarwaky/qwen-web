@@ -24,7 +24,7 @@ from modules.shared.src.contract_core_protocol import (
     IStreamProtocol,
     IUploadProtocol,
 )
-from modules.shared.src.taxonomy_config_vo import AppConfig
+from modules.shared.src.taxonomy_config_vo import AppConfig, SenderConfig
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_OUTPUT,
 )
@@ -153,7 +153,13 @@ class AttachmentPromptOrchestrator(IAttachmentPromptAggregate):
         self._injector.inject_text(page, PromptText(prompt))
         emitter.emit(EVENT_PROMPT_INJECTED, {"file": str(filepath), "char_count": len(prompt)})
 
-        self._sender.click_send(page, emitter, document_parsed=HeadlessFlag(state.document_parsed))
+        # Use a generous timeout so _wait_for_send_enabled can hold for
+        # long document parsing (up to 120s) before the first click attempt.
+        send_cfg = SenderConfig(
+            click_timeout_ms=120_000,
+            try_enter_key_fallback=True,
+        )
+        self._sender.click_send(page, emitter, _config=send_cfg, document_parsed=HeadlessFlag(state.document_parsed))
         if not state.dispatch_acknowledged:
             raise RuntimeError("Cannot wait for response: prompt dispatch is incomplete")
 

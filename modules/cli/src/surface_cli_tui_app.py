@@ -499,7 +499,8 @@ class QwenTuiApp(App[None]):
         self.call_from_thread(self._log_msg, f"[bold #c0c1ff]>>> Starting automation for: {prompt_name}[/]")
         if cfg.file_path:
             self.call_from_thread(self._log_msg, f"[#b9c8dd]    Attaching: {cfg.file_path.name}[/]")
-        self.call_from_thread(self._log_msg, f"[#908fa0]    Headless: {cfg.headless} | Timeout: {cfg.request_timeout}s[/]")
+        msg = f"[#908fa0]    Headless: {cfg.headless} | Timeout: {cfg.request_timeout}s[/]"
+        self.call_from_thread(self._log_msg, msg)
 
         try:
             if cfg.file_path:

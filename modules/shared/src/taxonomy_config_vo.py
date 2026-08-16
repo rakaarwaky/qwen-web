@@ -27,6 +27,7 @@ class UploadConfig:
     option_timeout_ms: int = 3000
     file_chooser_timeout_ms: int = 8000
     card_render_timeout_ms: int = 5000
+    parse_ready_timeout_ms: int = 120_000
     max_retries: int = 2
     backoff_delay_sec: float = 1.0
 
@@ -34,14 +35,6 @@ class UploadConfig:
         default_factory=lambda: (
             ".mode-select-open",
             "[class*='mode-select']",
-        )
-    )
-
-    file_input_selectors: Sequence[str] = field(
-        default_factory=lambda: (
-            "#filesUpload",
-            "input[type='file'][aria-label='Upload files']",
-            "input[type='file']",
         )
     )
 
@@ -54,13 +47,6 @@ class UploadConfig:
             "text='Upload file'",
             "[data-testid*='upload' i]",
             "[aria-label*='upload' i]",
-        )
-    )
-
-    parse_ready_selectors: Sequence[str] = field(
-        default_factory=lambda: (
-            ".fileitem-icon:not([class*='loading']):not([class*='spin'])",
-            "[class*='fileitem-icon']:not([class*='loading']):not([class*='spin'])",
         )
     )
 
