@@ -5,8 +5,6 @@ Taxonomy layer (utility): stateless functions, taxonomy imports only.
 
 from __future__ import annotations
 
-from typing import Any
-
 
 def extract_prompt_text(content: str) -> str:
     """Strip YAML frontmatter header if present."""

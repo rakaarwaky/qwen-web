@@ -7,7 +7,13 @@ Barrel re-export of all shared types. Layers identified by filename prefix
 from __future__ import annotations
 
 # ─── Contract: aggregates ─────────────────────────────────────
-from .contract_core_aggregate import ICoreAggregate
+from .contract_core_aggregate import (
+    IAttachmentPromptAggregate,
+    IDirectPromptAggregate,
+    IPromptFileAggregate,
+    ISessionAggregate,
+    ISetupAggregate,
+)
 
 # ─── Contract: protocols ──────────────────────────────────────
 from .contract_core_protocol import (
@@ -347,7 +353,11 @@ __all__ = [
     "IBrowserProtocol",
     "ISaverProtocol",
     "IObservabilityProtocol",
-    "ICoreAggregate",
+    "IAttachmentPromptAggregate",
+    "IDirectPromptAggregate",
+    "IPromptFileAggregate",
+    "ISessionAggregate",
+    "ISetupAggregate",
     # Utilities
     "extract_prompt_text",
     "strip_input_from_output",

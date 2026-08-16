@@ -10,7 +10,6 @@ import time
 from playwright.sync_api import Error, Page
 
 from modules.core.src.utility_core_dom_helper import is_any_visible, is_selector_visible
-from modules.core.src.utility_core_dom_query import count_messages
 from modules.core.src.utility_core_dom_query import latest_message_text as _dom_latest
 from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src.contract_core_protocol import IStreamProtocol

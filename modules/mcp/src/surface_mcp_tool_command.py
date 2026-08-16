@@ -1,12 +1,17 @@
 """MCP surface: tool handlers (AES406).
 
-Smart surface: 4 tools delegating to the shared core orchestrators over stdio JSON-RPC.
+Smart surface: tools delegating to individual agent contracts over stdio JSON-RPC.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
+from modules.shared.src.contract_core_aggregate import (
+    IAttachmentPromptAggregate,
+    IDirectPromptAggregate,
+    IPromptFileAggregate,
+    ISessionAggregate,
+)
+from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
 from modules.shared.src.taxonomy_core_vo import (
     FilePath,
     HeadlessFlag,
@@ -15,22 +20,30 @@ from modules.shared.src.taxonomy_core_vo import (
     TimeoutSec,
 )
 
-if TYPE_CHECKING:
-    from modules.core.src.root_core_container import SharedContainer
-
 
 class McpToolCommand:
-    """MCP tool dispatcher — delegates to the shared core container."""
+    """MCP tool dispatcher — delegates to individual agent contracts."""
 
-    def __init__(self, container: SharedContainer) -> None:
-        """Inject the shared container."""
-        self._container = container
+    def __init__(
+        self,
+        direct: IDirectPromptAggregate,
+        file_only: IPromptFileAggregate,
+        attachment: IAttachmentPromptAggregate,
+        session: ISessionAggregate,
+        workspace: IWorkspaceProtocol,
+    ) -> None:
+        """Inject the individual agent aggregate contracts."""
+        self._direct = direct
+        self._file_only = file_only
+        self._attachment = attachment
+        self._session = session
+        self._workspace = workspace
 
     def process_direct_prompt(
         self, prompt: str, timeout_sec: int = 120, headless: bool = True
     ) -> ResponseText:
         """Process a direct text prompt string."""
-        return self._container.agent_direct_prompt_orchestrator.process_direct_prompt(
+        return self._direct.process_direct_prompt(
             PromptText(prompt), TimeoutSec(timeout_sec), HeadlessFlag(headless)
         )
 
@@ -41,7 +54,7 @@ class McpToolCommand:
         headless: bool = True,
     ) -> ResponseText:
         """Process a prompt file from disk without attachment."""
-        return self._container.agent_prompt_file_orchestrator.process_prompt_file_only(
+        return self._file_only.process_prompt_file_only(
             FilePath(input_file),
             FilePath(output_file) if output_file else None,
             HeadlessFlag(headless),
@@ -55,7 +68,7 @@ class McpToolCommand:
         headless: bool = True,
     ) -> ResponseText:
         """Process a prompt file from disk with document attachment."""
-        return self._container.agent_attachment_prompt_orchestrator.process_prompt_with_attachment(
+        return self._attachment.process_prompt_with_attachment(
             FilePath(prompt_file),
             FilePath(attachment_file),
             FilePath(output_file) if output_file else None,
@@ -64,9 +77,9 @@ class McpToolCommand:
 
     def setup_session(self) -> ResponseText:
         """Launch a visible browser for manual login / session setup."""
-        return self._container.agent_session_orchestrator.setup_session()
+        return self._session.setup_session()
 
     def init_workspace(self, target_dir: str = ".") -> ResponseText:
         """Initialize workspace directory structure, SKILL.md guide, sample prompt/file, and .gitignore."""
-        self._container.workspace.init_workspace(FilePath(target_dir))
+        self._workspace.init_workspace(FilePath(target_dir))
         return ResponseText(f"Workspace initialized successfully at {target_dir}")

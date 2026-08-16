@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Protocol
 
 from modules.shared.src.taxonomy_core_constant import MAX_ATTEMPTS
@@ -198,7 +198,7 @@ class LifecycleGate:
     def __init__(
         self,
         logger: Callable[..., object] | LifecycleLogger | None = None,
-        sequence: tuple[QwenEventType, ...] | None = None,
+        sequence: Sequence[QwenEventType] | None = None,
     ) -> None:
         self._logger = logger
         self._completed: list[QwenEventType] = []

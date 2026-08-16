@@ -12,7 +12,6 @@ from pathlib import Path
 
 from modules.shared.src.taxonomy_core_vo import (
     AttachmentPath,
-    FilePath,
     HeadlessFlag,
     OutputPath,
     PromptPath,
@@ -62,10 +61,6 @@ class IAttachmentPromptAggregate(ABC):
         """Process a prompt file from disk with document attachment."""
 
 
-class IPipelineAggregate(IDirectPromptAggregate, IPromptFileAggregate, IAttachmentPromptAggregate, ABC):
-    """Unified pipeline aggregate contract."""
-
-
 class ISessionAggregate(ABC):
     """Session aggregate contract for session validation and deletion."""
 
@@ -90,19 +85,9 @@ class ISetupAggregate(ABC):
         """Validate or establish a persistent manual login session."""
 
 
-class ICoreAggregate(IPipelineAggregate, ISessionAggregate, ISetupAggregate, ABC):
-    """Unified core processing aggregate combining pipeline, session, and setup aggregates."""
-
-    @abstractmethod
-    def init_workspace(self, target_dir: Path | FilePath = FilePath(".")) -> None:
-        """Initialize the workspace (.agents/skills + .qwen-web symlinks)."""
-
-
 __all__ = [
     "IAttachmentPromptAggregate",
-    "ICoreAggregate",
     "IDirectPromptAggregate",
-    "IPipelineAggregate",
     "IPromptFileAggregate",
     "ISessionAggregate",
     "ISetupAggregate",

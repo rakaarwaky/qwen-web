@@ -43,7 +43,13 @@ def _get_tools() -> McpToolCommand:
     if _container is None:
         shared = SharedContainer()
         shared.wire()
-        _container = McpToolCommand(shared)
+        _container = McpToolCommand(
+            direct=shared.agent_direct_prompt_orchestrator,
+            file_only=shared.agent_prompt_file_orchestrator,
+            attachment=shared.agent_attachment_prompt_orchestrator,
+            session=shared.agent_session_orchestrator,
+            workspace=shared.workspace,
+        )
     return _container
 
 
@@ -71,8 +77,7 @@ def _async_tool(name: str) -> Callable[..., Awaitable[Sequence[str]]]:
             return str(getattr(tools, method_name)(*args, **kwargs))
 
         loop = asyncio.get_running_loop()
-        res = await loop.run_in_executor(None, invoke)
-        return [res] if isinstance(res, str) else list(res)
+        return await loop.run_in_executor(None, invoke)
 
     return handler
 
@@ -214,9 +219,14 @@ def run_mcp_server() -> None:
                     raise ValueError(f"Unknown tool: {params.name}")
                 try:
                     result = await handler(**(params.arguments or {}))
-                    content_blocks: list[types.TextContent] = [
-                        types.TextContent(type="text", text=r) for r in result
-                    ]
+                    if isinstance(result, str):
+                        content_blocks: list[types.TextContent] = [
+                            types.TextContent(type="text", text=result)
+                        ]
+                    else:
+                        content_blocks = [
+                            types.TextContent(type="text", text=str(r)) for r in result
+                        ]
                     return types.CallToolResult(content=content_blocks, is_error=False)
                 except Exception as exc:
                     log.error("Tool execution error: %s", exc)
