@@ -27,7 +27,7 @@ from .contract_core_protocol import (
 )
 
 # ─── Taxonomy: config VOs ─────────────────────────────────────
-from .taxonomy_config_vo import (
+from .taxonomy_core_vo import (
     DEFAULT_INJECTOR_CONFIG,
     DEFAULT_SAVER_CONFIG,
     DEFAULT_SENDER_CONFIG,

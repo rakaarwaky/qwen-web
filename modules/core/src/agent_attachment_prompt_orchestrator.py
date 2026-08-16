@@ -24,7 +24,7 @@ from modules.shared.src.contract_core_protocol import (
     IStreamProtocol,
     IUploadProtocol,
 )
-from modules.shared.src.taxonomy_config_vo import AppConfig, SenderConfig
+from modules.shared.src.taxonomy_core_vo import AppConfig, SenderConfig
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_OUTPUT,
 )

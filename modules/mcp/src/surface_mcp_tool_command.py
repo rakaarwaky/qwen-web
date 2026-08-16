@@ -11,7 +11,7 @@ from modules.shared.src.contract_core_aggregate import (
     IPromptFileAggregate,
     ISessionAggregate,
 )
-from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
+from modules.shared.src.contract_core_protocol import IWorkspaceProtocol
 from modules.shared.src.taxonomy_core_vo import (
     FilePath,
     HeadlessFlag,

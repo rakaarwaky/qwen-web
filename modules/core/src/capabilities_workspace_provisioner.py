@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from modules.core.src.utility_core_io_writer import ensure_dir
-from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
+from modules.shared.src.contract_core_protocol import IWorkspaceProtocol
 from modules.shared.src.taxonomy_core_constant import (
     BASE_DIR,
     DEFAULT_LOG,

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from modules.shared.src.taxonomy_config_vo import AppConfig
+from modules.shared.src.taxonomy_core_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_LOG,
     DEFAULT_OUTPUT,

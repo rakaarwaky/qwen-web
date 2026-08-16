@@ -8,12 +8,14 @@ Lifecycle events live in taxonomy_core_event; domain errors live in taxonomy_cor
 from __future__ import annotations
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import NewType, TypeAlias
+
+from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG, STATUS_FILENAME
 
 PromptText = NewType("PromptText", str)
 PromptPath = NewType("PromptPath", Path)
@@ -196,6 +198,247 @@ class StatusRecordVO:
     error: str | None = None
 
 
+def _validate_min(name: str, value: float | int, minimum: float | int) -> None:
+    """Raise ValueError if value is below minimum."""
+    if value < minimum:
+        raise ValueError(f"{name} must be >= {minimum}, got {value}")
+
+
+@dataclass(frozen=True)
+class UploadConfig:
+    """Configuration options for file upload behavior."""
+
+    max_file_size_mb: float = 100.0
+    dropdown_timeout_ms: int = 5000
+    option_timeout_ms: int = 3000
+    file_chooser_timeout_ms: int = 8000
+    card_render_timeout_ms: int = 5000
+    parse_ready_timeout_ms: int = 120_000
+    max_retries: int = 2
+    backoff_delay_sec: float = 1.0
+
+    dropdown_selectors: Sequence[str] = field(
+        default_factory=lambda: (
+            ".mode-select-open",
+            "[class*='mode-select']",
+        )
+    )
+
+    upload_option_selectors: Sequence[str] = field(
+        default_factory=lambda: (
+            "text='Upload attachment'",
+            ".mode-select-dropdown-item:has-text('Upload attachment')",
+            ".mode-select-dropdown-item[data-action='upload']",
+            "[role='menuitem']:has-text('Upload attachment')",
+            "text='Upload file'",
+            "[data-testid*='upload' i]",
+            "[aria-label*='upload' i]",
+        )
+    )
+
+    parse_pending_selectors: Sequence[str] = field(
+        default_factory=lambda: (
+            ".fileitem-loading-icon",
+            "[class*='loading']",
+            "[class*='parsing']",
+            "[class*='spin']",
+            ".ant-spin",
+        )
+    )
+
+    card_selectors: Sequence[str] = field(
+        default_factory=lambda: (
+            ".file-card-list",
+            ".fileitem-btn",
+            ".message-input-column-file",
+            "[class*='file-card']",
+            "[class*='file-item']",
+            "[class*='fileitem']",
+            "[class*='fileitem-file-name']",
+            "[class*='file-content-info']",
+        )
+    )
+
+
+DEFAULT_UPLOAD_CONFIG = UploadConfig()
+
+
+@dataclass(frozen=True)
+class InjectorConfig:
+    """Configuration options for prompt text injection."""
+
+    wait_timeout_ms: int = 10_000
+    typing_delay_ms: int = 10
+    verify_injection: bool = True
+    input_selectors: Sequence[str] = field(
+        default_factory=lambda: (
+            "textarea.message-input-textarea",
+            "textarea",
+            "div[contenteditable='true']",
+            "#chat-input",
+            ".chat-input",
+        )
+    )
+
+
+DEFAULT_INJECTOR_CONFIG = InjectorConfig()
+
+
+@dataclass(frozen=True)
+class ObservabilityConfig:
+    """Configuration options for observability logging and tracing."""
+
+    log_path: Path
+    enable_sentry: bool = True
+    enable_otel: bool = True
+    environment: str = "production"
+
+
+@dataclass(frozen=True)
+class MCPToolResponse:
+    """Structured response payload for MCP tool invocations."""
+
+    success: bool
+    data: str
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class MCPServerConfig:
+    """Configuration options for MCP server entrypoint."""
+
+    server_name: str = "Qwen-Web"
+    transport: str = "stdio"
+
+
+@dataclass(frozen=True)
+class QwenClientConfig:
+    """Client operational configuration options."""
+
+    timeout_sec: int = 120
+    auto_attach_files: bool = True
+    retry_upload_on_failure: bool = True
+
+
+@dataclass(frozen=True)
+class BrowserConfig:
+    """Browser launch and session configuration options."""
+
+    headless: bool = True
+    user_agent: str = (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    )
+    viewport_width: int = 1280
+    viewport_height: int = 800
+    block_media_assets: bool = True
+    launch_timeout_sec: int = 30
+
+
+@dataclass(frozen=True)
+class SenderConfig:
+    """Configuration options for send button interactions."""
+
+    click_timeout_ms: int = 3000
+    try_enter_key_fallback: bool = True
+
+
+DEFAULT_SENDER_CONFIG = SenderConfig()
+
+
+@dataclass(frozen=True)
+class StreamerConfig:
+    """Configuration options for AI response streaming and stability detection."""
+
+    polling_interval_sec: float = 1.0
+    stability_checks: int = 4
+    min_text_length: int = 1
+
+
+@dataclass(frozen=True)
+class OutputMetadata:
+    """Metadata payload recorded with processed output files."""
+
+    run_id: str
+    source_file: str
+    processed_at: str
+    duration_sec: float
+    input_chars: int
+    output_chars: int
+
+
+@dataclass(frozen=True)
+class SaverConfig:
+    """Configuration options for saver module."""
+
+    include_header: bool = True
+    generate_sidecar: bool = True
+    atomic_write: bool = True
+
+
+DEFAULT_SAVER_CONFIG = SaverConfig()
+
+
+@dataclass(frozen=True)
+class AppConfig:
+    """Application configuration with defaults and validation."""
+
+    input_path: Path
+    output_path: Path
+    done_path: Path
+    failed_path: Path
+    proc_path: Path
+    session_path: Path
+    log_path: Path = DEFAULT_LOG
+    mode: str = ""
+
+    interval: int = 3
+    timeout: int = 300
+    headless: bool = False
+    prompt_file: Path | None = None
+    prompt_path: Path | None = None
+    file_path: Path | None = None
+
+    chrome_profile: str = "qwen-cli-profile"
+    storage_state_file: Path | None = None
+    disable_sandbox: bool = True
+
+    request_timeout: int = 120
+    poll_interval: float = 1.0
+    streaming_timeout: int = 180
+    inline_prompt: bool = False
+    inline_prompt_text: str | None = None
+
+    rate_limit_per_minute: int = 60
+    circuit_breaker_threshold: int = 5
+    circuit_breaker_window: int = 30
+
+    retry_failed: bool = False
+
+    @property
+    def status_path(self) -> Path:
+        """Path to the JSON status file for monitoring."""
+        return self.log_path / STATUS_FILENAME
+
+    def validate(self) -> None:
+        """Validate configuration before execution.
+
+        Raises
+        ------
+        ValueError
+            If any configuration value is invalid.
+
+        """
+        _validate_min("timeout", self.timeout, 30)
+        _validate_min("poll_interval", self.poll_interval, 0.5)
+        _validate_min("request_timeout", self.request_timeout, 10)
+        _validate_min("rate_limit_per_minute", self.rate_limit_per_minute, 1)
+        _validate_min("circuit_breaker_threshold", self.circuit_breaker_threshold, 2)
+
+    def __post_init__(self) -> None:
+        """Validate config on construction."""
+        self.validate()
+
+
 __all__ = [
     "PromptText",
     "InputPath",
@@ -253,4 +496,20 @@ __all__ = [
     "ExitCode",
     "RunContext",
     "StatusRecordVO",
+    "UploadConfig",
+    "DEFAULT_UPLOAD_CONFIG",
+    "InjectorConfig",
+    "DEFAULT_INJECTOR_CONFIG",
+    "ObservabilityConfig",
+    "MCPToolResponse",
+    "MCPServerConfig",
+    "QwenClientConfig",
+    "BrowserConfig",
+    "SenderConfig",
+    "DEFAULT_SENDER_CONFIG",
+    "StreamerConfig",
+    "OutputMetadata",
+    "SaverConfig",
+    "DEFAULT_SAVER_CONFIG",
+    "AppConfig",
 ]

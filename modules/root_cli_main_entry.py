@@ -26,7 +26,7 @@ import modules.cli.src.surface_cli_interactive_controller as surface_cli_interac
 import modules.cli.src.surface_cli_login_command as surface_cli_login_command
 import modules.cli.src.surface_cli_run_command as surface_cli_run_command
 from modules.core.src.root_core_container import SharedContainer
-from modules.shared.src.taxonomy_config_vo import AppConfig
+from modules.shared.src.taxonomy_core_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_LOG,
     DEFAULT_OUTPUT,

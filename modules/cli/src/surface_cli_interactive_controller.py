@@ -16,8 +16,8 @@ from modules.shared.src.contract_core_aggregate import (
     IPromptFileAggregate,
     ISetupAggregate,
 )
-from modules.shared.src.contract_workspace_protocol import IWorkspaceProtocol
-from modules.shared.src.taxonomy_config_vo import AppConfig
+from modules.shared.src.contract_core_protocol import IWorkspaceProtocol
+from modules.shared.src.taxonomy_core_vo import AppConfig
 from modules.shared.src.taxonomy_core_vo import HeadlessFlag
 from modules.shared.src.utility_core_response import error_response, safe_handle, success_response
 

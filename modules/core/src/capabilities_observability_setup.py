@@ -19,9 +19,7 @@ from typing import Any
 from modules.core.src.utility_core_io_writer import atomic_write_json, ensure_dir
 from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src import utility_core_exit
-from modules.shared.src.contract_core_protocol import IObservabilityProtocol
-from modules.shared.src.contract_metrics_protocol import IMetricsProtocol
-from modules.shared.src.contract_status_protocol import IStatusProtocol
+from modules.shared.src.contract_core_protocol import IMetricsProtocol, IObservabilityProtocol, IStatusProtocol
 from modules.shared.src.taxonomy_core_error import ErrorCategory
 from modules.shared.src.taxonomy_core_vo import ExitCode, MessageCount, ServiceName, StatusRecordVO
 from modules.shared.src.utility_core_status import status_path_for

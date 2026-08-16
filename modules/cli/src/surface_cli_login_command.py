@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from modules.shared.src.contract_core_aggregate import ISessionAggregate, ISetupAggregate
-from modules.shared.src.taxonomy_config_vo import AppConfig
+from modules.shared.src.taxonomy_core_vo import AppConfig
 from modules.shared.src.utility_core_response import safe_handle, success_response
 
 

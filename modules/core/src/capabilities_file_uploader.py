@@ -15,7 +15,7 @@ from playwright.sync_api import Error, Page
 from modules.core.src.utility_core_dom_helper import first_visible_locator
 from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src.contract_core_protocol import IUploadProtocol
-from modules.shared.src.taxonomy_config_vo import DEFAULT_UPLOAD_CONFIG, UploadConfig
+from modules.shared.src.taxonomy_core_vo import DEFAULT_UPLOAD_CONFIG, UploadConfig
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_error import FileValidationError
 from modules.shared.src.taxonomy_core_event import EVENT_DOCUMENT_PARSED, EVENT_FILE_UPLOADED

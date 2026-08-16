@@ -12,8 +12,9 @@ from typing import Any
 
 from playwright.sync_api import ElementHandle, Page
 
-from modules.shared.src.taxonomy_config_vo import InjectorConfig
+from modules.shared.src.taxonomy_core_vo import InjectorConfig
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
+from modules.shared.src.taxonomy_core_event import EventMessage
 from modules.shared.src.taxonomy_core_vo import (
     ExitCode,
     FilePath,
@@ -30,6 +31,7 @@ from modules.shared.src.taxonomy_core_vo import (
     RunContext,
     RunId,
     StabilityChecks,
+    StatusRecordVO,
     TimeoutSec,
 )
 
@@ -188,6 +190,46 @@ class IObservabilityProtocol(ABC):
         """Install global exception handlers."""
 
 
+class IWorkspaceProtocol(ABC):
+    """Workspace directory provisioning capability contract."""
+
+    @abstractmethod
+    def init_workspace(self, target_dir: FilePath) -> None:
+        """Initialize workspace directories, SKILL.md, symlinks, and .gitignore."""
+
+
+class IStatusProtocol(ABC):
+    """Status file write/read capability contract."""
+
+    @abstractmethod
+    def write(self, **kwargs: Any) -> None:
+        """Atomically write status to disk."""
+
+    @abstractmethod
+    def write_record(self, record: StatusRecordVO) -> None:
+        """Atomically write a record to disk."""
+
+    @abstractmethod
+    def read(self) -> dict[str, Any] | None:
+        """Read and return the current status record."""
+
+
+class IMetricsProtocol(ABC):
+    """In-memory metrics collection capability contract."""
+
+    @abstractmethod
+    def increment(self, key: EventMessage, amount: MessageCount = MessageCount(1)) -> None:
+        """Increment a counter by the given amount."""
+
+    @abstractmethod
+    def get(self, key: EventMessage) -> MessageCount:
+        """Return the current value of a counter."""
+
+    @abstractmethod
+    def snapshot(self) -> dict[str, Any]:
+        """Return a shallow copy of all counters."""
+
+
 __all__ = [
     "IUploadProtocol",
     "IInjectionProtocol",
@@ -196,4 +238,7 @@ __all__ = [
     "IBrowserProtocol",
     "ISaverProtocol",
     "IObservabilityProtocol",
+    "IWorkspaceProtocol",
+    "IStatusProtocol",
+    "IMetricsProtocol",
 ]
