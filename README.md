@@ -15,13 +15,12 @@
 ## Key Features
 
 - **MCP Server Integration (1:1 with CLI)**: Connect local AI agents directly via MCP tools.
-- **Real-Time File Watcher Mode**: Monitors `input/` for new `.md` files, processes them automatically.
-- **Batch Folder Pipeline**: Processes entire directories of Markdown files sequentially.
-- **Interactive Terminal UI**: Run with no arguments to open an interactive selection menu.
-- **Persistent Session Login**: Log in once, then run in `--headless` mode indefinitely.
+- **Subcommand CLI Pipeline**: Dedicated subcommands for direct prompts, prompt files, and document attachments.
+- **Interactive Terminal UI**: Run `qwen-web-cli` with no arguments to open an interactive selection menu.
+- **Persistent Session Login**: Log in once via `qwen-web-cli login`, then run headlessly.
 - **Smart Response Detection**: Polls AI generation progress dynamically until completion.
 - **Output Validation**: Detects CAPTCHA challenges and server error pages before accepting output.
-- **Multi-Tier Prompt Injection**: Handles large prompts (100k+ chars) via React setter, ContentEditable, and Playwright fallbacks.
+- **Multi-Tier Prompt Injection**: Handles large prompts via React setter, ContentEditable, and Playwright fallbacks.
 - **Structured Observability**: `structlog`, OpenTelemetry, Sentry, JSONL audit trail.
 - **Fault Recovery**: Automatic retry with circuit breaker and rate limiting.
 
@@ -48,20 +47,18 @@ qwen-web-cli
 
 ```text
 ╭─ qwen-cli interactive setup ─────────────────────╮
-│ 1. Watcher Mode (continuous)                     │
-│ 2. Batch Mode (folder)                           │
-│ 3. Single File Mode                              │
-│ 4. Session Setup                  │
+│ 1. Direct Prompt                                 │
+│ 2. Single Prompt File                            │
+│ 3. Prompt File with Attachment                   │
+│ 4. Session Setup (Login)                         │
 │ 5. Init Workspace                                │
 │ 6. Exit                                          │
 ╰──────────────────────────────────────────────────╯
-Select [1-6, default=1]:
-Run headless? [y/N, default=N]:
 ```
 
 ---
 
-## Usage Modes
+## Usage Subcommands
 
 ### Workspace Initialization
 
@@ -69,35 +66,31 @@ Run headless? [y/N, default=N]:
 qwen-web-cli init
 ```
 
-### File Watcher Mode
+### Direct Inline Prompt
 
 ```bash
-qwen-web-cli --watch --headless
+qwen-web-cli prompt-direct -t "Summarize quantum computing" -o output/result.md --headless
 ```
 
-### Batch Folder Mode
+### Single Prompt File Processing
 
 ```bash
-qwen-web-cli -i input -o output --headless
+qwen-web-cli prompt-only -i prompt.md -o output/result.md --headless
 ```
 
-### Single File Mode
+### Prompt File Processing with Attachment
 
 ```bash
-qwen-web-cli -i my_prompt.md -o output/result.md --headless
+qwen-web-cli prompt-with-attachment -i prompt.md -a document.pdf -o output/result.md --headless
 ```
 
-### Manual Login
+### Manual Login / Session Setup
 
 ```bash
-qwen-web-cli --login
+qwen-web-cli login
 ```
 
-The login command first validates the saved session. If it is already valid, the
-CLI reports that state and does not open a visible browser. Otherwise, it opens
-a headed browser and keeps it open while you complete login or CAPTCHA; press `ENTER`
-only after the chat page is ready. The CLI verifies the resulting session before
-reporting success. Subsequent runs can use `--headless`.
+The `login` subcommand opens a visible browser and keeps it open while you complete login or CAPTCHA. Subsequent runs can use `--headless`.
 
 ### MCP Server Mode
 
@@ -109,19 +102,14 @@ qwen-web-mcp
 
 ## CLI Reference
 
-Only the flags below are needed for daily use. All tuning values (timeouts, poll interval, rate limit, circuit-breaker thresholds, and directory paths) are **hardcoded to safe defaults** in `modules/root_cli_main_entry.py` and follow the XDG Base Directory spec — you normally never pass them.
-
-| Command / Flag   | Argument | Description                                            |
-| :--------------- | :------- | :----------------------------------------------------- |
-| `qwen-web-cli init` | `[DIR]` | Provision workspace (`.agents/skills`, `.qwen-web`). Run once. |
-| `qwen-web-cli --login` | None | Open a visible browser to log in and save the session. Run once. |
-| `-i, --input`   | `PATH`   | Input markdown file or directory (required each run).  |
-| `-o, --output`  | `PATH`   | Output markdown file or directory (required each run). |
-| `-w, --watch`   | None     | Enable continuous File Watcher mode.                   |
-| `--headless`    | None     | Run the browser in the background without a GUI window.|
-| `qwen-web-mcp`  | None     | Run as a Model Context Protocol (MCP) server over stdio. |
-
-> All other options (polling interval, done/failed/proc/log/data directories, timeout, request-timeout, streaming-timeout, poll-interval, rate-limit, circuit-breaker threshold/window, `--retry-failed`) are pre-configured defaults and omitted from the CLI surface for simplicity.
+| Subcommand | Argument | Description |
+| :--- | :--- | :--- |
+| `qwen-web-cli init` | `[--dir DIR]` | Provision workspace (`.agents/skills`, `.qwen-web`). Run once. |
+| `qwen-web-cli login` | `[--headless]` | Open a browser to log in and save session. Run once. |
+| `qwen-web-cli prompt-direct` | `-t TEXT [-o OUT] [--headless]` | Send inline text prompt directly to Qwen. |
+| `qwen-web-cli prompt-only` | `-i PROMPT [-o OUT] [--headless]` | Process a Markdown prompt file. |
+| `qwen-web-cli prompt-with-attachment` | `-i PROMPT -a ATTACH [-o OUT] [--headless]` | Process a prompt file with document attachment. |
+| `qwen-web-mcp` | None | Run as a Model Context Protocol (MCP) server over stdio. |
 
 ---
 

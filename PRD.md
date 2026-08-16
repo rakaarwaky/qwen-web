@@ -57,7 +57,7 @@ compose these FRs, not additional core FRs.
 - [x] **FR-001 Browser Adapter** — Persistent Chromium/Playwright context,
   stale-lock cleanup, `0o700` session dir, asset blocking, and auth
   triple-check (URL + login form + chat textarea).
-  *Accept*: headless run reuses a `--login` profile; login page raises
+  *Accept*: headless run reuses a `login` profile; login page raises
   `AuthRequiredError`.
 - [x] **FR-002 File Uploader** — Local-file pre-flight (exists, readable,
   ≤100 MB) and Qwen UI attach with retry/backoff; degrade to text-only on
@@ -95,7 +95,7 @@ compose these FRs, not additional core FRs.
 
 - [x] **Multi-mode execution**: Batch (folder), Watcher (continuous poll),
   Single (one file), and raw `send_prompt` — all via `ICoreAggregate`.
-- [x] **Persistent session login**: `--login` validates a saved profile
+- [x] **Persistent session login**: `qwen-web-cli login` validates a saved profile
   first; only an invalid session opens a headed browser for CAPTCHA.
 - [x] **Atomic file routing**: `input` → `.processing` → `done` / `failed`
   with circuit breaker and rate limiter in the agent.
