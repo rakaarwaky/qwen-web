@@ -121,14 +121,42 @@ class StreamMonitor(IStreamProtocol):
         last_text: str | None = None
         stable_count = 0
 
-        reloaded = False
+        last_reload_time = start
+        max_duration = max(timeout_sec, int(timeout_sec * 3.0))
 
         # Step 3: Poll DOM for thinking/streaming status & content stability
-        while time.time() - start < timeout_sec:
+        while True:
+            now = time.time()
+            elapsed = now - start
+
+            # Periodic 100s cloud reload sync trigger
+            if (now - last_reload_time) >= 100.0 and not self.is_generation_complete(page):
+                log.info("Periodic 100s cloud reload sync: refreshing page to pull Qwen Cloud state (elapsed: %ds)...", int(elapsed))
+                last_reload_time = now
+                with contextlib.suppress(Exception):
+                    page.reload(wait_until="domcontentloaded", timeout=15_000)
+                    page.wait_for_timeout(2000)
+                    continue
+
+            # 120s milestone check & soft timeout extension
+            if elapsed >= timeout_sec:
+                is_active = not self.is_generation_complete(page) or self.is_thinking_active(page)
+                if is_active and elapsed < max_duration:
+                    log.info("120s milestone check: Qwen AI is still actively generating (%ds elapsed). Extending monitoring...", int(elapsed))
+                else:
+                    if last_text is not None and len(last_text.strip()) > 0:
+                        validate_response_content(last_text)
+                        emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(last_text), "fallback": True})
+                        return ResponseText(last_text)
+                    break
+
             try:
-                if not has_thinking and self.is_thinking_active(page):
+                # Active thinking detection
+                thinking_now = self.is_thinking_active(page)
+                if not has_thinking and thinking_now:
                     emitter.emit(EVENT_THINKING_STARTED, {"source": "qwen-thinking-dom"})
                     has_thinking = True
+
                 text = _dom_latest(page)
                 if text is not None and should_treat_as_new_response(text, previous_text, int(active_min_len)):
                     if not has_thinking:
@@ -151,26 +179,17 @@ class StreamMonitor(IStreamProtocol):
                             emitter.emit(EVENT_STREAMING_GENERATION, {"text_length": len(text)})
                         stable_count = 0
                         last_text = text
-                elif not reloaded and (time.time() - start > timeout_sec * 0.6) and last_text is None:
-                    log.info("No DOM text detected after %ds. Reloading page to sync cloud conversation state...", int(time.time() - start))
-                    reloaded = True
-                    with contextlib.suppress(Exception):
-                        page.reload(wait_until="domcontentloaded", timeout=15_000)
-                        page.wait_for_timeout(2000)
-                        continue
 
                 time.sleep(active_poll)
             except TimeoutError as e:
                 raise NetworkTimeoutError(f"Browser network timeout during streaming poll: {e}") from e
             except Error as e:
                 log.warning("Browser error or connection reset during polling (%s). Attempting page reload recovery...", e)
-                if not reloaded:
-                    reloaded = True
-                    with contextlib.suppress(Exception):
-                        page.reload(wait_until="domcontentloaded", timeout=15_000)
-                        page.wait_for_timeout(2000)
-                        continue
-                raise NetworkTimeoutError(f"Browser IPC error during streaming poll: {e}") from e
+                last_reload_time = time.time()
+                with contextlib.suppress(Exception):
+                    page.reload(wait_until="domcontentloaded", timeout=15_000)
+                    page.wait_for_timeout(2000)
+                    continue
             except (AuthRequiredError, OutputValidationError):
                 raise
             except Exception as e:
