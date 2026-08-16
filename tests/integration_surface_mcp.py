@@ -7,9 +7,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from modules.root_mcp_main_entry import (
-    qwen_process_single,
-    qwen_send_prompt,
-    qwen_setup_session,
+    process_direct_prompt,
+    process_prompt_file_only,
+    setup_session,
 )
 
 
@@ -32,36 +32,36 @@ def _reset_event_loop():
 class TestMCPServerTools(unittest.TestCase):
     """Unit tests for MCP server tools."""
 
-    def test_qwen_send_prompt_mock(self) -> None:
-        """Test qwen_send_prompt tool execution with mocked tools."""
+    def test_process_direct_prompt_mock(self) -> None:
+        """Test process_direct_prompt tool execution with mocked tools."""
         mock_tools = MagicMock()
-        mock_tools.send_prompt.return_value = "Mocked AI Response"
+        mock_tools.process_direct_prompt.return_value = "Mocked AI Response"
         with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
-            result = asyncio.run(qwen_send_prompt("Hello Qwen", timeout_sec=30, headless=True))
+            result = asyncio.run(process_direct_prompt("Hello Qwen", timeout_sec=30, headless=True))
             self.assertEqual(result, "Mocked AI Response")
 
-    def test_qwen_process_single_success(self) -> None:
-        """Test qwen_process_single with valid file input."""
+    def test_process_prompt_file_only_success(self) -> None:
+        """Test process_prompt_file_only with valid file input."""
         mock_tools = MagicMock()
-        mock_tools.process_single.return_value = "Successfully processed prompt.md"
+        mock_tools.process_prompt_file_only.return_value = "Successfully processed prompt.md"
         with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
-            res = asyncio.run(qwen_process_single("/tmp/prompt.md", "/tmp/output.md"))
+            res = asyncio.run(process_prompt_file_only("/tmp/prompt.md", "/tmp/output.md"))
             self.assertIn("Successfully processed", res)
 
-    def test_qwen_setup_session(self) -> None:
-        """Test qwen_setup_session manual login trigger."""
+    def test_setup_session(self) -> None:
+        """Test setup_session manual login trigger."""
         mock_tools = MagicMock()
         mock_tools.setup_session.return_value = "Browser session saved to 'x'"
         with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
-            res = asyncio.run(qwen_setup_session())
+            res = asyncio.run(setup_session())
             self.assertIn("Browser session saved", res)
 
-    def test_qwen_send_prompt_auth_required_error(self) -> None:
-        """Test qwen_send_prompt returns clear error string when AuthRequiredError is raised."""
+    def test_process_direct_prompt_auth_required_error(self) -> None:
+        """Test process_direct_prompt returns clear error string when AuthRequiredError is raised."""
         mock_tools = MagicMock()
-        mock_tools.send_prompt.return_value = "ERROR [AUTH_REQUIRED]: No active login session found"
+        mock_tools.process_direct_prompt.return_value = "ERROR [AUTH_REQUIRED]: No active login session found"
         with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
-            result = asyncio.run(qwen_send_prompt("Test prompt", timeout_sec=30, headless=True))
+            result = asyncio.run(process_direct_prompt("Test prompt", timeout_sec=30, headless=True))
             self.assertIn("ERROR [AUTH_REQUIRED]", result)
             self.assertIn("No active login session found", result)
 

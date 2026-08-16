@@ -13,9 +13,8 @@ The MCP surface (`modules/mcp`) exposes the Core aggregate as a Model Context Pr
 - **Output**: One generated async FastMCP handler per specification entry.
 - **Business Rules**:
   - The specification table is the single source of truth for MCP registration.
-  - The table must map one-to-one with the exposed capabilities: `qwen_send_prompt`, `qwen_process_single`, `qwen_process_batch`, `qwen_start_watcher`, `qwen_setup_session`, and `qwen_get_audit_log`.
+  - The table must map one-to-one with the exposed capabilities: `process_direct_prompt`, `process_prompt_file_only`, `process_prompt_with_attachment`, and `setup_session`.
   - Each parameter must declare a supported type and, when optional, its default value.
-  - `qwen_get_audit_log` is declaratively specified with `limit: int = 20`; it must not have a separate manual registration path.
   - Generated handlers expose the specification-derived name, docstring, annotations, and `inspect.Signature` so FastMCP can build the client-facing schema.
 - **Edge Cases**: Missing `mcp` Python package dependency.
 - **Error Handling**: The module remains importable for tests when FastMCP is unavailable; server startup raises a clear `ImportError` if the app is requested.
@@ -50,12 +49,10 @@ The MCP surface (`modules/mcp`) exposes the Core aggregate as a Model Context Pr
 
 | Operation | Input | Output | Description |
 |-----------|-------|--------|-------------|
-| `qwen_send_prompt` | `prompt`, `timeout_sec=120`, `headless=True` | `str` | Sends raw text prompt. |
-| `qwen_process_single` | `input_file`, `output_file=None`, `headless=True` | `str` | Processes one Markdown file. |
-| `qwen_process_batch` | `input_dir=None`, `output_dir=None`, `headless=True` | `str` | Processes a directory. |
-| `qwen_start_watcher` | `interval_sec=3`, `headless=True` | `str` | Starts the continuous watcher. |
-| `qwen_setup_session` | None | `str` | Validates an existing session or waits for visible browser login to complete. |
-| `qwen_get_audit_log` | `limit=20` | `str` | Fetches JSONL audit entries. |
+| `process_direct_prompt` | `prompt`, `timeout_sec=120`, `headless=True` | `str` | Processes a raw text prompt. |
+| `process_prompt_file_only` | `input_file`, `output_file=None`, `headless=True` | `str` | Processes one Markdown file. |
+| `process_prompt_with_attachment` | `prompt_file`, `attachment_file`, `output_file=None`, `headless=True` | `str` | Processes a Markdown file with a document attachment. |
+| `setup_session` | None | `str` | Validates an existing session or waits for visible browser login to complete. |
 
 ## MCP File Map
 
@@ -63,9 +60,8 @@ The MCP surface (`modules/mcp`) exposes the Core aggregate as a Model Context Pr
 |------|----------------|
 | `modules/root_mcp_main_entry.py` | FastMCP application bootstrap, `MCP_TOOL_SPECS`, generated async handlers, declarative registration, and stdout isolation. |
 | `modules/mcp/src/surface_mcp_tool_command.py` | MCP surface adapter that maps generated tool calls to the `ICoreAggregate` contract. |
-| `modules/shared/src/contract_core_aggregate.py` | Shared core interface, including the existing `get_audit_log(limit=20)` contract. |
+| `modules/shared/src/contract_core_aggregate.py` | Shared core aggregate interface (pipeline, session, and setup aggregates). |
 | `modules/core/src/agent_core_orchestrator.py` | Concrete core aggregate delegation; out of scope for issues #73–#75. |
-| `modules/core/src/capabilities_audit_repository.py` | Audit JSONL persistence and retrieval; unchanged for issues #73–#75. |
 | `tests/test_mcp_server.py` | Basic generated-tool and audit-log behavior tests. |
 | `tests/test_mcp_server_async.py` | Async wrapper and audit-log response tests. |
 | `tests/test_mcp_server_extended.py` | Registration-table, signature, server lifecycle, and stdout-isolation tests. |
@@ -79,14 +75,11 @@ The MCP surface (`modules/mcp`) exposes the Core aggregate as a Model Context Pr
 
 - **Performance**: Tool invocation overhead from thread dispatch should remain below 50 ms excluding browser work.
 - **Security and Integrity**: The server must never leak raw Python diagnostics or tracebacks into the JSON-RPC stdout stream.
-- **Scope Constraint**: `AuditRepository.get_audit_log()` is not modified for issues #73–#75. Any future contract change must be coordinated with the owning implementation work.
 
 ## Test Scenarios / QA Checklist
 
 - [ ] Verify every `MCP_TOOL_SPECS` entry produces exactly one generated handler.
-- [ ] Verify `qwen_get_audit_log` is present in `MCP_TOOL_SPECS`, uses the common generator, and has default `limit=20`.
 - [ ] Verify the async wrapper dispatches synchronous core calls through `asyncio.to_thread`.
-- [ ] Verify the audit-log handler returns the expected missing-file and JSON response strings.
 - [ ] Verify tool execution output is absent from JSON-RPC stdout while FastMCP transport output remains on stdout.
 - [ ] Verify stdout is restored after server shutdown or startup failure.
 - [ ] Verify tool registration fails clearly when the `mcp` package is unavailable.
@@ -99,7 +92,6 @@ The MCP surface (`modules/mcp`) exposes the Core aggregate as a Model Context Pr
 
 - The MCP client, such as an AI agent using the standard MCP stdio transport, owns the JSON-RPC protocol stream.
 - The synchronous browser automation remains delegated to worker threads; the Python GIL may limit concurrency for CPU-heavy work.
-- The audit repository contract is outside the scope of this change.
 
 ## Reference
 

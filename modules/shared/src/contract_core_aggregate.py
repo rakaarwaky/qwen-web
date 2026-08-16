@@ -14,7 +14,6 @@ from modules.shared.src.taxonomy_core_vo import (
     AttachmentPath,
     FilePath,
     HeadlessFlag,
-    MessageCount,
     OutputPath,
     PromptPath,
     PromptText,

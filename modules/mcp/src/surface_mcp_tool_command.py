@@ -1,6 +1,6 @@
 """MCP surface: tool handlers (AES406).
 
-Smart surface: 5 tools delegating to the shared core aggregate over stdio JSON-RPC.
+Smart surface: 4 tools delegating to the shared core aggregate over stdio JSON-RPC.
 """
 
 from __future__ import annotations
@@ -22,19 +22,40 @@ class McpToolCommand:
         """Inject the core aggregate."""
         self._core = core
 
-    def send_prompt(self, prompt: str, timeout_sec: int = 120, headless: bool = True) -> ResponseText:
-        """Send a direct text prompt to chat.qwen.ai and return the AI answer."""
-        return self._core.send_prompt(PromptText(prompt), TimeoutSec(timeout_sec), HeadlessFlag(headless))
+    def process_direct_prompt(
+        self, prompt: str, timeout_sec: int = 120, headless: bool = True
+    ) -> ResponseText:
+        """Process a direct text prompt string."""
+        return self._core.process_direct_prompt(
+            PromptText(prompt), TimeoutSec(timeout_sec), HeadlessFlag(headless)
+        )
 
-    def process_single(
+    def process_prompt_file_only(
         self,
         input_file: str,
         output_file: str | None = None,
         headless: bool = True,
     ) -> ResponseText:
-        """Process a single Markdown prompt file."""
-        return self._core.process_single_file(
-            FilePath(input_file), FilePath(output_file) if output_file else None, HeadlessFlag(headless)
+        """Process a prompt file from disk without attachment."""
+        return self._core.process_prompt_file_only(
+            FilePath(input_file),
+            FilePath(output_file) if output_file else None,
+            HeadlessFlag(headless),
+        )
+
+    def process_prompt_with_attachment(
+        self,
+        prompt_file: str,
+        attachment_file: str,
+        output_file: str | None = None,
+        headless: bool = True,
+    ) -> ResponseText:
+        """Process a prompt file from disk with document attachment."""
+        return self._core.process_prompt_with_attachment(
+            FilePath(prompt_file),
+            FilePath(attachment_file),
+            FilePath(output_file) if output_file else None,
+            HeadlessFlag(headless),
         )
 
     def setup_session(self) -> ResponseText:

@@ -58,11 +58,10 @@ def _get_tools() -> McpToolCommand:
 
 # Map MCP tool names -> McpToolCommand method names
 _TOOL_METHOD_MAP: dict[str, str] = {
-    "qwen_send_prompt": "send_prompt",
-    "qwen_process_single": "process_single",
-    "qwen_process_batch": "process_batch",
-    "qwen_start_watcher": "start_watcher",
-    "qwen_setup_session": "setup_session",
+    "process_direct_prompt": "process_direct_prompt",
+    "process_prompt_file_only": "process_prompt_file_only",
+    "process_prompt_with_attachment": "process_prompt_with_attachment",
+    "setup_session": "setup_session",
 }
 
 
@@ -86,8 +85,8 @@ def _async_tool(name: str) -> Callable[..., Awaitable[Sequence[str]]]:
 
 TOOLS: list[Tool] = [
     Tool(
-        name="qwen_send_prompt",
-        description="Send a direct text prompt string to chat.qwen.ai and return AI answer.",
+        name="process_direct_prompt",
+        description="Process a direct text prompt string to chat.qwen.ai and return the AI answer.",
         input_schema={
             "type": "object",
             "properties": {
@@ -99,8 +98,8 @@ TOOLS: list[Tool] = [
         },
     ),
     Tool(
-        name="qwen_process_single",
-        description="Process a single Markdown prompt file (1:1 CLI Single File Mode).",
+        name="process_prompt_file_only",
+        description="Process a single Markdown prompt file (no attachment) on chat.qwen.ai.",
         input_schema={
             "type": "object",
             "properties": {
@@ -112,7 +111,21 @@ TOOLS: list[Tool] = [
         },
     ),
     Tool(
-        name="qwen_setup_session",
+        name="process_prompt_with_attachment",
+        description="Process a Markdown prompt file with a document attachment on chat.qwen.ai.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "prompt_file": {"type": "string"},
+                "attachment_file": {"type": "string"},
+                "output_file": {"type": "string", "default": None},
+                "headless": {"type": "boolean", "default": True},
+            },
+            "required": ["prompt_file", "attachment_file"],
+        },
+    ),
+    Tool(
+        name="setup_session",
         description="Launch visible browser on chat.qwen.ai for manual login / session setup.",
         input_schema={"type": "object", "properties": {}},
     ),
@@ -124,27 +137,39 @@ TOOL_HANDLERS: dict[str, Callable[..., Awaitable[Sequence[str]]]] = {
 }
 
 # Async tool functions for direct surface calls
-qwen_send_prompt = _async_tool("qwen_send_prompt")
-qwen_process_single = _async_tool("qwen_process_single")
-qwen_setup_session = _async_tool("qwen_setup_session")
+process_direct_prompt = _async_tool("process_direct_prompt")
+process_prompt_file_only = _async_tool("process_prompt_file_only")
+process_prompt_with_attachment = _async_tool("process_prompt_with_attachment")
+setup_session = _async_tool("setup_session")
 
 GENERATED_TOOLS = TOOL_HANDLERS
 
 MCP_TOOL_SPECS: list[dict[str, Any]] = [
     {
-        "name": "qwen_send_prompt",
-        "method": "send_prompt",
-        "doc": "Send a direct text prompt string to chat.qwen.ai and return AI answer.",
+        "name": "process_direct_prompt",
+        "method": "process_direct_prompt",
+        "doc": "Process a direct text prompt string to chat.qwen.ai and return the AI answer.",
         "params": [("prompt", "str", True), ("timeout_sec", "int", False, 120), ("headless", "bool", False, True)],
     },
     {
-        "name": "qwen_process_single",
-        "method": "process_single",
-        "doc": "Process a single Markdown prompt file (1:1 CLI Single File Mode).",
+        "name": "process_prompt_file_only",
+        "method": "process_prompt_file_only",
+        "doc": "Process a single Markdown prompt file (no attachment) on chat.qwen.ai.",
         "params": [("input_file", "str", True), ("output_file", "Any", False, None), ("headless", "bool", False, True)],
     },
     {
-        "name": "qwen_setup_session",
+        "name": "process_prompt_with_attachment",
+        "method": "process_prompt_with_attachment",
+        "doc": "Process a Markdown prompt file with a document attachment on chat.qwen.ai.",
+        "params": [
+            ("prompt_file", "str", True),
+            ("attachment_file", "str", True),
+            ("output_file", "Any", False, None),
+            ("headless", "bool", False, True),
+        ],
+    },
+    {
+        "name": "setup_session",
         "method": "setup_session",
         "doc": "Launch visible browser on chat.qwen.ai for manual login / session setup.",
         "params": [],
