@@ -77,32 +77,32 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
         prompt_sample = dot_qwen_input / "PROMPT.md"
         if not prompt_sample.exists():
             prompt_sample.write_text(
-                "# Instruksi Pengujian Otomasi Qwen-Web\n\n"
-                "Tolong analisis dokumen terlampir (`FILE.md`) dan "
-                "berikan tanggapan komprehensif dengan struktur berikut:\n"
-                "1. **Ringkasan Poin Utama** (3-5 poin penting dari dokumen)\n"
-                "2. **Analisis Detail** (penjelasan mendalam mengenai isi dokumen)\n"
-                "3. **Kesimpulan & Rekomendasi**\n\n"
-                "Pastikan jawaban Anda terformat dengan Markdown yang rapi.\n",
+                "# Qwen-Web Automation Test Instruction\n\n"
+                "Please analyze the attached document (`FILE.md`) and "
+                "provide a comprehensive response with the following structure:\n"
+                "1. **Key Takeaways Summary** (3-5 core points from the document)\n"
+                "2. **Detailed Analysis** (in-depth explanation of document content)\n"
+                "3. **Conclusion & Recommendations**\n\n"
+                "Ensure your response is cleanly formatted in Markdown.\n",
                 encoding="utf-8",
             )
 
         file_sample = dot_qwen_input / "FILE.md"
         if not file_sample.exists():
             file_sample.write_text(
-                "# Dokumen Pengujian: Arsitektur & Performa Otomasi Web Qwen\n\n"
-                "## 1. Latar Belakang & Pendahuluan\n"
-                "Sistem otomasi antarmuka web Qwen dirancang untuk mengintegrasikan "
-                "kapabilitas LLM dengan browser engine modern secara efisien.\n\n"
-                "## 2. Fitur Utama yang Diuji\n"
-                "- **Persistent Session Manager**: Menyimpan cookies dan data sesi Chromium.\n"
-                "- **Event-Driven Observability**: Logging real-time terhubung ke TUI RichLog.\n"
-                "- **Adaptive Send & Input Dispatcher**: Penanganan otomatis terhadap "
-                "injeksi teks dan dokumen lampiran.\n\n"
-                "## 3. Hasil Pengujian yang Diharapkan\n"
-                "1. Berkas lampiran berhasil diunggah.\n"
-                "2. Teks instruksi diinjeksi dengan tepat.\n"
-                "3. Jawaban diekstrak secara utuh dan disimpan lokal.\n",
+                "# Test Document: Qwen Web Automation Architecture & Performance\n\n"
+                "## 1. Background & Introduction\n"
+                "The Qwen web interface automation system is designed to integrate "
+                "LLM capabilities efficiently with modern browser engines.\n\n"
+                "## 2. Core Features Under Test\n"
+                "- **Persistent Session Manager**: Preserves Chromium session data and cookies.\n"
+                "- **Event-Driven Observability**: Real-time logging connected to TUI RichLog.\n"
+                "- **Adaptive Send & Input Dispatcher**: Automatic handling of text injection "
+                "and document attachments.\n\n"
+                "## 3. Expected Test Outcomes\n"
+                "1. Document attachment successfully uploaded.\n"
+                "2. Instruction prompt accurately injected.\n"
+                "3. Output response fully extracted and saved locally.\n",
                 encoding="utf-8",
             )
 
