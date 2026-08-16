@@ -7,6 +7,7 @@ utility only. Logger obtained via structlog (external), not via another capabili
 from __future__ import annotations
 
 from collections.abc import Iterator
+import contextlib
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -167,7 +168,9 @@ class BrowserAdapter(IBrowserProtocol):
         """Start a clean Qwen conversation so stale cards cannot affect monitoring."""
         try:
             if click_first_visible_enabled(page, NEW_CHAT_SELECTORS, timeout_ms=1500):
-                page.wait_for_timeout(500)
+                page.wait_for_timeout(800)
+                with contextlib.suppress(Error, TimeoutError):
+                    page.wait_for_selector("textarea.message-input-textarea, textarea", state="visible", timeout=3000)
                 log.debug("Started a clean Qwen chat before dispatch")
         except Error as exc:
             log.debug("New Chat reset unavailable; continuing with current chat: %s", exc)

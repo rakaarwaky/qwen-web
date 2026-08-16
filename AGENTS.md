@@ -8,14 +8,11 @@ Production-grade Python CLI + MCP server automating **chat.qwen.ai** (no API key
 
 Dependency order (bottom-up):
 
-```
-taxonomy → utility / contract → capabilities → agent → surface → root
-```
-
 Enforced by `lint-arwaky-cli`. Import rules:
 
-| Layer                  | Purpose                          | Imports                     | Forbids                                  |
-| ---------------------- | -------------------------------- | --------------------------- | ---------------------------------------- |
+
+| Layer            | Purpose                          | Imports                     | Forbids                                  |
+| ------------------ | ---------------------------------- | ----------------------------- | ------------------------------------------ |
 | **Taxonomy**     | VOs, entities, errors, constants | Taxonomy                    | All else                                 |
 | **Utility**      | Stateless helpers                | Taxonomy                    | Contract/Capabilities/Agent/Surface/Root |
 | **Contract**     | Protocol ABCs, aggregates        | Taxonomy, Contract          | Agent/Surface/Capabilities/Root          |
@@ -56,7 +53,6 @@ qwen-web-mcp                 # MCP server
 
 ```bash
 pytest tests/ -v
-pytest tests/test_qwen_client_behavior.py -v   # behavior lock (~90s)
 pytest tests/ -m e2e -v
 pytest tests/ -m slow -v
 ```

@@ -5,6 +5,7 @@ Implements IInjectionProtocol.
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from playwright.sync_api import Error, Page
@@ -57,14 +58,18 @@ class PromptInjector(IInjectionProtocol):
         cfg = config or self.config
         el = self.find_input(page, cfg)
 
-        try:
-            el.focus()
-        except Error as e:
-            log.warning("Element focus failed before injection: %s", e)
-
         # Strategy 0: Playwright fill keeps React controlled-input state synchronized.
         try:
+            with contextlib.suppress(Exception):
+                el.click()
+                el.focus()
             el.fill(text)
+            with contextlib.suppress(Exception):
+                el.dispatch_event("input")
+                el.dispatch_event("change")
+            if not self._verify_injection(el):
+                with contextlib.suppress(Exception):
+                    page.keyboard.insert_text(text)
             if not cfg.verify_injection or self._verify_injection(el):
                 log.info("Prompt injected via Playwright fill (%d chars)", len(text))
                 return

@@ -76,6 +76,8 @@ INPUT_SELECTORS: tuple[str, ...] = (
 )
 
 SEND_SELECTORS: tuple[str, ...] = (
+    ".message-input-right-button-send button",
+    ".chat-prompt-send-button button",
     "button.send-button:not(.disabled):not([disabled])",
     "button[aria-label*='Send' i]:not(.disabled):not([disabled])",
     "button[type='submit']:not(.disabled):not([disabled])",
