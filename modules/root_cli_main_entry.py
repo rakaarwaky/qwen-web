@@ -18,9 +18,9 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
+
 import modules.cli.src.surface_cli_init_command as surface_cli_init_command
 import modules.cli.src.surface_cli_interactive_controller as surface_cli_interactive_controller
 import modules.cli.src.surface_cli_login_command as surface_cli_login_command

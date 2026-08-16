@@ -79,7 +79,7 @@ The MCP surface (`modules/mcp`) exposes the Core aggregate as a Model Context Pr
 
 - **Performance**: Tool invocation overhead from thread dispatch should remain below 50 ms excluding browser work.
 - **Security and Integrity**: The server must never leak raw Python diagnostics or tracebacks into the JSON-RPC stdout stream.
-- **Scope Constraint**: `AuditRepository.get_audit_log()` and `LinuxGuard` are not modified for issues #73–#75. Any future contract change must be coordinated with the owning implementation work.
+- **Scope Constraint**: `AuditRepository.get_audit_log()` is not modified for issues #73–#75. Any future contract change must be coordinated with the owning implementation work.
 
 ## Test Scenarios / QA Checklist
 
@@ -99,7 +99,7 @@ The MCP surface (`modules/mcp`) exposes the Core aggregate as a Model Context Pr
 
 - The MCP client, such as an AI agent using the standard MCP stdio transport, owns the JSON-RPC protocol stream.
 - The synchronous browser automation remains delegated to worker threads; the Python GIL may limit concurrency for CPU-heavy work.
-- The audit repository contract and LinuxGuard implementation are outside the scope of this change.
+- The audit repository contract is outside the scope of this change.
 
 ## Reference
 

@@ -4,7 +4,7 @@
 
 The CLI surface (`modules/cli`) translates command-line arguments and interactive TTY inputs into `AppConfig` objects and delegates execution to the Core aggregate. It remains a **Smart Surface**: presentation, argument validation, dispatch, and lifecycle-boundary concerns belong here; business processing semantics remain in `modules/core`.
 
-The authoritative Linux lifecycle owner is `modules/root_cli_main_entry.py`. The CLI root acquires the optional `LinuxGuard` before dispatch, emits systemd readiness after container initialization and lock acquisition, and emits shutdown plus releases the lock in a `finally` block. The MCP root is a separate lifecycle and constructs `SharedContainer(use_linux_guard=False)`.
+The CLI root (`modules/root_cli_main_entry.py`) owns the CLI lifecycle: parse arguments, build `AppConfig`, and dispatch to the Core aggregate. The MCP root is a separate runtime and does not enter the CLI dispatch path.
 
 ## Functional Requirements
 
@@ -34,18 +34,11 @@ The login surface accepts an `AppConfig` and delegates session setup to the Core
 
 The shared `wait_for_login_confirmation()` helper is the single owner of the user-facing login prompt. Authentication and session errors are returned through the standardized response envelope.
 
-### FR-004: CLI LinuxGuard Lifecycle
+### FR-004: CLI Lifecycle Ownership
 
-The CLI root is the only production caller of LinuxGuard.
+The CLI root (`modules/root_cli_main_entry.py`) owns the CLI lifecycle: parse arguments, build `AppConfig`, and dispatch to the Core aggregate. Single-instance locking and systemd `sd_notify` readiness were removed and are no longer part of this system.
 
-| Lifecycle point | Required behavior |
-|---|---|
-| Before dispatch | Acquire the non-blocking single-instance lock. A second instance returns a clear failure. |
-| After container initialization and lock acquisition | Send `READY=1`; invalid or missing `NOTIFY_SOCKET` is non-fatal. |
-| Normal completion or exception | Send `STOPPING=1`, then release the lock in `finally`. |
-| MCP startup | Do not acquire a CLI lock or send CLI lifecycle notifications. |
-
-No LinuxGuard logic is duplicated in the Core orchestrator. `SharedContainer` remains backward-compatible and exposes `linux=None` when `use_linux_guard=False`.
+The MCP root is a separate runtime and does not enter the CLI dispatch path.
 
 ## API Contract
 
@@ -67,8 +60,6 @@ No LinuxGuard logic is duplicated in the Core orchestrator. `SharedContainer` re
 | CLI FR-002 TTY menu and one execution path | CLI root and interactive surface | `modules/root_cli_main_entry.py`, `modules/cli/src/surface_cli_interactive_controller.py` | `tests/test_main_extended.py` |
 | CLI FR-003 manual login and shared ENTER boundary | CLI root and login surface | `modules/cli/src/surface_cli_login_command.py` | `tests/test_login_session.py`, `tests/test_main_extended.py` |
 | CLI init action | CLI root | `modules/cli/src/surface_cli_init_command.py` | `tests/test_main_cli.py`, `tests/test_init_cmd.py` |
-| Linux lock and systemd notification capability | CLI lifecycle root | `modules/core/src/capabilities_linux_guard.py`, `modules/core/src/root_core_container.py` | `tests/test_linux.py`, `tests/test_cli_linux_guard.py` |
-| MCP lock-free composition | MCP root | `modules/root_mcp_main_entry.py` | `tests/test_cli_linux_guard.py`, `tests/test_mcp_server*.py` |
 
 ## Integration Points
 
@@ -89,11 +80,7 @@ The CLI must preserve standardized `stderr` diagnostics, avoid echoing credentia
 - [x] Non-TTY execution rejects interactive prompts immediately.
 - [x] Login and interactive login use one shared ENTER confirmation helper.
 - [x] `init` creates `.qwen-web/` symlinks and `.gitignore` entries.
-- [x] A second CLI instance using the same lock path fails immediately.
-- [x] CLI lock cleanup occurs after normal completion and after exceptions.
-- [x] CLI sends `READY=1` after successful initialization and `STOPPING=1` during shutdown.
-- [x] Fake `NOTIFY_SOCKET` integration verifies notification ordering.
-- [x] MCP constructs its container with `use_linux_guard=False` and remains lock-free.
+- [x] CLI lifecycle dispatch (arguments → `AppConfig` → Core aggregate) is owned by `modules/root_cli_main_entry.py`.
 
 ## Assumptions & Constraints
 

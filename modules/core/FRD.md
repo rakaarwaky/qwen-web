@@ -4,9 +4,8 @@
 
 The Core module (`modules/core`) is the automation engine for `chat.qwen.ai`.
 It implements the AES Capabilities and Agent layers: Playwright browser
-lifecycle, local file attach, prompt injection, send dispatch, stream
-stability, output persistence, workspace setup, audit, observability, and
-Linux-native process guards.
+  lifecycle, local file attach, prompt injection, send dispatch, stream
+  stability, output persistence, workspace setup, audit, and observability.
 
 **AES mapping rule:** 1 FR = 1 capability file + 1 contract protocol.
 
@@ -345,44 +344,7 @@ Linux-native process guards.
   - [ ]  `start_span` is a no-op context manager when OTel is missing.
 - **Tests**: `tests/test_observability.py`, `tests/test_observability_extended.py`.
 
-### FR-010: Linux Guard
-
-- **Capability**: `capabilities_linux_guard.py` → `LinuxGuard`
-- **Contract**: `ILinuxProtocol`
-- **Description**: Enforce a single CLI instance via `fcntl` file lock and
-  notify systemd of ready/stopping state over `NOTIFY_SOCKET`.
-- **Input**: optional lock `Path` (default `$TMPDIR/qwen-cli.lock`);
-  environment `NOTIFY_SOCKET`.
-- **Output**: held `SingleInstanceLock`; datagram messages `READY=1` /
-  `STOPPING=1`. Wired in `SharedContainer` when `use_linux_guard=True`
-  (CLI). MCP sets the flag false.
-- **Business Rules**:
-  - `acquire_lock` uses `LOCK_EX | LOCK_NB`. A second process must fail
-    immediately, not block.
-  - `release_lock` unlocks, closes the fd, and unlinks the lock file.
-  - `sd_notify_*` is a no-op when `NOTIFY_SOCKET` is unset (developer
-    laptops, CI).
-  - Abstract namespace sockets (`@…`) are translated to a leading NUL.
-  - Socket errors are swallowed; notify must never crash the app.
-- **Edge Cases**: lock file left behind after SIGKILL (fcntl releases on
-  process death); MCP and CLI on the same host; missing `/tmp` write
-  permission; invalid `NOTIFY_SOCKET`.
-- **Error Handling**:
-  - `SingleInstanceError` if the lock is already held.
-  - `OSError` / `ConnectionError` on notify are ignored.
-- **Acceptance Criteria**:
-  - [ ]  Second `acquire_lock` on the same path raises `SingleInstanceError`.
-  - [ ]  `release_lock` allows a subsequent acquire.
-  - [ ]  `sd_notify_ready` is a no-op without `NOTIFY_SOCKET`.
-  - [ ]  MCP container can be built with `use_linux_guard=False`.
-  - [ ]  The CLI root acquires the lock, emits `READY=1`, dispatches, emits
-    `STOPPING=1`, and releases the lock on both success and exception.
-- **Production caller**: `modules/root_cli_main_entry.py` owns the CLI lifecycle;
-  `modules/root_mcp_main_entry.py` explicitly constructs a lock-free container.
-- **Tests**: `tests/test_linux.py` covers the capability; `tests/test_cli_linux_guard.py`
-  covers the production CLI and MCP boundaries.
-
-## Capability Inventory (exactly 10)
+## Capability Inventory (exactly 9)
 
 Metrics counters and `status.json` writes are helper types inside
 `capabilities_observability_setup.py` (FR-009). Do not reintroduce them as
@@ -391,7 +353,7 @@ standalone capability files.
 ## API Contract
 
 `ICoreAggregate` (implemented by `CoreOrchestrator`) is the surface-facing
-API. It sequences FR-001…FR-010; it does not implement their business rules.
+API. It sequences FR-001…FR-009; it does not implement their business rules.
 
 
 | Operation             | Input                                        | Output         | Description                                          |
@@ -408,27 +370,26 @@ API. It sequences FR-001…FR-010; it does not implement their business rules.
 ## Integration Points
 
 - **3rd Party**: Playwright Chromium, tenacity, structlog, OpenTelemetry OTLP
-  HTTP, Sentry SDK, Linux `fcntl` / systemd `sd_notify`.
+  HTTP, Sentry SDK.
 - **Internal**: `modules/shared` taxonomy VOs, domain errors, contracts,
   path/prompt/validation utilities. Surfaces (`modules/cli`, `modules/mcp`)
   consume only `ICoreAggregate`.
-- **DI**: `root_core_container.SharedContainer` wires all ten capabilities.
+- **DI**: `root_core_container.SharedContainer` wires all nine capabilities.
 
 ## Traceability (FR → Code → Tests)
 
 
-| FR     | Protocol                 | Capability                              | Primary tests                                                       |
-| -------- | -------------------------- | ----------------------------------------- | --------------------------------------------------------------------- |
-| FR-001 | `IBrowserProtocol`       | `capabilities_browser_adapter.py`       | `test_browser*.py`, `test_login_session.py`                         |
-| FR-002 | `IUploadProtocol`        | `capabilities_file_uploader.py`         | `test_file_uploader.py`                                             |
-| FR-003 | `ISaverProtocol`         | `capabilities_output_saver.py`          | `test_saver*.py`                                                    |
-| FR-004 | `IInjectionProtocol`     | `capabilities_prompt_injector.py`       | `test_prompt_injector*.py`                                          |
-| FR-005 | `ISendProtocol`          | `capabilities_send_dispatcher.py`       | `test_sender*.py` (unit; includes enabled/disabled fallback)        |
-| FR-006 | `IStreamProtocol`        | `capabilities_stream_monitor.py`        | `test_streamer*.py`                                                 |
-| FR-007 | `IWorkspaceProtocol`     | `capabilities_workspace_provisioner.py` | `test_init_cmd.py`                                                  |
-| FR-008 | `IAuditProtocol`         | `capabilities_audit_repository.py`      | `test_audit_repository.py`, `test_pipeline_*.py`                    |
-| FR-009 | `IObservabilityProtocol` | `capabilities_observability_setup.py`   | `test_observability*.py`                                            |
-| FR-010 | `ILinuxProtocol`         | `capabilities_linux_guard.py`           | `test_linux.py` (unit), `test_cli_linux_guard.py` (production path) |
+| FR     | Protocol                 | Capability                              |
+| -------- | -------------------------- | ----------------------------------------- |
+| FR-001 | `IBrowserProtocol`       | `capabilities_browser_adapter.py`       |
+| FR-002 | `IUploadProtocol`        | `capabilities_file_uploader.py`         |
+| FR-003 | `ISaverProtocol`         | `capabilities_output_saver.py`          |
+| FR-004 | `IInjectionProtocol`     | `capabilities_prompt_injector.py`       |
+| FR-005 | `ISendProtocol`          | `capabilities_send_dispatcher.py`       |
+| FR-006 | `IStreamProtocol`        | `capabilities_stream_monitor.py`        |
+| FR-007 | `IWorkspaceProtocol`     | `capabilities_workspace_provisioner.py` |
+| FR-008 | `IAuditProtocol`         | `capabilities_audit_repository.py`      |
+| FR-009 | `IObservabilityProtocol` | `capabilities_observability_setup.py`   |
 
 End-to-end locks: `tests/test_qwen_client_behavior.py`, `tests/test_e2e_pipeline.py` (manual/`e2e` mark).
 
@@ -437,8 +398,7 @@ End-to-end locks: `tests/test_qwen_client_behavior.py`, `tests/test_e2e_pipeline
 - **Performance**: DOM poll work < 300 ms/cycle. Asset blocking must cut
   image/font/media traffic on non-login runs. Launch retry budget is 3 × 2s.
 - **Security**: session dir `0o700`; no credentials in stdout/JSONL; scraped
-  model text is untrusted data (never agent instructions); single-instance
-  lock prevents two headed/headless browsers sharing one profile.
+  model text is untrusted data (never agent instructions).
 - **Reliability**: atomic output writes; upload degrades to text-only;
   telemetry is best-effort; watcher answers SIGINT/SIGTERM within ~1s sleep
   chunk.
@@ -457,8 +417,6 @@ End-to-end locks: `tests/test_qwen_client_behavior.py`, `tests/test_e2e_pipeline
 - [ ]  FR-007: second `init` is idempotent.
 - [ ]  FR-008: failed file produces `FAILED` audit + quarantine path (agent).
 - [ ]  FR-009: process starts with empty `SENTRY_DSN` and no OTLP endpoint.
-- [ ]  FR-010: two CLI processes cannot hold the same lock; the production root
-  lifecycle test verifies notification ordering and cleanup.
 - [ ]  Aggregate boundary: failed batch items report `Failed: 1`, failed single
   files return an error envelope, nested role routing is preserved, and a
   supplied `AppConfig` reaches the browser session unchanged.
@@ -470,7 +428,6 @@ End-to-end locks: `tests/test_qwen_client_behavior.py`, `tests/test_e2e_pipeline
   solved headless).
 - Playwright sync API requires a dedicated thread event loop (FR-001
   isolates it).
-- MCP must not take the single-instance lock (`use_linux_guard=False`).
 - `chat.qwen.ai` DOM will drift; selectors are multi-tier and locked by
   `tests/fixtures/qwen_fixture.html`.
 

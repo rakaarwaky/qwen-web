@@ -29,15 +29,14 @@ into spaghetti code, making AI-assisted maintenance unsafe.
 - **AI Agent (via MCP)**: Interacts with the tool programmatically to send
   prompts, process files, and read audit logs without managing browser
   lifecycles or DOM selectors.
-- **System Administrator**: Deploys watcher mode as a background `systemd`
-  service, relies on `sd_notify` for health checks, `fcntl` single-instance
-  locks to prevent duplicate runs, and structured JSON logs for aggregation.
+- **System Administrator**: Deploys watcher mode as a background service and
+  relies on structured JSON logs for aggregation.
 
 ## Scope
 
 - **In scope**: `chat.qwen.ai` web automation, Playwright persistent sessions,
   Batch / Watcher / Single / Interactive / MCP modes, the ten core
-  capabilities listed below, Linux-native guards, structured observability
+  capabilities listed below, structured observability
   (structlog, OpenTelemetry, Sentry), and strict AES 7-layer architecture.
 - **Out of scope**: other LLM providers (ChatGPT, Claude, Gemini), official
   REST API integrations, cloud-hosted SaaS deployments, and new product
@@ -92,10 +91,9 @@ compose these FRs, not additional core FRs.
   Owns in-process metrics counters and `status.json` writes (merged helpers,
   not extra capabilities).
   *Accept*: process boots with empty `SENTRY_DSN` and no OTLP endpoint.
-- [x] **FR-010 Linux Guard** — `fcntl` single-instance lock and systemd
-  `sd_notify` (`READY=1` / `STOPPING=1`). CLI only; MCP does not take the
-  lock.
-  *Accept*: a second CLI process raises `SingleInstanceError`.
+- [ ] **FR-010 Linux Guard** — RETIRED. The `fcntl` single-instance lock and
+  systemd `sd_notify` readiness were removed; no part of the system references
+  them anymore.
 
 ### P1 — Should Have (Surfaces)
 
