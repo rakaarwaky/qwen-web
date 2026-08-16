@@ -61,3 +61,8 @@ class McpToolCommand:
     def setup_session(self) -> ResponseText:
         """Launch a visible browser for manual login / session setup."""
         return self._core.setup_session()
+
+    def init_workspace(self, target_dir: str = ".") -> ResponseText:
+        """Initialize workspace directory structure, SKILL.md guide, sample prompt/file, and .gitignore."""
+        self._core.init_workspace(FilePath(target_dir))
+        return ResponseText(f"Workspace initialized successfully at {target_dir}")

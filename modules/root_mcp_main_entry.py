@@ -54,6 +54,8 @@ _TOOL_METHOD_MAP: dict[str, str] = {
     "process_prompt_file_only": "process_prompt_file_only",
     "process_prompt_with_attachment": "process_prompt_with_attachment",
     "setup_session": "setup_session",
+    "init": "init_workspace",
+    "init_workspace": "init_workspace",
 }
 
 
@@ -76,6 +78,16 @@ def _async_tool(name: str) -> Callable[..., Awaitable[Sequence[str]]]:
 # ─── MCP Tool definitions ───────────────────────────────────────────────────
 
 TOOLS: list[Tool] = [
+    Tool(
+        name="init",
+        description="Initialize workspace directory structure, .agents/skills/qwen-web/SKILL.md guide, sample prompt/file, and .gitignore.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "target_dir": {"type": "string", "default": "."},
+            },
+        },
+    ),
     Tool(
         name="process_direct_prompt",
         description="Process a direct text prompt string to chat.qwen.ai and return the AI answer.",
@@ -129,6 +141,7 @@ TOOL_HANDLERS: dict[str, Callable[..., Awaitable[Sequence[str]]]] = {
 }
 
 # Async tool functions for direct surface calls
+init = _async_tool("init")
 process_direct_prompt = _async_tool("process_direct_prompt")
 process_prompt_file_only = _async_tool("process_prompt_file_only")
 process_prompt_with_attachment = _async_tool("process_prompt_with_attachment")
