@@ -63,7 +63,6 @@ _TOOL_METHOD_MAP: dict[str, str] = {
     "qwen_process_batch": "process_batch",
     "qwen_start_watcher": "start_watcher",
     "qwen_setup_session": "setup_session",
-    "qwen_get_audit_log": "get_audit_log",
 }
 
 
@@ -117,14 +116,6 @@ TOOLS: list[Tool] = [
         description="Launch visible browser on chat.qwen.ai for manual login / session setup.",
         input_schema={"type": "object", "properties": {}},
     ),
-    Tool(
-        name="qwen_get_audit_log",
-        description="Fetch latest entries from the JSONL audit trail log.",
-        input_schema={
-            "type": "object",
-            "properties": {"limit": {"type": "integer", "default": 20}},
-        },
-    ),
 ]
 
 # Build async handlers for each tool — extract name from Tool objects
@@ -136,7 +127,6 @@ TOOL_HANDLERS: dict[str, Callable[..., Awaitable[Sequence[str]]]] = {
 qwen_send_prompt = _async_tool("qwen_send_prompt")
 qwen_process_single = _async_tool("qwen_process_single")
 qwen_setup_session = _async_tool("qwen_setup_session")
-qwen_get_audit_log = _async_tool("qwen_get_audit_log")
 
 GENERATED_TOOLS = TOOL_HANDLERS
 
@@ -158,12 +148,6 @@ MCP_TOOL_SPECS: list[dict[str, Any]] = [
         "method": "setup_session",
         "doc": "Launch visible browser on chat.qwen.ai for manual login / session setup.",
         "params": [],
-    },
-    {
-        "name": "qwen_get_audit_log",
-        "method": "get_audit_log",
-        "doc": "Fetch latest entries from the JSONL audit trail log.",
-        "params": [("limit", "int", False, 20)],
     },
 ]
 

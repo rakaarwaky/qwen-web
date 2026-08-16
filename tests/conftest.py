@@ -20,7 +20,6 @@ sys.path.insert(0, str(ROOT))
 import contextlib
 
 from modules.core.src.agent_direct_prompt_orchestrator import DirectPromptOrchestrator
-from modules.core.src.capabilities_audit_repository import AuditRepository
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
 from modules.core.src.capabilities_observability_setup import ObservabilitySetup
 from modules.core.src.capabilities_prompt_injector import PromptInjector
@@ -103,11 +102,6 @@ def cfg(fixture_root: Path, tmp_path: Path, reset_fixture_state) -> AppConfig:
         log_path=tmp_path / "log",
         headless=True,
     )
-
-
-@pytest.fixture
-def audit(cfg: AppConfig) -> AuditRepository:
-    return AuditRepository(cfg.log_path)
 
 
 @pytest.fixture

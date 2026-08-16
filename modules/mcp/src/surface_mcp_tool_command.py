@@ -1,6 +1,6 @@
 """MCP surface: tool handlers (AES406).
 
-Smart surface: 6 tools delegating to the shared core aggregate over stdio JSON-RPC.
+Smart surface: 5 tools delegating to the shared core aggregate over stdio JSON-RPC.
 """
 
 from __future__ import annotations
@@ -9,7 +9,6 @@ from modules.shared.src.contract_core_aggregate import ICoreAggregate
 from modules.shared.src.taxonomy_core_vo import (
     FilePath,
     HeadlessFlag,
-    MessageCount,
     PromptText,
     ResponseText,
     TimeoutSec,
@@ -41,7 +40,3 @@ class McpToolCommand:
     def setup_session(self) -> ResponseText:
         """Launch a visible browser for manual login / session setup."""
         return self._core.setup_session()
-
-    def get_audit_log(self, limit: int = 20) -> ResponseText:
-        """Fetch recent entries from the JSONL audit trail log."""
-        return self._core.get_audit_log(MessageCount(limit))

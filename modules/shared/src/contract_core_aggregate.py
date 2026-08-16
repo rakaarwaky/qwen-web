@@ -95,10 +95,6 @@ class ICoreAggregate(IPipelineAggregate, ISessionAggregate, ISetupAggregate, ABC
     """Unified core processing aggregate combining pipeline, session, and setup aggregates."""
 
     @abstractmethod
-    def get_audit_log(self, limit: MessageCount = MessageCount(20)) -> ResponseText:
-        """Return recent audit log entries as JSON text."""
-
-    @abstractmethod
     def init_workspace(self, target_dir: Path | FilePath = FilePath(".")) -> None:
         """Initialize the workspace (.agents/skills + .qwen-web symlinks)."""
 

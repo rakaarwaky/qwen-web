@@ -188,39 +188,6 @@ class IObservabilityProtocol(ABC):
         """Install global exception handlers."""
 
 
-class IAuditProtocol(ABC):
-    """Audit log persistence contract (structured JSONL logging over filesystem)."""
-
-    @abstractmethod
-    def log_step(
-        self,
-        ctx: RunContext,
-        step: str,
-        src: FilePath,
-        status: str,
-        details: dict[str, Any] | None = None,
-    ) -> None:
-        """Log a granular step event."""
-
-    @abstractmethod
-    def log(
-        self,
-        status: str,
-        ctx: RunContext,
-        src: FilePath,
-        dst: FilePath,
-        dur: float,
-        in_c: int,
-        out_c: OutputChars,
-        err: str = "",
-    ) -> None:
-        """Log a completed file processing result."""
-
-    @abstractmethod
-    def get_audit_log(self, limit: MessageCount = MessageCount(20)) -> ResponseText:
-        """Return recent audit log entries as JSON text."""
-
-
 __all__ = [
     "IUploadProtocol",
     "IInjectionProtocol",
@@ -229,5 +196,4 @@ __all__ = [
     "IBrowserProtocol",
     "ISaverProtocol",
     "IObservabilityProtocol",
-    "IAuditProtocol",
 ]
