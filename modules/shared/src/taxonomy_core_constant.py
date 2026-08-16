@@ -111,7 +111,12 @@ JS_GET_RESPONSE_TEXT: str = r"""
         if (responseNode.closest('.qwen-chat-message-user') || responseNode.closest('.user-message-content')) continue;
         var outerContainer = responseNode.closest('.qwen-markdown, .chat-response-message');
         var targetNode = outerContainer || responseNode;
-        var responseText = (targetNode.innerText || '').trim();
+        var clone = targetNode.cloneNode(true);
+        var marginNodes = clone.querySelectorAll('.margin, .line-numbers, .monaco-editor-margin, [class*="line-numbers"], [class*="margin-view"]');
+        for (var m = 0; m < marginNodes.length; m++) {
+            marginNodes[m].remove();
+        }
+        var responseText = (clone.innerText || '').trim();
         if (responseText.startsWith("Thinking completed")) {
             responseText = responseText.replace(/^Thinking completed\s*/, '');
         }

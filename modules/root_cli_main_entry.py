@@ -57,21 +57,21 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     # ── prompt-direct ─────────────────────────────────────────────────────────
     p_direct = sub.add_parser("prompt-direct", help="Send an inline text prompt to Qwen")
-    p_direct.add_argument("--text", required=True, help="Prompt text to send directly")
-    p_direct.add_argument("--output-path", default=None, help="Output file path")
+    p_direct.add_argument("-t", "--text", required=True, help="Prompt text to send directly")
+    p_direct.add_argument("-o", "--output-path", default=None, help="Output file path")
     p_direct.add_argument("--headless", action="store_true", help="Run browser headlessly")
 
     # ── prompt-only ───────────────────────────────────────────────────────────
     p_only = sub.add_parser("prompt-only", help="Process a prompt file (no attachment)")
-    p_only.add_argument("--prompt-path", required=True, help="Path to prompt markdown/text file")
-    p_only.add_argument("--output-path", default=None, help="Output file path")
+    p_only.add_argument("-i", "-p", "--prompt-path", required=True, help="Path to prompt markdown/text file")
+    p_only.add_argument("-o", "--output-path", default=None, help="Output file path")
     p_only.add_argument("--headless", action="store_true", help="Run browser headlessly")
 
     # ── prompt-with-attachment ────────────────────────────────────────────────
     p_attach = sub.add_parser("prompt-with-attachment", help="Process a prompt file with a file attachment")
-    p_attach.add_argument("--prompt-path", required=True, help="Path to prompt markdown/text file")
-    p_attach.add_argument("--attachment-path", required=True, help="Path to file to attach")
-    p_attach.add_argument("--output-path", default=None, help="Output file path")
+    p_attach.add_argument("-i", "-p", "--prompt-path", required=True, help="Path to prompt markdown/text file")
+    p_attach.add_argument("-a", "--attachment-path", required=True, help="Path to file to attach")
+    p_attach.add_argument("-o", "--output-path", default=None, help="Output file path")
     p_attach.add_argument("--headless", action="store_true", help="Run browser headlessly")
 
     # ── mcp ───────────────────────────────────────────────────────────────────
