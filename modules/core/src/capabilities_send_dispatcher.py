@@ -92,7 +92,14 @@ class SendDispatcher(ISendProtocol):
         _config: SenderConfig | None = None,
         document_parsed: bool = True,
     ) -> None:
-        """Click the prompt send button using verified selectors with keyboard Enter fallback."""
+        """Click prompt send button in 4 sequential steps:
+
+        Step 1: Check document parse gate
+        Step 2: Wait for send button enabled & parse toast clear
+        Step 3: Trigger DOM send click & emit EVENT_SEND_CLICKED
+        Step 4: Verify dispatch acknowledgment (with Enter fallback)
+        """
+        # Step 1: Check document parse gate
         if not document_parsed:
             raise SendDispatchError(
                 "Cannot send prompt: document attachment parsing (EVENT_DOCUMENT_PARSED) is incomplete"
@@ -105,8 +112,11 @@ class SendDispatcher(ISendProtocol):
 
         deadline = time.monotonic() + (effective_config.click_timeout_ms / 1000)
         while time.monotonic() < deadline:
+            # Step 2: Wait for send button enabled & no active parse toast
             self._wait_for_send_enabled(page, timeout_ms=effective_config.click_timeout_ms)
             baseline_count = int(count_messages(page))
+
+            # Step 3: Trigger DOM send click
             if not _dom_click_send(page, _config=effective_config):
                 raise SendDispatchError("Unable to dispatch prompt: send button and Enter fallback both failed")
 
@@ -118,6 +128,8 @@ class SendDispatcher(ISendProtocol):
 
             details: dict[str, object] = {"selector": "SendDispatcher"}
             emitter.emit(EVENT_SEND_CLICKED, details)
+
+            # Step 4: Verify dispatch acknowledgment (with Enter fallback if needed)
             if not self._wait_for_dispatch_ack(page, baseline_count):
                 if _is_parse_toast_visible(page):
                     page.wait_for_timeout(1000)

@@ -51,14 +51,21 @@ class PromptInjector(IInjectionProtocol):
         raise ElementNotFoundError("Could not locate input element on chat.qwen.ai. UI may have changed.")
 
     def inject_text(self, page: Page, text: str, config: InjectorConfig | None = None) -> None:
-        """Inject text into input via multi-tier strategy with automatic validation."""
+        """Inject text into input via multi-tier strategy in 4 sequential steps:
+
+        Step 1: Validate input text & locate target element
+        Step 2: Strategy 0 — Playwright fill & React dispatch
+        Step 3: Strategy 1 — React value setter fallback
+        Step 4: Strategy 2 — Playwright type() fallback
+        """
+        # Step 1: Validate prompt text & locate input element
         if not text or not text.strip():
             raise PromptInjectionError("Cannot inject empty or whitespace-only prompt text.")
 
         cfg = config or self.config
         el = self.find_input(page, cfg)
 
-        # Strategy 0: Playwright fill keeps React controlled-input state synchronized.
+        # Step 2: Strategy 0 — Playwright fill & React dispatch
         try:
             with contextlib.suppress(Exception):
                 el.click()
@@ -76,7 +83,7 @@ class PromptInjector(IInjectionProtocol):
         except Error as e:
             log.debug("Initial Playwright fill failed; trying DOM injection strategies: %s", e)
 
-        # Strategy 1: React value setter for textarea
+        # Step 3: Strategy 1 — React value setter fallback
         js_react_inject = """(text) => {
             const selectors = ['textarea.message-input-textarea', 'textarea'];
             let target = null;
@@ -103,7 +110,7 @@ class PromptInjector(IInjectionProtocol):
         except Error as e:
             log.debug("React value-setter strategy bypassed/failed: %s", e)
 
-        # Strategy 2: Playwright type() fallback
+        # Step 4: Strategy 2 — Playwright type() fallback
         try:
             log.debug("Falling back to Playwright type()")
             el.type(text, delay=cfg.typing_delay_ms)

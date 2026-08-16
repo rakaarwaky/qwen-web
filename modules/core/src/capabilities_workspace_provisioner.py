@@ -35,14 +35,20 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
 
     # ─── Block 2: Public Contract (IWorkspaceProtocol ONLY) ──
     def init_workspace(self, target_dir: FilePath) -> None:
-        """Initialize workspace with .agents/skills/qwen-web/SKILL.md, .qwen-web symlinks, and .gitignore."""
+        """Initialize workspace in 4 sequential steps:
+
+        Step 1: Ensure XDG directories exist
+        Step 2: Provision .agents/skills/qwen-web/SKILL.md
+        Step 3: Provision .qwen-web directory with sample prompt/files & symlinks
+        Step 4: Update .gitignore with .qwen-web/ entry
+        """
         target_path = Path(str(target_dir)).resolve()
 
-        # 1. Ensure XDG directories exist
+        # Step 1: Ensure XDG directories exist
         ensure_dir(DEFAULT_OUTPUT)
         ensure_dir(DEFAULT_LOG)
 
-        # 2. Create .agents/skills/qwen-web/SKILL.md
+        # Step 2: Create .agents/skills/qwen-web/SKILL.md
         skills_dir = target_path / ".agents" / "skills" / "qwen-web"
         skills_dir.mkdir(parents=True, exist_ok=True)
         skill_md_dest = skills_dir / "SKILL.md"
@@ -62,7 +68,7 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
             )
             skill_md_dest.write_text(skill_content, encoding="utf-8")
 
-        # 3. Create .qwen-web directory with symlinks to XDG paths
+        # Step 3: Create .qwen-web directory with symlinks to XDG paths
         dot_qwen = target_path / ".qwen-web"
         dot_qwen.mkdir(parents=True, exist_ok=True)
 
@@ -120,7 +126,7 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
                 except OSError:
                     continue
 
-        # 4. Add .qwen-web/ to .gitignore
+        # Step 4: Add .qwen-web/ to .gitignore
         git_ignore = target_path / ".gitignore"
         entry = ".qwen-web/"
         if git_ignore.exists():

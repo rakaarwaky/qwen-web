@@ -56,9 +56,15 @@ class Saver(ISaverProtocol):
         output_chars: int,
         config: Any | None = None,
     ) -> None:
-        """Write processed output to disk with metadata traceability header."""
+        """Write processed output to disk with metadata traceability header in 4 sequential steps:
+
+        Step 1: Resolve configuration & metadata header
+        Step 2: Ensure destination parent directory
+        Step 3: Write main content file (atomic or direct)
+        Step 4: Generate .meta.json sidecar file
+        """
+        # Step 1: Resolve configuration & metadata header
         cfg = config or {}
-        # Support both plain dict and dataclass-style config objects
         if not isinstance(cfg, dict):
             cfg = {
                 "include_header": getattr(cfg, "include_header", self.include_header),
@@ -69,21 +75,22 @@ class Saver(ISaverProtocol):
         generate_sidecar = cfg.get("generate_sidecar", self.generate_sidecar)
         atomic_write = cfg.get("atomic_write", self.atomic_write)
         run_id = str(ctx.run_id)
-
         iso_timestamp = utc_now_iso()
 
         header = build_metadata_header(ctx, src, dur, input_chars, output_chars) if include_header else ""
-
         full_text = header + strip_ui_noise(content)
 
-        # Hoist mkdir before conditional branches (deduplication)
+        # Step 2: Ensure destination parent directory
         try:
             ensure_dir(path)
         except OSError as e:
             log.error("Failed to create parent dirs for %s (I/O error): %s", path, e)
             raise OutputWriteError(f"Failed to write output file {path}: {e}") from e
+
+        # Step 3: Write main content file (atomic or direct)
         self._write_text_file(path, full_text, atomic_write)
 
+        # Step 4: Generate .meta.json sidecar file (if enabled)
         if generate_sidecar:
             sidecar_path = path.with_suffix(".meta.json")
             ensure_dir(sidecar_path)

@@ -123,12 +123,25 @@ class ObservabilitySetup(IObservabilityProtocol):
     # ─── Block 2: Public Contract (IObservabilityProtocol ONLY) ──
 
     def setup_observability(self, log_path: Path | None = None) -> None:
-        """Bootstrap observability stack."""
+        """Bootstrap observability stack in 4 sequential steps:
+
+        Step 1: Ensure log target directory exists
+        Step 2: Configure error tracking (Sentry) & distributed tracing (OpenTelemetry)
+        Step 3: Configure structlog/stdlib logging & JSONL file handlers
+        Step 4: Install global process excepthooks
+        """
+        # Step 1: Ensure log target directory
         target_path = log_path or self._log_path
         target_path.mkdir(parents=True, exist_ok=True)
+
+        # Step 2: Configure error tracking & tracing
         self._configure_sentry()
         self._configure_tracing()
+
+        # Step 3: Configure structlog/stdlib logging
         self._configure_logging(target_path)
+
+        # Step 4: Install global process excepthooks
         install_excepthooks()
 
     def _configure_sentry(self) -> None:

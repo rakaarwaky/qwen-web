@@ -94,7 +94,14 @@ class StreamMonitor(IStreamProtocol):
         dispatch_acknowledged: bool = True,
         baseline_text: ResponseText | None = None,
     ) -> ResponseText | None:
-        """Wait for new assistant message with stability check and output validation."""
+        """Wait for new assistant response with stability checks in 4 sequential steps:
+
+        Step 1: Check dispatch acknowledgment gate
+        Step 2: Capture baseline message state before generation
+        Step 3: Poll DOM for thinking/streaming status and content stability
+        Step 4: Validate response content & emit EVENT_GENERATION_FINISHED
+        """
+        # Step 1: Check dispatch acknowledgment gate
         if not dispatch_acknowledged:
             raise RuntimeError("Cannot wait for response: prompt dispatch (EVENT_DISPATCH_ACKNOWLEDGED) is incomplete")
         _ = msg_count_before
@@ -106,6 +113,7 @@ class StreamMonitor(IStreamProtocol):
         has_thinking = False
         has_streaming = False
 
+        # Step 2: Capture baseline message state
         log.info("Waiting for AI response (timeout: %ds)", timeout_sec)
         previous_text: str | None = str(baseline_text) if baseline_text is not None else _dom_latest(page)
 
@@ -113,6 +121,7 @@ class StreamMonitor(IStreamProtocol):
         last_text: str | None = None
         stable_count = 0
 
+        # Step 3: Poll DOM for thinking/streaming status & content stability
         while time.time() - start < timeout_sec:
             try:
                 count_messages(page)
@@ -130,6 +139,7 @@ class StreamMonitor(IStreamProtocol):
                         if is_stability_satisfied(
                             stable_count, int(active_checks), has_thinking, has_streaming, is_complete
                         ):
+                            # Step 4: Validate content & emit completion
                             log.info("Response stabilized after %d checks (is_complete=%s)", stable_count, is_complete)
                             validate_response_content(text)
                             emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(text)})
