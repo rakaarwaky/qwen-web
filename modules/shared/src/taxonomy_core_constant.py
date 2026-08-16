@@ -9,11 +9,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from modules.shared.src.taxonomy_core_vo import (
-    AtomicWriteFlag,
-    GenerateSidecarFlag,
-    IncludeHeaderFlag,
-)
 
 BASE_DIR = Path(__file__).resolve().parents[3]
 
@@ -183,6 +178,6 @@ CHALLENGE_KEYWORDS: tuple[str, ...] = (
 )
 
 # ─── Saver defaults ─────────────────────────────────────────
-DEFAULT_INCLUDE_HEADER = IncludeHeaderFlag(True)
-DEFAULT_GENERATE_SIDECAR = GenerateSidecarFlag(True)
-DEFAULT_ATOMIC_WRITE = AtomicWriteFlag(True)
+DEFAULT_INCLUDE_HEADER: bool = True
+DEFAULT_GENERATE_SIDECAR: bool = True
+DEFAULT_ATOMIC_WRITE: bool = True

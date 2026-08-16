@@ -36,9 +36,9 @@ class Saver(ISaverProtocol):
 
     def __init__(
         self,
-        include_header: IncludeHeaderFlag = DEFAULT_INCLUDE_HEADER,
-        generate_sidecar: GenerateSidecarFlag = DEFAULT_GENERATE_SIDECAR,
-        atomic_write: AtomicWriteFlag = DEFAULT_ATOMIC_WRITE,
+        include_header: IncludeHeaderFlag = IncludeHeaderFlag(DEFAULT_INCLUDE_HEADER),
+        generate_sidecar: GenerateSidecarFlag = GenerateSidecarFlag(DEFAULT_GENERATE_SIDECAR),
+        atomic_write: AtomicWriteFlag = AtomicWriteFlag(DEFAULT_ATOMIC_WRITE),
     ) -> None:
         self.include_header = include_header
         self.generate_sidecar = generate_sidecar

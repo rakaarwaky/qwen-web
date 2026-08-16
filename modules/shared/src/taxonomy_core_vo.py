@@ -15,8 +15,6 @@ from enum import Enum
 from pathlib import Path
 from typing import NewType, TypeAlias
 
-from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG, STATUS_FILENAME
-
 PromptText = NewType("PromptText", str)
 PromptPath = NewType("PromptPath", Path)
 AttachmentPath = NewType("AttachmentPath", Path)
@@ -388,7 +386,7 @@ class AppConfig:
     failed_path: Path
     proc_path: Path
     session_path: Path
-    log_path: Path = DEFAULT_LOG
+    log_path: Path | None = None
     mode: str = ""
 
     interval: int = 3
@@ -417,7 +415,9 @@ class AppConfig:
     @property
     def status_path(self) -> Path:
         """Path to the JSON status file for monitoring."""
-        return self.log_path / STATUS_FILENAME
+        from modules.shared.src.taxonomy_core_constant import STATUS_FILENAME
+
+        return (self.log_path or Path(".")) / STATUS_FILENAME
 
     def validate(self) -> None:
         """Validate configuration before execution.
@@ -436,6 +436,10 @@ class AppConfig:
 
     def __post_init__(self) -> None:
         """Validate config on construction."""
+        if self.log_path is None:
+            from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
+
+            object.__setattr__(self, "log_path", DEFAULT_LOG)
         self.validate()
 
 
