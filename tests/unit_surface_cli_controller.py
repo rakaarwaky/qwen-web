@@ -102,6 +102,7 @@ class TestMain:
     def test_main_interactive_exit(self):
         with (
             patch("sys.argv", ["qwen-cli"]),
+            patch("sys.stdin.isatty", return_value=True),
             patch(
                 "modules.cli.src.surface_cli_interactive_controller.InteractiveController.run",
                 return_value={"success": True, "message": "Exited."},
@@ -112,12 +113,11 @@ class TestMain:
             mock_run.assert_called_once()
 
     def test_main_non_tty_interactive_fails(self, capsys):
-        with patch("sys.argv", ["qwen-cli"]), patch("sys.stdin") as mock_stdin:
-            mock_stdin.isatty.return_value = False
+        with patch("sys.argv", ["qwen-cli"]), patch("sys.stdin.isatty", return_value=False):
             result = main()
             captured = capsys.readouterr()
             assert result == 1
-            assert "Interactive mode requires a TTY" in captured.err
+            assert "Interactive TUI mode requires a terminal (TTY)" in captured.err
 
     def test_main_login_mode(self):
         with (
@@ -167,4 +167,26 @@ class TestQwenTuiLogHandler:
 
             app.on_unmount()
             assert not any(isinstance(h, QwenTuiLogHandler) for h in root_logger.handlers)
+
+
+def test_doctor_command(capsys):
+    from modules.cli.src.surface_cli_doctor_command import run_doctor
+
+    code = run_doctor(json_output=False)
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "System Health Diagnostic" in captured.out
+    assert "Python Version" in captured.out
+
+
+def test_doctor_command_json(capsys):
+    import json
+    from modules.cli.src.surface_cli_doctor_command import run_doctor
+
+    code = run_doctor(json_output=True)
+    captured = capsys.readouterr()
+    assert code == 0
+    data = json.loads(captured.out)
+    assert data["status"] == "healthy"
+    assert len(data["checks"]) >= 5
 

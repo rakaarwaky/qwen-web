@@ -10,6 +10,36 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Static
 
 
+from textual.binding import Binding
+from textual.screen import ModalScreen
+
+
+class ConfirmModal(ModalScreen[bool]):
+    """Modal screen asking confirmation for destructive actions."""
+
+    BINDINGS = [Binding("escape", "dismiss_no", "Cancel")]
+
+    def __init__(self, title: str, message: str) -> None:
+        super().__init__()
+        self._title = title
+        self._message = message
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="confirm-modal-container"):
+            yield Static(f"[bold red]{self._title.upper()}[/bold red]\n\n{self._message}\n")
+            yield Button("Cancel", id="btn-cancel", variant="default")
+            yield Button("Delete Session & Login", id="btn-confirm", variant="error")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-confirm":
+            self.dismiss(True)
+        else:
+            self.dismiss(False)
+
+    def action_dismiss_no(self) -> None:
+        self.dismiss(False)
+
+
 class SessionSetupScreen(Screen["SessionSetupApp"]):
     """Session setup submenu with status and actions."""
 
@@ -22,15 +52,20 @@ class SessionSetupScreen(Screen["SessionSetupApp"]):
     def compose(self) -> ComposeResult:
         yield Vertical(
             Static(self.status_text, id="session_status"),
-            Button("Delete Session & Login Again", id="login"),
+            Button("Delete Session & Login Again", id="login", variant="error"),
             Button("Back to Main Menu", id="back"),
         )
         yield Footer()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "login":
-            self.on_login()
-            self.app.exit("login")
+            def _on_confirm(confirmed: bool | None) -> None:
+                if confirmed:
+                    self.on_login()
+                    self.app.exit("login")
+
+            msg = "Are you sure you want to delete your saved browser session?\nYou will need to log in again manually."
+            self.app.push_screen(ConfirmModal("Confirm Session Reset", msg), _on_confirm)
         elif event.button.id == "back":
             self.on_back()
             self.app.exit("back")

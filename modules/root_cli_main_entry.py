@@ -44,6 +44,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     sub = p.add_subparsers(dest="action", metavar="ACTION")
 
+    # ── doctor ────────────────────────────────────────────────────────────────
+    p_doctor = sub.add_parser("doctor", help="Run system environment and health diagnostics")
+    p_doctor.add_argument("--json", action="store_true", help="Format diagnostic output as JSON")
+
     # ── init ──────────────────────────────────────────────────────────────────
     p_init = sub.add_parser("init", help="Initialize workspace (.agents/skills + .qwen-web symlinks)")
     p_init.add_argument("--dir", dest="target_dir", default=None, help="Target directory (default: cwd)")
@@ -57,12 +61,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p_direct.add_argument("-t", "--text", required=True, help="Prompt text to send directly")
     p_direct.add_argument("-o", "--output-path", default=None, help="Output file path")
     p_direct.add_argument("--headless", action="store_true", help="Run browser headlessly")
+    p_direct.add_argument("--json", action="store_true", help="Format output as JSON")
 
     # ── prompt-only ───────────────────────────────────────────────────────────
     p_only = sub.add_parser("prompt-only", help="Process a prompt file (no attachment)")
     p_only.add_argument("-i", "-p", "--prompt-path", required=True, help="Path to prompt markdown/text file")
     p_only.add_argument("-o", "--output-path", default=None, help="Output file path")
     p_only.add_argument("--headless", action="store_true", help="Run browser headlessly")
+    p_only.add_argument("--json", action="store_true", help="Format output as JSON")
 
     # ── prompt-with-attachment ────────────────────────────────────────────────
     p_attach = sub.add_parser("prompt-with-attachment", help="Process a prompt file with a file attachment")
@@ -70,6 +76,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p_attach.add_argument("-a", "--attachment-path", required=True, help="Path to file to attach")
     p_attach.add_argument("-o", "--output-path", default=None, help="Output file path")
     p_attach.add_argument("--headless", action="store_true", help="Run browser headlessly")
+    p_attach.add_argument("--json", action="store_true", help="Format output as JSON")
 
     # ── mcp ───────────────────────────────────────────────────────────────────
     sub.add_parser("mcp", help="Run as Model Context Protocol (MCP) server over stdio")
@@ -164,6 +171,18 @@ def _dispatch(
 ) -> int:
     """Dispatch one already-parsed CLI invocation inside the Linux lifecycle."""
     if args is None:
+        if not sys.stdin.isatty():
+            print(
+                f"{_ERROR_PREFIX} Interactive TUI mode requires a terminal (TTY).\n\n"
+                "If you are running in a non-interactive environment, use a subcommand instead:\n"
+                "  qwen-web-cli doctor\n"
+                '  qwen-web-cli prompt-direct -t "Your prompt"\n'
+                "  qwen-web-cli prompt-only -i input/prompt.md\n\n"
+                "Run `qwen-web-cli --help` to see all available commands.",
+                file=sys.stderr,
+            )
+            return 1
+
         result = surface_cli_interactive_controller.InteractiveController(
             container.workspace,
             container.agent_direct_prompt_orchestrator,
@@ -174,6 +193,10 @@ def _dispatch(
         return _result_exit_code(result)
 
     action = getattr(args, "action", None)
+
+    if action == "doctor":
+        from modules.cli.src.surface_cli_doctor_command import run_doctor
+        return run_doctor(json_output=bool(getattr(args, "json", False)))
 
     if action == "login":
         if cfg is None:

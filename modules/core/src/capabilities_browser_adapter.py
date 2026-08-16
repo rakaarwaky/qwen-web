@@ -184,7 +184,12 @@ class BrowserAdapter(IBrowserProtocol):
         if not opt_in:
             return
         try:
-            if click_first_visible_enabled(page, NEW_CHAT_SELECTORS, timeout_ms=1500):
+            if "/c/" in page.url.lower():
+                log.info("Active chat thread detected (%s). Navigating to root chat URL...", page.url)
+                page.goto(CHAT_URL, wait_until="domcontentloaded", timeout=15_000)
+                page.wait_for_timeout(1000)
+
+            if click_first_visible_enabled(page, NEW_CHAT_SELECTORS, timeout_ms=3000):
                 page.wait_for_timeout(800)
                 with contextlib.suppress(Error, TimeoutError):
                     page.wait_for_selector("textarea.message-input-textarea, textarea", state="visible", timeout=3000)

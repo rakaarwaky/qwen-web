@@ -60,10 +60,8 @@ def test_rate_limiter_acquisition():
 
 def test_saver_error_handling(tmp_path: Path):
     ctx = RunContext()
-    # Provide directory as target file to trigger OSError -> OutputWriteError
-    dir_as_file = tmp_path / "dir_target"
-    dir_as_file.mkdir()
+    invalid_file = Path("/proc/nonexistent_dir_12345/output.md")
 
     # atomic_write=False so the non-atomic path wraps OSError in OutputWriteError
     with pytest.raises(OutputWriteError, match="Failed to write output file"):
-        write_output(dir_as_file, "test content", ctx, "src.md", 1.0, 10, 12, config={"atomic_write": False})
+        write_output(invalid_file, "test content", ctx, "src.md", 1.0, 10, 12, config={"atomic_write": False})

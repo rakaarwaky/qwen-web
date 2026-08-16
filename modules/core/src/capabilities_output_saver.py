@@ -82,6 +82,10 @@ class Saver(ISaverProtocol):
 
         # Step 2: Ensure destination parent directory
         try:
+            if path.is_dir():
+                from datetime import datetime
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                path = path / f"qwen_output_{timestamp}.md"
             ensure_dir(path)
         except OSError as e:
             log.error("Failed to create parent dirs for %s (I/O error): %s", path, e)

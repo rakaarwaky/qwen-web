@@ -23,7 +23,7 @@ Use this skill when an AI agent needs to send prompts or document files to **Qwe
 
 ### Direct Text Queries (`process_direct_prompt`)
 
-Use for one-shot prompts where text is provided directly.
+Use for one-shot prompts where text is provided directly. Supports long deep-thinking prompts up to 900s (15 min) with proactive 30s cloud reload sync for network resilience.
 
 ```json
 {

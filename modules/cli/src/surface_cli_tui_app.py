@@ -325,14 +325,21 @@ def _default_file_value() -> str:
     for p in candidates:
         if p.exists():
             return str(p)
-    return str(candidates[0])
+    return ""
+
+
+try:
+    from importlib.metadata import version
+    _APP_VERSION = version("qwen-web-cli")
+except Exception:
+    _APP_VERSION = "4.1.0"
 
 
 class QwenTuiApp(App[None]):
     """Obsidian Nebula Terminal User Interface for Qwen Web Automation."""
 
     CSS = TUI_CSS
-    TITLE = "QWEN-CLI V1.0.4 • OBSIDIAN NEBULA"
+    TITLE = f"QWEN-CLI {_APP_VERSION} • OBSIDIAN NEBULA"
     SUB_TITLE = "chat.qwen.ai automation engine"
 
     BINDINGS = [
@@ -340,8 +347,8 @@ class QwenTuiApp(App[None]):
         Binding("ctrl+l", "login_action", "Login"),
         Binding("ctrl+i", "init_action", "Init"),
         Binding("ctrl+r", "reset_action", "Reset"),
+        Binding("ctrl+q", "quit", "Quit"),
         Binding("escape", "quit", "Exit"),
-        Binding("q", "quit", "Quit"),
     ]
 
     def __init__(

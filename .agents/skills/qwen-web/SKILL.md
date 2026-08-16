@@ -4,79 +4,79 @@ description: Automate Qwen AI Web (chat.qwen.ai) prompt processing via CLI or MC
 ---
 # Qwen Web Automation & MCP Server Skill Guide
 
-Use this skill when an AI agent needs to send prompts or document files to **Qwen AI (`chat.qwen.ai`)** and receive generated AI responses via CLI subcommands or MCP tools.
-
----
-
-## Available CLI Subcommands (`qwen-web-cli`)
-
-| Subcommand | Description | Arguments |
-| :--- | :--- | :--- |
-| `prompt-direct` | Send inline prompt text | `-t, --text "..." [-o, --output-path FILE] [--headless]` |
-| `prompt-only` | Send existing prompt file | `-i, --prompt-path FILE [-o, --output-path FILE] [--headless]` |
-| `prompt-with-attachment` | Send prompt file with document attachment | `-i, --prompt-path FILE -a, --attachment-path FILE [-o, --output-path FILE] [--headless]` |
-| `login` | Launch browser for manual login / session save | `[--headless]` |
-| `init` | Initialize workspace (.agents/skills symlinks) | `[--dir TARGET_DIR]` |
-| `mcp` | Run as Model Context Protocol (MCP) server over stdio | None |
-
-### CLI Usage Examples
-
-```bash
-# Direct inline prompt
-qwen-web-cli prompt-direct -t "<prompt_text>" -o "<output_file.md>" --headless
-
-# Process a prompt file
-qwen-web-cli prompt-only -i "<prompt_file.md>" -o "<output_file.md>" --headless
-
-# Process a prompt file with document attachment
-qwen-web-cli prompt-with-attachment -i "<prompt_file.md>" -a "<attachment_file>" -o "<output_file.md>" --headless
-
-# Authenticate / Login session
-qwen-web-cli login
-```
+Use this skill when an AI agent needs to send prompts or document files to **Qwen AI (`chat.qwen.ai`)** and receive generated AI responses via MCP tools or CLI execution.
 
 ---
 
 ## Available MCP Tools
 
-| MCP Tool Name | Description | Key Parameters |
-| :--- | :--- | :--- |
-| `process_direct_prompt` | Process a direct text prompt string | `prompt` (str), `timeout_sec` (int, default 120), `headless` (bool, default true) |
-| `process_prompt_file_only` | Process a single Markdown prompt file | `input_file` (str), `output_file` (optional str), `headless` (bool) |
+| MCP Tool Name               | Description                                      | Key Parameters                                                                                  |
+| :-------------------------- | :----------------------------------------------- | :---------------------------------------------------------------------------------------------- |
+| `process_direct_prompt`     | Process a direct text prompt string              | `prompt` (str), `timeout_sec` (int, default 120), `headless` (bool, default true)               |
+| `process_prompt_file_only`  | Process a single Markdown prompt file            | `input_file` (str), `output_file` (optional str), `headless` (bool)                             |
 | `process_prompt_with_attachment` | Process a prompt file with a document attachment | `prompt_file` (str), `attachment_file` (str), `output_file` (optional str), `headless` (bool) |
-| `setup_session` | Launch browser for manual login | None |
+| `setup_session`             | Launch visible browser for manual login          | None                                                                                            |
 
-### MCP JSON Examples
+---
 
-#### Direct Text Query (`process_direct_prompt`)
+## Usage Guidelines for AI Agents
+
+### Direct Text Queries (`process_direct_prompt`)
+
+Use for one-shot prompts where text is provided directly. Supports long deep-thinking prompts up to 900s (15 min) with proactive 30s cloud reload sync for network resilience.
+
 ```json
 {
-  "prompt": "<your_prompt_text>",
+  "prompt": "Analyze the following system architecture and summarize key bottlenecks...",
   "timeout_sec": 120,
   "headless": true
 }
 ```
 
-#### File Processing (`process_prompt_file_only`)
+### File Processing (`process_prompt_file_only`)
+
+Use when processing an existing Markdown prompt file stored on disk.
+
 ```json
 {
-  "input_file": "<path_to_prompt_file.md>",
-  "output_file": "<path_to_output_file.md>"
+  "input_file": "input/role-architect/task_001.md",
+  "output_file": "output/role-architect/task_001.md"
 }
 ```
 
-#### File Processing With Attachment (`process_prompt_with_attachment`)
+### File Processing With Attachment (`process_prompt_with_attachment`)
+
+Use when the prompt file must be sent together with a document attachment.
+
 ```json
 {
-  "prompt_file": "<path_to_prompt_file.md>",
-  "attachment_file": "<path_to_attachment_file>",
-  "output_file": "<path_to_output_file.md>"
+  "prompt_file": "input/role-architect/task_001.md",
+  "attachment_file": "input/role-architect/docs/spec.pdf",
+  "output_file": "output/role-architect/task_001.md"
 }
 ```
+
+### Session Authentication (`setup_session`)
+
+If session cookies expire or CAPTCHA is detected, invoke `setup_session` to launch a visible browser window for manual user login.
+
+---
+
+## Error Handling for Agents
+
+| Exception | Meaning | Agent Action |
+| :--- | :--- | :--- |
+| `AuthRequiredError` | Session expired or CAPTCHA detected | Call `setup_session` for re-authentication |
+| `NetworkTimeoutError` | Browser network timeout | Retry with increased `timeout_sec` |
+| `OutputValidationError` | Response contains error page or CAPTCHA | Retry or check input quality |
+| `CircuitBreakerOpenError` | Too many consecutive failures | Wait and retry later |
+| `PromptInjectionError` | Text injection failed | Check if Qwen UI has changed |
 
 ---
 
 ## Session Management
 
-- Session cookies are stored in `qwen_session/` or `.qwen-web/`.
-- If a session expires or CAPTCHA is encountered, run `qwen-web-cli login` or invoke `setup_session` to re-authenticate manually in browser.
+- Session cookies stored in `qwen_session/` (persistent across runs).
+- First run requires `--login` or interactive mode for manual authentication.
+- Subsequent runs can use `--headless` mode.
+- Session health checked automatically before each file processing.

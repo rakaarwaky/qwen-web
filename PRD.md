@@ -23,9 +23,7 @@ into spaghetti code, making AI-assisted maintenance unsafe.
 
 ## User Personas
 
-- **Power User / Developer**: Runs batch markdown prompts locally, needs
-  reliable file routing (`input` → `.processing` → `done`/`failed`) and
-  detailed JSONL audit logs to track character counts and processing times.
+- **Indie Developer / Frugal Engineer**: Wants $0 API costs, runs batch markdown prompts locally without burning cash on API tokens, and needs reliable file routing (`input` → `.processing` → `done`/`failed`) and detailed JSONL audit logs.
 - **AI Agent (via MCP)**: Interacts with the tool programmatically to send
   prompts, process files, and read audit logs without managing browser
   lifecycles or DOM selectors.
@@ -54,59 +52,58 @@ compose these FRs, not additional core FRs.
 
 ### P0 — Must Have (Core, 10 FRs)
 
-- [x] **FR-001 Browser Adapter** — Persistent Chromium/Playwright context,
-  stale-lock cleanup, `0o700` session dir, asset blocking, and auth
-  triple-check (URL + login form + chat textarea).
+- [X]  **FR-001 Browser Adapter** — Persistent Chromium/Playwright context,
+  stale-lock cleanup, `0o700` session dir, asset blocking, auth
+  triple-check (URL + login form + chat textarea), and guaranteed thread isolation
+  (`_start_new_chat` auto-navigates away from `/c/*` thread URLs).
   *Accept*: headless run reuses a `login` profile; login page raises
-  `AuthRequiredError`.
-- [x] **FR-002 File Uploader** — Local-file pre-flight (exists, readable,
+  `AuthRequiredError`; existing thread URLs auto-reset to a clean chat.
+- [X]  **FR-002 File Uploader** — Local-file pre-flight (exists, readable,
   ≤100 MB) and Qwen UI attach with retry/backoff; degrade to text-only on
   failure.
   *Accept*: oversized file never opens the chooser; successful attach shows
   a file card.
-- [x] **FR-003 Output Saver** — Atomic UTF-8 write of the AI response plus
+- [X]  **FR-003 Output Saver** — Atomic UTF-8 write of the AI response plus
   metadata header and `.meta.json` sidecar.
   *Accept*: crash mid-write does not leave a truncated destination file.
-- [x] **FR-004 Prompt Injector** — Prepare and inject prompt text via
-  four-tier DOM strategy (React setter → ContentEditable → `fill` → `type`).
-  *Accept*: empty text is rejected; fixture textarea receives the prompt.
-- [x] **FR-005 Send Dispatcher** — Click Send (Enter fallback) only after
+- [X]  **FR-004 Prompt Injector** — Prepare and inject prompt text via
+  four-tier DOM strategy (React setter + synthetic `keyup` sync → ContentEditable → `fill` → `type`).
+  *Accept*: empty text is rejected; React controlled state updates reliably without input text reset.
+- [X]  **FR-005 Send Dispatcher** — Click Send (Enter fallback) only after
   document-parse gate; expose message count / latest text for the stream
   baseline.
   *Accept*: send is blocked while attachment parsing is incomplete.
-- [x] **FR-006 Stream Monitor** — Poll until N identical snapshots and
-  generation UI is gone; reject CAPTCHA / error-page content.
-  *Accept*: stable response is returned; challenge keywords raise
-  `AuthRequiredError` / `OutputValidationError`.
-- [x] **FR-007 Workspace Provisioner** — First-run XDG dirs,
-  `.agents/skills/qwen-web/SKILL.md`, `.qwen-web` symlinks, `.gitignore`.
-  *Accept*: `qwen-web-cli init` is idempotent.
-- [x] **FR-008 Observability Setup** — structlog + optional OTLP traces +
+- [X]  **FR-006 Stream Monitor** — Poll until N identical snapshots and
+  generation UI is gone; proactive 30s cloud reload sync for network connection reset recovery;
+  900s max-duration ceiling for massive responses (40KB+); immediate exit on DOM completion;
+  reject CAPTCHA / error-page content.
+  *Accept*: stable response is returned instantly upon generation completion; long 15-minute streaming runs complete without network connection resets; challenge keywords raise `AuthRequiredError` / `OutputValidationError`.
+- [X]  **FR-007 Workspace Provisioner** — First-run XDG dirs,
+  `.agents/skills/qwen-web/SKILL.md`, `.qwen-web` symlinks (automatically replaces stale local directories with XDG symlinks), `.gitignore`.
+  *Accept*: `qwen-web-cli init` is idempotent and maintains valid symlinks to XDG targets.
+- [X]  **FR-008 Observability Setup** — structlog + optional OTLP traces +
   optional Sentry + process excepthooks; missing telemetry must not block
   start.
   Owns in-process metrics counters and `status.json` writes (merged helpers,
   not extra capabilities).
   *Accept*: process boots with empty `SENTRY_DSN` and no OTLP endpoint.
-- [ ] **FR-009 Linux Guard** — RETIRED. The `fcntl` single-instance lock and
-  systemd `sd_notify` readiness were removed; no part of the system references
-  them anymore.
 
 ### P1 — Should Have (Surfaces)
 
-- [x] **Multi-mode execution**: Batch (folder), Watcher (continuous poll),
+- [X]  **Multi-mode execution**: Batch (folder), Watcher (continuous poll),
   Single (one file), and raw `send_prompt` — all via `ICoreAggregate`.
-- [x] **Persistent session login**: `qwen-web-cli login` validates a saved profile
+- [X]  **Persistent session login**: `qwen-web-cli login` validates a saved profile
   first; only an invalid session opens a headed browser for CAPTCHA.
-- [x] **Atomic file routing**: `input` → `.processing` → `done` / `failed`
+- [X]  **Atomic file routing**: `input` → `.processing` → `done` / `failed`
   with circuit breaker and rate limiter in the agent.
-- [x] **MCP server**: 1:1 tools for send / single / batch / watcher /
+- [X]  **MCP server**: 1:1 tools for send / single / batch / watcher /
   session / audit over stdio.
 
 ### P2 — Nice to Have
 
-- [x] **Interactive TUI menu** when the CLI is launched with no args on a TTY.
-- [x] **OpenTelemetry tracing** (optional OTLP HTTP export; part of FR-009).
-- [x] **Sentry error capture** (optional; part of FR-009).
+- [X]  **Interactive TUI menu** when the CLI is launched with no args on a TTY.
+- [X]  **OpenTelemetry tracing** (optional OTLP HTTP export; part of FR-009).
+- [X]  **Sentry error capture** (optional; part of FR-009).
 
 ## Non-functional Requirements (High-level)
 

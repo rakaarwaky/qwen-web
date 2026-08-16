@@ -127,7 +127,7 @@ class StreamMonitor(IStreamProtocol):
         stable_count = 0
 
         last_reload_time = start
-        max_duration = max(timeout_sec, int(timeout_sec * 3.0))
+        max_duration = max(900, int(timeout_sec * 6.0))
 
         # Step 3: Poll DOM for thinking/streaming status & content stability
         while True:
@@ -135,31 +135,20 @@ class StreamMonitor(IStreamProtocol):
             elapsed = now - start
 
             # Active thinking & generation detection
-            is_active_generating = self.is_thinking_active(page) or not self.is_generation_complete(page)
+            is_thinking = self.is_thinking_active(page)
+            is_complete = self.is_generation_complete(page)
+            is_active_generating = is_thinking or not is_complete
 
-            if elapsed >= timeout_sec:
-                if is_active_generating and elapsed < max_duration:
-                    log.info("120s milestone check: Qwen AI is still actively generating/thinking (%ds elapsed). Extending monitoring...", int(elapsed))
-                elif last_text is not None and len(last_text.strip()) > 0:
+            if elapsed >= max_duration:
+                if last_text is not None and len(last_text.strip()) > 0:
                     validate_response_content(last_text)
-                    emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(last_text), "fallback": is_active_generating})
+                    emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(last_text), "fallback": True})
                     return ResponseText(last_text)
-                elif elapsed >= max_duration:
-                    break
-
-            # Periodic 100s cloud reload sync trigger
-            if (now - last_reload_time) >= 100.0 and elapsed < max_duration:
-                log.info("Periodic 100s cloud reload sync: refreshing page to pull Qwen Cloud state (elapsed: %ds)...", int(elapsed))
-                last_reload_time = now
-                with contextlib.suppress(Exception):
-                    page.reload(wait_until="domcontentloaded", timeout=15_000)
-                    page.wait_for_timeout(2000)
-                    continue
+                break
 
             try:
                 # Active thinking detection
-                thinking_now = self.is_thinking_active(page)
-                if not has_thinking and thinking_now:
+                if not has_thinking and is_thinking:
                     emitter.emit(EVENT_THINKING_STARTED, {"source": "qwen-thinking-dom"})
                     has_thinking = True
 
@@ -170,12 +159,11 @@ class StreamMonitor(IStreamProtocol):
                         has_thinking = True
                     if text == last_text:
                         stable_count += 1
-                        is_complete = self.is_generation_complete(page)
                         if is_stability_satisfied(
                             stable_count, int(active_checks), has_thinking, has_streaming, is_complete
                         ):
                             # Step 4: Validate content & emit completion
-                            log.info("Response stabilized after %d checks (is_complete=%s)", stable_count, is_complete)
+                            log.info("Response stabilized after %d checks (is_complete=%s, elapsed=%ds)", stable_count, is_complete, int(elapsed))
                             validate_response_content(text)
                             emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(text)})
                             return ResponseText(text)
@@ -185,6 +173,22 @@ class StreamMonitor(IStreamProtocol):
                             emitter.emit(EVENT_STREAMING_GENERATION, {"text_length": len(text)})
                         stable_count = 0
                         last_text = text
+
+                # Immediate exit if Qwen DOM reports generation complete and text is stable
+                if is_complete and last_text is not None and len(last_text.strip()) > 0 and stable_count >= 2:
+                    log.info("Generation complete confirmed by DOM (elapsed=%ds, length=%d)", int(elapsed), len(last_text))
+                    validate_response_content(last_text)
+                    emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(last_text)})
+                    return ResponseText(last_text)
+
+                # Periodic 30s cloud reload sync trigger — ONLY when Qwen is still actively generating!
+                if (now - last_reload_time) >= 30.0 and elapsed < max_duration and is_active_generating:
+                    log.info("Periodic 30s cloud reload sync: refreshing page to pull Qwen Cloud state (elapsed: %ds)...", int(elapsed))
+                    last_reload_time = now
+                    with contextlib.suppress(Exception):
+                        page.reload(wait_until="domcontentloaded", timeout=15_000)
+                        page.wait_for_timeout(2000)
+                        continue
 
                 time.sleep(active_poll)
             except TimeoutError as e:

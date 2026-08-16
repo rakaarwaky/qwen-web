@@ -114,10 +114,13 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
 
         for link_name, xdg_target in links.items():
             link_path = dot_qwen / link_name
+            xdg_target.mkdir(parents=True, exist_ok=True)
+
             if link_path.is_symlink() or link_path.exists():
                 if link_path.is_dir() and not link_path.is_symlink():
-                    continue
-                link_path.unlink(missing_ok=True)
+                    shutil.rmtree(link_path, ignore_errors=True)
+                else:
+                    link_path.unlink(missing_ok=True)
 
             if not link_path.exists() and not link_path.is_symlink():
                 try:
