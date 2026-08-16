@@ -12,7 +12,6 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from modules.core.src.utility_core_io_writer import ensure_dir
 from modules.shared.src.contract_core_protocol import IWorkspaceProtocol
 from modules.shared.src.taxonomy_core_constant import (
     BASE_DIR,
@@ -45,8 +44,8 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
         target_path = Path(str(target_dir)).resolve()
 
         # Step 1: Ensure XDG directories exist
-        ensure_dir(DEFAULT_OUTPUT)
-        ensure_dir(DEFAULT_LOG)
+        DEFAULT_OUTPUT.mkdir(parents=True, exist_ok=True)
+        DEFAULT_LOG.mkdir(parents=True, exist_ok=True)
 
         # Step 2: Create .agents/skills/qwen-web/SKILL.md
         skills_dir = target_path / ".agents" / "skills" / "qwen-web"

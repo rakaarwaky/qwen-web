@@ -38,46 +38,16 @@ def _atomic_write(target: Path, content: str) -> None:
         raise OutputWriteError(f"Atomic write failed for {target}: {err}") from err
 
 
-def atomic_write_text(target: Path, data: str) -> None:
-    """Atomically write text to a file via temp + rename.
-
-    Parameters
-    ----------
-    target : Path
-        Destination file path.
-    data : str
-        Text content to write.
-
-    """
-    _atomic_write(target, data)
+atomic_write_text = _atomic_write
 
 
 def atomic_write_json(target: Path, payload: Mapping[str, Any]) -> None:
-    """Atomically write JSON to a file via temp + rename.
-
-    Parameters
-    ----------
-    target : Path
-        Destination file path.
-    payload : Mapping[str, Any]
-        Dict-like object to serialize as JSON.
-
-    """
+    """Atomically write JSON to a file via temp + rename."""
     _atomic_write(target, json.dumps(payload, ensure_ascii=False) + "\n")
 
 
 def write_json_file(target: Path, payload: Mapping[str, Any], atomic: bool = True) -> None:
-    """Write JSON to file, atomically or directly.
-
-    Parameters
-    ----------
-    target : Path
-        Destination file path.
-    payload : Mapping[str, Any]
-        Dict-like object to serialize as JSON.
-    atomic : bool
-        If True, use atomic write (temp + rename). If False, write directly.
-    """
+    """Write JSON to file, atomically or directly."""
     content = json.dumps(payload, ensure_ascii=False) + "\n"
     if atomic:
         _atomic_write(target, content)
@@ -86,23 +56,7 @@ def write_json_file(target: Path, payload: Mapping[str, Any], atomic: bool = Tru
 
 
 def ensure_dir(path: Path) -> Path:
-    """Create parent directories for *path* if they do not exist.
-
-    Returns *path* so it can be used in expressions.  Equivalent to
-    ``path.parent.mkdir(parents=True, exist_ok=True)`` but centralised
-    and reusable across the codebase.
-
-    Parameters
-    ----------
-    path : Path
-        File path whose parent directory will be ensured.
-
-    Returns
-    -------
-    Path
-        The original *path* (unchanged).
-
-    """
+    """Create parent directories for *path* if they do not exist."""
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
