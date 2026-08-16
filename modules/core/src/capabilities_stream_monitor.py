@@ -5,6 +5,7 @@ Implements IStreamProtocol.
 
 from __future__ import annotations
 
+import contextlib
 import time
 
 from playwright.sync_api import Error, Page
@@ -120,6 +121,8 @@ class StreamMonitor(IStreamProtocol):
         last_text: str | None = None
         stable_count = 0
 
+        reloaded = False
+
         # Step 3: Poll DOM for thinking/streaming status & content stability
         while time.time() - start < timeout_sec:
             try:
@@ -148,11 +151,25 @@ class StreamMonitor(IStreamProtocol):
                             emitter.emit(EVENT_STREAMING_GENERATION, {"text_length": len(text)})
                         stable_count = 0
                         last_text = text
+                elif not reloaded and (time.time() - start > timeout_sec * 0.6) and last_text is None:
+                    log.info("No DOM text detected after %ds. Reloading page to sync cloud conversation state...", int(time.time() - start))
+                    reloaded = True
+                    with contextlib.suppress(Exception):
+                        page.reload(wait_until="domcontentloaded", timeout=15_000)
+                        page.wait_for_timeout(2000)
+                        continue
+
                 time.sleep(active_poll)
             except TimeoutError as e:
                 raise NetworkTimeoutError(f"Browser network timeout during streaming poll: {e}") from e
             except Error as e:
-                log.warning("Browser error during polling: %s", e)
+                log.warning("Browser error or connection reset during polling (%s). Attempting page reload recovery...", e)
+                if not reloaded:
+                    reloaded = True
+                    with contextlib.suppress(Exception):
+                        page.reload(wait_until="domcontentloaded", timeout=15_000)
+                        page.wait_for_timeout(2000)
+                        continue
                 raise NetworkTimeoutError(f"Browser IPC error during streaming poll: {e}") from e
             except (AuthRequiredError, OutputValidationError):
                 raise

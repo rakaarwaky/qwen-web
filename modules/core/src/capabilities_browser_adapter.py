@@ -131,11 +131,20 @@ class BrowserAdapter(IBrowserProtocol):
         load_timeout_ms: int,
     ) -> None:
         """Navigate to chat.qwen.ai and wait for the DOM to load."""
-        page.goto(
-            CHAT_URL,
-            wait_until="domcontentloaded",
-            timeout=navigation_timeout_ms,
-        )
+        try:
+            page.goto(
+                CHAT_URL,
+                wait_until="domcontentloaded",
+                timeout=navigation_timeout_ms,
+            )
+        except Error as err:
+            log.warning("Initial page.goto failed (%s), retrying navigation...", err)
+            page.wait_for_timeout(1500)
+            page.goto(
+                CHAT_URL,
+                wait_until="domcontentloaded",
+                timeout=navigation_timeout_ms,
+            )
         try:
             page.wait_for_load_state("domcontentloaded", timeout=load_timeout_ms)
         except Error as e:

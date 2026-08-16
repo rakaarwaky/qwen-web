@@ -74,6 +74,7 @@ class PromptInjector(IInjectionProtocol):
             with contextlib.suppress(Exception):
                 el.dispatch_event("input")
                 el.dispatch_event("change")
+                el.dispatch_event("keyup")
             if not self._verify_injection(el):
                 with contextlib.suppress(Exception):
                     page.keyboard.insert_text(text)
@@ -85,18 +86,30 @@ class PromptInjector(IInjectionProtocol):
 
         # Step 3: Strategy 1 — React value setter fallback
         js_react_inject = """(text) => {
-            const selectors = ['textarea.message-input-textarea', 'textarea'];
+            const selectors = ['textarea.message-input-textarea', 'textarea', 'div[contenteditable="true"]', '#chat-input'];
             let target = null;
             for (const s of selectors) {
                 const found = document.querySelector(s);
                 if (found) { target = found; break; }
             }
             if (!target) return false;
-            if (target.tagName.toLowerCase() === 'textarea') {
-                const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-                setter.call(target, text);
+            if (target.tagName.toLowerCase() === 'textarea' || target.tagName.toLowerCase() === 'input') {
+                const proto = target.tagName.toLowerCase() === 'textarea' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+                const descriptor = Object.getOwnPropertyDescriptor(proto, 'value');
+                if (descriptor && descriptor.set) {
+                    descriptor.set.call(target, text);
+                } else {
+                    target.value = text;
+                }
+                if (target._valueTracker) {
+                    target._valueTracker.setValue('');
+                }
                 target.dispatchEvent(new Event('input', { bubbles: true }));
                 target.dispatchEvent(new Event('change', { bubbles: true }));
+                return true;
+            } else if (target.isContentEditable) {
+                target.innerText = text;
+                target.dispatchEvent(new Event('input', { bubbles: true }));
                 return true;
             }
             return false;
