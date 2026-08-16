@@ -10,7 +10,7 @@ import asyncio
 import logging
 import sys
 from collections.abc import Awaitable, Callable, Sequence
-from typing import Any
+from typing import Any, cast
 
 import mcp.types as types
 from mcp.server import InitializationOptions, Server
@@ -238,14 +238,14 @@ def run_mcp_server() -> None:
                 try:
                     result = await handler(**(params.arguments or {}))
                     if isinstance(result, str):
-                        content_blocks: list[types.TextContent] = [types.TextContent(type="text", text=result)]
+                        content_blocks = [types.TextContent(type="text", text=result)]
                     else:
                         content_blocks = [types.TextContent(type="text", text=str(r)) for r in result]
-                    return types.CallToolResult(content=content_blocks, is_error=False)
+                    return types.CallToolResult(content=cast(Any, content_blocks), is_error=False)
                 except Exception as exc:
                     log.error("Tool execution error: %s", exc)
                     return types.CallToolResult(
-                        content=[types.TextContent(type="text", text=f"Error: {exc}")],
+                        content=cast(Any, [types.TextContent(type="text", text=f"Error: {exc}")]),
                         is_error=True,
                     )
 

@@ -19,8 +19,11 @@ from modules.shared.src.taxonomy_core_constant import (
 from modules.shared.src.taxonomy_core_error import OutputWriteError
 from modules.shared.src.taxonomy_core_vo import (
     AtomicWriteFlag,
+    FilePath,
     GenerateSidecarFlag,
     IncludeHeaderFlag,
+    OutputChars,
+    ResponseText,
     RunContext,
 )
 from modules.shared.src.utility_core_text import build_metadata_header, strip_ui_noise, utc_now_iso
@@ -48,12 +51,12 @@ class Saver(ISaverProtocol):
     def write_output(
         self,
         path: Path,
-        content: str,
+        content: ResponseText | str,
         ctx: RunContext,
-        src: str,
+        src: FilePath | str,
         dur: float,
         input_chars: int,
-        output_chars: int,
+        output_chars: OutputChars | int,
         config: Any | None = None,
     ) -> None:
         """Write processed output to disk with metadata traceability header in 4 sequential steps:
@@ -77,7 +80,7 @@ class Saver(ISaverProtocol):
         run_id = str(ctx.run_id)
         iso_timestamp = utc_now_iso()
 
-        header = build_metadata_header(ctx, src, dur, input_chars, output_chars) if include_header else ""
+        header = build_metadata_header(ctx, str(src), dur, input_chars, output_chars) if include_header else ""
         full_text = header + strip_ui_noise(content)
 
         # Step 2: Ensure destination parent directory

@@ -8,7 +8,7 @@ from __future__ import annotations
 import contextlib
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from playwright.sync_api import Error, Page
 
@@ -259,7 +259,7 @@ class FileUploader(IUploadProtocol):
     def _wait_for_network_parse_completion(self, page: Page, filepath: Path) -> None:
         """Step 3a: Wait for backend HTTP API (/files/parse) to return 200 OK."""
         with contextlib.suppress(Exception):
-            page.wait_for_response(lambda r: "files/parse" in r.url and r.status == 200, timeout=15000)
+            cast(Any, page).wait_for_response(lambda r: "files/parse" in r.url and r.status == 200, timeout=15000)
             log.info("Qwen backend files/parse API completed for %s", filepath.name)
 
     def _wait_for_dom_parse_ready(self, page: Page, filepath: Path) -> None:

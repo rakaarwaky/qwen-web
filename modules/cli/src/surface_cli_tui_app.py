@@ -9,6 +9,7 @@ from __future__ import annotations
 import contextlib
 import logging
 from pathlib import Path
+from typing import Any, cast
 
 from rich.markup import escape
 from textual import work
@@ -510,12 +511,12 @@ class QwenTuiApp(App[None]):
                     headless=HeadlessFlag(cfg.headless),
                 )
             res_str = str(res)
-            if (
-                isinstance(res, dict)
-                and res.get("status") in {"error", "failure", "failed"}
-                or "fail" in res_str.lower()
-                and "success" not in res_str.lower()
-            ):
+            is_dict_err = isinstance(cast(Any, res), dict) and cast(dict[str, Any], res).get("status") in {
+                "error",
+                "failure",
+                "failed",
+            }
+            if is_dict_err or ("fail" in res_str.lower() and "success" not in res_str.lower()):
                 self.call_from_thread(self._log_msg, f"[bold #EF4444]FAILED:[/] {res_str}")
             else:
                 self.call_from_thread(self._log_msg, f"[bold #10B981]SUCCESS:[/] {res_str}")

@@ -24,7 +24,7 @@ def run_doctor(json_output: bool = False) -> int:
         {
             "name": "Python Version",
             "passed": py_ok,
-            "detail": f"Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} (>= 3.10 required)",
+            "detail": f"Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} (>= 3.10)",
         }
     )
 

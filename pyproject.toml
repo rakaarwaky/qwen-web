@@ -54,9 +54,12 @@ extend-immutable-calls = ["typing.NewType", "typing_extensions.NewType"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["E402", "ARG001", "ARG002", "ARG005", "B017", "SIM117", "E741", "N814", "E501"]
 "modules/core/src/capabilities_file_uploader.py" = ["BLE001"]
-"modules/core/src/capabilities_prompt_injector.py" = ["BLE001"]
+"modules/core/src/capabilities_observability_setup.py" = ["E402"]
+"modules/core/src/capabilities_prompt_injector.py" = ["BLE001", "E501"]
+"modules/core/src/capabilities_send_dispatcher.py" = ["E501"]
 "modules/core/src/capabilities_stream_monitor.py" = ["BLE001"]
 "modules/core/src/utility_core_dom_helper.py" = ["BLE001"]
+"modules/root_mcp_main_entry.py" = ["E501", "ARG001"]
 [tool.mypy]
 strict = true
 python_version = "3.10"

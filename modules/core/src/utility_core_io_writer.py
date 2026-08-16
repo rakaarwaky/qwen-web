@@ -77,7 +77,7 @@ def save_orchestrator_output(
         out_path,
         ResponseText(text),
         ctx,
-        FilePath(str(p_path)),
+        FilePath(p_path),
         dur,
         prompt_len,
         OutputChars(len(text)),

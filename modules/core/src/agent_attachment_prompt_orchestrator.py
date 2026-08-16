@@ -113,7 +113,7 @@ class AttachmentPromptOrchestrator(IAttachmentPromptAggregate):
                 out_path,
                 ResponseText(text),
                 ctx,
-                FilePath(str(p_path)),
+                FilePath(p_path),
                 dur,
                 prompt_len,
                 OutputChars(len(text)),
@@ -158,7 +158,7 @@ class AttachmentPromptOrchestrator(IAttachmentPromptAggregate):
             click_timeout_ms=120_000,
             try_enter_key_fallback=True,
         )
-        self._sender.click_send(page, emitter, _config=send_cfg, document_parsed=HeadlessFlag(state.document_parsed))
+        self._sender.click_send(page, emitter, config=send_cfg, document_parsed=HeadlessFlag(state.document_parsed))
         if not state.dispatch_acknowledged:
             raise RuntimeError("Cannot wait for response: prompt dispatch is incomplete")
 

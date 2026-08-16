@@ -85,6 +85,8 @@ def _is_file_card_parsing(page: Page) -> bool:
             c = loc.count()
             if not isinstance(c, int) or c == 0:
                 continue
+            for i in range(min(c, 10)):
+                item = loc.nth(i)
                 if not item.is_visible(timeout=100):
                     continue
                 text = item.inner_text(timeout=100).casefold()
