@@ -35,7 +35,7 @@ into spaghetti code, making AI-assisted maintenance unsafe.
 ## Scope
 
 - **In scope**: `chat.qwen.ai` web automation, Playwright persistent sessions,
-  Batch / Watcher / Single / Interactive / MCP modes, the ten core
+  Batch / Watcher / Single / Interactive / MCP modes, the eight core
   capabilities listed below, structured observability
   (structlog, OpenTelemetry, Sentry), and strict AES 7-layer architecture.
 - **Out of scope**: other LLM providers (ChatGPT, Claude, Gemini), official
@@ -43,7 +43,7 @@ into spaghetti code, making AI-assisted maintenance unsafe.
   features (the project is in **Maintenance & Stabilization Mode**).
 
 Core functional specs live in [`modules/core/FRD.md`](modules/core/FRD.md)
-(exactly 10 FRs, one per capability + protocol). CLI and MCP surfaces have
+(exactly 8 FRs, one per capability + protocol). CLI and MCP surfaces have
 their own FRDs.
 
 ## Feature Requirements (Prioritized)
@@ -81,17 +81,13 @@ compose these FRs, not additional core FRs.
 - [x] **FR-007 Workspace Provisioner** — First-run XDG dirs,
   `.agents/skills/qwen-web/SKILL.md`, `.qwen-web` symlinks, `.gitignore`.
   *Accept*: `qwen-web-cli init` is idempotent.
-- [x] **FR-008 Audit Repository** — JSONL audit history, step events, and
-  error traces readable by CLI/MCP (`get_audit_log`).
-  *Accept*: every processed file writes a SUCCESS/FAILED record with
-  `run_id` and duration.
-- [x] **FR-009 Observability Setup** — structlog + optional OTLP traces +
+- [x] **FR-008 Observability Setup** — structlog + optional OTLP traces +
   optional Sentry + process excepthooks; missing telemetry must not block
   start.
   Owns in-process metrics counters and `status.json` writes (merged helpers,
   not extra capabilities).
   *Accept*: process boots with empty `SENTRY_DSN` and no OTLP endpoint.
-- [ ] **FR-010 Linux Guard** — RETIRED. The `fcntl` single-instance lock and
+- [ ] **FR-009 Linux Guard** — RETIRED. The `fcntl` single-instance lock and
   systemd `sd_notify` readiness were removed; no part of the system references
   them anymore.
 

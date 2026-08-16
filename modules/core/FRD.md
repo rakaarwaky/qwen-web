@@ -267,47 +267,7 @@ It implements the AES Capabilities and Agent layers: Playwright browser
   - [ ]  XDG input/output/log directories exist after init.
 - **Tests**: `tests/test_init_cmd.py`.
 
-### FR-008: Audit Repository
-
-- **Capability**: `capabilities_audit_repository.py` → `AuditRepository`
-- **Contract**: `IAuditProtocol`
-- **Description**: Append-only JSONL audit trail for step events and
-  completed file results, plus a human-readable error log and MCP-readable
-  recent-history fetch.
-- **Input**: `RunContext`, status, source/dest paths, duration, char counts,
-  optional error string / step details; `limit` for reads.
-- **Output**: `log_dir/audit_history.jsonl`, `errors.log`, `errors.jsonl`.
-  `get_audit_log` returns pretty-printed JSON `ResponseText`.
-- **Business Rules**:
-  - Every record includes `run_id` and UTC ISO timestamp.
-  - `log_step` writes granular events (`START_PROCESSING`, `PROCESS_SUCCESS`,
-    `QUARANTINED`, …).
-  - `log` writes the file-level result. On error it also appends
-    `errors.log` and `errors.jsonl`.
-  - `get_audit_log(limit)` returns the last N non-empty JSONL lines by reading
-    backward in bounded blocks; memory use is proportional to the block size
-    and requested result count, not the complete history.
-  - Blank, malformed, or truncated tail lines are skipped; a non-positive
-    limit returns an empty JSON array.
-  - Missing audit file returns a clear "does not exist yet" message, not an
-    exception.
-  - Workspace init is **not** owned here; optional `IWorkspaceProtocol` is
-    injected for backward-compatible `init_workspace` delegation.
-- **Edge Cases**: missing log dir; empty file; truncated last line; concurrent
-  appenders; requested limit larger than file length.
-- **Error Handling**: directory is created on construct. Callers treat I/O
-  failures as operational (utility `append_jsonl` / open).
-- **Acceptance Criteria**:
-  - [ ]  Success `log` produces one JSON object with duration and char counts.
-  - [ ]  Failed `log` writes audit + `errors.log` + `errors.jsonl`.
-  - [ ]  `get_audit_log(2)` returns at most two records without a full-file read.
-  - [ ]  Empty, malformed, truncated-tail, and non-positive-limit cases are covered.
-  - [ ]  Missing file returns the explicit empty-state message.
-- **Tests**: `tests/test_audit_repository.py`, `tests/test_pipeline_core.py`,
-  `tests/test_pipeline_extended.py`, and MCP `qwen_get_audit_log` tests in
-  `tests/test_mcp_server.py`.
-
-### FR-009: Observability Setup
+### FR-008: Observability Setup
 
 - **Capability**: `capabilities_observability_setup.py` → `ObservabilitySetup`
 - **Contract**: `IObservabilityProtocol`
@@ -344,7 +304,7 @@ It implements the AES Capabilities and Agent layers: Playwright browser
   - [ ]  `start_span` is a no-op context manager when OTel is missing.
 - **Tests**: `tests/test_observability.py`, `tests/test_observability_extended.py`.
 
-## Capability Inventory (exactly 9)
+## Capability Inventory (exactly 8)
 
 Metrics counters and `status.json` writes are helper types inside
 `capabilities_observability_setup.py` (FR-009). Do not reintroduce them as
@@ -353,7 +313,7 @@ standalone capability files.
 ## API Contract
 
 `ICoreAggregate` (implemented by `CoreOrchestrator`) is the surface-facing
-API. It sequences FR-001…FR-009; it does not implement their business rules.
+API. It sequences FR-001…FR-008; it does not implement their business rules.
 
 
 | Operation             | Input                                        | Output         | Description                                          |
@@ -364,7 +324,6 @@ API. It sequences FR-001…FR-009; it does not implement their business rules.
 | `process_mode`        | `AppConfig`                                  | `ResponseText` | Dispatch watcher / single / batch.                   |
 | `send_prompt`         | `prompt`, `timeout_sec`, `headless`          | `ResponseText` | Raw text without durable file routing.               |
 | `setup_session`       | confirmation callback, optional session path | `ResponseText` | Validate saved session or headed login.              |
-| `get_audit_log`       | `limit`                                      | `ResponseText` | Last N JSONL audit records (FR-008).                 |
 | `init_workspace`      | `target_dir`                                 | `None`         | Provision skill + XDG links (FR-007).                |
 
 ## Integration Points
@@ -374,7 +333,7 @@ API. It sequences FR-001…FR-009; it does not implement their business rules.
 - **Internal**: `modules/shared` taxonomy VOs, domain errors, contracts,
   path/prompt/validation utilities. Surfaces (`modules/cli`, `modules/mcp`)
   consume only `ICoreAggregate`.
-- **DI**: `root_core_container.SharedContainer` wires all nine capabilities.
+- **DI**: `root_core_container.SharedContainer` wires all eight capabilities.
 
 ## Traceability (FR → Code → Tests)
 
@@ -388,8 +347,7 @@ API. It sequences FR-001…FR-009; it does not implement their business rules.
 | FR-005 | `ISendProtocol`          | `capabilities_send_dispatcher.py`       |
 | FR-006 | `IStreamProtocol`        | `capabilities_stream_monitor.py`        |
 | FR-007 | `IWorkspaceProtocol`     | `capabilities_workspace_provisioner.py` |
-| FR-008 | `IAuditProtocol`         | `capabilities_audit_repository.py`      |
-| FR-009 | `IObservabilityProtocol` | `capabilities_observability_setup.py`   |
+| FR-008 | `IObservabilityProtocol` | `capabilities_observability_setup.py`   |
 
 End-to-end locks: `tests/test_qwen_client_behavior.py`, `tests/test_e2e_pipeline.py` (manual/`e2e` mark).
 
@@ -415,8 +373,7 @@ End-to-end locks: `tests/test_qwen_client_behavior.py`, `tests/test_e2e_pipeline
 - [ ]  FR-005: send is refused while attachment parse gate is false.
 - [ ]  FR-006: circuit of Stop button → streaming text → stable text completes.
 - [ ]  FR-007: second `init` is idempotent.
-- [ ]  FR-008: failed file produces `FAILED` audit + quarantine path (agent).
-- [ ]  FR-009: process starts with empty `SENTRY_DSN` and no OTLP endpoint.
+- [ ]  FR-008: process starts with empty `SENTRY_DSN` and no OTLP endpoint.
 - [ ]  Aggregate boundary: failed batch items report `Failed: 1`, failed single
   files return an error envelope, nested role routing is preserved, and a
   supplied `AppConfig` reaches the browser session unchanged.

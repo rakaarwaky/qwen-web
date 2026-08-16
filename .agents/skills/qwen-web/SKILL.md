@@ -17,7 +17,6 @@ Use this skill when an AI agent needs to send prompts or document files to **Qwe
 | `qwen_process_batch`  | Process an entire directory of prompt files  | `input_dir` (optional str), `output_dir` (optional str), `headless` (bool)        |
 | `qwen_start_watcher`  | Continuous folder watcher loop for `input/`  | `interval_sec` (int, default 3), `headless` (bool)                                |
 | `qwen_setup_session`  | Launch visible browser for manual login      | None                                                                              |
-| `qwen_get_audit_log`  | Retrieve execution audit trail JSONL records | `limit` (int, default 20)                                                         |
 
 ---
 
@@ -72,16 +71,6 @@ Use for long-running monitoring of the input directory.
 ### Session Authentication (`qwen_setup_session`)
 
 If session cookies expire or CAPTCHA is detected, invoke `qwen_setup_session` to launch a visible browser window for manual user login.
-
-### Audit Trail (`qwen_get_audit_log`)
-
-Retrieve recent execution records for debugging or monitoring.
-
-```json
-{
-  "limit": 20
-}
-```
 
 ---
 

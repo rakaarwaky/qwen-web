@@ -1,8 +1,8 @@
 """Filesystem writer utilities.
 
 Utility layer (utility_core_io_writer): atomic file writing, JSONL append,
-and directory creation helpers. Stateless functions consumed by Saver,
-StatusFileWriter, AuditRepository.
+and directory creation helpers. Stateless functions consumed by Saver
+and StatusFileWriter.
 """
 
 from __future__ import annotations
