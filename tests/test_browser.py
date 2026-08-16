@@ -9,6 +9,7 @@ import pytest
 
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter, SessionCheck
 from modules.shared.src import AuthRequiredError, LifecycleEmitter
+from modules.shared.src.taxonomy_core_event import EVENT_LOGIN_VERIFIED, EVENT_WEB_LOADED
 
 
 def test_session_check_is_alive_success():
@@ -49,12 +50,19 @@ def test_session_check_auth_redirect():
 def test_check_auth_valid():
     mock_page = MagicMock()
     mock_page.url = "https://chat.qwen.ai/"
+    loc = MagicMock()
+    loc.count.return_value = 0
+    mock_page.locator.return_value = loc
+    mock_page.query_selector.return_value = MagicMock()
     BrowserAdapter().check_auth(mock_page)
 
 
 def test_check_auth_login_url():
     mock_page = MagicMock()
     mock_page.url = "https://chat.qwen.ai/passport/login"
+    loc = MagicMock()
+    loc.count.return_value = 0
+    mock_page.locator.return_value = loc
 
     with pytest.raises(AuthRequiredError, match="Not authenticated"):
         BrowserAdapter().check_auth(mock_page)
@@ -72,10 +80,19 @@ def test_reset_page_emits_reconnecting():
 def test_navigate_to_chat_emits_web_loaded():
     mock_page = MagicMock()
     mock_page.url = "https://chat.qwen.ai/"
+    loc = MagicMock()
+    loc.count.return_value = 0
+    loc.first.is_visible.return_value = False
+    loc.first.is_enabled.return_value = False
+    mock_page.locator.return_value = loc
+    mock_page.query_selector.return_value = MagicMock()
     mock_emitter = MagicMock(spec=LifecycleEmitter)
 
     BrowserAdapter().navigate_to_chat(mock_page, mock_emitter)
-    mock_emitter.emit.assert_called_once()
+
+    # navigate_to_chat emits EVENT_LOGIN_VERIFIED then EVENT_WEB_LOADED, in order.
+    emitted_events = [call.args[0] for call in mock_emitter.emit.call_args_list]
+    assert emitted_events == [EVENT_LOGIN_VERIFIED, EVENT_WEB_LOADED]
 
 
 def test_clean_stale_locks(tmp_path: Path):

@@ -29,12 +29,14 @@ class TestSenderRemaining:
         emitter = MagicMock(spec=LifecycleEmitter)
         from modules.shared.src import SenderConfig
 
-        cfg = SenderConfig(click_timeout_ms=5000, try_enter_key_fallback=False)
-        # No selectors match, no enter fallback — new code does not raise, just silently tries
+        cfg = SenderConfig(click_timeout_ms=200, try_enter_key_fallback=True)
+        # No selectors match → with Enter fallback enabled the dispatcher presses
+        # Enter and emits the send/dispatch lifecycle events.
         loc = MagicMock()
-        loc.count.return_value = 0
+        loc.count.return_value = 1
+        loc.first.count.return_value = 0
+        loc.first.is_visible.return_value = False
         page.locator.return_value = loc
-        # New SendDispatcher.click_send does not raise when no selectors match — it falls back to Enter
         click_send(page, emitter, config=cfg)
         emitter.emit.assert_called()
 

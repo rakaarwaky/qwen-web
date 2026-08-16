@@ -18,7 +18,7 @@ def test_cli_entry_runs_help() -> None:
         timeout=30,
     )
     assert result.returncode == 0
-    assert "usage: qwen-cli" in result.stdout
+    assert "usage: qwen-web-arwaky" in result.stdout
 
 
 def test_cli_entry_is_importable() -> None:

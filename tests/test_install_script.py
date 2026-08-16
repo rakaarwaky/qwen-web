@@ -10,6 +10,7 @@ together.
 from __future__ import annotations
 
 import os
+import site
 import subprocess
 import sys
 from pathlib import Path
@@ -17,6 +18,20 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 INSTALL_SCRIPT = PROJECT_ROOT / "scripts" / "install.sh"
 APP_CONFIG_SYMBOL = "modules.shared.src.taxonomy_core_constant"
+
+
+def _env_with_pythonpath(tmp_path: Path) -> dict[str, str]:
+    """Build an env where the subprocess python can import the app package.
+
+    The nested subprocess does not inherit the parent's user site-packages
+    automatically, so we forward it via PYTHONPATH.
+    """
+    env = {**os.environ, "HOME": str(tmp_path)}
+    env.pop("XDG_DATA_HOME", None)
+    user_site = site.getusersitepackages()
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = os.pathsep.join([str(user_site), existing]) if existing else str(user_site)
+    return env
 
 
 def _app_default_session(env: dict[str, str]) -> str:
@@ -60,12 +75,12 @@ def test_install_script_derives_session_dir_from_app_config() -> None:
 
 def test_install_fallback_matches_app_default_without_xdg_data_home(tmp_path) -> None:
     """With no XDG_DATA_HOME set, install.sh and the app resolve the same path."""
-    env = {**os.environ, "HOME": str(tmp_path)}
-    env.pop("XDG_DATA_HOME", None)
+    env = _env_with_pythonpath(tmp_path)
     assert _install_fallback_session_dir(env) == _app_default_session(env)
 
 
 def test_install_fallback_matches_app_default_with_xdg_data_home(tmp_path) -> None:
     """With XDG_DATA_HOME set, install.sh and the app resolve the same path."""
-    env = {**os.environ, "HOME": str(tmp_path), "XDG_DATA_HOME": str(tmp_path / "xdg-data")}
+    env = _env_with_pythonpath(tmp_path)
+    env["XDG_DATA_HOME"] = str(tmp_path / "xdg-data")
     assert _install_fallback_session_dir(env) == _app_default_session(env)

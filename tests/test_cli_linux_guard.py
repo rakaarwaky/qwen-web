@@ -23,7 +23,7 @@ class TestCliLinuxLifecycle:
         receiver.bind(str(notify_path))
         receiver.settimeout(1)
         monkeypatch.setenv("NOTIFY_SOCKET", str(notify_path))
-        container = SimpleNamespace(linux=LinuxGuard(lock_path), core=object())
+        container = SimpleNamespace(linux=LinuxGuard(lock_path))
 
         try:
             with patch("modules.root_cli_main_entry._default_container", return_value=container):
@@ -52,7 +52,7 @@ class TestCliLinuxLifecycle:
             def release_lock(self, _lock: object) -> None:
                 events.append("release")
 
-        container = SimpleNamespace(linux=FakeLinux(), core=object())
+        container = SimpleNamespace(linux=FakeLinux())
         with (
             patch("modules.root_cli_main_entry._default_container", return_value=container),
             pytest.raises(RuntimeError, match="boom"),
@@ -64,7 +64,7 @@ class TestCliLinuxLifecycle:
         lock_path = tmp_path / "qwen.lock"
         first = LinuxGuard(lock_path).acquire_lock()
         try:
-            container = SimpleNamespace(linux=LinuxGuard(lock_path), core=object())
+            container = SimpleNamespace(linux=LinuxGuard(lock_path))
             with patch("modules.root_cli_main_entry._default_container", return_value=container):
                 with pytest.raises(SingleInstanceError):
                     _run_cli_lifecycle(lambda _container: 0)
@@ -77,7 +77,7 @@ class TestCliLinuxLifecycle:
         try:
             root_mcp_main_entry._container = None
             with patch.object(root_mcp_main_entry, "SharedContainer", return_value=fake_container) as factory:
-                root_mcp_main_entry._tools()
+                root_mcp_main_entry._get_tools()
             factory.assert_called_once_with(use_linux_guard=False)
             fake_container.wire.assert_called_once_with()
         finally:
@@ -87,9 +87,9 @@ class TestCliLinuxLifecycle:
         lock_path = tmp_path / "qwen.lock"
         first = LinuxGuard(lock_path).acquire_lock()
         try:
-            container = SimpleNamespace(linux=LinuxGuard(lock_path), core=object())
+            container = SimpleNamespace(linux=LinuxGuard(lock_path))
             with patch("modules.root_cli_main_entry._default_container", return_value=container):
-                result = main(["--login"])
+                result = main(["login"])
             assert result == 1
             assert "already running" in capsys.readouterr().err
         finally:

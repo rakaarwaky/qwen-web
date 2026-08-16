@@ -9,7 +9,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from modules.core.src.capabilities_file_uploader import FileUploader
-from modules.shared.src import EVENT_FILE_UPLOADED, FileValidationError, LifecycleEmitter
+from modules.shared.src import (
+    EVENT_DOCUMENT_PARSED,
+    EVENT_FILE_UPLOADED,
+    FileValidationError,
+    LifecycleEmitter,
+)
 
 
 class TestValidateFile:
@@ -84,7 +89,9 @@ class TestUploadAttachment:
         page.expect_file_chooser.return_value.__enter__ = MagicMock(return_value=mock_fc)
         page.expect_file_chooser.return_value.__exit__ = MagicMock(return_value=False)
 
-        with patch.object(FileUploader, "_try_upload_attempt", return_value=True):
+        with patch.object(FileUploader, "_try_upload_attempt", return_value=True), patch.object(
+            FileUploader, "_wait_for_parse_ready"
+        ):
             result = FileUploader().upload_attachment(page, f)
             assert result is True
 
@@ -105,7 +112,9 @@ class TestUploadAttachment:
         page.expect_file_chooser.return_value.__enter__ = MagicMock(return_value=mock_fc)
         page.expect_file_chooser.return_value.__exit__ = MagicMock(return_value=False)
 
-        with patch.object(FileUploader, "_try_upload_attempt", return_value=True):
+        with patch.object(FileUploader, "_try_upload_attempt", return_value=True), patch.object(
+            FileUploader, "_wait_for_parse_ready"
+        ):
             result = FileUploader().upload_attachment(page, f)
             assert result is True
 
@@ -115,12 +124,19 @@ class TestUploadAttachment:
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
 
-        with patch.object(FileUploader, "_try_upload_attempt", return_value=True):
+        with patch.object(FileUploader, "_try_upload_attempt", return_value=True), patch.object(
+            FileUploader, "_wait_for_parse_ready"
+        ):
             FileUploader().upload_attachment(page, f, emitter=emitter)
-            emitter.emit.assert_called_once_with(
+            emitter.emit.assert_any_call(
                 EVENT_FILE_UPLOADED,
                 {"file": str(f), "byte_count": 5, "attempt": 1},
             )
+            emitter.emit.assert_any_call(
+                EVENT_DOCUMENT_PARSED,
+                {"file": str(f), "byte_count": 5, "attempt": 1},
+            )
+            assert emitter.emit.call_count == 2
 
     def test_retry_on_failure(self, tmp_path):
         f = tmp_path / "test.md"
@@ -130,6 +146,7 @@ class TestUploadAttachment:
         with (
             patch.object(FileUploader, "_try_upload_attempt", side_effect=[False, False, True]),
             patch("modules.core.src.capabilities_file_uploader.time"),
+            patch.object(FileUploader, "_wait_for_parse_ready"),
         ):
             result = FileUploader().upload_attachment(page, f, config=None)
             assert result is True

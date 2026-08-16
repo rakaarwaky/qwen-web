@@ -9,10 +9,13 @@ import pytest
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.core.src.utility_core_dom_query import count_messages, latest_message_text
 from modules.shared.src import LifecycleEmitter, SendDispatchError
+from modules.shared.src.taxonomy_core_vo import ClickTimeoutMs
 
 
 def _sender() -> SendDispatcher:
-    return SendDispatcher()
+    # Keep the send-enabled wait tiny so the no-selector fallback tests don't
+    # burn the full default 10s timeout in _wait_for_send_enabled.
+    return SendDispatcher(click_timeout_ms=ClickTimeoutMs(100))
 
 
 def test_click_send_primary_selector_success():
@@ -22,8 +25,9 @@ def test_click_send_primary_selector_success():
     mock_locator = MagicMock()
     mock_page.locator.return_value = mock_locator
     mock_locator.count.return_value = 1
+    mock_locator.first.count.return_value = 1
     mock_locator.first.is_visible.return_value = True
-    mock_locator.is_enabled.return_value = True
+    mock_locator.first.is_enabled.return_value = True
 
     _sender().click_send(mock_page, mock_emitter)
 
@@ -35,14 +39,15 @@ def test_click_send_enter_fallback():
     mock_page = MagicMock()
     mock_emitter = MagicMock(spec=LifecycleEmitter)
 
-    # Primary selectors fail (nothing visible)
-    def locator_side_effect(sel):
-        loc = MagicMock()
-        loc.count.return_value = 0
-        loc.first.is_visible.return_value = False
-        return loc
-
-    mock_page.locator.side_effect = locator_side_effect
+    # Primary selectors fail (nothing visible) → Enter fallback is used.
+    # loc.count=1 simulates the post-send "disabled/sending" indicator so the
+    # dispatch-ack check returns immediately; loc.first.count=0 means no send
+    # button is visible (forcing the fallback).
+    mock_locator = MagicMock()
+    mock_locator.count.return_value = 1
+    mock_locator.first.count.return_value = 0
+    mock_locator.first.is_visible.return_value = False
+    mock_page.locator.return_value = mock_locator
 
     _sender().click_send(mock_page, mock_emitter)
     mock_page.keyboard.press.assert_called_once_with("Enter")
@@ -55,6 +60,7 @@ def test_click_send_all_failed():
 
     mock_locator = MagicMock()
     mock_locator.count.return_value = 0
+    mock_locator.first.count.return_value = 0
     mock_locator.first.is_visible.return_value = False
     mock_page.locator.return_value = mock_locator
 

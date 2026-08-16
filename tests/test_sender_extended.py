@@ -11,10 +11,12 @@ from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.core.src.utility_core_dom_query import count_messages, latest_message_text
 from modules.shared.src import LifecycleEmitter, SendDispatchError
 from modules.shared.src.taxonomy_config_vo import SenderConfig
+from modules.shared.src.taxonomy_core_vo import ClickTimeoutMs
 
 
 def _sender() -> SendDispatcher:
-    return SendDispatcher()
+    # Tiny timeout so the no-selector fallback path doesn't wait the full default.
+    return SendDispatcher(click_timeout_ms=ClickTimeoutMs(100))
 
 
 class TestClickSendExtended:
@@ -28,13 +30,14 @@ class TestClickSendExtended:
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
 
-        def locator_factory(sel):
-            loc = MagicMock()
-            loc.count.return_value = 0
-            loc.first.is_visible.return_value = False
-            return loc
-
-        page.locator.side_effect = locator_factory
+        # No visible send button (first.count=0) → Enter fallback used.
+        # loc.count=1 simulates the post-send "disabled/sending" indicator so the
+        # dispatch-ack check acknowledges immediately.
+        loc = MagicMock()
+        loc.count.return_value = 1
+        loc.first.count.return_value = 0
+        loc.first.is_visible.return_value = False
+        page.locator.return_value = loc
         page.keyboard.press = MagicMock()
 
         _sender().click_send(page, emitter)
@@ -53,8 +56,9 @@ class TestClickSendExtended:
             if call_count[0] == 1:
                 raise Error("disconnected")
             loc.count.return_value = 1
-            loc.is_visible.return_value = True
-            loc.is_enabled.return_value = True
+            loc.first.count.return_value = 1
+            loc.first.is_visible.return_value = True
+            loc.first.is_enabled.return_value = True
             return loc
 
         page.locator.side_effect = locator_factory
@@ -123,6 +127,7 @@ def _page_with_no_send_selector() -> MagicMock:
     def locator_factory(_selector):
         loc = MagicMock()
         loc.count.return_value = 0
+        loc.first.count.return_value = 0
         loc.first.is_visible.return_value = False
         return loc
 
@@ -135,7 +140,7 @@ def test_no_visible_selector_does_not_press_enter_when_instance_fallback_disable
     emitter = MagicMock(spec=LifecycleEmitter)
 
     with pytest.raises(SendDispatchError, match="send button and Enter fallback"):
-        SendDispatcher(try_enter_key_fallback=False).click_send(page, emitter)
+        SendDispatcher(try_enter_key_fallback=False, click_timeout_ms=ClickTimeoutMs(100)).click_send(page, emitter)
 
     page.keyboard.press.assert_not_called()
     emitter.emit.assert_not_called()
@@ -147,7 +152,7 @@ def test_per_call_sender_config_overrides_instance_fallback():
     config = SenderConfig(try_enter_key_fallback=False)
 
     with pytest.raises(SendDispatchError, match="send button and Enter fallback"):
-        SendDispatcher(try_enter_key_fallback=True).click_send(page, emitter, _config=config)
+        SendDispatcher(try_enter_key_fallback=True, click_timeout_ms=ClickTimeoutMs(100)).click_send(page, emitter, _config=config)
 
     page.keyboard.press.assert_not_called()
     emitter.emit.assert_not_called()

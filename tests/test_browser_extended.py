@@ -65,6 +65,9 @@ class TestSessionCheckAuth:
         page = MagicMock()
         page.url = "https://chat.qwen.ai/"
         page.query_selector.return_value = MagicMock()
+        loc = MagicMock()
+        loc.count.return_value = 0
+        page.locator.return_value = loc
 
         checker = SessionCheck(page)
         checker.check_auth()  # no exception
@@ -86,12 +89,17 @@ class TestSessionCheckAuth:
             checker.check_auth()
 
     def test_auth_raises_on_browser_error(self):
+        # _assert_on_chat_page raises AuthRequiredError for an unauthenticated
+        # (guest) page; check_auth must propagate it unchanged.
         page = MagicMock()
-        page.url = "https://chat.qwen.ai/"
-        page.query_selector.side_effect = Error("crashed")
+        page.url = "https://chat.qwen.ai/guest"
+        loc = MagicMock()
+        loc.count.return_value = 0
+        page.locator.return_value = loc
+        page.query_selector.return_value = None
 
         checker = SessionCheck(page)
-        with pytest.raises(AuthRequiredError, match="Session invalid"):
+        with pytest.raises(AuthRequiredError, match="Not authenticated"):
             checker.check_auth()
 
 
@@ -103,6 +111,9 @@ class TestAssertOnChatPage:
         page = MagicMock()
         page.url = "https://chat.qwen.ai/"
         page.query_selector.return_value = MagicMock()
+        loc = MagicMock()
+        loc.count.return_value = 0
+        page.locator.return_value = loc
         _assert_on_chat_page(page)  # no exception
 
     def test_raises_on_login_url(self):
@@ -130,10 +141,12 @@ class TestAssertOnChatPage:
             # is_any_visible receives a combined CSS selector string (".login-form, [class*='login'], ...")
             if ".login-form" in sel or "[class*='login']" in sel or "#login" in sel:
                 return login_form
-            return MagicMock(count=0)
+            loc = MagicMock()
+            loc.count.return_value = 0
+            return loc
 
         page.locator.side_effect = locator_factory
-        with pytest.raises(AuthRequiredError, match="login form detected"):
+        with pytest.raises(AuthRequiredError, match="login form/button detected"):
             _assert_on_chat_page(page)
 
     def test_no_textarea_no_login_form_logs_warning(self):
