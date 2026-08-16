@@ -15,7 +15,6 @@ from modules.core.src.utility_core_dom_helper import click_send as _dom_click_se
 from modules.core.src.utility_core_dom_query import count_messages, latest_message_text
 from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src.contract_core_protocol import ISendProtocol
-from modules.shared.src.taxonomy_core_vo import SenderConfig
 from modules.shared.src.taxonomy_core_constant import SEND_DISABLED_SELECTORS, TEXTAREA_SELECTOR
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_error import SendDispatchError
@@ -24,6 +23,7 @@ from modules.shared.src.taxonomy_core_vo import (
     ClickTimeoutMs,
     MessageCount,
     ResponseText,
+    SenderConfig,
     TryEnterKeyFallbackFlag,
 )
 
@@ -85,15 +85,14 @@ def _is_file_card_parsing(page: Page) -> bool:
             c = loc.count()
             if not isinstance(c, int) or c == 0:
                 continue
-            for i in range(min(c, 10)):
-                item = loc.nth(i)
                 if not item.is_visible(timeout=100):
                     continue
                 text = item.inner_text(timeout=100).casefold()
-                if any(kw in text for kw in ("parsing", "processing", "uploading", "kb", "%")):
-                    if "parsing" in text or "processing" in text or "uploading" in text:
-                        return True
-                spinners = item.locator("svg[class*='spin'], svg[class*='loading'], .ant-spin, [class*='loading'], [class*='parsing'], [class*='spin']")
+                if "parsing" in text or "processing" in text or "uploading" in text:
+                    return True
+                spinners = item.locator(
+                    "svg[class*='spin'], svg[class*='loading'], .ant-spin, [class*='loading'], [class*='parsing'], [class*='spin']"
+                )
                 if spinners.count() > 0 and spinners.first.is_visible(timeout=100):
                     return True
         except Exception:
@@ -171,7 +170,9 @@ class SendDispatcher(ISendProtocol):
                 except (Error, TimeoutError):
                     with contextlib.suppress(Error, TimeoutError):
                         page.keyboard.press("Enter")
-                if not self._wait_for_dispatch_ack(page, baseline_count, timeout_ms=int(effective_config.click_timeout_ms)):
+                if not self._wait_for_dispatch_ack(
+                    page, baseline_count, timeout_ms=int(effective_config.click_timeout_ms)
+                ):
                     if _is_parse_toast_visible(page):
                         page.wait_for_timeout(1000)
                         continue

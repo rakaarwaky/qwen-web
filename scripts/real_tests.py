@@ -89,10 +89,10 @@ def parse_args() -> argparse.Namespace:
 
 def run_pipeline_cmd(name: str, cmd: list[str]) -> bool:
     """Execute a single pipeline command subprocess with live logging and metrics."""
-    print(f"\n==================================================")
+    print("\n==================================================")
     print(f"🚀 Starting Pipeline: {name}")
     print(f"   Command: {' '.join(cmd)}")
-    print(f"==================================================")
+    print("==================================================")
 
     start_time = time.time()
     try:

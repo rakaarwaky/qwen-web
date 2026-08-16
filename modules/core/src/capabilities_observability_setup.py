@@ -178,9 +178,7 @@ class ObservabilitySetup(IObservabilityProtocol):
         if otel_trace is None or OTelResource is None or OTelTracerProvider is None:
             return
         try:
-            resource = OTelResource.create(
-                {"service.name": os.getenv("OTEL_SERVICE_NAME", ServiceName("qwen-web"))}
-            )
+            resource = OTelResource.create({"service.name": os.getenv("OTEL_SERVICE_NAME", ServiceName("qwen-web"))})
             provider = OTelTracerProvider(resource=resource)
             endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
             try:

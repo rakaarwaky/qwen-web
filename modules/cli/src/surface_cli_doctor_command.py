@@ -20,17 +20,20 @@ def run_doctor(json_output: bool = False) -> int:
 
     # Check 1: Python version
     py_ok = sys.version_info >= (3, 10)
-    checks.append({
-        "name": "Python Version",
-        "passed": py_ok,
-        "detail": f"Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} (>= 3.10 required)",
-    })
+    checks.append(
+        {
+            "name": "Python Version",
+            "passed": py_ok,
+            "detail": f"Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} (>= 3.10 required)",
+        }
+    )
 
     # Check 2: Playwright Chromium installation
     playwright_ok = False
     pw_detail = "Playwright chromium binary check"
     try:
         import shutil
+
         chrome_in_path = shutil.which("chromium") or shutil.which("chrome")
         ms_pw_dir = Path.home() / ".cache" / "ms-playwright"
         has_ms_pw = ms_pw_dir.exists() and any(ms_pw_dir.glob("chromium-*"))
@@ -41,39 +44,54 @@ def run_doctor(json_output: bool = False) -> int:
         else:
             try:
                 from playwright.sync_api import sync_playwright
+
                 pw = sync_playwright().start()
                 exe = pw.chromium.executable_path
                 playwright_ok = Path(exe).exists() if exe else False
-                pw_detail = f"Chromium binary at: {exe}" if playwright_ok else "Chromium binary missing (run: python3 -m playwright install chromium)"
+                pw_detail = (
+                    f"Chromium binary at: {exe}"
+                    if playwright_ok
+                    else "Chromium binary missing (run: python3 -m playwright install chromium)"
+                )
                 pw.stop()
             except Exception as ex:
                 pw_detail = f"Chromium binary missing (run: python3 -m playwright install chromium): {ex}"
     except Exception as e:
         pw_detail = f"Playwright check failed: {e}"
 
-    checks.append({
-        "name": "Playwright Chromium Browser",
-        "passed": playwright_ok,
-        "detail": pw_detail,
-    })
+    checks.append(
+        {
+            "name": "Playwright Chromium Browser",
+            "passed": playwright_ok,
+            "detail": pw_detail,
+        }
+    )
 
     # Check 3: Workspace initialization
     dot_qwen = Path.cwd() / ".qwen-web"
     ws_ok = dot_qwen.exists() and (dot_qwen / "input").exists() and (dot_qwen / "output").exists()
-    checks.append({
-        "name": "Workspace Initialization",
-        "passed": ws_ok,
-        "detail": f"Workspace found at {dot_qwen}" if ws_ok else "Workspace not initialized (run: qwen-web-cli init)",
-    })
+    checks.append(
+        {
+            "name": "Workspace Initialization",
+            "passed": ws_ok,
+            "detail": f"Workspace found at {dot_qwen}"
+            if ws_ok
+            else "Workspace not initialized (run: qwen-web-cli init)",
+        }
+    )
 
     # Check 4: Session token directory
     session_dir = DEFAULT_SESSION
     sess_ok = session_dir.exists() and any(session_dir.iterdir()) if session_dir.exists() else False
-    checks.append({
-        "name": "Session Authentication Token",
-        "passed": sess_ok,
-        "detail": f"Saved session found at {session_dir}" if sess_ok else f"No active session found in {session_dir} (run: qwen-web-cli login)",
-    })
+    checks.append(
+        {
+            "name": "Session Authentication Token",
+            "passed": sess_ok,
+            "detail": f"Saved session found at {session_dir}"
+            if sess_ok
+            else f"No active session found in {session_dir} (run: qwen-web-cli login)",
+        }
+    )
 
     # Check 5: Output directory write permissions
     out_dir = DEFAULT_OUTPUT
@@ -88,11 +106,13 @@ def run_doctor(json_output: bool = False) -> int:
     except Exception as e:
         out_detail = f"Output directory not writable ({out_dir}): {e}"
 
-    checks.append({
-        "name": "Output Storage Permission",
-        "passed": out_ok,
-        "detail": out_detail,
-    })
+    checks.append(
+        {
+            "name": "Output Storage Permission",
+            "passed": out_ok,
+            "detail": out_detail,
+        }
+    )
 
     all_passed = all(c["passed"] for c in checks)
 

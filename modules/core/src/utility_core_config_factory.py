@@ -7,12 +7,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from modules.shared.src.taxonomy_core_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_LOG,
     DEFAULT_OUTPUT,
     DEFAULT_SESSION,
 )
+from modules.shared.src.taxonomy_core_vo import AppConfig
 
 
 def build_app_config(
@@ -72,9 +72,7 @@ def build_app_config(
     )
 
 
-def resolve_pipeline_output_path(
-    prompt_file: Path | str, output_file: Path | str | None = None
-) -> tuple[Path, Path]:
+def resolve_pipeline_output_path(prompt_file: Path | str, output_file: Path | str | None = None) -> tuple[Path, Path]:
     """Resolve prompt file and output file paths cleanly for prompt pipeline agents."""
     p_path = Path(prompt_file).resolve()
     if not p_path.is_file():
@@ -83,4 +81,3 @@ def resolve_pipeline_output_path(
     if out_path.is_dir():
         out_path = out_path / f"{p_path.stem}_output.md"
     return p_path, out_path
-

@@ -5,13 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from textual.app import App, ComposeResult
-from textual.containers import Vertical
-from textual.screen import Screen
-from textual.widgets import Button, Footer, Static
-
-
 from textual.binding import Binding
-from textual.screen import ModalScreen
+from textual.containers import Vertical
+from textual.screen import ModalScreen, Screen
+from textual.widgets import Button, Footer, Static
 
 
 class ConfirmModal(ModalScreen[bool]):
@@ -59,6 +56,7 @@ class SessionSetupScreen(Screen["SessionSetupApp"]):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "login":
+
             def _on_confirm(confirmed: bool | None) -> None:
                 if confirmed:
                     self.on_login()

@@ -26,26 +26,6 @@ from .contract_core_protocol import (
     IUploadProtocol,
 )
 
-# ─── Taxonomy: config VOs ─────────────────────────────────────
-from .taxonomy_core_vo import (
-    DEFAULT_INJECTOR_CONFIG,
-    DEFAULT_SAVER_CONFIG,
-    DEFAULT_SENDER_CONFIG,
-    DEFAULT_UPLOAD_CONFIG,
-    AppConfig,
-    BrowserConfig,
-    InjectorConfig,
-    MCPServerConfig,
-    MCPToolResponse,
-    ObservabilityConfig,
-    OutputMetadata,
-    QwenClientConfig,
-    SaverConfig,
-    SenderConfig,
-    StreamerConfig,
-    UploadConfig,
-)
-
 # ─── Taxonomy: constants ──────────────────────────────────────
 from .taxonomy_core_constant import (
     AUTH_KEYWORDS,
@@ -131,10 +111,17 @@ from .taxonomy_core_event import (
     QwenEventType,
 )
 
+# ─── Taxonomy: config VOs ─────────────────────────────────────
 # ─── Taxonomy: core VOs ───────────────────────────────────────
 from .taxonomy_core_vo import (
+    DEFAULT_INJECTOR_CONFIG,
+    DEFAULT_SAVER_CONFIG,
+    DEFAULT_SENDER_CONFIG,
+    DEFAULT_UPLOAD_CONFIG,
+    AppConfig,
     AtomicWriteFlag,
     BackoffDelaySec,
+    BrowserConfig,
     CardRenderTimeoutMs,
     ChromeProfile,
     ClickTimeoutMs,
@@ -147,33 +134,43 @@ from .taxonomy_core_vo import (
     GenerateSidecarFlag,
     HeadlessFlag,
     IncludeHeaderFlag,
+    InjectorConfig,
     InputChars,
     InputPath,
     MaxFileSizeMb,
     MaxRetries,
+    MCPServerConfig,
+    MCPToolResponse,
     MessageCount,
     MinTextLength,
     Mode,
+    ObservabilityConfig,
     OptionTimeoutMs,
     OutputChars,
+    OutputMetadata,
     OutputPath,
     PollIntervalSec,
     ProcessingOutcome,
     ProcessingStatus,
     PromptText,
+    QwenClientConfig,
     ResponseText,
     RunContext,
     RunContextId,
     RunId,
     RunIdHex,
+    SaverConfig,
+    SenderConfig,
     ServerName,
     ServiceName,
     StabilityChecks,
     StabilityCount,
     StatusRecordVO,
+    StreamerConfig,
     TimeoutSec,
     TryEnterKeyFallbackFlag,
     TypingDelayMs,
+    UploadConfig,
     UserAgent,
     WaitTimeoutMs,
 )

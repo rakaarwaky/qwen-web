@@ -204,11 +204,7 @@ class LifecycleGate:
         self._completed: list[QwenEventType] = []
         self.rejections: list[dict[str, str]] = []
         ordered = sequence if sequence is not None else PIPELINE_EVENT_SEQUENCE
-        self._predecessor = {
-            event: ordered[index - 1]
-            for index, event in enumerate(ordered)
-            if index > 0
-        }
+        self._predecessor = {event: ordered[index - 1] for index, event in enumerate(ordered) if index > 0}
 
     @property
     def completed(self) -> tuple[QwenEventType, ...]:

@@ -84,6 +84,7 @@ class Saver(ISaverProtocol):
         try:
             if path.is_dir():
                 from datetime import datetime
+
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 path = path / f"qwen_output_{timestamp}.md"
             ensure_dir(path)

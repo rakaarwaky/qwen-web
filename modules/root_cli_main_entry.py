@@ -26,12 +26,12 @@ import modules.cli.src.surface_cli_interactive_controller as surface_cli_interac
 import modules.cli.src.surface_cli_login_command as surface_cli_login_command
 import modules.cli.src.surface_cli_run_command as surface_cli_run_command
 from modules.core.src.root_core_container import SharedContainer
-from modules.shared.src.taxonomy_core_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_LOG,
     DEFAULT_OUTPUT,
     DEFAULT_SESSION,
 )
+from modules.shared.src.taxonomy_core_vo import AppConfig
 
 _ERROR_PREFIX = "[ERROR]"
 
@@ -196,6 +196,7 @@ def _dispatch(
 
     if action == "doctor":
         from modules.cli.src.surface_cli_doctor_command import run_doctor
+
         return run_doctor(json_output=bool(getattr(args, "json", False)))
 
     if action == "login":

@@ -181,6 +181,7 @@ def test_doctor_command(capsys):
 
 def test_doctor_command_json(capsys):
     import json
+
     from modules.cli.src.surface_cli_doctor_command import run_doctor
 
     code = run_doctor(json_output=True)
@@ -189,4 +190,3 @@ def test_doctor_command_json(capsys):
     data = json.loads(captured.out)
     assert data["status"] == "healthy"
     assert len(data["checks"]) >= 5
-

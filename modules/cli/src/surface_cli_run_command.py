@@ -13,8 +13,7 @@ from modules.shared.src.contract_core_aggregate import (
     IDirectPromptAggregate,
     IPromptFileAggregate,
 )
-from modules.shared.src.taxonomy_core_vo import AppConfig
-from modules.shared.src.taxonomy_core_vo import HeadlessFlag
+from modules.shared.src.taxonomy_core_vo import AppConfig, HeadlessFlag
 from modules.shared.src.utility_core_response import error_response, safe_handle, success_response
 
 
@@ -64,9 +63,7 @@ def handle(
                 headless=HeadlessFlag(cfg.headless),
             )
     else:
-        return error_response(
-            RuntimeError(f"Unsupported CLI mode: {mode}"), "validation_error", "cli-400"
-        )
+        return error_response(RuntimeError(f"Unsupported CLI mode: {mode}"), "validation_error", "cli-400")
 
     failure = _processing_failure_message(result)
     if failure is not None:

@@ -14,7 +14,6 @@ from modules.core.src.utility_core_dom_helper import is_any_visible, is_selector
 from modules.core.src.utility_core_dom_query import latest_message_text as _dom_latest
 from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src.contract_core_protocol import IStreamProtocol
-from modules.shared.src.taxonomy_core_vo import StreamerConfig
 from modules.shared.src.taxonomy_core_constant import (
     SEND_DISABLED_SELECTORS,
     STOP_BUTTON_SELECTORS,
@@ -32,6 +31,7 @@ from modules.shared.src.taxonomy_core_vo import (
     PollIntervalSec,
     ResponseText,
     StabilityChecks,
+    StreamerConfig,
 )
 from modules.shared.src.utility_core_events import is_stability_satisfied, should_treat_as_new_response
 from modules.shared.src.utility_core_validation import validate_response_content
@@ -77,7 +77,7 @@ class StreamMonitor(IStreamProtocol):
                 return True
             js_check = (
                 "() => {"
-                "  const el = document.querySelector('[class*=\"thinking\"], [class*=\"status-card\"]');"
+                '  const el = document.querySelector(\'[class*="thinking"], [class*="status-card"]\');'
                 "  if (!el) return false;"
                 "  const txt = (el.innerText || '').toLowerCase();"
                 "  return txt.includes('thinking') && !txt.includes('completed') && !txt.includes('complete');"
@@ -163,7 +163,12 @@ class StreamMonitor(IStreamProtocol):
                             stable_count, int(active_checks), has_thinking, has_streaming, is_complete
                         ):
                             # Step 4: Validate content & emit completion
-                            log.info("Response stabilized after %d checks (is_complete=%s, elapsed=%ds)", stable_count, is_complete, int(elapsed))
+                            log.info(
+                                "Response stabilized after %d checks (is_complete=%s, elapsed=%ds)",
+                                stable_count,
+                                is_complete,
+                                int(elapsed),
+                            )
                             validate_response_content(text)
                             emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(text)})
                             return ResponseText(text)
@@ -176,14 +181,19 @@ class StreamMonitor(IStreamProtocol):
 
                 # Immediate exit if Qwen DOM reports generation complete and text is stable
                 if is_complete and last_text is not None and len(last_text.strip()) > 0 and stable_count >= 2:
-                    log.info("Generation complete confirmed by DOM (elapsed=%ds, length=%d)", int(elapsed), len(last_text))
+                    log.info(
+                        "Generation complete confirmed by DOM (elapsed=%ds, length=%d)", int(elapsed), len(last_text)
+                    )
                     validate_response_content(last_text)
                     emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(last_text)})
                     return ResponseText(last_text)
 
                 # Periodic 30s cloud reload sync trigger — ONLY when Qwen is still actively generating!
                 if (now - last_reload_time) >= 30.0 and elapsed < max_duration and is_active_generating:
-                    log.info("Periodic 30s cloud reload sync: refreshing page to pull Qwen Cloud state (elapsed: %ds)...", int(elapsed))
+                    log.info(
+                        "Periodic 30s cloud reload sync: refreshing page to pull Qwen Cloud state (elapsed: %ds)...",
+                        int(elapsed),
+                    )
                     last_reload_time = now
                     with contextlib.suppress(Exception):
                         page.reload(wait_until="domcontentloaded", timeout=15_000)
@@ -194,7 +204,9 @@ class StreamMonitor(IStreamProtocol):
             except TimeoutError as e:
                 raise NetworkTimeoutError(f"Browser network timeout during streaming poll: {e}") from e
             except Error as e:
-                log.warning("Browser error or connection reset during polling (%s). Attempting page reload recovery...", e)
+                log.warning(
+                    "Browser error or connection reset during polling (%s). Attempting page reload recovery...", e
+                )
                 last_reload_time = time.time()
                 with contextlib.suppress(Exception):
                     page.reload(wait_until="domcontentloaded", timeout=15_000)

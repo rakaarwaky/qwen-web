@@ -87,9 +87,7 @@ class McpToolCommand:
         self._setup = setup
         self._workspace = workspace
 
-    def process_direct_prompt(
-        self, prompt: str, timeout_sec: int = 120, headless: bool = True
-    ) -> str:
+    def process_direct_prompt(self, prompt: str, timeout_sec: int = 120, headless: bool = True) -> str:
         """Process a direct text prompt string to chat.qwen.ai.
 
         Args:
@@ -231,12 +229,15 @@ class McpToolCommand:
         """
         try:
             valid, msg = self._session.validate_session()
-            return json.dumps({
-                "success": True,
-                "session_valid": bool(valid),
-                "message": str(msg),
-                "next_action": None if valid else "setup_session",
-            }, indent=2)
+            return json.dumps(
+                {
+                    "success": True,
+                    "session_valid": bool(valid),
+                    "message": str(msg),
+                    "next_action": None if valid else "setup_session",
+                },
+                indent=2,
+            )
         except Exception as exc:
             return _format_error_payload(
                 code="SESSION_CHECK_FAILED",
@@ -262,11 +263,14 @@ class McpToolCommand:
 
         try:
             self._session.delete_session()
-            return json.dumps({
-                "success": True,
-                "message": "Saved browser session tokens deleted successfully.",
-                "next_action": "setup_session",
-            }, indent=2)
+            return json.dumps(
+                {
+                    "success": True,
+                    "message": "Saved browser session tokens deleted successfully.",
+                    "next_action": "setup_session",
+                },
+                indent=2,
+            )
         except Exception as exc:
             return _format_error_payload(
                 code="SESSION_DELETE_FAILED",
@@ -302,11 +306,14 @@ class McpToolCommand:
         t_path = Path(target_dir).expanduser().resolve()
         try:
             self._workspace.init_workspace(FilePath(t_path))
-            return json.dumps({
-                "success": True,
-                "message": f"Workspace initialized successfully at {t_path}",
-                "workspace_path": str(t_path),
-            }, indent=2)
+            return json.dumps(
+                {
+                    "success": True,
+                    "message": f"Workspace initialized successfully at {t_path}",
+                    "workspace_path": str(t_path),
+                },
+                indent=2,
+            )
         except Exception as exc:
             return _format_error_payload(
                 code="INIT_WORKSPACE_FAILED",

@@ -36,9 +36,8 @@ from modules.shared.src.contract_core_aggregate import (
     ISetupAggregate,
 )
 from modules.shared.src.contract_core_protocol import IWorkspaceProtocol
-from modules.shared.src.taxonomy_core_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import DEFAULT_OUTPUT
-from modules.shared.src.taxonomy_core_vo import FilePath, HeadlessFlag
+from modules.shared.src.taxonomy_core_vo import AppConfig, FilePath, HeadlessFlag
 
 TUI_CSS = """
 /* ─── Obsidian Nebula Theme Colors ────────────────────────── */
@@ -316,6 +315,7 @@ def _default_file_value() -> str:
 
 try:
     from importlib.metadata import version
+
     _APP_VERSION = version("qwen-web-cli")
 except Exception:
     _APP_VERSION = "4.1.0"
@@ -510,9 +510,12 @@ class QwenTuiApp(App[None]):
                     headless=HeadlessFlag(cfg.headless),
                 )
             res_str = str(res)
-            if isinstance(res, dict) and res.get("status") in {"error", "failure", "failed"}:
-                self.call_from_thread(self._log_msg, f"[bold #EF4444]FAILED:[/] {res_str}")
-            elif "fail" in res_str.lower() and "success" not in res_str.lower():
+            if (
+                isinstance(res, dict)
+                and res.get("status") in {"error", "failure", "failed"}
+                or "fail" in res_str.lower()
+                and "success" not in res_str.lower()
+            ):
                 self.call_from_thread(self._log_msg, f"[bold #EF4444]FAILED:[/] {res_str}")
             else:
                 self.call_from_thread(self._log_msg, f"[bold #10B981]SUCCESS:[/] {res_str}")

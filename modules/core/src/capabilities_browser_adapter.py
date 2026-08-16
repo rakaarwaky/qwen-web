@@ -329,6 +329,7 @@ class BrowserAdapter(IBrowserProtocol):
                     """Sanitize URL for logging to prevent credential/query token exfiltration."""
                     try:
                         from urllib.parse import urlparse, urlunparse
+
                         parsed = urlparse(url)
                         return urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
                     except Exception:
@@ -353,7 +354,9 @@ class BrowserAdapter(IBrowserProtocol):
                         ):
                             log.warning("browser_http_error", status=response.status, url=_sanitize_url(response.url))
                         elif response.request.method in {"POST", "PUT", "PATCH"} and "qwen.ai" in url:
-                            log.info("browser_mutation_response", status=response.status, url=_sanitize_url(response.url))
+                            log.info(
+                                "browser_mutation_response", status=response.status, url=_sanitize_url(response.url)
+                            )
 
                     page.on("request", on_request)
                     page.on("requestfailed", on_request_failed)

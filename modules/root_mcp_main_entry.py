@@ -12,10 +12,10 @@ import sys
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
+import mcp.types as types
 from mcp.server import InitializationOptions, Server
 from mcp.server.stdio import stdio_server
-import mcp.types as types
-from mcp.types import TextContent, Tool
+from mcp.types import Tool
 from mcp_types._types import ServerCapabilities, ToolsCapability
 
 from modules.core.src.capabilities_observability_setup import ObservabilitySetup
@@ -231,22 +231,16 @@ def run_mcp_server() -> None:
             ) -> types.ListToolsResult:
                 return types.ListToolsResult(tools=TOOLS)
 
-            async def handle_call_tool(
-                context: Any, params: types.CallToolRequestParams
-            ) -> types.CallToolResult:
+            async def handle_call_tool(context: Any, params: types.CallToolRequestParams) -> types.CallToolResult:
                 handler = TOOL_HANDLERS.get(params.name)
                 if handler is None:
                     raise ValueError(f"Unknown tool: {params.name}")
                 try:
                     result = await handler(**(params.arguments or {}))
                     if isinstance(result, str):
-                        content_blocks: list[types.TextContent] = [
-                            types.TextContent(type="text", text=result)
-                        ]
+                        content_blocks: list[types.TextContent] = [types.TextContent(type="text", text=result)]
                     else:
-                        content_blocks = [
-                            types.TextContent(type="text", text=str(r)) for r in result
-                        ]
+                        content_blocks = [types.TextContent(type="text", text=str(r)) for r in result]
                     return types.CallToolResult(content=content_blocks, is_error=False)
                 except Exception as exc:
                     log.error("Tool execution error: %s", exc)

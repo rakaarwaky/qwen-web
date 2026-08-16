@@ -10,8 +10,7 @@ from playwright.sync_api import Error
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.core.src.utility_core_dom_query import count_messages, latest_message_text
 from modules.shared.src import LifecycleEmitter, SendDispatchError
-from modules.shared.src.taxonomy_core_vo import SenderConfig
-from modules.shared.src.taxonomy_core_vo import ClickTimeoutMs
+from modules.shared.src.taxonomy_core_vo import ClickTimeoutMs, SenderConfig
 
 
 def _sender() -> SendDispatcher:
@@ -152,7 +151,9 @@ def test_per_call_sender_config_overrides_instance_fallback():
     config = SenderConfig(try_enter_key_fallback=False)
 
     with pytest.raises(SendDispatchError, match="send button and Enter fallback"):
-        SendDispatcher(try_enter_key_fallback=True, click_timeout_ms=ClickTimeoutMs(100)).click_send(page, emitter, _config=config)
+        SendDispatcher(try_enter_key_fallback=True, click_timeout_ms=ClickTimeoutMs(100)).click_send(
+            page, emitter, _config=config
+        )
 
     page.keyboard.press.assert_not_called()
     emitter.emit.assert_not_called()

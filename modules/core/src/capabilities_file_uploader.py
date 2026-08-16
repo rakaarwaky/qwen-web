@@ -15,11 +15,11 @@ from playwright.sync_api import Error, Page
 from modules.core.src.utility_core_dom_helper import first_visible_locator
 from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src.contract_core_protocol import IUploadProtocol
-from modules.shared.src.taxonomy_core_vo import DEFAULT_UPLOAD_CONFIG, UploadConfig
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_error import FileValidationError
 from modules.shared.src.taxonomy_core_event import EVENT_DOCUMENT_PARSED, EVENT_FILE_UPLOADED
 from modules.shared.src.taxonomy_core_vo import (
+    DEFAULT_UPLOAD_CONFIG,
     BackoffDelaySec,
     CardRenderTimeoutMs,
     DropdownTimeoutMs,
@@ -28,6 +28,7 @@ from modules.shared.src.taxonomy_core_vo import (
     MaxFileSizeMb,
     MaxRetries,
     OptionTimeoutMs,
+    UploadConfig,
 )
 from modules.shared.src.utility_core_validation import validate_file as _validate_file_util
 
@@ -289,7 +290,13 @@ class FileUploader(IUploadProtocol):
             try:
                 toast_visible = False
                 with contextlib.suppress(Exception):
-                    for sel in (".ant-message", "[role='alert']", "[class*='toast']", "[class*='notification']", "body"):
+                    for sel in (
+                        ".ant-message",
+                        "[role='alert']",
+                        "[class*='toast']",
+                        "[class*='notification']",
+                        "body",
+                    ):
                         loc = page.locator(sel)
                         if loc.count() > 0:
                             for idx in range(min(loc.count(), 5)):
@@ -314,7 +321,9 @@ class FileUploader(IUploadProtocol):
                     card.locator(selector).count() > 0 and card.locator(selector).first.is_visible(timeout=100)
                     for selector in self.config.parse_pending_selectors
                 )
-                spinners_visible = card.locator("svg[class*='spin'], svg[class*='loading'], .ant-spin, [class*='spin']").count() > 0
+                spinners_visible = (
+                    card.locator("svg[class*='spin'], svg[class*='loading'], .ant-spin, [class*='spin']").count() > 0
+                )
 
                 is_ready = (
                     not toast_visible

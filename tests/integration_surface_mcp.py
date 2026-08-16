@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from modules.mcp.src.surface_mcp_tool_command import McpToolCommand
 from modules.root_mcp_main_entry import (
     check_session,
     delete_session,
@@ -13,7 +14,6 @@ from modules.root_mcp_main_entry import (
     process_prompt_file_only,
     setup_session,
 )
-from modules.mcp.src.surface_mcp_tool_command import McpToolCommand
 
 
 @pytest.fixture(autouse=True)
@@ -46,7 +46,9 @@ class TestMCPServerTools(unittest.TestCase):
     def test_process_prompt_file_only_success(self) -> None:
         """Test process_prompt_file_only with valid file input."""
         mock_tools = MagicMock()
-        mock_tools.process_prompt_file_only.return_value = '{"success": true, "result": "Successfully processed prompt.md"}'
+        mock_tools.process_prompt_file_only.return_value = (
+            '{"success": true, "result": "Successfully processed prompt.md"}'
+        )
         with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
             res = asyncio.run(process_prompt_file_only("/tmp/prompt.md", "/tmp/output.md"))
             self.assertIn("Successfully processed", res)

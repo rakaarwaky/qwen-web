@@ -26,7 +26,6 @@ from modules.shared.src.contract_core_protocol import (
     ISendProtocol,
     IStreamProtocol,
 )
-from modules.shared.src.taxonomy_core_vo import AppConfig
 from modules.shared.src.taxonomy_core_error import (
     ResponseDetectionTimeoutError,
 )
@@ -43,6 +42,7 @@ from modules.shared.src.taxonomy_core_event import (
     QwenEventType,
 )
 from modules.shared.src.taxonomy_core_vo import (
+    AppConfig,
     HeadlessFlag,
     MessageCount,
     OutputPath,
@@ -100,9 +100,7 @@ class PromptFileOrchestrator(IPromptFileAggregate):
         except Exception as exc:
             return to_error_response(exc)
 
-    def _execute_file_on_page(
-        self, page: Page, filepath: Path, timeout_sec: int, active_cfg: AppConfig
-    ) -> str:
+    def _execute_file_on_page(self, page: Page, filepath: Path, timeout_sec: int, active_cfg: AppConfig) -> str:
         logger = self._observability.get_logger()
         file_prompt_events: tuple[QwenEventType, ...] = (
             EVENT_WEB_LOADED,
@@ -116,6 +114,7 @@ class PromptFileOrchestrator(IPromptFileAggregate):
             EVENT_OUTPUT_COPIED,
         )
         from modules.core.src.utility_core_dom_helper import setup_lifecycle_state
+
         emitter, state = setup_lifecycle_state(logger, file_prompt_events)
 
         prompt = filepath.read_text(encoding="utf-8").strip()

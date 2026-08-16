@@ -12,7 +12,6 @@ from typing import Any
 
 from playwright.sync_api import ElementHandle, Page
 
-from modules.shared.src.taxonomy_core_vo import InjectorConfig
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_event import EventMessage
 from modules.shared.src.taxonomy_core_vo import (
@@ -20,6 +19,7 @@ from modules.shared.src.taxonomy_core_vo import (
     FilePath,
     FileSizeBytes,
     HeadlessFlag,
+    InjectorConfig,
     LoggerName,
     MaxFileSizeMb,
     MessageCount,

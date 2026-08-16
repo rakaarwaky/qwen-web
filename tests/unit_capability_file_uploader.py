@@ -89,8 +89,9 @@ class TestUploadAttachment:
         page.expect_file_chooser.return_value.__enter__ = MagicMock(return_value=mock_fc)
         page.expect_file_chooser.return_value.__exit__ = MagicMock(return_value=False)
 
-        with patch.object(FileUploader, "_try_upload_attempt", return_value=True), patch.object(
-            FileUploader, "_wait_for_parse_ready"
+        with (
+            patch.object(FileUploader, "_try_upload_attempt", return_value=True),
+            patch.object(FileUploader, "_wait_for_parse_ready"),
         ):
             result = FileUploader().upload_attachment(page, f)
             assert result is True
@@ -112,8 +113,9 @@ class TestUploadAttachment:
         page.expect_file_chooser.return_value.__enter__ = MagicMock(return_value=mock_fc)
         page.expect_file_chooser.return_value.__exit__ = MagicMock(return_value=False)
 
-        with patch.object(FileUploader, "_try_upload_attempt", return_value=True), patch.object(
-            FileUploader, "_wait_for_parse_ready"
+        with (
+            patch.object(FileUploader, "_try_upload_attempt", return_value=True),
+            patch.object(FileUploader, "_wait_for_parse_ready"),
         ):
             result = FileUploader().upload_attachment(page, f)
             assert result is True
@@ -124,8 +126,9 @@ class TestUploadAttachment:
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
 
-        with patch.object(FileUploader, "_try_upload_attempt", return_value=True), patch.object(
-            FileUploader, "_wait_for_parse_ready"
+        with (
+            patch.object(FileUploader, "_try_upload_attempt", return_value=True),
+            patch.object(FileUploader, "_wait_for_parse_ready"),
         ):
             FileUploader().upload_attachment(page, f, emitter=emitter)
             emitter.emit.assert_any_call(

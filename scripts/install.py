@@ -6,10 +6,11 @@ Supports Windows, macOS, and Linux without external shell dependencies.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -52,18 +53,18 @@ def ensure_venv() -> Path:
 
 def uninstall_previous(python_bin: Path) -> None:
     log("🧹 [install] Removing any previous qwen-web installation...")
-    subprocess.run([str(python_bin), "-m", "pip", "uninstall", "-y", "qwen-web", "qwen-web-cli"],
-                   capture_output=True)
+    subprocess.run(
+        [str(python_bin), "-m", "pip", "uninstall", "-y", "qwen-web", "qwen-web-cli"],
+        capture_output=True,
+    )
 
     if sys.platform != "win32":
         local_bin = Path.home() / ".local" / "bin"
         for name in ("qwen-web-cli", "qwc"):
             target = local_bin / name
             if target.is_symlink() or target.exists():
-                try:
+                with contextlib.suppress(OSError):
                     target.unlink()
-                except OSError:
-                    pass
 
 
 def install_package(python_bin: Path) -> None:
@@ -80,10 +81,22 @@ def setup_xdg_directories(python_bin: Path) -> None:
     log("📁 [install] Creating default runtime directories...")
     is_win = sys.platform == "win32"
 
-    xdg_data = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ("AppData/Local" if is_win else ".local/share"))) / "qwen-web-automation"
-    xdg_state = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ("AppData/Local" if is_win else ".local/state"))) / "qwen-web-automation"
-    xdg_cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ("AppData/Local/Temp" if is_win else ".cache"))) / "qwen-web-automation"
-    xdg_config = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ("AppData/Roaming" if is_win else ".config"))) / "qwen-web-automation"
+    xdg_data = (
+        Path(os.environ.get("XDG_DATA_HOME", Path.home() / ("AppData/Local" if is_win else ".local/share")))
+        / "qwen-web-automation"
+    )
+    xdg_state = (
+        Path(os.environ.get("XDG_STATE_HOME", Path.home() / ("AppData/Local" if is_win else ".local/state")))
+        / "qwen-web-automation"
+    )
+    xdg_cache = (
+        Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ("AppData/Local/Temp" if is_win else ".cache")))
+        / "qwen-web-automation"
+    )
+    xdg_config = (
+        Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ("AppData/Roaming" if is_win else ".config")))
+        / "qwen-web-automation"
+    )
 
     roles = ["role-architect", "role-business-analyst", "role-tech-lead"]
     for role in roles:
@@ -99,8 +112,14 @@ def setup_xdg_directories(python_bin: Path) -> None:
     # Session dir permissions & creation
     try:
         res = subprocess.run(
-            [str(python_bin), "-c", "from modules.shared.src.taxonomy_core_constant import DEFAULT_SESSION; print(DEFAULT_SESSION)"],
-            capture_output=True, text=True, check=True
+            [
+                str(python_bin),
+                "-c",
+                "from modules.shared.src.taxonomy_core_constant import DEFAULT_SESSION; print(DEFAULT_SESSION)",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
         )
         session_dir = Path(res.stdout.strip())
     except Exception:
@@ -109,14 +128,12 @@ def setup_xdg_directories(python_bin: Path) -> None:
     log(f"🔐 [install] Repairing browser session dir: {session_dir}")
     session_dir.mkdir(parents=True, exist_ok=True)
     if sys.platform != "win32":
-        try:
+        with contextlib.suppress(OSError):
             os.chmod(session_dir, 0o700)
-        except OSError:
-            pass
 
     skill_md = PROJECT_ROOT / "SKILL.md"
     if skill_md.exists():
-        log(f"📄 [install] Copying SKILL.md template to XDG data directory...")
+        log("📄 [install] Copying SKILL.md template to XDG data directory...")
         shutil.copy2(skill_md, xdg_data / "SKILL.md")
 
 
@@ -134,14 +151,10 @@ def setup_bin_links(python_bin: Path) -> None:
         dst = local_bin / name
         if src.exists():
             if dst.is_symlink() or dst.exists():
-                try:
+                with contextlib.suppress(OSError):
                     dst.unlink()
-                except OSError:
-                    pass
-            try:
+            with contextlib.suppress(OSError):
                 dst.symlink_to(src)
-            except OSError:
-                pass
 
     bashrc = Path.home() / ".bashrc"
     path_line = 'export PATH="${HOME}/.local/bin:${PATH}"'

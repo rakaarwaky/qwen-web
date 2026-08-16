@@ -23,7 +23,6 @@ from modules.shared.src.contract_core_protocol import (
     ISendProtocol,
     IStreamProtocol,
 )
-from modules.shared.src.taxonomy_core_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_OUTPUT,
 )
@@ -43,6 +42,7 @@ from modules.shared.src.taxonomy_core_event import (
     QwenEventType,
 )
 from modules.shared.src.taxonomy_core_vo import (
+    AppConfig,
     HeadlessFlag,
     MessageCount,
     PollIntervalSec,
@@ -90,9 +90,7 @@ class DirectPromptOrchestrator(IDirectPromptAggregate):
                 )
                 with self._browser.browser_session(cfg) as bctx:
                     page = bctx.pages[0] if bctx.pages else bctx.new_page()
-                    text = self._execute_direct_on_page(
-                        page, Path(tmp_path), prompt_str, int(timeout_sec), cfg
-                    )
+                    text = self._execute_direct_on_page(page, Path(tmp_path), prompt_str, int(timeout_sec), cfg)
                 return ResponseText(text)
             finally:
                 p = Path(tmp_path)

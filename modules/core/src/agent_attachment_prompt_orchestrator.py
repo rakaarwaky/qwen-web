@@ -24,7 +24,6 @@ from modules.shared.src.contract_core_protocol import (
     IStreamProtocol,
     IUploadProtocol,
 )
-from modules.shared.src.taxonomy_core_vo import AppConfig, SenderConfig
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_OUTPUT,
 )
@@ -37,6 +36,7 @@ from modules.shared.src.taxonomy_core_event import (
     PIPELINE_EVENT_SEQUENCE,
 )
 from modules.shared.src.taxonomy_core_vo import (
+    AppConfig,
     AttachmentPath,
     FilePath,
     HeadlessFlag,
@@ -48,6 +48,7 @@ from modules.shared.src.taxonomy_core_vo import (
     PromptText,
     ResponseText,
     RunContext,
+    SenderConfig,
     TimeoutSec,
 )
 
@@ -141,9 +142,7 @@ class AttachmentPromptOrchestrator(IAttachmentPromptAggregate):
             upload_error = getattr(self._uploader, "last_error", None)
             detail = f": {upload_error}" if upload_error else ""
             logger.error("File upload or parsing could not be positively verified: %s%s", att_path.name, detail)
-            raise UploadFailureError(
-                f"Attachment upload/parsing failed for {att_path.name}{detail}"
-            )
+            raise UploadFailureError(f"Attachment upload/parsing failed for {att_path.name}{detail}")
 
         try:
             baseline_response = latest_message_text(page)
