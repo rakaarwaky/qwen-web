@@ -43,7 +43,7 @@ def _get_tools() -> McpToolCommand:
     if _container is None:
         shared = SharedContainer()
         shared.wire()
-        _container = McpToolCommand(shared.core)
+        _container = McpToolCommand(shared)
     return _container
 
 
@@ -71,7 +71,8 @@ def _async_tool(name: str) -> Callable[..., Awaitable[Sequence[str]]]:
             return str(getattr(tools, method_name)(*args, **kwargs))
 
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, invoke)
+        res = await loop.run_in_executor(None, invoke)
+        return [res] if isinstance(res, str) else list(res)
 
     return handler
 
@@ -201,12 +202,12 @@ def run_mcp_server() -> None:
             server = Server("Qwen-Web")
 
             async def handle_list_tools(
-                params: types.PaginatedRequestParams | None, context: Any
+                context: Any, params: types.PaginatedRequestParams | None = None
             ) -> types.ListToolsResult:
                 return types.ListToolsResult(tools=TOOLS)
 
             async def handle_call_tool(
-                params: types.CallToolRequestParams, context: Any
+                context: Any, params: types.CallToolRequestParams
             ) -> types.CallToolResult:
                 handler = TOOL_HANDLERS.get(params.name)
                 if handler is None:
@@ -225,12 +226,12 @@ def run_mcp_server() -> None:
                     )
 
             async def handle_list_resources(
-                params: types.PaginatedRequestParams | None, context: Any
+                context: Any, params: types.PaginatedRequestParams | None = None
             ) -> types.ListResourcesResult:
                 return types.ListResourcesResult(resources=[])
 
             async def handle_read_resource(
-                params: types.ReadResourceRequestParams, context: Any
+                context: Any, params: types.ReadResourceRequestParams
             ) -> types.ReadResourceResult:
                 return types.ReadResourceResult(contents=[])
 
