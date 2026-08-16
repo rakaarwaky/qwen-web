@@ -59,22 +59,6 @@ def atomic_write_json(target: Path, payload: Mapping[str, Any]) -> None:
     _atomic_write(target, json.dumps(payload, ensure_ascii=False) + "\n")
 
 
-def append_jsonl(target: Path, record: Mapping[str, Any]) -> None:
-    """Append a single JSON object to a JSONL file.
-
-    Parameters
-    ----------
-    target : Path
-        Destination JSONL file path.
-    record : Mapping[str, Any]
-        Dict-like object to serialize as one JSON line.
-
-    """
-    target.parent.mkdir(parents=True, exist_ok=True)
-    with open(target, "a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
-
-
 def write_json_file(target: Path, payload: Mapping[str, Any], atomic: bool = True) -> None:
     """Write JSON to file, atomically or directly.
 

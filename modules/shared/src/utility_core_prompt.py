@@ -42,12 +42,3 @@ def strip_input_from_output(text: str, full_prompt: str) -> str:
                 return result
 
     return text
-
-
-def load_role_prompt(
-    file_path: Any = None,  # noqa: ARG001
-    custom_prompt_path: Any = None,  # noqa: ARG001
-    rel_path: Any = None,  # noqa: ARG001
-) -> str:
-    """Legacy stub returning empty string."""
-    return ""
