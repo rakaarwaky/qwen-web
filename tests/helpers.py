@@ -32,7 +32,6 @@ from modules.core.src.capabilities_observability_setup import (
 from modules.core.src.capabilities_output_saver import Saver
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.shared.src import AppConfig
-from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
 from modules.shared.src.utility_core_validation import validate_file as _util_validate_file
 
 

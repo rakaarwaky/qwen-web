@@ -5,6 +5,8 @@ Taxonomy layer (utility): stateless functions, taxonomy imports only.
 
 from __future__ import annotations
 
+from typing import Any
+
 
 def extract_prompt_text(content: str) -> str:
     """Strip YAML frontmatter header if present."""
@@ -43,9 +45,9 @@ def strip_input_from_output(text: str, full_prompt: str) -> str:
 
 
 def load_role_prompt(
-    file_path: Any = None,
-    custom_prompt_path: Any = None,
-    rel_path: Any = None,
+    file_path: Any = None,  # noqa: ARG001
+    custom_prompt_path: Any = None,  # noqa: ARG001
+    rel_path: Any = None,  # noqa: ARG001
 ) -> str:
     """Legacy stub returning empty string."""
     return ""

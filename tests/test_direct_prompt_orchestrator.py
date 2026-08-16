@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from modules.core.src.agent_direct_prompt_orchestrator import DirectPromptOrchestrator
 from modules.shared.src.taxonomy_core_error import ResponseDetectionTimeoutError
 from modules.shared.src.taxonomy_core_event import (
@@ -13,7 +11,6 @@ from modules.shared.src.taxonomy_core_event import (
     EVENT_GENERATION_FINISHED,
     EVENT_LOGIN_VERIFIED,
     EVENT_OUTPUT_COPIED,
-    EVENT_PROMPT_INJECTED,
     EVENT_SEND_CLICKED,
     EVENT_STREAMING_GENERATION,
     EVENT_THINKING_STARTED,

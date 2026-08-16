@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 from playwright.sync_api import Error
 
 from modules.core.src.agent_attachment_prompt_orchestrator import AttachmentPromptOrchestrator
@@ -19,11 +18,7 @@ from modules.shared.src import (
     EVENT_STREAMING_GENERATION,
     EVENT_THINKING_STARTED,
     EVENT_WEB_LOADED,
-    QwenCliError,
-    ResponseDetectionTimeoutError,
-    ResponseText,
 )
-from tests.helpers import make_test_orchestrator
 
 
 def _make_attachment_orchestrator() -> AttachmentPromptOrchestrator:

@@ -6,9 +6,11 @@ attachment selection, live logging, and session setup.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from pathlib import Path
 
+from rich.markup import escape
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -272,9 +274,6 @@ class FilePickerModal(ModalScreen[str | None]):
         self.dismiss(None)
 
 
-from rich.markup import escape
-
-
 class QwenTuiLogHandler(logging.Handler):
     """Logging handler streaming stdlib and structlog records to Textual RichLog in real-time."""
 
@@ -301,10 +300,8 @@ class QwenTuiLogHandler(logging.Handler):
             else:
                 line = f"[#64748B][{name_esc}][/] [#908fa0]{msg_esc}[/]"
 
-            try:
+            with contextlib.suppress(RuntimeError):
                 self._app.call_from_thread(self._app._log_msg, line)
-            except RuntimeError:
-                pass
         except Exception:
             self.handleError(record)
 

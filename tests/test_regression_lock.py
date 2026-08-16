@@ -504,6 +504,7 @@ class TestWriteOutputLock:
 
 def _make_orchestrator():
     from unittest.mock import MagicMock
+
     from modules.core.src.agent_attachment_prompt_orchestrator import AttachmentPromptOrchestrator
     return AttachmentPromptOrchestrator(
         browser=MagicMock(),

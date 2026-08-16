@@ -6,8 +6,8 @@ utility only. Logger obtained via structlog (external), not via another capabili
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 import contextlib
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any

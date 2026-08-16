@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 from playwright.sync_api import BrowserContext, sync_playwright
@@ -23,12 +22,10 @@ import contextlib
 from modules.core.src.agent_direct_prompt_orchestrator import DirectPromptOrchestrator
 from modules.core.src.capabilities_audit_repository import AuditRepository
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
-from modules.core.src.capabilities_file_uploader import FileUploader
 from modules.core.src.capabilities_observability_setup import ObservabilitySetup
 from modules.core.src.capabilities_prompt_injector import PromptInjector
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.core.src.capabilities_stream_monitor import StreamMonitor
-from modules.core.src.capabilities_workspace_provisioner import WorkspaceProvisioner
 from modules.core.src.utility_core_async_loop import isolate_thread_event_loop
 from modules.shared.src import AppConfig, RunContext
 from tests.pipeline_fixtures import restore_fixture_state

@@ -92,7 +92,7 @@ COMBINED_MESSAGE_SELECTOR: str = ", ".join(MESSAGE_SELECTORS)
 RESPONSE_CONTENT_SELECTOR: str = ".qwen-markdown, .markdown-body, .response-message-content, .qwen-markdown-text"
 
 STOP_BUTTON_SELECTORS: str = (
-    "button[aria-label*='Stop' i], button:has-text('Stop'), [class*='stop-btn'], [class*='icon-stop']"
+    "button[aria-label*='Stop' i], .message-input-right-button-send button:has(svg rect), button:has(svg rect), [class*='stop-btn'], [class*='icon-stop']"
 )
 SEND_DISABLED_SELECTORS: str = "button[aria-label*='Send' i][disabled], button[class*='send' i][disabled]"
 TYPING_INDICATOR_SELECTORS: str = (
@@ -109,16 +109,25 @@ JS_GET_RESPONSE_TEXT: str = r"""
     for (var ri = responseNodes.length - 1; ri >= 0; ri--) {
         var responseNode = responseNodes[ri];
         if (responseNode.closest('.qwen-chat-message-user') || responseNode.closest('.user-message-content')) continue;
+
         var outerContainer = responseNode.closest('.qwen-markdown, .chat-response-message');
         var targetNode = outerContainer || responseNode;
         var clone = targetNode.cloneNode(true);
-        var marginNodes = clone.querySelectorAll('.margin, .line-numbers, .monaco-editor-margin, [class*="line-numbers"], [class*="margin-view"]');
-        for (var m = 0; m < marginNodes.length; m++) {
-            marginNodes[m].remove();
+        var removeNodes = clone.querySelectorAll(
+            '.margin, .line-numbers, .monaco-editor-margin, [class*="line-numbers"], [class*="margin-view"], [class*="thinking"], [class*="status-card"], button, svg'
+        );
+        for (var m = 0; m < removeNodes.length; m++) {
+            removeNodes[m].remove();
         }
-        var responseText = (clone.innerText || '').trim();
+        var responseText = (clone.innerText || '').replace(/\u00a0/g, ' ').trim();
         if (responseText.startsWith("Thinking completed")) {
             responseText = responseText.replace(/^Thinking completed\s*/, '');
+        }
+        if (responseText.endsWith("Skip")) {
+            responseText = responseText.replace(/\s*Skip$/, '').trim();
+        }
+        if (responseText.includes("Evaluating design trade-offs") || responseText === "Skip") {
+            continue;
         }
         if (responseText.length > 0) return responseText;
     }
