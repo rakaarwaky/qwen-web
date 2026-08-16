@@ -14,6 +14,7 @@ from typing import Any
 
 from mcp.server import InitializationOptions, Server
 from mcp.server.stdio import stdio_server
+import mcp.types as types
 from mcp.types import TextContent, Tool
 from mcp_types._types import ServerCapabilities, ToolsCapability
 
@@ -182,35 +183,6 @@ MCP_TOOL_SPECS: list[dict[str, Any]] = [
 ]
 
 
-async def _handle_list_tools() -> ListToolsResult:
-    return ListToolsResult(tools=TOOLS)
-
-
-async def _handle_call_tool(name: str, arguments: dict[str, Any] | None) -> CallToolResult:
-    """Route tool calls to the appropriate handler."""
-    handler = TOOL_HANDLERS.get(name)
-    if handler is None:
-        raise Exception(f"Unknown tool: {name}")
-
-    try:
-        result = await handler(**(arguments or {}))
-        content_blocks: list[ContentBlock] = [TextContent(type="text", text=r) for r in result]
-        return CallToolResult(content=content_blocks, is_error=False)
-    except Exception as exc:
-        log.error("Tool execution error: %s", exc)
-        return CallToolResult(content=[], is_error=True)
-
-
-async def _handle_list_resources() -> ListResourcesResult:
-    """Return empty resource list."""
-    return ListResourcesResult(resources=[])
-
-
-async def _handle_read_resource(_uri: str) -> ReadResourceResult:
-    """Return empty resource content."""
-    return ReadResourceResult(contents=[])
-
-
 # ─── Server runner ──────────────────────────────────────────────────────────
 
 
@@ -228,25 +200,44 @@ def run_mcp_server() -> None:
             )
             server = Server("Qwen-Web")
 
-            @server.list_tools()
-            async def handle_list_tools() -> list[Tool]:
-                return TOOLS
+            async def handle_list_tools(
+                params: types.PaginatedRequestParams | None, context: Any
+            ) -> types.ListToolsResult:
+                return types.ListToolsResult(tools=TOOLS)
 
-            @server.call_tool()
-            async def handle_call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextContent]:
-                handler = TOOL_HANDLERS.get(name)
+            async def handle_call_tool(
+                params: types.CallToolRequestParams, context: Any
+            ) -> types.CallToolResult:
+                handler = TOOL_HANDLERS.get(params.name)
                 if handler is None:
-                    raise ValueError(f"Unknown tool: {name}")
-                result = await handler(**(arguments or {}))
-                return [TextContent(type="text", text=r) for r in result]
+                    raise ValueError(f"Unknown tool: {params.name}")
+                try:
+                    result = await handler(**(params.arguments or {}))
+                    content_blocks: list[types.TextContent] = [
+                        types.TextContent(type="text", text=r) for r in result
+                    ]
+                    return types.CallToolResult(content=content_blocks, is_error=False)
+                except Exception as exc:
+                    log.error("Tool execution error: %s", exc)
+                    return types.CallToolResult(
+                        content=[types.TextContent(type="text", text=f"Error: {exc}")],
+                        is_error=True,
+                    )
 
-            @server.list_resources()
-            async def handle_list_resources() -> list[Any]:
-                return []
+            async def handle_list_resources(
+                params: types.PaginatedRequestParams | None, context: Any
+            ) -> types.ListResourcesResult:
+                return types.ListResourcesResult(resources=[])
 
-            @server.read_resource()
-            async def handle_read_resource(_uri: Any) -> str:
-                return ""
+            async def handle_read_resource(
+                params: types.ReadResourceRequestParams, context: Any
+            ) -> types.ReadResourceResult:
+                return types.ReadResourceResult(contents=[])
+
+            server.add_request_handler("tools/list", types.PaginatedRequestParams, handle_list_tools)
+            server.add_request_handler("tools/call", types.CallToolRequestParams, handle_call_tool)
+            server.add_request_handler("resources/list", types.PaginatedRequestParams, handle_list_resources)
+            server.add_request_handler("resources/read", types.ReadResourceRequestParams, handle_read_resource)
 
             await server.run(read_stream, write_stream, initialization_options=init_opts)
 
