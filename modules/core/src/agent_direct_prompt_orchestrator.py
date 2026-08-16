@@ -12,6 +12,7 @@ from pathlib import Path
 from playwright.sync_api import Page
 
 from modules.core.src.utility_core_config_factory import build_app_config
+from modules.core.src.utility_core_dom_helper import setup_lifecycle_state
 from modules.core.src.utility_core_dom_query import latest_message_text
 from modules.core.src.utility_core_error_mapping import to_error_response
 from modules.shared.src.contract_core_aggregate import IDirectPromptAggregate
@@ -26,11 +27,6 @@ from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_OUTPUT,
 )
-from modules.shared.src.taxonomy_core_entity import (
-    LifecycleEmitter,
-    LifecycleGate,
-    LifecycleState,
-)
 from modules.shared.src.taxonomy_core_error import (
     ResponseDetectionTimeoutError,
 )
@@ -43,7 +39,6 @@ from modules.shared.src.taxonomy_core_event import (
     EVENT_STREAMING_GENERATION,
     EVENT_THINKING_STARTED,
     EVENT_WEB_LOADED,
-    LifecycleEvent,
     QwenEventType,
 )
 from modules.shared.src.taxonomy_core_vo import (
@@ -109,9 +104,6 @@ class DirectPromptOrchestrator(IDirectPromptAggregate):
         self, page: Page, filepath: Path, prompt: str, timeout_sec: int, active_cfg: AppConfig
     ) -> str:
         logger = self._observability.get_logger()
-        gate = LifecycleGate(logger)
-        state = LifecycleState()
-        emitter = LifecycleEmitter(logger, gate=gate)
         direct_prompt_events: tuple[QwenEventType, ...] = (
             EVENT_WEB_LOADED,
             EVENT_PROMPT_INJECTED,
@@ -122,10 +114,7 @@ class DirectPromptOrchestrator(IDirectPromptAggregate):
             EVENT_GENERATION_FINISHED,
             EVENT_OUTPUT_COPIED,
         )
-        for event in direct_prompt_events:
-            def _mark(_evt: LifecycleEvent, name: QwenEventType = event) -> None:
-                state.mark(name)
-            emitter.on(event, _mark)
+        emitter, state = setup_lifecycle_state(logger, direct_prompt_events)
 
         self._browser.navigate_to_chat(page, emitter)
         self._browser.check_auth(page)

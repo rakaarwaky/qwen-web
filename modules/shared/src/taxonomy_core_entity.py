@@ -147,6 +147,7 @@ class LifecycleState:
 
     def __init__(self) -> None:
         self.web_loaded = False
+        self.login_verified = False
         self.file_uploaded = False
         self.prompt_injected = False
         self.document_parsed = False
@@ -162,6 +163,7 @@ class LifecycleState:
         key = str(event_name)
         flags = {
             str(QwenEventType.WEB_LOADED): "web_loaded",
+            str(QwenEventType.LOGIN_VERIFIED): "login_verified",
             str(QwenEventType.FILE_UPLOADED): "file_uploaded",
             str(QwenEventType.PROMPT_INJECTED): "prompt_injected",
             str(QwenEventType.DOCUMENT_PARSED): "document_parsed",
@@ -184,15 +186,27 @@ class LifecycleLogger(Protocol):
 
 
 class LifecycleGate:
-    """Strict predecessor gate for the ordered processing lifecycle."""
+    """Strict predecessor gate for the ordered processing lifecycle.
 
-    def __init__(self, logger: Callable[..., object] | LifecycleLogger | None = None) -> None:
+    The accepted event order is supplied per run via ``sequence`` (defaulting to
+    the global ``PIPELINE_EVENT_SEQUENCE``). This lets each pipeline declare the
+    exact events it will emit — e.g. a no-attachment run omits
+    ``DOCUMENT_PARSED`` so the gate no longer requires it — while still enforcing
+    that ``EVENT_LOGIN_VERIFIED`` precedes every other execution event.
+    """
+
+    def __init__(
+        self,
+        logger: Callable[..., object] | LifecycleLogger | None = None,
+        sequence: tuple[QwenEventType, ...] | None = None,
+    ) -> None:
         self._logger = logger
         self._completed: list[QwenEventType] = []
         self.rejections: list[dict[str, str]] = []
+        ordered = sequence if sequence is not None else PIPELINE_EVENT_SEQUENCE
         self._predecessor = {
-            event: PIPELINE_EVENT_SEQUENCE[index - 1]
-            for index, event in enumerate(PIPELINE_EVENT_SEQUENCE)
+            event: ordered[index - 1]
+            for index, event in enumerate(ordered)
             if index > 0
         }
 

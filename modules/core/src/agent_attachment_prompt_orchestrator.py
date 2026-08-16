@@ -11,6 +11,7 @@ from pathlib import Path
 from playwright.sync_api import Page
 
 from modules.core.src.utility_core_config_factory import build_app_config
+from modules.core.src.utility_core_dom_helper import setup_lifecycle_state
 from modules.core.src.utility_core_dom_query import latest_message_text
 from modules.core.src.utility_core_error_mapping import to_error_response
 from modules.shared.src.contract_core_aggregate import IAttachmentPromptAggregate
@@ -27,11 +28,6 @@ from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_OUTPUT,
 )
-from modules.shared.src.taxonomy_core_entity import (
-    LifecycleEmitter,
-    LifecycleGate,
-    LifecycleState,
-)
 from modules.shared.src.taxonomy_core_error import (
     ResponseDetectionTimeoutError,
     UploadFailureError,
@@ -39,8 +35,6 @@ from modules.shared.src.taxonomy_core_error import (
 from modules.shared.src.taxonomy_core_event import (
     EVENT_PROMPT_INJECTED,
     PIPELINE_EVENT_SEQUENCE,
-    LifecycleEvent,
-    QwenEventType,
 )
 from modules.shared.src.taxonomy_core_vo import (
     AttachmentPath,
@@ -131,13 +125,7 @@ class AttachmentPromptOrchestrator(IAttachmentPromptAggregate):
         self, page: Page, filepath: Path, att_path: Path, timeout_sec: int, active_cfg: AppConfig
     ) -> str:
         logger = self._observability.get_logger()
-        gate = LifecycleGate(logger)
-        state = LifecycleState()
-        emitter = LifecycleEmitter(logger, gate=gate)
-        for event in PIPELINE_EVENT_SEQUENCE:
-            def _mark(_evt: LifecycleEvent, name: QwenEventType = event) -> None:
-                state.mark(name)
-            emitter.on(event, _mark)
+        emitter, state = setup_lifecycle_state(logger, PIPELINE_EVENT_SEQUENCE)
 
         prompt = filepath.read_text(encoding="utf-8").strip()
 

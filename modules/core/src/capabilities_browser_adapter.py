@@ -34,7 +34,11 @@ from modules.shared.src.taxonomy_core_constant import (
 )
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_error import AuthRequiredError, BrowserLaunchError
-from modules.shared.src.taxonomy_core_event import EVENT_NETWORK_RECONNECTING, EVENT_WEB_LOADED
+from modules.shared.src.taxonomy_core_event import (
+    EVENT_LOGIN_VERIFIED,
+    EVENT_NETWORK_RECONNECTING,
+    EVENT_WEB_LOADED,
+)
 
 log = structlog.get_logger("browser")
 
@@ -145,10 +149,18 @@ class BrowserAdapter(IBrowserProtocol):
             log.warning("Failed to reset page: %s", e)
 
     def navigate_to_chat(self, page: Page, emitter: LifecycleEmitter) -> None:
-        """Navigate to chat.qwen.ai, emit WEB_LOADED, and verify authenticated session."""
+        """Navigate to chat.qwen.ai, verify the authenticated session, emit login
+        and page-loaded lifecycle events in strict order.
+
+        ``_assert_on_chat_page`` raises ``AuthRequiredError`` when the session is
+        missing or redirected to a login page, so ``EVENT_LOGIN_VERIFIED`` is only
+        emitted for a genuinely authenticated chat — which the lifecycle gate then
+        requires before any further execution event.
+        """
         self._goto_chat(page, 30_000, 15_000)
         _assert_on_chat_page(page)
         self._start_new_chat(page)
+        emitter.emit(EVENT_LOGIN_VERIFIED, {"url": page.url})
         emitter.emit(EVENT_WEB_LOADED, {"url": page.url})
 
     def _start_new_chat(self, page: Page) -> None:
