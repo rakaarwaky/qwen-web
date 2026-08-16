@@ -3,7 +3,7 @@
 import unittest
 from pathlib import Path
 
-from modules.core.src.agent_core_orchestrator import CoreOrchestrator
+from modules.core.src.agent_direct_prompt_orchestrator import DirectPromptOrchestrator as CoreOrchestrator
 from modules.shared.src import AppConfig, AuthRequiredError, PromptInjectionError, RunContext
 
 
@@ -37,14 +37,7 @@ class TestQwenAutoContract(unittest.TestCase):
 
     def test_core_aggregate_contract_methods(self) -> None:
         expected_methods = [
-            "send_file",
-            "process_single_file",
-            "process_batch",
-            "process_watcher",
-            "send_prompt",
-            "setup_session",
-            "get_audit_log",
-            "init_workspace",
+            "process_direct_prompt",
         ]
         for m in expected_methods:
             self.assertTrue(hasattr(CoreOrchestrator, m), f"CoreOrchestrator missing method {m}")

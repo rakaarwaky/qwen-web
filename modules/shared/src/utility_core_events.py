@@ -24,5 +24,6 @@ def is_stability_satisfied(
     is_complete: bool,
 ) -> bool:
     """Decide whether the response has stabilized enough to accept it."""
-    force_complete = stable_count >= stability_checks * 2
-    return bool(has_thinking and has_streaming and stable_count >= stability_checks and (is_complete or force_complete))
+    _ = (has_thinking, has_streaming)
+    force_complete = stable_count >= (stability_checks * 6)
+    return bool(stable_count >= stability_checks and (is_complete or force_complete))

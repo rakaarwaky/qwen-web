@@ -8,14 +8,11 @@ Production-grade Python CLI + MCP server automating **chat.qwen.ai** (no API key
 
 Dependency order (bottom-up):
 
-```
-taxonomy → utility / contract → capabilities → agent → surface → root
-```
-
 Enforced by `lint-arwaky-cli`. Import rules:
 
-| Layer                  | Purpose                          | Imports                     | Forbids                                  |
-| ---------------------- | -------------------------------- | --------------------------- | ---------------------------------------- |
+
+| Layer            | Purpose                          | Imports                     | Forbids                                  |
+| ------------------ | ---------------------------------- | ----------------------------- | ------------------------------------------ |
 | **Taxonomy**     | VOs, entities, errors, constants | Taxonomy                    | All else                                 |
 | **Utility**      | Stateless helpers                | Taxonomy                    | Contract/Capabilities/Agent/Surface/Root |
 | **Contract**     | Protocol ABCs, aggregates        | Taxonomy, Contract          | Agent/Surface/Capabilities/Root          |
@@ -44,19 +41,18 @@ lint_arwaky.config.yaml, pyproject.toml, requirements.txt
 pip install -r requirements.txt
 python3 -m playwright install chromium
 
-qwen-web-cli                 # interactive
-qwen-web-cli --watch --headless
-qwen-web-cli -i input -o output --headless
-qwen-web-cli -i prompt.md -o output/result.md --headless
-qwen-web-cli --login
-qwen-web-mcp                 # MCP server
+qwen-web-cli                                                    # interactive TUI
+qwen-web-cli prompt-direct -t "Hello" -o output.md --headless # direct inline
+qwen-web-cli prompt-only -i prompt.md -o output.md --headless # single prompt file
+qwen-web-cli prompt-with-attachment -i p.md -a att.file --headless # prompt with attachment
+qwen-web-cli login                                             # login session
+qwen-web-mcp                                                   # MCP server
 ```
 
 ## Tests
 
 ```bash
 pytest tests/ -v
-pytest tests/test_qwen_client_behavior.py -v   # behavior lock (~90s)
 pytest tests/ -m e2e -v
 pytest tests/ -m slow -v
 ```

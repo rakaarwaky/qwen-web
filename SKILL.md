@@ -10,22 +10,20 @@ Use this skill when an AI agent needs to send prompts or document files to **Qwe
 
 ## Available MCP Tools
 
-| MCP Tool Name         | Description                                  | Key Parameters                                                                    |
-| :---------------------- | :--------------------------------------------- | :---------------------------------------------------------------------------------- |
-| `qwen_send_prompt`    | Send direct prompt text string to Qwen AI    | `prompt` (str), `timeout_sec` (int, default 120), `headless` (bool, default true) |
-| `qwen_process_single` | Process a single Markdown prompt file        | `input_file` (str), `output_file` (optional str), `headless` (bool)               |
-| `qwen_process_batch`  | Process an entire directory of prompt files  | `input_dir` (optional str), `output_dir` (optional str), `headless` (bool)        |
-| `qwen_start_watcher`  | Continuous folder watcher loop for `input/`  | `interval_sec` (int, default 3), `headless` (bool)                                |
-| `qwen_setup_session`  | Launch visible browser for manual login      | None                                                                              |
-| `qwen_get_audit_log`  | Retrieve execution audit trail JSONL records | `limit` (int, default 20)                                                         |
+| MCP Tool Name               | Description                                      | Key Parameters                                                                                  |
+| :-------------------------- | :----------------------------------------------- | :---------------------------------------------------------------------------------------------- |
+| `process_direct_prompt`     | Process a direct text prompt string              | `prompt` (str), `timeout_sec` (int, default 120), `headless` (bool, default true)               |
+| `process_prompt_file_only`  | Process a single Markdown prompt file            | `input_file` (str), `output_file` (optional str), `headless` (bool)                             |
+| `process_prompt_with_attachment` | Process a prompt file with a document attachment | `prompt_file` (str), `attachment_file` (str), `output_file` (optional str), `headless` (bool) |
+| `setup_session`             | Launch visible browser for manual login          | None                                                                                            |
 
 ---
 
 ## Usage Guidelines for AI Agents
 
-### Direct Text Queries (`qwen_send_prompt`)
+### Direct Text Queries (`process_direct_prompt`)
 
-Use for one-shot prompts where text is provided directly.
+Use for one-shot prompts where text is provided directly. Supports long deep-thinking prompts up to 900s (15 min) with proactive 30s cloud reload sync for network resilience.
 
 ```json
 {
@@ -35,7 +33,7 @@ Use for one-shot prompts where text is provided directly.
 }
 ```
 
-### File Processing (`qwen_process_single`)
+### File Processing (`process_prompt_file_only`)
 
 Use when processing an existing Markdown prompt file stored on disk.
 
@@ -46,42 +44,21 @@ Use when processing an existing Markdown prompt file stored on disk.
 }
 ```
 
-### Batch Processing (`qwen_process_batch`)
+### File Processing With Attachment (`process_prompt_with_attachment`)
 
-Use to process all pending files in the input directory at once.
-
-```json
-{
-  "input_dir": "input/",
-  "output_dir": "output/",
-  "headless": true
-}
-```
-
-### Continuous Watcher (`qwen_start_watcher`)
-
-Use for long-running monitoring of the input directory.
+Use when the prompt file must be sent together with a document attachment.
 
 ```json
 {
-  "interval_sec": 3,
-  "headless": true
+  "prompt_file": "input/role-architect/task_001.md",
+  "attachment_file": "input/role-architect/docs/spec.pdf",
+  "output_file": "output/role-architect/task_001.md"
 }
 ```
 
-### Session Authentication (`qwen_setup_session`)
+### Session Authentication (`setup_session`)
 
-If session cookies expire or CAPTCHA is detected, invoke `qwen_setup_session` to launch a visible browser window for manual user login.
-
-### Audit Trail (`qwen_get_audit_log`)
-
-Retrieve recent execution records for debugging or monitoring.
-
-```json
-{
-  "limit": 20
-}
-```
+If session cookies expire or CAPTCHA is detected, invoke `setup_session` to launch a visible browser window for manual user login.
 
 ---
 
@@ -89,7 +66,7 @@ Retrieve recent execution records for debugging or monitoring.
 
 | Exception | Meaning | Agent Action |
 | :--- | :--- | :--- |
-| `AuthRequiredError` | Session expired or CAPTCHA detected | Call `qwen_setup_session` for re-authentication |
+| `AuthRequiredError` | Session expired or CAPTCHA detected | Call `setup_session` for re-authentication |
 | `NetworkTimeoutError` | Browser network timeout | Retry with increased `timeout_sec` |
 | `OutputValidationError` | Response contains error page or CAPTCHA | Retry or check input quality |
 | `CircuitBreakerOpenError` | Too many consecutive failures | Wait and retry later |

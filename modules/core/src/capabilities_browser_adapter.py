@@ -6,6 +6,7 @@ utility only. Logger obtained via structlog (external), not via another capabili
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -23,17 +24,22 @@ from tenacity import RetryCallState, Retrying, stop_after_attempt, wait_fixed
 
 from modules.core.src.utility_core_async_loop import isolate_thread_event_loop
 from modules.core.src.utility_core_browser_binary import find_chrome_binary
-from modules.core.src.utility_core_dom_helper import is_any_visible
+from modules.core.src.utility_core_dom_helper import click_first_visible_enabled, is_any_visible
 from modules.shared.src.contract_core_protocol import IBrowserProtocol
 from modules.shared.src.taxonomy_core_constant import (
     AUTH_KEYWORDS,
     CHAT_URL,
     LOGIN_FORM_SELECTORS,
+    NEW_CHAT_SELECTORS,
     TEXTAREA_SELECTOR,
 )
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_error import AuthRequiredError, BrowserLaunchError
-from modules.shared.src.taxonomy_core_event import EVENT_NETWORK_RECONNECTING, EVENT_WEB_LOADED
+from modules.shared.src.taxonomy_core_event import (
+    EVENT_LOGIN_VERIFIED,
+    EVENT_NETWORK_RECONNECTING,
+    EVENT_WEB_LOADED,
+)
 
 log = structlog.get_logger("browser")
 
@@ -86,22 +92,23 @@ class SessionCheck:
 
 
 def _assert_on_chat_page(page: Page) -> None:
-    """Raise AuthRequiredError if the page is a login/auth page (URL + DOM triple-check)."""
+    """Raise AuthRequiredError if the page is a login/auth/guest page (URL + DOM check)."""
     current_url = page.url.lower()
 
     if any(k in current_url for k in AUTH_KEYWORDS):
         raise AuthRequiredError(
-            f"Not authenticated — browser is on login page ({page.url}). "
-            "Run 'qwen-web-cli --login' to save your session first."
+            f"Not authenticated — browser is on login or guest page ({page.url}). "
+            "Please run 'qwen-web-cli --login' or click Login in TUI to authenticate first."
+        )
+
+    combined_login = ", ".join(LOGIN_FORM_SELECTORS)
+    if is_any_visible(page, combined_login):
+        raise AuthRequiredError(
+            f"Not authenticated — login form/button detected on page ({page.url}). "
+            "Please run 'qwen-web-cli --login' or click Login in TUI to authenticate first."
         )
 
     if not page.query_selector(TEXTAREA_SELECTOR):
-        combined_login = ", ".join(LOGIN_FORM_SELECTORS)
-        if is_any_visible(page, combined_login):
-            raise AuthRequiredError(
-                f"Not authenticated — login form detected ({LOGIN_FORM_SELECTORS}). "
-                "Run 'qwen-web-cli --login' to save your session first."
-            )
         log.warning("chat_textarea_missing_but_no_login_form_detected", url=page.url)
 
 
@@ -124,11 +131,20 @@ class BrowserAdapter(IBrowserProtocol):
         load_timeout_ms: int,
     ) -> None:
         """Navigate to chat.qwen.ai and wait for the DOM to load."""
-        page.goto(
-            CHAT_URL,
-            wait_until="domcontentloaded",
-            timeout=navigation_timeout_ms,
-        )
+        try:
+            page.goto(
+                CHAT_URL,
+                wait_until="domcontentloaded",
+                timeout=navigation_timeout_ms,
+            )
+        except Error as err:
+            log.warning("Initial page.goto failed (%s), retrying navigation...", err)
+            page.wait_for_timeout(1500)
+            page.goto(
+                CHAT_URL,
+                wait_until="domcontentloaded",
+                timeout=navigation_timeout_ms,
+            )
         try:
             page.wait_for_load_state("domcontentloaded", timeout=load_timeout_ms)
         except Error as e:
@@ -143,10 +159,43 @@ class BrowserAdapter(IBrowserProtocol):
             log.warning("Failed to reset page: %s", e)
 
     def navigate_to_chat(self, page: Page, emitter: LifecycleEmitter) -> None:
-        """Navigate to chat.qwen.ai, emit WEB_LOADED, and verify authenticated session."""
+        """Navigate to chat.qwen.ai, verify session, and emit lifecycle events step-by-step:
+
+        Step 1: Navigate to chat page
+        Step 2: Assert authentication session
+        Step 3: Start clean conversation state
+        Step 4: Emit lifecycle events (EVENT_WEB_LOADED, EVENT_LOGIN_VERIFIED)
+        """
+        # Step 1: Navigate to chat URL
         self._goto_chat(page, 30_000, 15_000)
+
+        # Step 2: Verify user authentication
         _assert_on_chat_page(page)
+
+        # Step 3: Start clean conversation state
+        self._start_new_chat(page)
+
+        # Step 4: Emit lifecycle events
         emitter.emit(EVENT_WEB_LOADED, {"url": page.url})
+        emitter.emit(EVENT_LOGIN_VERIFIED, {"url": page.url})
+
+    def _start_new_chat(self, page: Page, opt_in: bool = True) -> None:
+        """Start a clean Qwen conversation so stale cards cannot affect monitoring."""
+        if not opt_in:
+            return
+        try:
+            if "/c/" in page.url.lower():
+                log.info("Active chat thread detected (%s). Navigating to root chat URL...", page.url)
+                page.goto(CHAT_URL, wait_until="domcontentloaded", timeout=15_000)
+                page.wait_for_timeout(1000)
+
+            if click_first_visible_enabled(page, NEW_CHAT_SELECTORS, timeout_ms=3000):
+                page.wait_for_timeout(800)
+                with contextlib.suppress(Error, TimeoutError):
+                    page.wait_for_selector("textarea.message-input-textarea, textarea", state="visible", timeout=3000)
+                log.debug("Started a clean Qwen chat before dispatch")
+        except Error as exc:
+            log.debug("New Chat reset unavailable; continuing with current chat: %s", exc)
 
     def check_auth(self, page: Page) -> None:
         """Raise AuthRequiredError if the page is on a login/auth URL or login form detected."""
@@ -238,8 +287,11 @@ class BrowserAdapter(IBrowserProtocol):
 
         chrome_args = [
             "--disable-blink-features=AutomationControlled",
-            "--no-sandbox",
+            "--disable-session-crashed-bubble",
+            "--disable-infobars",
         ]
+        if cfg.disable_sandbox:
+            chrome_args.append("--no-sandbox")
 
         if cfg.headless:
             chrome_args.extend(
@@ -253,9 +305,6 @@ class BrowserAdapter(IBrowserProtocol):
             "user_data_dir": str(cfg.session_path),
             "headless": cfg.headless,
             "permissions": ["clipboard-read", "clipboard-write"],
-            "user_agent": (
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-            ),
             "args": chrome_args,
             "viewport": {"width": 1280, "height": 800},
         }
@@ -275,6 +324,48 @@ class BrowserAdapter(IBrowserProtocol):
                         "**/*.{png,jpg,jpeg,gif,webp,mp4,mp3,woff,woff2,ttf,otf}",
                         lambda r: r.abort(),
                     )
+
+                def _sanitize_url(url: str) -> str:
+                    """Sanitize URL for logging to prevent credential/query token exfiltration."""
+                    try:
+                        from urllib.parse import urlparse, urlunparse
+
+                        parsed = urlparse(url)
+                        return urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
+                    except Exception:
+                        return url.split("?")[0]
+
+                def attach_page_diagnostics(page: Page) -> None:
+                    def on_request_failed(request: Any) -> None:
+                        log.warning("browser_request_failed", url=_sanitize_url(request.url), error=request.failure)
+
+                    def on_console(message: Any) -> None:
+                        if message.type in {"error", "warning"}:
+                            log.warning("browser_console_message", type=message.type, text=message.text)
+
+                    def on_request(request: Any) -> None:
+                        if request.method in {"POST", "PUT", "PATCH"} and "qwen.ai" in request.url:
+                            log.info("browser_mutation_request", method=request.method, url=_sanitize_url(request.url))
+
+                    def on_response(response: Any) -> None:
+                        url = response.url.lower()
+                        if response.status >= 400 and any(
+                            token in url for token in ("chat", "completion", "generate", "conversation", "api")
+                        ):
+                            log.warning("browser_http_error", status=response.status, url=_sanitize_url(response.url))
+                        elif response.request.method in {"POST", "PUT", "PATCH"} and "qwen.ai" in url:
+                            log.info(
+                                "browser_mutation_response", status=response.status, url=_sanitize_url(response.url)
+                            )
+
+                    page.on("request", on_request)
+                    page.on("requestfailed", on_request_failed)
+                    page.on("console", on_console)
+                    page.on("response", on_response)
+
+                for existing_page in ctx.pages:
+                    attach_page_diagnostics(existing_page)
+                ctx.on("page", attach_page_diagnostics)
                 try:
                     yield ctx
                 finally:

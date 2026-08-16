@@ -11,8 +11,8 @@ from typing import Any, TypeVar
 
 from playwright.sync_api import Error, Locator, Page
 
-from modules.shared.src.taxonomy_config_vo import SenderConfig
 from modules.shared.src.taxonomy_core_constant import SEND_SELECTORS
+from modules.shared.src.taxonomy_core_vo import SenderConfig
 
 T = TypeVar("T")
 
@@ -114,7 +114,7 @@ def click_first_visible_enabled(
     for selector in selectors:
         try:
             loc = page.locator(selector).first
-            if loc.is_visible(timeout=timeout_ms):
+            if loc.is_visible(timeout=timeout_ms) and loc.is_enabled(timeout=timeout_ms):
                 loc.click()
                 return True
         except Error:
@@ -262,3 +262,21 @@ def first_visible_element_handle(
         except Error:
             continue
     return None
+
+
+def setup_lifecycle_state(logger: Any, events: Sequence[Any]) -> tuple[Any, Any]:
+    """Setup LifecycleGate, LifecycleState, and LifecycleEmitter with event listeners."""
+    from modules.shared.src.taxonomy_core_entity import LifecycleEmitter, LifecycleGate, LifecycleState
+    from modules.shared.src.taxonomy_core_event import EVENT_LOGIN_VERIFIED
+
+    gate_sequence = tuple(events) if EVENT_LOGIN_VERIFIED in events else (EVENT_LOGIN_VERIFIED, *events)
+    gate = LifecycleGate(logger, gate_sequence)
+    state = LifecycleState()
+    emitter = LifecycleEmitter(logger, gate=gate)
+    for event in gate_sequence:
+
+        def _mark(_evt: Any, name: Any = event) -> None:
+            state.mark(name)
+
+        emitter.on(event, _mark)
+    return emitter, state

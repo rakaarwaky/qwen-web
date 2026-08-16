@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.2.0] - 2026-08-17
+
+### Added
+
+- feat(core): implement proactive **30s Cloud Reload Sync** in `capabilities_stream_monitor.py` to prevent SSE/WAF connection resets during long runs
+- feat(core): extend generation timeout ceiling to **900s (15 minutes)** for massive 40KB+ enterprise reports
+- feat(core): implement instant **DOM-Stable Exit Condition** (~2s exit detection upon Qwen typing completion)
+- feat(core): implement Thread Isolation in `_start_new_chat` (forces `page.goto(CHAT_URL)` when URL contains `/c/*` thread paths)
+- feat(core): improve XDG workspace provisioner symlink logic (`~/.local/share/qwen-web/output`, `log`, `qwen_session`)
+- feat(cli): add system health diagnostic command `qwen-web-cli doctor [--json]` for self-diagnostics
+- feat(cli): add `--json` option to CLI subcommands for machine-readable AI agent output
+- feat(tui): add `ConfirmModal` dialog before destructive session deletion
+- feat(mcp): add `check_session` and `delete_session` tools to MCP server catalog
+- feat(mcp): introduce machine-readable structured JSON response envelopes (`success`, `output_path`, `run_id`, `error`)
+- feat(mcp): add pre-flight input validation and path normalization (`~` & relative paths)
+- feat(docs): overhaul README.md to sleek minimalist monochrome style and align CLI/MCP FRDs
+
+### Fixed
+
+- fix(tui): remove invalid default attachment paths (`FILE.md`, `DOC.md`) so optional fields do not fail validation
+- fix(tui): dynamic package versioning in header title via `importlib.metadata`
+- fix(tui): change quit key binding from `q` to `ctrl+q` to prevent accidental exits while typing
+- fix(core): auto-generate timestamped output filename (`qwen_output_YYYYMMDD_HHMMSS.md`) when target path is a directory
+- fix(mcp): fix `setup_session` contract delegation bug by injecting `ISetupAggregate`
+- fix(cli): enhance non-TTY error message with actionable subcommand guidance
+
+---
+
 ## [4.1.0] - 2026-08-14
 
 ### Added

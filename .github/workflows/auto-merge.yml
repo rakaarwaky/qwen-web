@@ -35,6 +35,8 @@ jobs:
         run: |
           # --auto holds the PR until the branch-protection/required checks
           # pass, then merges with squash. Idempotent across re-runs.
-          gh pr merge "$PR_NUMBER" --auto --squash \
+          gh pr merge "$PR_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --auto --squash \
             --subject "$PR_TITLE" || \
             echo "Auto-merge not available yet (e.g. checks still pending) — a later event will retry."

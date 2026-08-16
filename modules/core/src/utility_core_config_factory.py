@@ -7,20 +7,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from modules.shared.src.taxonomy_config_vo import AppConfig
 from modules.shared.src.taxonomy_core_constant import (
-    DEFAULT_DONE,
-    DEFAULT_FAILED,
     DEFAULT_LOG,
     DEFAULT_OUTPUT,
-    DEFAULT_PROC,
     DEFAULT_SESSION,
-    DEFAULT_TODO,
 )
+from modules.shared.src.taxonomy_core_vo import AppConfig
 
 
 def build_app_config(
-    mode: str,
+    mode: str = "",
     *,
     input_path: Path | None = None,
     output_path: Path | None = None,
@@ -33,6 +29,8 @@ def build_app_config(
     log_path: Path | None = None,
     timeout: int = 300,
     prompt_file: Path | None = None,
+    prompt_path: Path | None = None,
+    file_path: Path | None = None,
     chrome_profile: str = "qwen-cli-profile",
     storage_state_file: Path | None = None,
     disable_sandbox: bool = True,
@@ -45,19 +43,22 @@ def build_app_config(
     retry_failed: bool = False,
 ) -> AppConfig:
     """Build a complete AppConfig while preserving every runtime override."""
+    dummy_path = Path("/dev/null")
     return AppConfig(
         mode=mode,
-        input_path=input_path or DEFAULT_TODO,
+        input_path=input_path or dummy_path,
         output_path=output_path or DEFAULT_OUTPUT,
-        done_path=done_path or DEFAULT_DONE,
-        failed_path=failed_path or DEFAULT_FAILED,
-        proc_path=proc_path or DEFAULT_PROC,
+        done_path=done_path or dummy_path,
+        failed_path=failed_path or dummy_path,
+        proc_path=proc_path or dummy_path,
         session_path=session_path or DEFAULT_SESSION,
         log_path=log_path or DEFAULT_LOG,
         interval=interval,
         timeout=timeout,
         headless=headless,
         prompt_file=prompt_file,
+        prompt_path=prompt_path,
+        file_path=file_path,
         chrome_profile=chrome_profile,
         storage_state_file=storage_state_file,
         disable_sandbox=disable_sandbox,
@@ -69,3 +70,14 @@ def build_app_config(
         circuit_breaker_window=circuit_breaker_window,
         retry_failed=retry_failed,
     )
+
+
+def resolve_pipeline_output_path(prompt_file: Path | str, output_file: Path | str | None = None) -> tuple[Path, Path]:
+    """Resolve prompt file and output file paths cleanly for prompt pipeline agents."""
+    p_path = Path(prompt_file).resolve()
+    if not p_path.is_file():
+        raise FileNotFoundError(f"Input file not found or is a directory: {p_path}")
+    out_path = Path(output_file).resolve() if output_file else DEFAULT_OUTPUT / p_path.name
+    if out_path.is_dir():
+        out_path = out_path / f"{p_path.stem}_output.md"
+    return p_path, out_path

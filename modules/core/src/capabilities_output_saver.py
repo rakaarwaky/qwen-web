@@ -19,8 +19,11 @@ from modules.shared.src.taxonomy_core_constant import (
 from modules.shared.src.taxonomy_core_error import OutputWriteError
 from modules.shared.src.taxonomy_core_vo import (
     AtomicWriteFlag,
+    FilePath,
     GenerateSidecarFlag,
     IncludeHeaderFlag,
+    OutputChars,
+    ResponseText,
     RunContext,
 )
 from modules.shared.src.utility_core_text import build_metadata_header, strip_ui_noise, utc_now_iso
@@ -36,9 +39,9 @@ class Saver(ISaverProtocol):
 
     def __init__(
         self,
-        include_header: IncludeHeaderFlag = DEFAULT_INCLUDE_HEADER,
-        generate_sidecar: GenerateSidecarFlag = DEFAULT_GENERATE_SIDECAR,
-        atomic_write: AtomicWriteFlag = DEFAULT_ATOMIC_WRITE,
+        include_header: IncludeHeaderFlag = IncludeHeaderFlag(DEFAULT_INCLUDE_HEADER),
+        generate_sidecar: GenerateSidecarFlag = GenerateSidecarFlag(DEFAULT_GENERATE_SIDECAR),
+        atomic_write: AtomicWriteFlag = AtomicWriteFlag(DEFAULT_ATOMIC_WRITE),
     ) -> None:
         self.include_header = include_header
         self.generate_sidecar = generate_sidecar
@@ -48,17 +51,23 @@ class Saver(ISaverProtocol):
     def write_output(
         self,
         path: Path,
-        content: str,
+        content: ResponseText | str,
         ctx: RunContext,
-        src: str,
+        src: FilePath | str,
         dur: float,
         input_chars: int,
-        output_chars: int,
+        output_chars: OutputChars | int,
         config: Any | None = None,
     ) -> None:
-        """Write processed output to disk with metadata traceability header."""
+        """Write processed output to disk with metadata traceability header in 4 sequential steps:
+
+        Step 1: Resolve configuration & metadata header
+        Step 2: Ensure destination parent directory
+        Step 3: Write main content file (atomic or direct)
+        Step 4: Generate .meta.json sidecar file
+        """
+        # Step 1: Resolve configuration & metadata header
         cfg = config or {}
-        # Support both plain dict and dataclass-style config objects
         if not isinstance(cfg, dict):
             cfg = {
                 "include_header": getattr(cfg, "include_header", self.include_header),
@@ -69,21 +78,27 @@ class Saver(ISaverProtocol):
         generate_sidecar = cfg.get("generate_sidecar", self.generate_sidecar)
         atomic_write = cfg.get("atomic_write", self.atomic_write)
         run_id = str(ctx.run_id)
-
         iso_timestamp = utc_now_iso()
 
-        header = build_metadata_header(ctx, src, dur, input_chars, output_chars) if include_header else ""
-
+        header = build_metadata_header(ctx, str(src), dur, input_chars, output_chars) if include_header else ""
         full_text = header + strip_ui_noise(content)
 
-        # Hoist mkdir before conditional branches (deduplication)
+        # Step 2: Ensure destination parent directory
         try:
+            if path.is_dir():
+                from datetime import datetime
+
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                path = path / f"qwen_output_{timestamp}.md"
             ensure_dir(path)
         except OSError as e:
             log.error("Failed to create parent dirs for %s (I/O error): %s", path, e)
             raise OutputWriteError(f"Failed to write output file {path}: {e}") from e
+
+        # Step 3: Write main content file (atomic or direct)
         self._write_text_file(path, full_text, atomic_write)
 
+        # Step 4: Generate .meta.json sidecar file (if enabled)
         if generate_sidecar:
             sidecar_path = path.with_suffix(".meta.json")
             ensure_dir(sidecar_path)

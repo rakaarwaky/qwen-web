@@ -13,6 +13,7 @@ from modules.shared.src.taxonomy_core_constant import (
     COMBINED_MESSAGE_SELECTOR,
     JS_COUNT_TURNS,
     JS_GET_RESPONSE_TEXT,
+    RESPONSE_CONTENT_SELECTOR,
 )
 from modules.shared.src.taxonomy_core_vo import MessageCount, ResponseText
 
@@ -62,7 +63,7 @@ def latest_message_text(page: Page) -> ResponseText | None:
     except Error:
         pass
     try:
-        locator = page.locator(COMBINED_MESSAGE_SELECTOR)
+        locator = page.locator(RESPONSE_CONTENT_SELECTOR)
         if locator.count() > 0:
             text = locator.last.text_content()
             if text is not None:

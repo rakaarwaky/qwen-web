@@ -9,7 +9,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from modules.core.src.agent_core_orchestrator import CoreOrchestrator
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
 from modules.core.src.capabilities_file_uploader import FileUploader
 from modules.core.src.capabilities_observability_setup import (
@@ -33,7 +32,6 @@ from modules.core.src.capabilities_observability_setup import (
 from modules.core.src.capabilities_output_saver import Saver
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.shared.src import AppConfig
-from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
 from modules.shared.src.utility_core_validation import validate_file as _util_validate_file
 
 
@@ -129,20 +127,17 @@ def make_app_config(tmp_path: Path, **overrides) -> AppConfig:
     return AppConfig(**defaults)
 
 
-def make_test_orchestrator(**overrides) -> CoreOrchestrator:
-    """Build a CoreOrchestrator with all dependencies mocked."""
+from modules.core.src.agent_direct_prompt_orchestrator import DirectPromptOrchestrator
+
+
+def make_test_orchestrator(**overrides) -> DirectPromptOrchestrator:
+    """Build a DirectPromptOrchestrator with all dependencies mocked."""
     defaults = dict(
         browser=MagicMock(),
         injector=MagicMock(),
         sender=MagicMock(),
         streamer=MagicMock(),
-        uploader=MagicMock(),
-        saver=MagicMock(),
-        audit=MagicMock(),
         observability=MagicMock(get_logger=MagicMock(return_value=MagicMock())),
-        workspace=MagicMock(),
-        circuit_breaker=CircuitBreaker(),
-        rate_limiter=RateLimiter(),
     )
     defaults.update(overrides)
-    return CoreOrchestrator(**defaults)  # type: ignore[arg-type]
+    return DirectPromptOrchestrator(**defaults)  # type: ignore[arg-type]

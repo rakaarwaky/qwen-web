@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 from playwright.sync_api import BrowserContext, sync_playwright
@@ -20,15 +19,12 @@ sys.path.insert(0, str(ROOT))
 
 import contextlib
 
-from modules.core.src.agent_core_orchestrator import CoreOrchestrator
-from modules.core.src.capabilities_audit_repository import AuditRepository
+from modules.core.src.agent_direct_prompt_orchestrator import DirectPromptOrchestrator
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
-from modules.core.src.capabilities_file_uploader import FileUploader
 from modules.core.src.capabilities_observability_setup import ObservabilitySetup
 from modules.core.src.capabilities_prompt_injector import PromptInjector
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.core.src.capabilities_stream_monitor import StreamMonitor
-from modules.core.src.capabilities_workspace_provisioner import WorkspaceProvisioner
 from modules.core.src.utility_core_async_loop import isolate_thread_event_loop
 from modules.shared.src import AppConfig, RunContext
 from tests.pipeline_fixtures import restore_fixture_state
@@ -40,13 +36,8 @@ FIXTURE = (FIXTURE_ROOT / "qwen_fixture.html").as_uri()
 @pytest.fixture(scope="session")
 def browser_ctx() -> BrowserContext:
     with sync_playwright() as p:
-        ctx = p.chromium.launch_persistent_context(
-            user_data_dir="",  # ephemeral
-            headless=True,
-            permissions=["clipboard-read", "clipboard-write"],
-            args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
-            viewport={"width": 1280, "height": 800},
-        )
+        b = p.chromium.launch(headless=True)
+        ctx = b.new_context()
         yield ctx
         with contextlib.suppress(Exception):
             ctx.close()
@@ -70,27 +61,23 @@ def page(browser_ctx: BrowserContext):
 
 
 @pytest.fixture
-def client(browser_ctx: BrowserContext, page) -> CoreOrchestrator:
+def client(browser_ctx: BrowserContext, page) -> DirectPromptOrchestrator:
     cfg = AppConfig(
         mode="batch",
         input_path=ROOT / "input",
         output_path=ROOT / "output",
-        done_path=ROOT / "input" / "done",
-        failed_path=ROOT / "input" / "failed",
-        proc_path=ROOT / "input" / ".processing",
+        done_path=ROOT / "done",
+        failed_path=ROOT / "failed",
+        proc_path=ROOT / "processing",
         session_path=ROOT / "qwen_session",
         headless=True,
     )
-    return CoreOrchestrator(
+    return DirectPromptOrchestrator(
         browser=BrowserAdapter(),
         injector=PromptInjector(),
         sender=SendDispatcher(),
         streamer=StreamMonitor(),
-        uploader=FileUploader(),
-        saver=MagicMock(),
-        audit=AuditRepository(cfg.log_path),
         observability=ObservabilitySetup(cfg.log_path),
-        workspace=WorkspaceProvisioner(),
     )
 
 
@@ -115,11 +102,6 @@ def cfg(fixture_root: Path, tmp_path: Path, reset_fixture_state) -> AppConfig:
         log_path=tmp_path / "log",
         headless=True,
     )
-
-
-@pytest.fixture
-def audit(cfg: AppConfig) -> AuditRepository:
-    return AuditRepository(cfg.log_path)
 
 
 @pytest.fixture

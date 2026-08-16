@@ -5,6 +5,7 @@ Implements IInjectionProtocol.
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from playwright.sync_api import Error, Page
@@ -12,8 +13,8 @@ from playwright.sync_api import Error, Page
 from modules.core.src.utility_core_dom_helper import first_visible_element_handle
 from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src.contract_core_protocol import IInjectionProtocol
-from modules.shared.src.taxonomy_config_vo import DEFAULT_INJECTOR_CONFIG, InjectorConfig
 from modules.shared.src.taxonomy_core_error import ElementNotFoundError, PromptInjectionError
+from modules.shared.src.taxonomy_core_vo import DEFAULT_INJECTOR_CONFIG, InjectorConfig
 
 log = get_logger("capabilities_prompt_injector")
 
@@ -50,32 +51,65 @@ class PromptInjector(IInjectionProtocol):
         raise ElementNotFoundError("Could not locate input element on chat.qwen.ai. UI may have changed.")
 
     def inject_text(self, page: Page, text: str, config: InjectorConfig | None = None) -> None:
-        """Inject text into input via multi-tier strategy with automatic validation."""
+        """Inject text into input via multi-tier strategy in 4 sequential steps:
+
+        Step 1: Validate input text & locate target element
+        Step 2: Strategy 0 — Playwright fill & React dispatch
+        Step 3: Strategy 1 — React value setter fallback
+        Step 4: Strategy 2 — Playwright type() fallback
+        """
+        # Step 1: Validate prompt text & locate input element
         if not text or not text.strip():
             raise PromptInjectionError("Cannot inject empty or whitespace-only prompt text.")
 
         cfg = config or self.config
         el = self.find_input(page, cfg)
 
+        # Step 2: Strategy 0 — Playwright fill & React dispatch
         try:
-            el.focus()
+            with contextlib.suppress(Exception):
+                el.click()
+                el.focus()
+            el.fill(text)
+            with contextlib.suppress(Exception):
+                el.dispatch_event("input")
+                el.dispatch_event("change")
+                el.dispatch_event("keyup")
+            if not self._verify_injection(el):
+                with contextlib.suppress(Exception):
+                    page.keyboard.insert_text(text)
+            if not cfg.verify_injection or self._verify_injection(el):
+                log.info("Prompt injected via Playwright fill (%d chars)", len(text))
+                return
         except Error as e:
-            log.warning("Element focus failed before injection: %s", e)
+            log.debug("Initial Playwright fill failed; trying DOM injection strategies: %s", e)
 
-        # Strategy 1: React value setter for textarea
+        # Step 3: Strategy 1 — React value setter fallback
         js_react_inject = """(text) => {
-            const selectors = ['textarea.message-input-textarea', 'textarea', '#chat-input', '.chat-input'];
+            const selectors = ['textarea.message-input-textarea', 'textarea', 'div[contenteditable="true"]', '#chat-input'];
             let target = null;
             for (const s of selectors) {
                 const found = document.querySelector(s);
                 if (found) { target = found; break; }
             }
             if (!target) return false;
-            if (target.tagName.toLowerCase() === 'textarea') {
-                const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-                setter.call(target, text);
+            if (target.tagName.toLowerCase() === 'textarea' || target.tagName.toLowerCase() === 'input') {
+                const proto = target.tagName.toLowerCase() === 'textarea' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+                const descriptor = Object.getOwnPropertyDescriptor(proto, 'value');
+                if (descriptor && descriptor.set) {
+                    descriptor.set.call(target, text);
+                } else {
+                    target.value = text;
+                }
+                if (target._valueTracker) {
+                    target._valueTracker.setValue('');
+                }
                 target.dispatchEvent(new Event('input', { bubbles: true }));
                 target.dispatchEvent(new Event('change', { bubbles: true }));
+                return true;
+            } else if (target.isContentEditable) {
+                target.innerText = text;
+                target.dispatchEvent(new Event('input', { bubbles: true }));
                 return true;
             }
             return false;
@@ -89,34 +123,7 @@ class PromptInjector(IInjectionProtocol):
         except Error as e:
             log.debug("React value-setter strategy bypassed/failed: %s", e)
 
-        # Strategy 2: ContentEditable innerText injection
-        js_contenteditable_inject = """(text) => {
-            const el = document.querySelector("div[contenteditable='true']");
-            if (!el) return false;
-            el.innerText = text;
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            return true;
-        }"""
-
-        try:
-            success = page.evaluate(js_contenteditable_inject, text)
-            if success and (not cfg.verify_injection or self._verify_injection(el)):
-                log.info("Prompt injected via ContentEditable setter (%d chars)", len(text))
-                return
-        except Error as e:
-            log.debug("ContentEditable injection strategy failed: %s", e)
-
-        # Strategy 3: Playwright fill()
-        try:
-            log.debug("Falling back to Playwright fill()")
-            el.fill(text)
-            if not cfg.verify_injection or self._verify_injection(el):
-                log.info("Prompt injected via Playwright fill() (%d chars)", len(text))
-                return
-        except Error as e:
-            log.warning("fill() failed: %s — falling back to type()", e)
-
-        # Strategy 4: Playwright type()
+        # Step 4: Strategy 2 — Playwright type() fallback
         try:
             log.debug("Falling back to Playwright type()")
             el.type(text, delay=cfg.typing_delay_ms)

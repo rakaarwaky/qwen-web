@@ -91,6 +91,23 @@ jobs:
           else
             RANGE="${LAST_TAG}..HEAD"
           fi
+
+          CURRENT=$(grep -m1 -oP '^version\s*=\s*"\K[^"]+' pyproject.toml || true)
+          if [ -z "$CURRENT" ]; then
+            echo "Cannot determine package version from pyproject.toml."
+            exit 1
+          fi
+          if [ -n "$LAST_TAG" ]; then
+            IFS='.' read -r CUR_MAJ CUR_MIN CUR_PAT <<< "$CURRENT"
+            IFS='.' read -r TAG_MAJ TAG_MIN TAG_PAT <<< "${LAST_TAG#v}"
+            if [ "${CUR_MAJ:-0}" -gt "${TAG_MAJ:-0}" ] || \
+               { [ "${CUR_MAJ:-0}" -eq "${TAG_MAJ:-0}" ] && [ "${CUR_MIN:-0}" -gt "${TAG_MIN:-0}" ]; } || \
+               { [ "${CUR_MAJ:-0}" -eq "${TAG_MAJ:-0}" ] && [ "${CUR_MIN:-0}" -eq "${TAG_MIN:-0}" ] && [ "${CUR_PAT:-0}" -gt "${TAG_PAT:-0}" ]; }; then
+              echo "Package version ${CURRENT} is ahead of latest tag ${LAST_TAG}."
+              echo "Recover the unpublished version or create its tag before opening another release PR."
+              exit 1
+            fi
+          fi
           echo "range=${RANGE}" >> "$GITHUB_OUTPUT"
           echo "last_tag=${LAST_TAG}" >> "$GITHUB_OUTPUT"
 
@@ -158,6 +175,8 @@ jobs:
           entry = f"## [{version}] - {date}\n\n{body}\n\n"
           with open("CHANGELOG.md") as f:
               content = f.read()
+          if re.search(rf"^## \[{re.escape(version)}\](?:\s|$)", content, flags=re.M):
+              raise SystemExit(f"Release heading already exists: {version}")
           # Keep a Changelog layout: header block first, then releases
           # newest-first — insert before the first existing release heading.
           m = re.search(r"^## \[", content, flags=re.M)
@@ -177,7 +196,7 @@ jobs:
           # Skip only when an open release PR for this version already exists
           # (prevents duplicate release PRs after a merge). The branch itself
           # may exist from a previous attempt and is overwritten below.
-          if gh pr list --head "$BRANCH" --state open --json number \
+          if gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number \
             --jq 'length' 2>/dev/null | grep -q '[1-9]'; then
             echo "Release PR for ${VERSION} already open — skipping."
             exit 0
@@ -203,7 +222,7 @@ jobs:
           See the v${VERSION} entry in [CHANGELOG.md](CHANGELOG.md).
           BODY
           )
-          gh pr create --base main --head "$BRANCH" \
+          gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" \
             --title "chore(release): v${VERSION}" \
             --body "$PR_BODY"
 
@@ -211,7 +230,7 @@ jobs:
           # (GitHub anti-recursion guard), so dispatch CI on the release branch
           # explicitly — the checks attach to the same head SHA and gate the
           # PR — then arm auto-merge so the PR lands once checks pass.
-          gh workflow run ci.yml --ref "$BRANCH"
-          gh pr merge --auto --squash \
+          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
+          gh pr merge --repo "$GITHUB_REPOSITORY" --auto --squash \
             --subject "chore(release): v${VERSION}" "$BRANCH" || \
             echo "Auto-merge not available yet (e.g. checks still pending) — the auto-merge workflow re-arms on later PR events."

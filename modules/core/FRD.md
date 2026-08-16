@@ -4,60 +4,10 @@
 
 The Core module (`modules/core`) is the automation engine for `chat.qwen.ai`.
 It implements the AES Capabilities and Agent layers: Playwright browser
-lifecycle, local file attach, prompt injection, send dispatch, stream
-stability, output persistence, workspace setup, audit, observability, and
-Linux-native process guards.
-
-`ICoreAggregate` is the only facade consumed by CLI and MCP surfaces. Surfaces
-never call capabilities directly. The agent (`CoreOrchestrator`) composes the
-ten capability protocols below; capabilities never import each other.
-
-```text
-Surface (CLI / MCP)
-        │
-        ▼
-ICoreAggregate  ── CoreOrchestrator (sequence only)
-        │
-        ├── IBrowserProtocol
-        ├── IUploadProtocol
-        ├── ISaverProtocol
-        ├── IInjectionProtocol
-        ├── ISendProtocol
-        ├── IStreamProtocol
-        ├── IWorkspaceProtocol
-        ├── IAuditProtocol
-        ├── IObservabilityProtocol
-        └── ILinuxProtocol          (wired in SharedContainer; CLI-only)
-```
+  lifecycle, local file attach, prompt injection, send dispatch, stream
+  stability, output persistence, workspace setup, audit, and observability.
 
 **AES mapping rule:** 1 FR = 1 capability file + 1 contract protocol.
-
-## Pipeline Composition (Agent)
-
-Happy-path file processing is a fixed sequence. The agent owns order; each
-capability owns its own rules.
-
-```text
-1. LinuxGuard.acquire_lock          (CLI process start)
-2. ObservabilitySetup.setup         (logs / traces / hooks)
-3. WorkspaceProvisioner.init        (optional `init` command)
-4. BrowserAdapter.browser_session   → navigate_to_chat → check_auth
-5. FileUploader.upload_attachment   (optional; text-only fallback on fail)
-6. PromptInjector.inject_text
-7. SendDispatcher.click_send
-8. StreamMonitor.wait_for_response
-9. OutputSaver.write_output
-10. AuditRepository.log / log_step
-11. LinuxGuard.sd_notify_ready|stop + release_lock
-```
-
-Lifecycle gates the agent must honor:
-
-| Gate event | Required before |
-|------------|-----------------|
-| `EVENT_WEB_LOADED` | File upload |
-| `EVENT_DOCUMENT_PARSED` | Send click |
-| `EVENT_DISPATCH_ACKNOWLEDGED` | Stream wait |
 
 ## Functional Requirements
 
@@ -97,12 +47,12 @@ Lifecycle gates the agent must honor:
   - `AuthRequiredError` when the page is a login/auth surface.
   - Playwright `Error` during reset is logged and does not crash the adapter.
 - **Acceptance Criteria**:
-  - [ ] Persistent profile is reused; a second launch does not require login
+  - [ ]  Persistent profile is reused; a second launch does not require login
     when cookies are valid.
-  - [ ] Stale `SingletonLock` does not block a subsequent launch.
-  - [ ] Session dir is `0o700` after `browser_session` enters.
-  - [ ] Login URL or visible password form raises `AuthRequiredError`.
-  - [ ] Media/font/image requests are aborted outside login mode.
+  - [ ]  Stale `SingletonLock` does not block a subsequent launch.
+  - [ ]  Session dir is `0o700` after `browser_session` enters.
+  - [ ]  Login URL or visible password form raises `AuthRequiredError`.
+  - [ ]  Media/font/image requests are aborted outside login mode.
 - **Tests**: `tests/test_browser.py`, `tests/test_browser_extended.py`,
   `tests/test_browser_session.py`, `tests/test_login_session.py`.
 
@@ -137,12 +87,12 @@ Lifecycle gates the agent must honor:
   - Playwright `TimeoutError` / `Error` are logged, dropdown is closed, then
     retry.
 - **Acceptance Criteria**:
-  - [ ] Non-existent or oversized file fails validation and does not open
+  - [ ]  Non-existent or oversized file fails validation and does not open
     the chooser.
-  - [ ] Happy path: dropdown → "Upload attachment" → chooser → visible card
+  - [ ]  Happy path: dropdown → "Upload attachment" → chooser → visible card
     → `True`.
-  - [ ] Transient timeout retries then returns `False` after max attempts.
-  - [ ] Upload is blocked when `web_loaded` is false.
+  - [ ]  Transient timeout retries then returns `False` after max attempts.
+  - [ ]  Upload is blocked when `web_loaded` is false.
 - **Tests**: `tests/test_file_uploader.py`, `tests/test_qwen_client_behavior.py`.
 
 ### FR-003: Output Saver
@@ -167,11 +117,11 @@ Lifecycle gates the agent must honor:
   - `OutputWriteError` when directory create or primary file write fails.
   - Sidecar `OSError` / `TypeError` / `ValueError` is logged only.
 - **Acceptance Criteria**:
-  - [ ] Output file contains header + cleaned body when header is enabled.
-  - [ ] Sidecar JSON includes `run_id`, `source_file`, `processed_at`,
+  - [ ]  Output file contains header + cleaned body when header is enabled.
+  - [ ]  Sidecar JSON includes `run_id`, `source_file`, `processed_at`,
     `duration_sec`, `input_chars`, `output_chars`.
-  - [ ] Crash mid-write does not leave a truncated destination when atomic.
-  - [ ] Sidecar I/O error still leaves the markdown file intact.
+  - [ ]  Crash mid-write does not leave a truncated destination when atomic.
+  - [ ]  Sidecar I/O error still leaves the markdown file intact.
 - **Tests**: `tests/test_saver.py`, `tests/test_saver_extended.py`.
 
 ### FR-004: Prompt Injector
@@ -201,11 +151,11 @@ Lifecycle gates the agent must honor:
   - `PromptInjectionError` if text is empty, all tiers throw, or verification
     fails after every tier.
 - **Acceptance Criteria**:
-  - [ ] Primary selector `textarea.message-input-textarea` is found on the
+  - [ ]  Primary selector `textarea.message-input-textarea` is found on the
     fixture DOM.
-  - [ ] React setter path succeeds for a normal textarea.
-  - [ ] Empty prompt raises `PromptInjectionError` before any DOM write.
-  - [ ] All-tier failure raises `PromptInjectionError`.
+  - [ ]  React setter path succeeds for a normal textarea.
+  - [ ]  Empty prompt raises `PromptInjectionError` before any DOM write.
+  - [ ]  All-tier failure raises `PromptInjectionError`.
 - **Tests**: `tests/test_prompt_injector.py`,
   `tests/test_prompt_injector_extended.py`,
   `tests/test_prompt_injector_final.py`, `tests/test_qwen_client_behavior.py`.
@@ -235,12 +185,12 @@ Lifecycle gates the agent must honor:
   - `SendDispatchError` when the parse gate is not satisfied or all click
     strategies fail.
 - **Acceptance Criteria**:
-  - [ ] Click is blocked when `document_parsed` is false.
-  - [ ] Successful click emits `EVENT_SEND_CLICKED`.
-  - [ ] `count_messages` matches assistant/turn nodes on the fixture.
-  - [ ] Enter fallback is attempted when the send button is not clickable and
+  - [ ]  Click is blocked when `document_parsed` is false.
+  - [ ]  Successful click emits `EVENT_SEND_CLICKED`.
+  - [ ]  `count_messages` matches assistant/turn nodes on the fixture.
+  - [ ]  Enter fallback is attempted when the send button is not clickable and
     enabled by configuration.
-  - [ ] Disabled fallback never presses Enter and failed dispatch raises
+  - [ ]  Disabled fallback never presses Enter and failed dispatch raises
     `SendDispatchError` without emitting `EVENT_SEND_CLICKED`.
 - **Tests**: `tests/test_sender.py`, `tests/test_sender_extended.py`,
   `tests/test_qwen_client_behavior.py`.
@@ -278,11 +228,11 @@ Lifecycle gates the agent must honor:
     (propagated, not swallowed).
   - Unexpected exceptions are logged and re-raised.
 - **Acceptance Criteria**:
-  - [ ] Wait is blocked when `dispatch_acknowledged` is false.
-  - [ ] Stable new text + complete generation returns `ResponseText`.
-  - [ ] CAPTCHA keyword in a short page raises `AuthRequiredError`.
-  - [ ] Server-error keyword raises `OutputValidationError`.
-  - [ ] Hard timeout with no text returns `None`.
+  - [ ]  Wait is blocked when `dispatch_acknowledged` is false.
+  - [ ]  Stable new text + complete generation returns `ResponseText`.
+  - [ ]  CAPTCHA keyword in a short page raises `AuthRequiredError`.
+  - [ ]  Server-error keyword raises `OutputValidationError`.
+  - [ ]  Hard timeout with no text returns `None`.
 - **Tests**: `tests/test_streamer.py`, `tests/test_streamer_extended.py`,
   `tests/test_qwen_client_behavior.py`.
 
@@ -311,53 +261,13 @@ Lifecycle gates the agent must honor:
 - **Error Handling**: filesystem errors on skill write propagate. Symlink
   failures are skipped so `init` still succeeds on restricted hosts.
 - **Acceptance Criteria**:
-  - [ ] `init` creates `.agents/skills/qwen-web/SKILL.md`.
-  - [ ] `.qwen-web/input|output|log` point at XDG defaults when linking works.
-  - [ ] `.gitignore` contains `.qwen-web/` exactly once after repeated inits.
-  - [ ] XDG input/output/log directories exist after init.
+  - [ ]  `init` creates `.agents/skills/qwen-web/SKILL.md`.
+  - [ ]  `.qwen-web/input|output|log` point at XDG defaults when linking works.
+  - [ ]  `.gitignore` contains `.qwen-web/` exactly once after repeated inits.
+  - [ ]  XDG input/output/log directories exist after init.
 - **Tests**: `tests/test_init_cmd.py`.
 
-### FR-008: Audit Repository
-
-- **Capability**: `capabilities_audit_repository.py` → `AuditRepository`
-- **Contract**: `IAuditProtocol`
-- **Description**: Append-only JSONL audit trail for step events and
-  completed file results, plus a human-readable error log and MCP-readable
-  recent-history fetch.
-- **Input**: `RunContext`, status, source/dest paths, duration, char counts,
-  optional error string / step details; `limit` for reads.
-- **Output**: `log_dir/audit_history.jsonl`, `errors.log`, `errors.jsonl`.
-  `get_audit_log` returns pretty-printed JSON `ResponseText`.
-- **Business Rules**:
-  - Every record includes `run_id` and UTC ISO timestamp.
-  - `log_step` writes granular events (`START_PROCESSING`, `PROCESS_SUCCESS`,
-    `QUARANTINED`, …).
-  - `log` writes the file-level result. On error it also appends
-    `errors.log` and `errors.jsonl`.
-  - `get_audit_log(limit)` returns the last N non-empty JSONL lines by reading
-    backward in bounded blocks; memory use is proportional to the block size
-    and requested result count, not the complete history.
-  - Blank, malformed, or truncated tail lines are skipped; a non-positive
-    limit returns an empty JSON array.
-  - Missing audit file returns a clear "does not exist yet" message, not an
-    exception.
-  - Workspace init is **not** owned here; optional `IWorkspaceProtocol` is
-    injected for backward-compatible `init_workspace` delegation.
-- **Edge Cases**: missing log dir; empty file; truncated last line; concurrent
-  appenders; requested limit larger than file length.
-- **Error Handling**: directory is created on construct. Callers treat I/O
-  failures as operational (utility `append_jsonl` / open).
-- **Acceptance Criteria**:
-  - [ ] Success `log` produces one JSON object with duration and char counts.
-  - [ ] Failed `log` writes audit + `errors.log` + `errors.jsonl`.
-  - [ ] `get_audit_log(2)` returns at most two records without a full-file read.
-  - [ ] Empty, malformed, truncated-tail, and non-positive-limit cases are covered.
-  - [ ] Missing file returns the explicit empty-state message.
-- **Tests**: `tests/test_audit_repository.py`, `tests/test_pipeline_core.py`,
-  `tests/test_pipeline_extended.py`, and MCP `qwen_get_audit_log` tests in
-  `tests/test_mcp_server.py`.
-
-### FR-009: Observability Setup
+### FR-008: Observability Setup
 
 - **Capability**: `capabilities_observability_setup.py` → `ObservabilitySetup`
 - **Contract**: `IObservabilityProtocol`
@@ -387,51 +297,14 @@ Lifecycle gates the agent must honor:
 - **Error Handling**: all third-party init is wrapped in `suppress` /
   `ImportError` guards. File handler `OSError` is ignored.
 - **Acceptance Criteria**:
-  - [ ] `setup_observability` succeeds with no Sentry/OTel installed.
-  - [ ] JSON renderer is used when stderr is not a TTY and env is production.
-  - [ ] Excepthook logs critical + exits 1 for a generic exception.
-  - [ ] KeyboardInterrupt path exits 130.
-  - [ ] `start_span` is a no-op context manager when OTel is missing.
+  - [ ]  `setup_observability` succeeds with no Sentry/OTel installed.
+  - [ ]  JSON renderer is used when stderr is not a TTY and env is production.
+  - [ ]  Excepthook logs critical + exits 1 for a generic exception.
+  - [ ]  KeyboardInterrupt path exits 130.
+  - [ ]  `start_span` is a no-op context manager when OTel is missing.
 - **Tests**: `tests/test_observability.py`, `tests/test_observability_extended.py`.
 
-### FR-010: Linux Guard
-
-- **Capability**: `capabilities_linux_guard.py` → `LinuxGuard`
-- **Contract**: `ILinuxProtocol`
-- **Description**: Enforce a single CLI instance via `fcntl` file lock and
-  notify systemd of ready/stopping state over `NOTIFY_SOCKET`.
-- **Input**: optional lock `Path` (default `$TMPDIR/qwen-cli.lock`);
-  environment `NOTIFY_SOCKET`.
-- **Output**: held `SingleInstanceLock`; datagram messages `READY=1` /
-  `STOPPING=1`. Wired in `SharedContainer` when `use_linux_guard=True`
-  (CLI). MCP sets the flag false.
-- **Business Rules**:
-  - `acquire_lock` uses `LOCK_EX | LOCK_NB`. A second process must fail
-    immediately, not block.
-  - `release_lock` unlocks, closes the fd, and unlinks the lock file.
-  - `sd_notify_*` is a no-op when `NOTIFY_SOCKET` is unset (developer
-    laptops, CI).
-  - Abstract namespace sockets (`@…`) are translated to a leading NUL.
-  - Socket errors are swallowed; notify must never crash the app.
-- **Edge Cases**: lock file left behind after SIGKILL (fcntl releases on
-  process death); MCP and CLI on the same host; missing `/tmp` write
-  permission; invalid `NOTIFY_SOCKET`.
-- **Error Handling**:
-  - `SingleInstanceError` if the lock is already held.
-  - `OSError` / `ConnectionError` on notify are ignored.
-- **Acceptance Criteria**:
-  - [ ] Second `acquire_lock` on the same path raises `SingleInstanceError`.
-  - [ ] `release_lock` allows a subsequent acquire.
-  - [ ] `sd_notify_ready` is a no-op without `NOTIFY_SOCKET`.
-  - [ ] MCP container can be built with `use_linux_guard=False`.
-  - [ ] The CLI root acquires the lock, emits `READY=1`, dispatches, emits
-    `STOPPING=1`, and releases the lock on both success and exception.
-- **Production caller**: `modules/root_cli_main_entry.py` owns the CLI lifecycle;
-  `modules/root_mcp_main_entry.py` explicitly constructs a lock-free container.
-- **Tests**: `tests/test_linux.py` covers the capability; `tests/test_cli_linux_guard.py`
-  covers the production CLI and MCP boundaries.
-
-## Capability Inventory (exactly 10)
+## Capability Inventory (exactly 8)
 
 Metrics counters and `status.json` writes are helper types inside
 `capabilities_observability_setup.py` (FR-009). Do not reintroduce them as
@@ -440,42 +313,41 @@ standalone capability files.
 ## API Contract
 
 `ICoreAggregate` (implemented by `CoreOrchestrator`) is the surface-facing
-API. It sequences FR-001…FR-010; it does not implement their business rules.
+API. It sequences FR-001…FR-008; it does not implement their business rules.
 
-| Operation | Input | Output | Description |
-|-----------|-------|--------|-------------|
-| `process_single_file` | `input_file`, `output_file`, `headless` | `ResponseText` | One file: attach → inject → send → save → audit. |
-| `process_batch` | `input_dir`, `output_dir`, `headless` | `ResponseText` | All processable files; per-file isolation. |
-| `process_watcher` | `interval_sec`, `headless` | `ResponseText` | Poll input dir until SIGINT/SIGTERM. |
-| `process_mode` | `AppConfig` | `ResponseText` | Dispatch watcher / single / batch. |
-| `send_prompt` | `prompt`, `timeout_sec`, `headless` | `ResponseText` | Raw text without durable file routing. |
-| `setup_session` | confirmation callback, optional session path | `ResponseText` | Validate saved session or headed login. |
-| `get_audit_log` | `limit` | `ResponseText` | Last N JSONL audit records (FR-008). |
-| `init_workspace` | `target_dir` | `None` | Provision skill + XDG links (FR-007). |
+
+| Operation             | Input                                        | Output         | Description                                          |
+| ----------------------- | ---------------------------------------------- | ---------------- | ------------------------------------------------------ |
+| `process_single_file` | `input_file`, `output_file`, `headless`      | `ResponseText` | One file: attach → inject → send → save → audit. |
+| `process_batch`       | `input_dir`, `output_dir`, `headless`        | `ResponseText` | All processable files; per-file isolation.           |
+| `process_watcher`     | `interval_sec`, `headless`                   | `ResponseText` | Poll input dir until SIGINT/SIGTERM.                 |
+| `process_mode`        | `AppConfig`                                  | `ResponseText` | Dispatch watcher / single / batch.                   |
+| `send_prompt`         | `prompt`, `timeout_sec`, `headless`          | `ResponseText` | Raw text without durable file routing.               |
+| `setup_session`       | confirmation callback, optional session path | `ResponseText` | Validate saved session or headed login.              |
+| `init_workspace`      | `target_dir`                                 | `None`         | Provision skill + XDG links (FR-007).                |
 
 ## Integration Points
 
 - **3rd Party**: Playwright Chromium, tenacity, structlog, OpenTelemetry OTLP
-  HTTP, Sentry SDK, Linux `fcntl` / systemd `sd_notify`.
+  HTTP, Sentry SDK.
 - **Internal**: `modules/shared` taxonomy VOs, domain errors, contracts,
   path/prompt/validation utilities. Surfaces (`modules/cli`, `modules/mcp`)
   consume only `ICoreAggregate`.
-- **DI**: `root_core_container.SharedContainer` wires all ten capabilities.
+- **DI**: `root_core_container.SharedContainer` wires all eight capabilities.
 
 ## Traceability (FR → Code → Tests)
 
-| FR | Protocol | Capability | Primary tests |
-|----|----------|------------|---------------|
-| FR-001 | `IBrowserProtocol` | `capabilities_browser_adapter.py` | `test_browser*.py`, `test_login_session.py` |
-| FR-002 | `IUploadProtocol` | `capabilities_file_uploader.py` | `test_file_uploader.py` |
-| FR-003 | `ISaverProtocol` | `capabilities_output_saver.py` | `test_saver*.py` |
-| FR-004 | `IInjectionProtocol` | `capabilities_prompt_injector.py` | `test_prompt_injector*.py` |
-| FR-005 | `ISendProtocol` | `capabilities_send_dispatcher.py` | `test_sender*.py` (unit; includes enabled/disabled fallback) |
-| FR-006 | `IStreamProtocol` | `capabilities_stream_monitor.py` | `test_streamer*.py` |
-| FR-007 | `IWorkspaceProtocol` | `capabilities_workspace_provisioner.py` | `test_init_cmd.py` |
-| FR-008 | `IAuditProtocol` | `capabilities_audit_repository.py` | `test_audit_repository.py`, `test_pipeline_*.py` |
-| FR-009 | `IObservabilityProtocol` | `capabilities_observability_setup.py` | `test_observability*.py` |
-| FR-010 | `ILinuxProtocol` | `capabilities_linux_guard.py` | `test_linux.py` (unit), `test_cli_linux_guard.py` (production path) |
+
+| FR     | Protocol                 | Capability                              |
+| -------- | -------------------------- | ----------------------------------------- |
+| FR-001 | `IBrowserProtocol`       | `capabilities_browser_adapter.py`       |
+| FR-002 | `IUploadProtocol`        | `capabilities_file_uploader.py`         |
+| FR-003 | `ISaverProtocol`         | `capabilities_output_saver.py`          |
+| FR-004 | `IInjectionProtocol`     | `capabilities_prompt_injector.py`       |
+| FR-005 | `ISendProtocol`          | `capabilities_send_dispatcher.py`       |
+| FR-006 | `IStreamProtocol`        | `capabilities_stream_monitor.py`        |
+| FR-007 | `IWorkspaceProtocol`     | `capabilities_workspace_provisioner.py` |
+| FR-008 | `IObservabilityProtocol` | `capabilities_observability_setup.py`   |
 
 End-to-end locks: `tests/test_qwen_client_behavior.py`, `tests/test_e2e_pipeline.py` (manual/`e2e` mark).
 
@@ -484,8 +356,7 @@ End-to-end locks: `tests/test_qwen_client_behavior.py`, `tests/test_e2e_pipeline
 - **Performance**: DOM poll work < 300 ms/cycle. Asset blocking must cut
   image/font/media traffic on non-login runs. Launch retry budget is 3 × 2s.
 - **Security**: session dir `0o700`; no credentials in stdout/JSONL; scraped
-  model text is untrusted data (never agent instructions); single-instance
-  lock prevents two headed/headless browsers sharing one profile.
+  model text is untrusted data (never agent instructions).
 - **Reliability**: atomic output writes; upload degrades to text-only;
   telemetry is best-effort; watcher answers SIGINT/SIGTERM within ~1s sleep
   chunk.
@@ -494,21 +365,18 @@ End-to-end locks: `tests/test_qwen_client_behavior.py`, `tests/test_e2e_pipeline
 
 ## Test Scenarios / QA Checklist
 
-- [ ] FR-001: expired cookies raise `AuthRequiredError` and point the user
-      at `qwen-web-cli --login`.
-- [ ] FR-002: attach card appears on fixture; oversized file never opens chooser.
-- [ ] FR-003: killing the process during write leaves no half file (atomic).
-- [ ] FR-004: 100k-char prompt injects via React setter on fixture.
-- [ ] FR-005: send is refused while attachment parse gate is false.
-- [ ] FR-006: circuit of Stop button → streaming text → stable text completes.
-- [ ] FR-007: second `init` is idempotent.
-- [ ] FR-008: failed file produces `FAILED` audit + quarantine path (agent).
-- [ ] FR-009: process starts with empty `SENTRY_DSN` and no OTLP endpoint.
-- [ ] FR-010: two CLI processes cannot hold the same lock; the production root
-      lifecycle test verifies notification ordering and cleanup.
-- [ ] Aggregate boundary: failed batch items report `Failed: 1`, failed single
-      files return an error envelope, nested role routing is preserved, and a
-      supplied `AppConfig` reaches the browser session unchanged.
+- [ ]  FR-001: expired cookies raise `AuthRequiredError` and point the user
+  at `qwen-web-cli login`.
+- [ ]  FR-002: attach card appears on fixture; oversized file never opens chooser.
+- [ ]  FR-003: killing the process during write leaves no half file (atomic).
+- [ ]  FR-004: 100k-char prompt injects via React setter on fixture.
+- [ ]  FR-005: send is refused while attachment parse gate is false.
+- [ ]  FR-006: circuit of Stop button → streaming text → stable text completes.
+- [ ]  FR-007: second `init` is idempotent.
+- [ ]  FR-008: process starts with empty `SENTRY_DSN` and no OTLP endpoint.
+- [ ]  Aggregate boundary: failed batch items report `Failed: 1`, failed single
+  files return an error envelope, nested role routing is preserved, and a
+  supplied `AppConfig` reaches the browser session unchanged.
 
 ## Assumptions & Constraints
 
@@ -517,7 +385,6 @@ End-to-end locks: `tests/test_qwen_client_behavior.py`, `tests/test_e2e_pipeline
   solved headless).
 - Playwright sync API requires a dedicated thread event loop (FR-001
   isolates it).
-- MCP must not take the single-instance lock (`use_linux_guard=False`).
 - `chat.qwen.ai` DOM will drift; selectors are multi-tier and locked by
   `tests/fixtures/qwen_fixture.html`.
 

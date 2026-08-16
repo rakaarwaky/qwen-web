@@ -2,36 +2,29 @@
 
 from __future__ import annotations
 
-import sys
-from collections.abc import Callable
-
-from modules.shared.src.contract_core_aggregate import ICoreAggregate
-from modules.shared.src.taxonomy_config_vo import AppConfig
-from modules.shared.src.utility_core_response import error_response, safe_handle, success_response
-
-
-def wait_for_login_confirmation() -> None:
-    """Keep the headed browser alive while the user completes login."""
-    print("Please log in or resolve CAPTCHA in the browser window.")
-    print("Press [ENTER] here once the chat page is ready:")
-    input()
-
-
-def _login_waiter() -> Callable[[], None]:
-    """Return the shared login confirmation callback for dependency injection."""
-    return wait_for_login_confirmation
+from modules.shared.src.contract_core_aggregate import ISessionAggregate, ISetupAggregate
+from modules.shared.src.taxonomy_core_vo import AppConfig
+from modules.shared.src.utility_core_response import safe_handle, success_response
 
 
 @safe_handle
-def handle(_args: object, core: ICoreAggregate, cfg: AppConfig) -> dict[str, object]:
-    """Validate or establish a manual login session in a visible browser."""
-    if not sys.stdin.isatty():
-        return error_response(
-            RuntimeError("Manual login requires an interactive terminal (TTY)."), "validation_error", "cli-400"
-        )
+def handle(
+    _args: object,
+    session: ISessionAggregate,
+    setup: ISetupAggregate,
+    cfg: AppConfig,
+) -> dict[str, object]:
+    """Validate or establish a manual login session in a visible browser.
 
-    result = core.setup_session(
-        wait_for_confirmation=_login_waiter(),
+    The user logs in manually in the headed browser, then closes it — that
+    triggers the session check. No ENTER press needed.
+    """
+    val_res = session.validate_session(session_path=cfg.session_path)
+    if isinstance(val_res, (tuple, list)) and len(val_res) == 2 and val_res[0]:
+        return success_response(f"Existing session is valid and ready: {cfg.session_path}")
+
+    result = setup.setup_session(
+        wait_for_confirmation=None,
         session_path=cfg.session_path,
     )
     return success_response(result)

@@ -9,35 +9,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from modules.shared.src.taxonomy_core_vo import (
-    AtomicWriteFlag,
-    GenerateSidecarFlag,
-    IncludeHeaderFlag,
-)
-
 BASE_DIR = Path(__file__).resolve().parents[3]
 
 STATUS_FILENAME: str = "status.json"
-
-# ─── Role path skip sets ──────────────────────────────────────
-SKIP_DIRS: frozenset[str] = frozenset(
-    {
-        "done",
-        "failed",
-        ".processing",
-        "proc",
-    }
-)
-
-ROLE_PATH_SKIP_DIRS: frozenset[str] = frozenset(
-    {
-        "todo",
-        "done",
-        "failed",
-        ".processing",
-        "proc",
-    }
-)
 
 # ─── Application paths ────────────────────────────────────────
 
@@ -62,18 +36,14 @@ XDG_CONFIG_HOME = (
     else Path.home() / ".config/qwen-web"
 )
 
-DEFAULT_TODO = XDG_DATA_HOME / "input"
-DEFAULT_PROC = XDG_CACHE_HOME / ".processing"
-DEFAULT_DONE = XDG_DATA_HOME / "input" / "done"
-DEFAULT_FAILED = XDG_DATA_HOME / "input" / "failed"
 DEFAULT_OUTPUT = XDG_DATA_HOME / "output"
 DEFAULT_LOG = XDG_STATE_HOME / "log"
 DEFAULT_SESSION = XDG_DATA_HOME / "qwen_session"
+DEFAULT_TODO = XDG_DATA_HOME / "todo"
 XDG_SKILL_MD = XDG_DATA_HOME / "SKILL.md"
 CHAT_URL = "https://chat.qwen.ai/"
 
 MAX_ATTEMPTS = 3
-_WATCHER_SLEEP_CHUNK_SECS = 1
 
 SERVICE_NAME = "qwen-web"
 
@@ -91,108 +61,102 @@ NEW_CHAT_SELECTORS: tuple[str, ...] = (
 )
 
 INPUT_SELECTORS: tuple[str, ...] = (
+    "textarea.message-input-textarea",
     "textarea",
-    "div[contenteditable='true']",
     "[placeholder*='Ask' i]",
     "[placeholder*='Message' i]",
-    "#chat-input",
-    ".chat-input",
 )
 
 SEND_SELECTORS: tuple[str, ...] = (
-    "button[aria-label*='Send' i]:not([disabled])",
-    "button[type='submit']:not([disabled])",
-    "button[class*='send' i]:not([disabled])",
-    "button[class*='submit' i]:not([disabled])",
-    "button[id*='send' i]:not([disabled])",
-    ".message-input-send-button:not([disabled])",
-    "button:has(svg):not([disabled])",
+    ".message-input-right-button-send button",
+    "button[aria-label*='Send' i]:not(.disabled):not([disabled])",
+    "button[type='submit']:not(.disabled):not([disabled])",
+    "button[class*='send' i]:not(.disabled):not([disabled])",
 )
 
 MESSAGE_SELECTORS: tuple[str, ...] = (
-    ".chat-message-assistant .markdown-body",
-    "[class*='assistant'] .markdown-body",
-    "[class*='assistant'] [class*='markdown']",
-    "[data-role='assistant']",
+    ".qwen-chat-message-assistant",
+    ".chat-response-message",
     ".qwen-markdown",
-    ".chat-message-assistant",
-    "div.assistant",
-    ".assistant",
+    ".markdown-body",
+    "[class*='assistant'] [class*='markdown']",
 )
 
 COMBINED_MESSAGE_SELECTOR: str = ", ".join(MESSAGE_SELECTORS)
+RESPONSE_CONTENT_SELECTOR: str = ".qwen-markdown, .markdown-body, .response-message-content, .qwen-markdown-text"
 
 STOP_BUTTON_SELECTORS: str = (
-    "button[aria-label*='Stop' i], button:has-text('Stop'), [class*='stop-btn'], [class*='icon-stop']"
+    "button[aria-label*='Stop' i], .message-input-right-button-send button:has(svg rect), "
+    "button:has(svg rect), [class*='stop-btn'], [class*='icon-stop'], [class*='stopButton']"
 )
-SEND_DISABLED_SELECTORS: str = "button[aria-label*='Send' i][disabled], button[class*='send' i][disabled]"
-TYPING_INDICATOR_SELECTORS: str = ".thinking:not([style*='display: none']), [class*='typing'], [class*='streaming']"
+SEND_DISABLED_SELECTORS: str = (
+    "button[aria-label*='Send' i][disabled], button[class*='send' i][disabled], "
+    ".message-input-right-button-send button[disabled]"
+)
+TYPING_INDICATOR_SELECTORS: str = (
+    ".thinking:not([style*='display: none']):not([class*='completed']):not([class*='complete']), "
+    "[class*='qwen-chat-thinking-status-card']:not([class*='completed']):not([class*='complete']), "
+    "[class*='thinking-status-card']:not([class*='completed']):not([class*='complete']), "
+    "[class*='thinking-process'], [class*='thinking']:not([class*='completed']):not([class*='complete']), "
+    "[class*='typing'], [class*='streaming']"
+)
 
-JS_GET_RESPONSE_TEXT: str = """
+JS_GET_RESPONSE_TEXT: str = r"""
 () => {
-    var containers = ['#chatLog', '[class*="chat-log"]', '[class*="virtual-list"]',
-                      '[class*="message-list"]', '[class*="conversation-body"]',
-                      '[class*="dialog-content"]'];
-    for (var ci = 0; ci < containers.length; ci++) {
-        var container = document.querySelector(containers[ci]);
-        if (container && container.children.length > 0) {
-            var lastChild = container.children[container.children.length - 1];
-            var txt = (lastChild.innerText || '').trim();
-            if (txt.length > 20) return txt;
+    var responseNodes = document.querySelectorAll(
+        '.qwen-markdown, .chat-response-message, .response-message-content, .qwen-markdown-text'
+    );
+    for (var ri = responseNodes.length - 1; ri >= 0; ri--) {
+        var responseNode = responseNodes[ri];
+        if (responseNode.closest('.qwen-chat-message-user') || responseNode.closest('.user-message-content')) continue;
+
+        var outerContainer = responseNode.closest('.qwen-markdown, .chat-response-message');
+        var targetNode = outerContainer || responseNode;
+        var clone = targetNode.cloneNode(true);
+        var removeNodes = clone.querySelectorAll(
+            '.margin, .line-numbers, .monaco-editor-margin, [class*="line-numbers"], ' +
+            '[class*="margin-view"], [class*="thinking"], [class*="status-card"], button, svg'
+        );
+        for (var m = 0; m < removeNodes.length; m++) {
+            removeNodes[m].remove();
         }
-    }
-    var SKIP_CLASSES = [
-        'model-selector', 'fileitem', 'placeholder', 'message-input',
-        'header', 'footer', 'feedback', 'downLoad', 'sidebar',
-        'mode-select', 'send-button', 'toolbar', 'nav', 'spinner',
-        'thinking', 'attachment', 'file-card', 'file-content',
-        'chat-footer', 'chat-prompt-recommend'
-    ];
-    function isInChrome(el) {
-        var p = el;
-        while (p) {
-            var cls = p.className;
-            if (cls && typeof cls === 'string') {
-                for (var i = 0; i < SKIP_CLASSES.length; i++) {
-                    if (cls.indexOf(SKIP_CLASSES[i]) >= 0) return true;
-                }
-            }
-            if (p.tagName === 'HEADER' || p.tagName === 'FOOTER' ||
-                p.tagName === 'NAV' || p.tagName === 'ASIDE') return true;
-            p = p.parentElement;
+        var responseText = (clone.innerText || '').replace(/\u00a0/g, ' ').trim();
+        if (responseText.startsWith("Thinking completed")) {
+            responseText = responseText.replace(/^Thinking completed\s*/, '');
         }
-        return false;
+        if (responseText.endsWith("Skip")) {
+            responseText = responseText.replace(/\s*Skip$/, '').trim();
+        }
+        if (responseText.includes("Evaluating design trade-offs") || responseText === "Skip") {
+            continue;
+        }
+        if (responseText.length > 0) return responseText;
     }
-    var best = null;
-    var bestLen = 0;
-    var all = document.querySelectorAll('div, p, pre, section, article, main');
-    for (var i = 0; i < all.length; i++) {
-        var el = all[i];
-        if (['SCRIPT','STYLE','TEXTAREA','INPUT','BUTTON'].indexOf(el.tagName) >= 0) continue;
-        if (isInChrome(el)) continue;
-        var txt2 = (el.innerText || '').trim();
-        if (txt2.length > bestLen) { bestLen = txt2.length; best = txt2; }
-    }
-    return best;
+    return null;
 }
 """
 
 JS_COUNT_TURNS: str = """
 () => {
     var turns = document.querySelectorAll(
-        '[class*="chat-message"], [class*="message-item"], [class*="virtual-list-item"], [class*="turn"]'
+        '.chat-response-message, [class*="chat-message"], [class*="message-item"], '
+        + '[class*="virtual-list-item"], [class*="turn"]'
     );
     return turns.length;
 }
 """
 
-AUTH_KEYWORDS = ("login", "passport", "auth", "signin", "account", "sso")
+AUTH_KEYWORDS = ("login", "passport", "auth", "signin", "account", "sso", "guest")
 
 LOGIN_FORM_SELECTORS: tuple[str, ...] = (
     "input[type='password']",
     "input[name='password']",
     "button:has-text('Log in')",
+    "a:has-text('Log in')",
     "button:has-text('Sign in')",
+    "a:has-text('Sign in')",
+    "button:has-text('Sign up')",
+    "a:has-text('Sign up')",
     ".login-form",
     "[class*='login']",
     "[class*='passport']",
@@ -218,6 +182,6 @@ CHALLENGE_KEYWORDS: tuple[str, ...] = (
 )
 
 # ─── Saver defaults ─────────────────────────────────────────
-DEFAULT_INCLUDE_HEADER = IncludeHeaderFlag(True)
-DEFAULT_GENERATE_SIDECAR = GenerateSidecarFlag(True)
-DEFAULT_ATOMIC_WRITE = AtomicWriteFlag(True)
+DEFAULT_INCLUDE_HEADER: bool = True
+DEFAULT_GENERATE_SIDECAR: bool = True
+DEFAULT_ATOMIC_WRITE: bool = True

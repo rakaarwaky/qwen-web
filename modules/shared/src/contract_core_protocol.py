@@ -12,13 +12,14 @@ from typing import Any
 
 from playwright.sync_api import ElementHandle, Page
 
-from modules.shared.src.taxonomy_config_vo import InjectorConfig
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
+from modules.shared.src.taxonomy_core_event import EventMessage
 from modules.shared.src.taxonomy_core_vo import (
     ExitCode,
     FilePath,
     FileSizeBytes,
     HeadlessFlag,
+    InjectorConfig,
     LoggerName,
     MaxFileSizeMb,
     MessageCount,
@@ -30,6 +31,7 @@ from modules.shared.src.taxonomy_core_vo import (
     RunContext,
     RunId,
     StabilityChecks,
+    StatusRecordVO,
     TimeoutSec,
 )
 
@@ -101,6 +103,7 @@ class IStreamProtocol(ABC):
         stability_checks: StabilityChecks = StabilityChecks(4),
         min_text_length: MinTextLength = MinTextLength(1),
         dispatch_acknowledged: HeadlessFlag = HeadlessFlag(True),
+        baseline_text: ResponseText | None = None,
     ) -> ResponseText | None:
         """Wait for a stable assistant response; return its text."""
 
@@ -187,57 +190,44 @@ class IObservabilityProtocol(ABC):
         """Install global exception handlers."""
 
 
-class IAuditProtocol(ABC):
-    """Audit log persistence contract (structured JSONL logging over filesystem)."""
+class IWorkspaceProtocol(ABC):
+    """Workspace directory provisioning capability contract."""
 
     @abstractmethod
-    def log_step(
-        self,
-        ctx: RunContext,
-        step: str,
-        src: FilePath,
-        status: str,
-        details: dict[str, Any] | None = None,
-    ) -> None:
-        """Log a granular step event."""
+    def init_workspace(self, target_dir: FilePath) -> None:
+        """Initialize workspace directories, SKILL.md, symlinks, and .gitignore."""
+
+
+class IStatusProtocol(ABC):
+    """Status file write/read capability contract."""
 
     @abstractmethod
-    def log(
-        self,
-        status: str,
-        ctx: RunContext,
-        src: FilePath,
-        dst: FilePath,
-        dur: float,
-        in_c: int,
-        out_c: OutputChars,
-        err: str = "",
-    ) -> None:
-        """Log a completed file processing result."""
+    def write(self, **kwargs: Any) -> None:
+        """Atomically write status to disk."""
 
     @abstractmethod
-    def get_audit_log(self, limit: MessageCount = MessageCount(20)) -> ResponseText:
-        """Return recent audit log entries as JSON text."""
-
-
-class ILinuxProtocol(ABC):
-    """Linux-native single-instance lock and sd_notify contract."""
+    def write_record(self, record: StatusRecordVO) -> None:
+        """Atomically write a record to disk."""
 
     @abstractmethod
-    def acquire_lock(self) -> Any:
-        """Acquire the single-instance file lock; raise SingleInstanceError if held."""
+    def read(self) -> dict[str, Any] | None:
+        """Read and return the current status record."""
+
+
+class IMetricsProtocol(ABC):
+    """In-memory metrics collection capability contract."""
 
     @abstractmethod
-    def release_lock(self, lock: Any) -> None:
-        """Release a previously acquired lock."""
+    def increment(self, key: EventMessage, amount: MessageCount = MessageCount(1)) -> None:
+        """Increment a counter by the given amount."""
 
     @abstractmethod
-    def sd_notify_ready(self) -> None:
-        """Notify systemd that the app is ready."""
+    def get(self, key: EventMessage) -> MessageCount:
+        """Return the current value of a counter."""
 
     @abstractmethod
-    def sd_notify_stop(self) -> None:
-        """Notify systemd that the app is stopping."""
+    def snapshot(self) -> dict[str, Any]:
+        """Return a shallow copy of all counters."""
 
 
 __all__ = [
@@ -248,6 +238,7 @@ __all__ = [
     "IBrowserProtocol",
     "ISaverProtocol",
     "IObservabilityProtocol",
-    "IAuditProtocol",
-    "ILinuxProtocol",
+    "IWorkspaceProtocol",
+    "IStatusProtocol",
+    "IMetricsProtocol",
 ]
