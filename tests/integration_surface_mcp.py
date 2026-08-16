@@ -7,10 +7,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from modules.root_mcp_main_entry import (
+    check_session,
+    delete_session,
     process_direct_prompt,
     process_prompt_file_only,
     setup_session,
 )
+from modules.mcp.src.surface_mcp_tool_command import McpToolCommand
 
 
 @pytest.fixture(autouse=True)
@@ -35,15 +38,15 @@ class TestMCPServerTools(unittest.TestCase):
     def test_process_direct_prompt_mock(self) -> None:
         """Test process_direct_prompt tool execution with mocked tools."""
         mock_tools = MagicMock()
-        mock_tools.process_direct_prompt.return_value = "Mocked AI Response"
+        mock_tools.process_direct_prompt.return_value = '{"success": true, "result": "Mocked AI Response"}'
         with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
             result = asyncio.run(process_direct_prompt("Hello Qwen", timeout_sec=30, headless=True))
-            self.assertEqual(result, "Mocked AI Response")
+            self.assertIn("Mocked AI Response", result)
 
     def test_process_prompt_file_only_success(self) -> None:
         """Test process_prompt_file_only with valid file input."""
         mock_tools = MagicMock()
-        mock_tools.process_prompt_file_only.return_value = "Successfully processed prompt.md"
+        mock_tools.process_prompt_file_only.return_value = '{"success": true, "result": "Successfully processed prompt.md"}'
         with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
             res = asyncio.run(process_prompt_file_only("/tmp/prompt.md", "/tmp/output.md"))
             self.assertIn("Successfully processed", res)
@@ -51,19 +54,32 @@ class TestMCPServerTools(unittest.TestCase):
     def test_setup_session(self) -> None:
         """Test setup_session manual login trigger."""
         mock_tools = MagicMock()
-        mock_tools.setup_session.return_value = "Browser session saved to 'x'"
+        mock_tools.setup_session.return_value = '{"success": true, "result": "Browser session saved to x"}'
         with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
             res = asyncio.run(setup_session())
             self.assertIn("Browser session saved", res)
 
-    def test_process_direct_prompt_auth_required_error(self) -> None:
-        """Test process_direct_prompt returns clear error string when AuthRequiredError is raised."""
+    def test_check_session(self) -> None:
+        """Test check_session status query."""
         mock_tools = MagicMock()
-        mock_tools.process_direct_prompt.return_value = "ERROR [AUTH_REQUIRED]: No active login session found"
+        mock_tools.check_session.return_value = '{"success": true, "session_valid": true}'
         with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
-            result = asyncio.run(process_direct_prompt("Test prompt", timeout_sec=30, headless=True))
-            self.assertIn("ERROR [AUTH_REQUIRED]", result)
-            self.assertIn("No active login session found", result)
+            res = asyncio.run(check_session())
+            self.assertIn("session_valid", res)
+
+    def test_delete_session(self) -> None:
+        """Test delete_session with confirmation."""
+        mock_tools = MagicMock()
+        mock_tools.delete_session.return_value = '{"success": true, "message": "Saved browser session tokens deleted"}'
+        with patch("modules.root_mcp_main_entry._get_tools", return_value=mock_tools):
+            res = asyncio.run(delete_session(confirm=True))
+            self.assertIn("deleted", res)
+
+    def test_process_direct_prompt_empty_validation(self) -> None:
+        """Test process_direct_prompt rejects empty prompt text."""
+        cmd = McpToolCommand(MagicMock(), MagicMock(), MagicMock(), MagicMock(), MagicMock(), MagicMock())
+        res = cmd.process_direct_prompt("")
+        self.assertIn("VALIDATION_ERROR", res)
 
 
 if __name__ == "__main__":

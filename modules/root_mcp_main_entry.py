@@ -48,6 +48,7 @@ def _get_tools() -> McpToolCommand:
             file_only=shared.agent_prompt_file_orchestrator,
             attachment=shared.agent_attachment_prompt_orchestrator,
             session=shared.agent_session_orchestrator,
+            setup=shared.agent_setup_orchestrator,
             workspace=shared.workspace,
         )
     return _container
@@ -60,6 +61,8 @@ _TOOL_METHOD_MAP: dict[str, str] = {
     "process_direct_prompt": "process_direct_prompt",
     "process_prompt_file_only": "process_prompt_file_only",
     "process_prompt_with_attachment": "process_prompt_with_attachment",
+    "check_session": "check_session",
+    "delete_session": "delete_session",
     "setup_session": "setup_session",
     "init": "init_workspace",
     "init_workspace": "init_workspace",
@@ -136,6 +139,21 @@ TOOLS: list[Tool] = [
         },
     ),
     Tool(
+        name="check_session",
+        description="Check status and validity of saved browser session tokens.",
+        input_schema={"type": "object", "properties": {}},
+    ),
+    Tool(
+        name="delete_session",
+        description="Delete saved browser session tokens. Requires confirm=True parameter.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "confirm": {"type": "boolean", "default": False},
+            },
+        },
+    ),
+    Tool(
         name="setup_session",
         description="Launch visible browser on chat.qwen.ai for manual login / session setup.",
         input_schema={"type": "object", "properties": {}},
@@ -152,6 +170,8 @@ init = _async_tool("init")
 process_direct_prompt = _async_tool("process_direct_prompt")
 process_prompt_file_only = _async_tool("process_prompt_file_only")
 process_prompt_with_attachment = _async_tool("process_prompt_with_attachment")
+check_session = _async_tool("check_session")
+delete_session = _async_tool("delete_session")
 setup_session = _async_tool("setup_session")
 
 GENERATED_TOOLS = TOOL_HANDLERS

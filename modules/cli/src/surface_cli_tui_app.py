@@ -307,24 +307,10 @@ class QwenTuiLogHandler(logging.Handler):
 
 
 def _default_prompt_value() -> str:
-    candidates = [
-        Path.cwd() / ".qwen-web" / "input" / "PROMPT.md",
-        Path.cwd() / ".agents" / "prompts" / "PROMPT.md",
-    ]
-    for p in candidates:
-        if p.exists():
-            return str(p)
-    return str(candidates[0])
+    return ""
 
 
 def _default_file_value() -> str:
-    candidates = [
-        Path.cwd() / ".qwen-web" / "input" / "FILE.md",
-        Path.cwd() / ".agents" / "prompts" / "DOC.md",
-    ]
-    for p in candidates:
-        if p.exists():
-            return str(p)
     return ""
 
 
