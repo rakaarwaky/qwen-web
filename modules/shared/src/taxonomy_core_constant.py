@@ -67,45 +67,29 @@ NEW_CHAT_SELECTORS: tuple[str, ...] = (
 )
 
 INPUT_SELECTORS: tuple[str, ...] = (
+    "textarea.message-input-textarea",
     "textarea",
-    "div[contenteditable='true']",
     "[placeholder*='Ask' i]",
     "[placeholder*='Message' i]",
-    "#chat-input",
-    ".chat-input",
 )
 
 SEND_SELECTORS: tuple[str, ...] = (
     ".message-input-right-button-send button",
-    ".chat-prompt-send-button button",
-    "button.send-button:not(.disabled):not([disabled])",
     "button[aria-label*='Send' i]:not(.disabled):not([disabled])",
     "button[type='submit']:not(.disabled):not([disabled])",
     "button[class*='send' i]:not(.disabled):not([disabled])",
-    "button[class*='submit' i]:not(.disabled):not([disabled])",
-    "button[id*='send' i]:not(.disabled):not([disabled])",
-    ".message-input-send-button:not(.disabled):not([disabled])",
 )
 
 MESSAGE_SELECTORS: tuple[str, ...] = (
-    ".chat-response-message .response-message-content",
-    ".chat-response-message .qwen-markdown-text",
-    ".chat-response-message .qwen-markdown",
-    ".chat-message-assistant .markdown-body",
-    "[class*='assistant'] .markdown-body",
-    "[class*='assistant'] [class*='markdown']",
-    "[data-role='assistant']",
-    ".qwen-markdown",
-    ".chat-message-assistant",
     ".qwen-chat-message-assistant",
     ".chat-response-message",
-    ".chat-messages-container",
-    "div.assistant",
-    ".assistant",
+    ".qwen-markdown",
+    ".markdown-body",
+    "[class*='assistant'] [class*='markdown']",
 )
 
 COMBINED_MESSAGE_SELECTOR: str = ", ".join(MESSAGE_SELECTORS)
-RESPONSE_CONTENT_SELECTOR: str = ".response-message-content, .qwen-markdown-text"
+RESPONSE_CONTENT_SELECTOR: str = ".qwen-markdown, .markdown-body, .response-message-content, .qwen-markdown-text"
 
 STOP_BUTTON_SELECTORS: str = (
     "button[aria-label*='Stop' i], button:has-text('Stop'), [class*='stop-btn'], [class*='icon-stop']"
@@ -117,16 +101,20 @@ TYPING_INDICATOR_SELECTORS: str = (
     "[class*='typing'], [class*='streaming']"
 )
 
-JS_GET_RESPONSE_TEXT: str = """
+JS_GET_RESPONSE_TEXT: str = r"""
 () => {
     var responseNodes = document.querySelectorAll(
-        '.response-message-content, .qwen-markdown-text, ' +
-        '.chat-response-message .qwen-markdown'
+        '.qwen-markdown, .chat-response-message, .response-message-content, .qwen-markdown-text'
     );
     for (var ri = responseNodes.length - 1; ri >= 0; ri--) {
         var responseNode = responseNodes[ri];
-        if (responseNode.closest('.qwen-chat-message-user')) continue;
-        var responseText = (responseNode.innerText || '').trim();
+        if (responseNode.closest('.qwen-chat-message-user') || responseNode.closest('.user-message-content')) continue;
+        var outerContainer = responseNode.closest('.qwen-markdown, .chat-response-message');
+        var targetNode = outerContainer || responseNode;
+        var responseText = (targetNode.innerText || '').trim();
+        if (responseText.startsWith("Thinking completed")) {
+            responseText = responseText.replace(/^Thinking completed\s*/, '');
+        }
         if (responseText.length > 0) return responseText;
     }
     return null;

@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from playwright.sync_api import TimeoutError
+from playwright.sync_api import Error, TimeoutError
 
 from modules.core.src.capabilities_prompt_injector import PromptInjector
 from modules.shared.src import (
@@ -46,12 +46,13 @@ def test_inject_text_fill_first_success():
     mock_el.fill.assert_called_once_with("Hello Qwen")
 
 
-def test_inject_text_fallback_to_fill():
+def test_inject_text_fallback_to_type():
     mock_page = MagicMock()
     mock_el = MagicMock()
     mock_page.wait_for_selector.return_value = mock_el
-    # React and contenteditable evaluate return False or fail, fall back to fill()
-    mock_page.evaluate.side_effect = [False, False]
+    mock_el.fill.side_effect = Error("fill failed")
+    # React evaluate returns False, falls back to type()
+    mock_page.evaluate.return_value = False
 
-    PromptInjector().inject_text(mock_page, "Hello Qwen with fill")
-    mock_el.fill.assert_called_once_with("Hello Qwen with fill")
+    PromptInjector().inject_text(mock_page, "Hello Qwen with type")
+    mock_el.type.assert_called_once()

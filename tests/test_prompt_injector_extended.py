@@ -112,36 +112,13 @@ class TestInjectTextStrategies:
         PromptInjector().inject_text(page, "Hello Qwen")
         assert page.evaluate.call_count >= 1
 
-    def test_contenteditable_strategy_success(self):
-        page = MagicMock()
-        el = MagicMock()
-        page.wait_for_selector.return_value = el
-        # Force Playwright fill to fail so we fall through to the JS strategies.
-        el.fill.side_effect = Error("fill failed")
-        # React value-setter returns False (target not a textarea), then the
-        # ContentEditable setter succeeds.
-        page.evaluate.side_effect = [False, True]
-
-        PromptInjector().inject_text(page, "Content editable text")
-        assert page.evaluate.call_count == 2
-
-    def test_fallback_to_fill(self):
-        page = MagicMock()
-        el = MagicMock()
-        page.wait_for_selector.return_value = el
-        # Both JS strategies fail
-        page.evaluate.side_effect = [False, False]
-
-        PromptInjector().inject_text(page, "Fill fallback text")
-        el.fill.assert_called_once_with("Fill fallback text")
-
     def test_fallback_to_type(self):
         page = MagicMock()
         el = MagicMock()
         page.wait_for_selector.return_value = el
-        # JS fails, fill fails, type succeeds
-        page.evaluate.side_effect = [False, False]
+        # fill fails, JS fails, type succeeds
         el.fill.side_effect = Error("fill broken")
+        page.evaluate.return_value = False
 
         PromptInjector().inject_text(page, "Type fallback text")
         el.type.assert_called_once()

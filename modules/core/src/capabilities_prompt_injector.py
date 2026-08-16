@@ -78,7 +78,7 @@ class PromptInjector(IInjectionProtocol):
 
         # Strategy 1: React value setter for textarea
         js_react_inject = """(text) => {
-            const selectors = ['textarea.message-input-textarea', 'textarea', '#chat-input', '.chat-input'];
+            const selectors = ['textarea.message-input-textarea', 'textarea'];
             let target = null;
             for (const s of selectors) {
                 const found = document.querySelector(s);
@@ -103,34 +103,7 @@ class PromptInjector(IInjectionProtocol):
         except Error as e:
             log.debug("React value-setter strategy bypassed/failed: %s", e)
 
-        # Strategy 2: ContentEditable innerText injection
-        js_contenteditable_inject = """(text) => {
-            const el = document.querySelector("div[contenteditable='true']");
-            if (!el) return false;
-            el.innerText = text;
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            return true;
-        }"""
-
-        try:
-            success = page.evaluate(js_contenteditable_inject, text)
-            if success and (not cfg.verify_injection or self._verify_injection(el)):
-                log.info("Prompt injected via ContentEditable setter (%d chars)", len(text))
-                return
-        except Error as e:
-            log.debug("ContentEditable injection strategy failed: %s", e)
-
-        # Strategy 3: Playwright fill()
-        try:
-            log.debug("Falling back to Playwright fill()")
-            el.fill(text)
-            if not cfg.verify_injection or self._verify_injection(el):
-                log.info("Prompt injected via Playwright fill() (%d chars)", len(text))
-                return
-        except Error as e:
-            log.warning("fill() failed: %s — falling back to type()", e)
-
-        # Strategy 4: Playwright type()
+        # Strategy 2: Playwright type() fallback
         try:
             log.debug("Falling back to Playwright type()")
             el.type(text, delay=cfg.typing_delay_ms)

@@ -39,23 +39,14 @@ class TestInjectTextExtended:
         PromptInjector().inject_text(page, "text via fill")
         el.fill.assert_called_once()
 
-    def test_contenteditable_js_returns_false(self):
-        page = MagicMock()
-        el = MagicMock()
-        page.wait_for_selector.return_value = el
-        # React returns False, contenteditable returns False
-        page.evaluate.side_effect = [False, False]
-        PromptInjector().inject_text(page, "text via fill")
-        el.fill.assert_called_once()
-
     def test_react_strategy_verification_fails(self):
         page = MagicMock()
         el = MagicMock()
         page.wait_for_selector.return_value = el
         # React inject returns True, but verification returns empty
-        # This causes all strategies to fail verification
+        # This causes strategies to fail verification
         el.evaluate.return_value = ""
-        page.evaluate.side_effect = [True, False]  # react inject, contenteditable
+        page.evaluate.side_effect = [True]  # react inject
         with pytest.raises(PromptInjectionError, match="All strategies executed but input verification failed"):
             PromptInjector().inject_text(page, "text via fill")
 
@@ -64,5 +55,5 @@ class TestInjectTextExtended:
         el = MagicMock()
         page.wait_for_selector.return_value = el
         el.focus.side_effect = Error("disconnected")
-        page.evaluate.side_effect = [True, True]  # React succeeds despite focus fail
+        page.evaluate.side_effect = [True]  # React succeeds despite focus fail
         PromptInjector().inject_text(page, "text after focus fail")
