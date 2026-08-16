@@ -31,48 +31,70 @@ log = get_logger("capabilities_send_dispatcher")
 
 
 def _is_parse_toast_visible(page: Page) -> bool:
-    """Safely check if Qwen's document parsing warning toast is visible in notification containers."""
+    """Safely check if Qwen's document parsing warning toast is visible."""
     toast_selectors = (
         ".ant-message",
         "[role='alert']",
         "[class*='toast']",
         "[class*='notification']",
         "[class*='message-notice']",
+        "[class*='alert']",
+        "body",
+    )
+    parse_keywords = (
+        "still uploading",
+        "upload to complete",
+        "currently parsing",
+        "parsing file",
+        "wait until",
+        "files still",
+        "uploading",
     )
     for selector in toast_selectors:
         try:
-            toast = page.locator(selector).filter(
-                has_text="parsing file"
-            )
-            c = toast.count()
-            if isinstance(c, int) and c > 0:
-                if toast.first.is_visible(timeout=100):
-                    return True
+            locator = page.locator(selector)
+            c = locator.count()
+            if not isinstance(c, int) or c == 0:
+                continue
+            for i in range(min(c, 5)):
+                item = locator.nth(i)
+                if item.is_visible(timeout=100):
+                    text = item.inner_text(timeout=100).casefold()
+                    if any(kw in text for kw in parse_keywords):
+                        return True
         except Exception:
             pass
     return False
 
 
 def _is_file_card_parsing(page: Page) -> bool:
-    """Return True if any file card in the composer input area still shows a Parsing indicator.
-
-    Checks proactively (before clicking send) so the dispatcher never races against
-    Qwen's backend document-parsing stage.
-    """
-    for sel in (
+    """Return True if any file card in the composer input area still shows a Parsing indicator or spinner."""
+    card_selectors = (
         ".message-input-column-file",
         ".file-card-list",
-        "[class*='fileitem-btn']",
         "[class*='fileitem']",
-    ):
+        "[class*='file-card']",
+        "[class*='file-item']",
+        "[class*='attachment']",
+        "[class*='composer']",
+        "[class*='input']",
+    )
+    for sel in card_selectors:
         try:
             loc = page.locator(sel)
             c = loc.count()
             if not isinstance(c, int) or c == 0:
                 continue
-            for i in range(min(c, 5)):
-                text = loc.nth(i).inner_text(timeout=200).casefold()
-                if "parsing" in text or "processing" in text:
+            for i in range(min(c, 10)):
+                item = loc.nth(i)
+                if not item.is_visible(timeout=100):
+                    continue
+                text = item.inner_text(timeout=100).casefold()
+                if any(kw in text for kw in ("parsing", "processing", "uploading", "kb", "%")):
+                    if "parsing" in text or "processing" in text or "uploading" in text:
+                        return True
+                spinners = item.locator("svg[class*='spin'], svg[class*='loading'], .ant-spin, [class*='loading'], [class*='parsing'], [class*='spin']")
+                if spinners.count() > 0 and spinners.first.is_visible(timeout=100):
                     return True
         except Exception:
             pass

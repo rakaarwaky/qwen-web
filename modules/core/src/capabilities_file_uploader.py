@@ -270,24 +270,42 @@ class FileUploader(IUploadProtocol):
             "[class*='file-card']",
             "[class*='file-item']",
             "[class*='fileitem']",
+            "[class*='attachment']",
+            "[class*='composer']",
+            "[class*='input']",
         )
         card_selector = ", ".join(container_selectors)
+        parse_keywords = (
+            "still uploading",
+            "upload to complete",
+            "currently parsing",
+            "parsing file",
+            "wait until",
+            "files still",
+            "uploading",
+        )
 
         while time.monotonic() < deadline:
             try:
                 toast_visible = False
                 with contextlib.suppress(Exception):
-                    toast = page.locator("body").filter(
-                        has_text="Please wait until the uploaded or currently parsing file"
-                    )
-                    tc = toast.count()
-                    if isinstance(tc, int) and tc > 0:
-                        toast_visible = bool(toast.first.is_visible(timeout=100))
+                    for sel in (".ant-message", "[role='alert']", "[class*='toast']", "[class*='notification']", "body"):
+                        loc = page.locator(sel)
+                        if loc.count() > 0:
+                            for idx in range(min(loc.count(), 5)):
+                                item = loc.nth(idx)
+                                if item.is_visible(timeout=100):
+                                    txt = item.inner_text(timeout=100).casefold()
+                                    if any(kw in txt for kw in parse_keywords):
+                                        toast_visible = True
+                                        break
+                        if toast_visible:
+                            break
 
                 cards = page.locator(card_selector).filter(has_text=filepath.stem)
                 cc = cards.count()
                 if not isinstance(cc, int) or cc == 0:
-                    page.wait_for_timeout(100)
+                    page.wait_for_timeout(200)
                     continue
 
                 card = cards.last
@@ -296,10 +314,12 @@ class FileUploader(IUploadProtocol):
                     card.locator(selector).count() > 0 and card.locator(selector).first.is_visible(timeout=100)
                     for selector in self.config.parse_pending_selectors
                 )
+                spinners_visible = card.locator("svg[class*='spin'], svg[class*='loading'], .ant-spin, [class*='spin']").count() > 0
 
                 is_ready = (
                     not toast_visible
                     and not pending_visible
+                    and not spinners_visible
                     and "parsing" not in card_text
                     and "processing" not in card_text
                 )
@@ -309,7 +329,7 @@ class FileUploader(IUploadProtocol):
                     return
             except (TimeoutError, Error):
                 pass
-            page.wait_for_timeout(200)
+            page.wait_for_timeout(300)
         raise TimeoutError(f"Qwen document parsing did not reach ready state: {filepath.name}")
 
     def __repr__(self) -> str:
