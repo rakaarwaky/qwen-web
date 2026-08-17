@@ -137,7 +137,7 @@ class ObservabilitySetup(IObservabilityProtocol):
 
     # ─── Block 2: Public Contract (IObservabilityProtocol ONLY) ──
 
-    def setup_observability(self, log_path: Path | None = None) -> None:
+    def setup_observability(self, log_path: Path | None = None, verbose: bool = False) -> None:
         """Bootstrap observability stack in 4 sequential steps:
 
         Step 1: Ensure log target directory exists
@@ -154,7 +154,7 @@ class ObservabilitySetup(IObservabilityProtocol):
         self._configure_tracing()
 
         # Step 3: Configure structlog/stdlib logging
-        self._configure_logging(target_path)
+        self._configure_logging(target_path, verbose=verbose)
 
         # Step 4: Install global process excepthooks
         install_excepthooks()
@@ -192,10 +192,11 @@ class ObservabilitySetup(IObservabilityProtocol):
         except (ImportError, RuntimeError):
             pass
 
-    def _configure_logging(self, log_path: Path) -> None:
+    def _configure_logging(self, log_path: Path, verbose: bool = False) -> None:
         """Configure structlog/stdlib logging (private helper)."""
+        log_level = logging.DEBUG if verbose else logging.WARNING
         if structlog is None:
-            logging.basicConfig(level=logging.INFO)
+            logging.basicConfig(level=log_level)
             return
 
         shared_processors: list[Any] = [
@@ -230,17 +231,19 @@ class ObservabilitySetup(IObservabilityProtocol):
         )
 
         root = logging.getLogger()
-        root.setLevel(logging.INFO)
+        root.setLevel(logging.DEBUG if verbose else logging.INFO)
         for handler in list(root.handlers):
             if handler.__class__.__name__.endswith("LogHandler"):
                 continue
             root.removeHandler(handler)
         stderr_handler = logging.StreamHandler(sys.stderr)
         stderr_handler.setFormatter(formatter)
+        stderr_handler.setLevel(log_level)
         root.addHandler(stderr_handler)
         try:
             file_handler = logging.FileHandler(log_path / "app.jsonl", encoding="utf-8")
             file_handler.setFormatter(formatter)
+            file_handler.setLevel(logging.DEBUG)
             root.addHandler(file_handler)
         except OSError:
             pass
