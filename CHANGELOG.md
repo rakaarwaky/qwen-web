@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.3.0] - 2026-08-17
+
+### Added
+
+- feat(cli): hide debug event logs by default and add -v/--verbose flag
+
+### Fixed
+
+- Merge pull request #133 from rakaarwaky/fix/github-readme-gif-embed
+- fix(docs): resolve merge conflict in README.md using animated GIF
+- fix(docs): replace webp with animated GIF in README for GitHub compatibility
+
+### Changed
+
+- chore(ci): add .coderabbit.yaml to filter binary media assets from AI review
+- docs: add side-by-side synchronized desktop demo animation to README
+- docs: add side-by-side synchronized desktop demo animation to README
+
 ## [4.2.0] - 2026-08-17
 
 ### Added
