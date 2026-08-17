@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.3.0] - 2026-08-18
+
+### Added
+
+- feat(cli): hide debug event logs by default for quiet terminal UI/UX experience while keeping full Qwen AI output response
+- feat(cli): add `-v` / `--verbose` flag to enable detailed internal event debug logging when needed
+
+### Fixed
+
+- fix(docs): replace webp with animated GIF in `README.md` for GitHub compatibility
+
+---
+
 ## [4.2.0] - 2026-08-17
 
 ### Added
