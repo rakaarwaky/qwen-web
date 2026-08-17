@@ -39,7 +39,9 @@ _ERROR_PREFIX = "[ERROR]"
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments using subcommand-based interface."""
     parent = argparse.ArgumentParser(add_help=False)
-    parent.add_argument("-v", "--verbose", action="store_true", default=argparse.SUPPRESS, help="Enable verbose debug event logging")
+    parent.add_argument(
+        "-v", "--verbose", action="store_true", default=argparse.SUPPRESS, help="Enable verbose debug event logging"
+    )
 
     p = argparse.ArgumentParser(
         prog="qwen-web-arwaky",
@@ -75,7 +77,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p_only.add_argument("--json", action="store_true", help="Format output as JSON")
 
     # ── prompt-with-attachment ────────────────────────────────────────────────
-    p_attach = sub.add_parser("prompt-with-attachment", help="Process a prompt file with a file attachment", parents=[parent])
+    p_attach = sub.add_parser(
+        "prompt-with-attachment", help="Process a prompt file with a file attachment", parents=[parent]
+    )
     p_attach.add_argument("-i", "-p", "--prompt-path", required=True, help="Path to prompt markdown/text file")
     p_attach.add_argument("-a", "--attachment-path", required=True, help="Path to file to attach")
     p_attach.add_argument("-o", "--output-path", default=None, help="Output file path")
