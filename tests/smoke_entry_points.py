@@ -54,4 +54,3 @@ def test_cli_parse_args_verbose_flag() -> None:
     assert args_v_long.verbose is True
     cfg_v_long = _build_config(args_v_long)
     assert cfg_v_long.verbose is True
-
