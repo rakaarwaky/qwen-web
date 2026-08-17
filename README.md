@@ -15,6 +15,12 @@
 
 ---
 
+<p align="center">
+  <img src="docs/qwen_web_demo.webp" alt="Qwen Web Automation Demo" width="100%">
+</p>
+
+---
+
 ## Why Developers & AI Agents Choose This
 
 > **Zero-Budget AI Freedom**: Built for indie developers, frugal engineers, students, and autonomous AI agents who refuse to burn cash on expensive API tokens.
