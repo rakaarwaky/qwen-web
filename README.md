@@ -15,9 +15,7 @@
 
 ---
 
-<p align="center">
-  <img src="docs/qwen_web_demo.webp" alt="Qwen Web Automation Demo" width="100%">
-</p>
+![Qwen Web Automation Demo](docs/qwen_web_demo.gif)
 
 ---
 
