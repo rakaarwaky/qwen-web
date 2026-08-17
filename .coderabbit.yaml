@@ -1,0 +1,13 @@
+# CodeRabbit AI Code Reviewer Configuration
+version: "2"
+language: "en-US"
+reviews:
+  profile: "chill"
+path_filters:
+  - "!docs/**"
+  - "!*.gif"
+  - "!*.webp"
+  - "!*.png"
+  - "!*.jpg"
+  - "!*.mp4"
+  - "!*.webm"
