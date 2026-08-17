@@ -38,40 +38,44 @@ _ERROR_PREFIX = "[ERROR]"
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments using subcommand-based interface."""
+    parent = argparse.ArgumentParser(add_help=False)
+    parent.add_argument("-v", "--verbose", action="store_true", default=argparse.SUPPRESS, help="Enable verbose debug event logging")
+
     p = argparse.ArgumentParser(
         prog="qwen-web-arwaky",
         description="Automate chat.qwen.ai without an API key.",
+        parents=[parent],
     )
     sub = p.add_subparsers(dest="action", metavar="ACTION")
 
     # ── doctor ────────────────────────────────────────────────────────────────
-    p_doctor = sub.add_parser("doctor", help="Run system environment and health diagnostics")
+    p_doctor = sub.add_parser("doctor", help="Run system environment and health diagnostics", parents=[parent])
     p_doctor.add_argument("--json", action="store_true", help="Format diagnostic output as JSON")
 
     # ── init ──────────────────────────────────────────────────────────────────
-    p_init = sub.add_parser("init", help="Initialize workspace (.agents/skills + .qwen-web symlinks)")
+    p_init = sub.add_parser("init", help="Initialize workspace (.agents/skills + .qwen-web symlinks)", parents=[parent])
     p_init.add_argument("--dir", dest="target_dir", default=None, help="Target directory (default: cwd)")
 
     # ── login ─────────────────────────────────────────────────────────────────
-    p_login = sub.add_parser("login", help="Open browser for manual login and save session")
+    p_login = sub.add_parser("login", help="Open browser for manual login and save session", parents=[parent])
     p_login.add_argument("--headless", action="store_true", help="Run browser headlessly")
 
     # ── prompt-direct ─────────────────────────────────────────────────────────
-    p_direct = sub.add_parser("prompt-direct", help="Send an inline text prompt to Qwen")
+    p_direct = sub.add_parser("prompt-direct", help="Send an inline text prompt to Qwen", parents=[parent])
     p_direct.add_argument("-t", "--text", required=True, help="Prompt text to send directly")
     p_direct.add_argument("-o", "--output-path", default=None, help="Output file path")
     p_direct.add_argument("--headless", action="store_true", help="Run browser headlessly")
     p_direct.add_argument("--json", action="store_true", help="Format output as JSON")
 
     # ── prompt-only ───────────────────────────────────────────────────────────
-    p_only = sub.add_parser("prompt-only", help="Process a prompt file (no attachment)")
+    p_only = sub.add_parser("prompt-only", help="Process a prompt file (no attachment)", parents=[parent])
     p_only.add_argument("-i", "-p", "--prompt-path", required=True, help="Path to prompt markdown/text file")
     p_only.add_argument("-o", "--output-path", default=None, help="Output file path")
     p_only.add_argument("--headless", action="store_true", help="Run browser headlessly")
     p_only.add_argument("--json", action="store_true", help="Format output as JSON")
 
     # ── prompt-with-attachment ────────────────────────────────────────────────
-    p_attach = sub.add_parser("prompt-with-attachment", help="Process a prompt file with a file attachment")
+    p_attach = sub.add_parser("prompt-with-attachment", help="Process a prompt file with a file attachment", parents=[parent])
     p_attach.add_argument("-i", "-p", "--prompt-path", required=True, help="Path to prompt markdown/text file")
     p_attach.add_argument("-a", "--attachment-path", required=True, help="Path to file to attach")
     p_attach.add_argument("-o", "--output-path", default=None, help="Output file path")
@@ -79,7 +83,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p_attach.add_argument("--json", action="store_true", help="Format output as JSON")
 
     # ── mcp ───────────────────────────────────────────────────────────────────
-    sub.add_parser("mcp", help="Run as Model Context Protocol (MCP) server over stdio")
+    sub.add_parser("mcp", help="Run as Model Context Protocol (MCP) server over stdio", parents=[parent])
 
     return p.parse_args(argv)
 
@@ -88,6 +92,7 @@ def _build_config(args: argparse.Namespace) -> AppConfig:
     """Build AppConfig from parsed subcommand args using hardcoded defaults."""
     action = args.action
     headless = bool(getattr(args, "headless", False))
+    verbose = bool(getattr(args, "verbose", False))
     dummy_path = Path("/dev/null")
 
     prompt_p: Path | None = None
@@ -140,6 +145,7 @@ def _build_config(args: argparse.Namespace) -> AppConfig:
         session_path=DEFAULT_SESSION,
         log_path=DEFAULT_LOG,
         headless=headless,
+        verbose=verbose,
         prompt_file=prompt_p,
         prompt_path=prompt_p,
         file_path=file_p,
@@ -212,6 +218,8 @@ def _dispatch(
     if cfg is None:
         print(f"{_ERROR_PREFIX} Missing CLI configuration.", file=sys.stderr)
         return 1
+
+    container.observability.setup_observability(log_path=cfg.log_path, verbose=cfg.verbose)
 
     args._cfg = cfg
     result = surface_cli_run_command.handle(

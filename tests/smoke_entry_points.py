@@ -34,3 +34,24 @@ def test_mcp_entry_is_importable() -> None:
 
     assert callable(run_mcp_server)
     assert callable(main)
+
+
+def test_cli_parse_args_verbose_flag() -> None:
+    """The CLI entry point must parse -v and --verbose flags correctly."""
+    from modules.root_cli_main_entry import _build_config, _parse_args
+
+    args_quiet = _parse_args(["prompt-direct", "-t", "hello"])
+    assert getattr(args_quiet, "verbose", False) is False
+    cfg_quiet = _build_config(args_quiet)
+    assert cfg_quiet.verbose is False
+
+    args_v_short = _parse_args(["-v", "prompt-direct", "-t", "hello"])
+    assert args_v_short.verbose is True
+    cfg_v_short = _build_config(args_v_short)
+    assert cfg_v_short.verbose is True
+
+    args_v_long = _parse_args(["prompt-direct", "-t", "hello", "--verbose"])
+    assert args_v_long.verbose is True
+    cfg_v_long = _build_config(args_v_long)
+    assert cfg_v_long.verbose is True
+
