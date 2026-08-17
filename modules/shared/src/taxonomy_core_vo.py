@@ -411,6 +411,7 @@ class AppConfig:
     circuit_breaker_window: int = 30
 
     retry_failed: bool = False
+    verbose: bool = False
 
     @property
     def status_path(self) -> Path:
