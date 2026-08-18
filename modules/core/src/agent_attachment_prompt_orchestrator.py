@@ -24,9 +24,7 @@ from modules.shared.src.contract_core_protocol import (
     IStreamProtocol,
     IUploadProtocol,
 )
-from modules.shared.src.taxonomy_core_constant import (
-    DEFAULT_OUTPUT,
-)
+from modules.shared.src.taxonomy_core_constant import DEFAULT_OUTPUT
 from modules.shared.src.taxonomy_core_error import (
     ResponseDetectionTimeoutError,
     UploadFailureError,

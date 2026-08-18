@@ -29,7 +29,7 @@ import modules.cli.src.surface_cli_login_command as surface_cli_login_command
 import modules.cli.src.surface_cli_run_command as surface_cli_run_command
 import modules.cli.src.surface_cli_update_command as surface_cli_update_command
 from modules.core.src.root_core_container import SharedContainer
-from modules.shared.src.utility_core_paths import DEFAULT_LOG, DEFAULT_OUTPUT, DEFAULT_SESSION
+from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG, DEFAULT_OUTPUT, DEFAULT_SESSION
 from modules.shared.src.taxonomy_core_vo import AppConfig
 
 _ERROR_PREFIX = "[ERROR]"

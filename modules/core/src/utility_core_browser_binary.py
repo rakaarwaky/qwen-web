@@ -9,7 +9,6 @@ from __future__ import annotations
 import shutil
 
 import os
-import sys
 
 CHROME_CANDIDATES = (
     "google-chrome",

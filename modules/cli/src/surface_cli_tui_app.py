@@ -38,7 +38,7 @@ from modules.shared.src.contract_core_aggregate import (
     ISetupAggregate,
 )
 from modules.shared.src.contract_core_protocol import IWorkspaceProtocol
-from modules.shared.src.utility_core_paths import DEFAULT_OUTPUT
+from modules.shared.src.taxonomy_core_constant import DEFAULT_OUTPUT
 from modules.shared.src.taxonomy_core_vo import AppConfig, FilePath, HeadlessFlag
 from modules.shared.src.utility_core_response import detect_processing_failure
 from modules.shared.src.utility_core_version import get_package_version

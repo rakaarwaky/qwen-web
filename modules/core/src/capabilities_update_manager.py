@@ -363,7 +363,7 @@ class UpdateManager(IUpdateProtocol):
 
     def _playwright_browsers_path(self) -> Path:
         """Resolve the Playwright browser cache honoring PLAYWRIGHT_BROWSERS_PATH and OS conventions."""
-        from modules.shared.src.taxonomy_core_constant import get_playwright_browsers_path
+        from modules.shared.src.utility_core_paths import get_playwright_browsers_path
         return get_playwright_browsers_path()
 
     def _chromium_present(self) -> bool:

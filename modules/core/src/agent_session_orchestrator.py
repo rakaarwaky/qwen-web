@@ -14,10 +14,7 @@ from modules.shared.src.contract_core_protocol import (
     IBrowserProtocol,
     IObservabilityProtocol,
 )
-from modules.shared.src.taxonomy_core_constant import (
-    DEFAULT_OUTPUT,
-    DEFAULT_TODO,
-)
+from modules.shared.src.taxonomy_core_constant import DEFAULT_OUTPUT
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_error import QwenCliError
 from modules.shared.src.taxonomy_core_vo import AppConfig, ResponseText
@@ -38,7 +35,7 @@ class SessionOrchestrator(ISessionAggregate):
         """Validate an existing saved Qwen browser session in headless mode."""
         cfg = build_app_config(
             mode="session-check",
-            input_path=DEFAULT_TODO,
+            input_path=DEFAULT_OUTPUT,
             output_path=DEFAULT_OUTPUT,
             session_path=session_path,
             headless=True,
@@ -53,7 +50,7 @@ class SessionOrchestrator(ISessionAggregate):
         """Delete persistent session profile from disk after path safety checks."""
         cfg = build_app_config(
             mode="session-check",
-            input_path=DEFAULT_TODO,
+            input_path=DEFAULT_OUTPUT,
             output_path=DEFAULT_OUTPUT,
             session_path=session_path,
             headless=True,
@@ -76,7 +73,7 @@ class SessionOrchestrator(ISessionAggregate):
         """Check an existing profile without opening a visible login window."""
         validation_cfg = build_app_config(
             mode="session-check",
-            input_path=DEFAULT_TODO,
+            input_path=DEFAULT_OUTPUT,
             output_path=DEFAULT_OUTPUT,
             session_path=cfg.session_path,
             headless=True,

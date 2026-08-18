@@ -13,11 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from modules.shared.src.contract_core_protocol import IWorkspaceProtocol
-from modules.shared.src.taxonomy_core_constant import (
-    DEFAULT_LOG,
-    DEFAULT_OUTPUT,
-    DEFAULT_SESSION,
-)
+from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG, DEFAULT_OUTPUT, DEFAULT_SESSION
 from modules.shared.src.taxonomy_skill_constant import EMBEDDED_SKILL_MD
 from modules.shared.src.taxonomy_core_vo import FilePath
 

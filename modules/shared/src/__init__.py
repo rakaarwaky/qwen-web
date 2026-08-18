@@ -33,6 +33,9 @@ from .taxonomy_core_constant import (
     CHALLENGE_KEYWORDS,
     CHAT_URL,
     COMBINED_MESSAGE_SELECTOR,
+    DEFAULT_LOG,
+    DEFAULT_OUTPUT,
+    DEFAULT_SESSION,
     INPUT_SELECTORS,
     JS_COUNT_TURNS,
     JS_GET_RESPONSE_TEXT,
@@ -49,6 +52,11 @@ from .taxonomy_core_constant import (
     STOP_BUTTON_SELECTORS,
     TEXTAREA_SELECTOR,
     TYPING_INDICATOR_SELECTORS,
+    XDG_CACHE_HOME,
+    XDG_CONFIG_HOME,
+    XDG_DATA_HOME,
+    XDG_SKILL_MD,
+    XDG_STATE_HOME,
 )
 
 # ─── Taxonomy: entities ───────────────────────────────────────
@@ -181,18 +189,8 @@ from .utility_core_path import (
     should_process_file,
 )
 
-# ─── Utility: paths (XDG / OS path resolution) ────────────────
-from .utility_core_paths import (
-    DEFAULT_LOG,
-    DEFAULT_OUTPUT,
-    DEFAULT_SESSION,
-    XDG_CACHE_HOME,
-    XDG_CONFIG_HOME,
-    XDG_DATA_HOME,
-    XDG_SKILL_MD,
-    XDG_STATE_HOME,
-    get_playwright_browsers_path,
-)
+# ─── Utility: paths (Playwright browser path resolution) ──────
+from .utility_core_paths import get_playwright_browsers_path
 
 # ─── Utility: prompt ──────────────────────────────────────────
 from .utility_core_prompt import (

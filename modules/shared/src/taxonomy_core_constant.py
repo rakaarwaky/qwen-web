@@ -6,11 +6,53 @@ Taxonomy layer (taxonomy(constant)): pure literals and constant values only.
 
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[3]
 
 STATUS_FILENAME: str = "status.json"
+
+# ─── Application paths (computed inline — pure constants, no functions) ──────
+_XDG_DATA_HOME = Path(os.environ["XDG_DATA_HOME"]) / "qwen-web" if os.environ.get("XDG_DATA_HOME") else (
+    Path(os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")) / "qwen-web"
+    if sys.platform == "win32"
+    else Path.home() / "Library" / "Application Support" / "qwen-web"
+    if sys.platform == "darwin"
+    else Path.home() / ".local/share/qwen-web"
+)
+_XDG_STATE_HOME = Path(os.environ["XDG_STATE_HOME"]) / "qwen-web" if os.environ.get("XDG_STATE_HOME") else (
+    Path(os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")) / "qwen-web" / "state"
+    if sys.platform == "win32"
+    else Path.home() / "Library" / "Logs" / "qwen-web"
+    if sys.platform == "darwin"
+    else Path.home() / ".local/state/qwen-web"
+)
+_XDG_CACHE_HOME = Path(os.environ["XDG_CACHE_HOME"]) / "qwen-web" if os.environ.get("XDG_CACHE_HOME") else (
+    Path(os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")) / "qwen-web" / "cache"
+    if sys.platform == "win32"
+    else Path.home() / "Library" / "Caches" / "qwen-web"
+    if sys.platform == "darwin"
+    else Path.home() / ".cache/qwen-web"
+)
+_XDG_CONFIG_HOME = Path(os.environ["XDG_CONFIG_HOME"]) / "qwen-web" if os.environ.get("XDG_CONFIG_HOME") else (
+    Path(os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")) / "qwen-web"
+    if sys.platform == "win32"
+    else Path.home() / "Library" / "Application Support" / "qwen-web"
+    if sys.platform == "darwin"
+    else Path.home() / ".config/qwen-web"
+)
+
+XDG_DATA_HOME = _XDG_DATA_HOME
+XDG_STATE_HOME = _XDG_STATE_HOME
+XDG_CACHE_HOME = _XDG_CACHE_HOME
+XDG_CONFIG_HOME = _XDG_CONFIG_HOME
+
+DEFAULT_OUTPUT = XDG_DATA_HOME / "output"
+DEFAULT_LOG = XDG_STATE_HOME / "log"
+DEFAULT_SESSION = XDG_DATA_HOME / "qwen_session"
+XDG_SKILL_MD = XDG_DATA_HOME / "SKILL.md"
 
 CHAT_URL = "https://chat.qwen.ai/"
 

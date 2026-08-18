@@ -15,7 +15,6 @@ from modules.core.src.utility_core_dom_query import latest_message_text as _dom_
 from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src.contract_core_protocol import IStreamProtocol
 from modules.shared.src.taxonomy_core_constant import (
-    SEND_DISABLED_SELECTORS,
     STOP_BUTTON_SELECTORS,
 )
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
