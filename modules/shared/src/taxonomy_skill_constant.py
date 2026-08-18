@@ -1,4 +1,11 @@
----
+"""Taxonomy: skill constants (AES401).
+
+Domain taxonomy constant layer for embedded SKILL.md template content.
+"""
+
+from __future__ import annotations
+
+EMBEDDED_SKILL_MD: str = r"""---
 name: qwen-web
 description: >
   Automate Qwen AI Web (chat.qwen.ai) with the Qwen3.8-Max intelligence model —
@@ -469,4 +476,4 @@ MCP client registration (Claude Desktop / Cursor style):
 
 *End of skill guide. Emit complete requests, verify every envelope, and let the
 900-second watchdog do the heavy thinking.*
-
+"""

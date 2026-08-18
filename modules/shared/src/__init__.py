@@ -186,7 +186,6 @@ from .utility_core_exit import exit_code_for
 from .utility_core_path import (
     cleanup_empty_dirs,
     list_input_files,
-    resolve_role_paths,
     should_process_file,
 )
 
@@ -360,7 +359,6 @@ __all__ = [
     # Utilities
     "extract_prompt_text",
     "strip_input_from_output",
-    "resolve_role_paths",
     "should_process_file",
     "list_input_files",
     "cleanup_empty_dirs",

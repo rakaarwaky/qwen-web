@@ -14,12 +14,11 @@ from typing import Any
 
 from modules.shared.src.contract_core_protocol import IWorkspaceProtocol
 from modules.shared.src.taxonomy_core_constant import (
-    BASE_DIR,
     DEFAULT_LOG,
     DEFAULT_OUTPUT,
     DEFAULT_SESSION,
-    XDG_SKILL_MD,
 )
+from modules.shared.src.taxonomy_skill_constant import EMBEDDED_SKILL_MD
 from modules.shared.src.taxonomy_core_vo import FilePath
 
 # Block 1: Class Definition & Constructor
@@ -37,7 +36,7 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
         """Initialize workspace in 4 sequential steps:
 
         Step 1: Ensure XDG directories exist
-        Step 2: Provision .agents/skills/qwen-web/SKILL.md
+        Step 2: Provision .agents/skills/qwen-web/SKILL.md from embedded constant
         Step 3: Provision .qwen-web directory with sample prompt/files & symlinks
         Step 4: Update .gitignore with .qwen-web/ entry
         """
@@ -47,25 +46,11 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
         DEFAULT_OUTPUT.mkdir(parents=True, exist_ok=True)
         DEFAULT_LOG.mkdir(parents=True, exist_ok=True)
 
-        # Step 2: Create .agents/skills/qwen-web/SKILL.md
+        # Step 2: Create .agents/skills/qwen-web/SKILL.md from embedded constant
         skills_dir = target_path / ".agents" / "skills" / "qwen-web"
         skills_dir.mkdir(parents=True, exist_ok=True)
         skill_md_dest = skills_dir / "SKILL.md"
-
-        pkg_skill_md = BASE_DIR / "SKILL.md"
-        if XDG_SKILL_MD.exists():
-            shutil.copy2(XDG_SKILL_MD, skill_md_dest)
-        elif pkg_skill_md.exists():
-            shutil.copy2(pkg_skill_md, skill_md_dest)
-        else:
-            skill_content = (
-                "---\n"
-                "name: qwen-web\n"
-                "description: Automate Qwen AI Web (chat.qwen.ai) prompt processing via CLI or MCP tools.\n"
-                "---\n"
-                "# Qwen Web Automation Skill Guide\n"
-            )
-            skill_md_dest.write_text(skill_content, encoding="utf-8")
+        skill_md_dest.write_text(EMBEDDED_SKILL_MD, encoding="utf-8")
 
         # Step 3: Create .qwen-web directory with symlinks to XDG paths
         dot_qwen = target_path / ".qwen-web"
@@ -126,7 +111,7 @@ class WorkspaceProvisioner(IWorkspaceProtocol):
                 try:
                     os.symlink(xdg_target, link_path, target_is_directory=True)
                 except OSError:
-                    continue
+                    link_path.mkdir(parents=True, exist_ok=True)
 
         # Step 4: Add .qwen-web/ to .gitignore
         git_ignore = target_path / ".gitignore"

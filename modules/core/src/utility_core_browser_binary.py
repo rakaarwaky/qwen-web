@@ -8,12 +8,29 @@ from __future__ import annotations
 
 import shutil
 
+import os
+import sys
+
 CHROME_CANDIDATES = (
     "google-chrome",
     "google-chrome-stable",
     "chromium",
     "chromium-browser",
+    "chrome",
+    "chrome.exe",
+    "msedge",
+    "msedge.exe",
 )
+
+EXTRA_PATHS = [
+    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+    r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+    r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+    r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+]
 
 
 def find_chrome_binary() -> str:
@@ -30,4 +47,7 @@ def find_chrome_binary() -> str:
         path = shutil.which(candidate)
         if path:
             return path
+    for extra in EXTRA_PATHS:
+        if os.path.exists(extra):
+            return extra
     return ""

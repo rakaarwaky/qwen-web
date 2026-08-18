@@ -17,6 +17,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from functools import lru_cache
 from pathlib import Path
@@ -107,7 +108,7 @@ def _build_config(args: argparse.Namespace) -> AppConfig:
     """Build AppConfig from parsed subcommand args using hardcoded defaults."""
     action = args.action
     headless = bool(getattr(args, "headless", False))
-    dummy_path = Path("/dev/null")
+    dummy_path = Path(os.devnull)
 
     prompt_p: Path | None = None
     file_p: Path | None = None

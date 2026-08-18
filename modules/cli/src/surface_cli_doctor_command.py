@@ -35,7 +35,8 @@ def run_doctor(json_output: bool = False) -> int:
         import shutil
 
         chrome_in_path = shutil.which("chromium") or shutil.which("chrome")
-        ms_pw_dir = Path.home() / ".cache" / "ms-playwright"
+        from modules.shared.src.taxonomy_core_constant import get_playwright_browsers_path
+        ms_pw_dir = get_playwright_browsers_path()
         has_ms_pw = ms_pw_dir.exists() and any(ms_pw_dir.glob("chromium-*"))
 
         if has_ms_pw or chrome_in_path:

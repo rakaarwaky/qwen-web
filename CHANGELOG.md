@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.6.0] - 2026-08-19
+
+### Added
+
+- feat(core): implement **Tier-1 React Fiber Extraction** in `JS_GET_RESPONSE_TEXT` (`taxonomy_core_constant.py`) to bypass Monaco Editor virtual scrolling and extract 100% complete, un-truncated code blocks and Markdown text
+- feat(core): enforce default model **`Qwen3.8-Max`** across all chat sessions with automated verification guards
+- feat(taxonomy): add dedicated `taxonomy_skill_constant.py` module storing the complete embedded `EMBEDDED_SKILL_MD` template string
+- feat(core): update `capabilities_workspace_provisioner.py` to write `EMBEDDED_SKILL_MD` directly into `.agents/skills/qwen-web/SKILL.md` during `qwc init`, removing external file path dependencies
+- feat(core): add pre-flight internal extension gatekeeping (`UNSUPPORTED_EXTENSIONS`) to `validate_file()` in `utility_core_validation.py` for 0ms fast-fail rejection of unsupported archive/binary formats (`.zip`, `.tar`, `.gz`, `.exe`)
+- feat(cli): add `qwen-web-cli update` self-update and environment synchronization CLI command and service protocol
+- feat(installer): add unified cross-platform Python installation script (`install.py`)
+- feat(docs): restore demo WebP (`docs/qwen_web_demo.webp`) and GIF (`docs/qwen_web_demo.gif`) animations in README header from git history
+- feat(docs): add real sanitized vector SVG screenshot (`design/tui_dashboard.svg`) of `QwenTuiApp` to README
+
+### Fixed
+
+- fix(multiplatform): implement OS-native path resolution in `taxonomy_core_constant.py` (`%LOCALAPPDATA%` / `%APPDATA%` on Windows, `~/Library/...` on macOS, XDG on Linux)
+- fix(multiplatform): align installer directory name in `scripts/install.py` (`qwen-web` instead of `qwen-web-automation`)
+- fix(multiplatform): add cross-platform Playwright browser cache resolution via `get_playwright_browsers_path()` across `surface_cli_doctor_command.py` and `capabilities_update_manager.py`
+- fix(multiplatform): add Windows (`chrome.exe`, `msedge.exe`) and macOS (`/Applications/...`) browser binary discovery to `utility_core_browser_binary.py`
+- fix(multiplatform): replace Unix-only `Path("/dev/null")` with `Path(os.devnull)` in `root_cli_main_entry.py` and `utility_core_config_factory.py`
+- fix(multiplatform): add directory fallback in `capabilities_workspace_provisioner.py` when `os.symlink()` fails on unprivileged Windows environments
+- fix(core): upgrade Live DOM Tree Walker fallback with thinking status card pruning (`[class*="thinking"]`, `[class*="status-card"]`) to prevent false-positive skips during response extraction
+- fix(cli): resolve `doctor` command unit tests for headless CI environments without active persistent sessions
+- fix(security): sanitize `/home/<username>` environment path occurrences in visual SVG documentation to `/home/user`
+- fix(ci): enforce strict Ruff and MyPy compliance across shared taxonomy and core modules
+
+### Changed
+
+- chore(release): bump version to `4.6.0` across root and module `pyproject.toml` manifests
+
+---
+
 ## [4.2.0] - 2026-08-17
 
 ### Added

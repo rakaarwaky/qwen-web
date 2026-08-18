@@ -27,43 +27,7 @@ def _compute_output_path(cfg: AppConfig, sub_path: Path) -> Path:
     return cfg.output_path / sub_path.name
 
 
-def _role_destination(
-    root: Path, role_folder: str, sub_path: Path, marker: str, input_root: Path | None = None
-) -> Path:
-    """Join a role below a workspace root without breaking role-local defaults."""
-    if root.name == marker and root.parent.name == role_folder:
-        return root / sub_path
-    if input_root is not None and root.name == marker and root.parent.resolve() == input_root.resolve():
-        return root.parent / role_folder / marker / sub_path
-    return root / role_folder / sub_path
 
-
-def resolve_role_paths(rel_path: Path, cfg: AppConfig) -> tuple[Path, Path, Path, Path]:
-    """Resolve output, done, failed, and processing paths from one relative path.
-
-    ``rel_path`` may contain a role folder and any queue marker (``todo``,
-    ``done``, ``failed``, ``proc`` or ``.processing``).  Configured roots are
-    always respected; if a configured root already points at a role directory,
-    the role is not appended a second time.
-    """
-    parts = rel_path.parts
-    role_idx = next((i for i, part in enumerate(parts) if part.startswith("role-")), None)
-
-    if role_idx is not None:
-        role_folder = parts[role_idx]
-        sub_path = _normalize_sub_parts(parts[role_idx + 1 :], rel_path.name)
-        out_path = _compute_output_path(cfg, sub_path)
-        done_path = _role_destination(cfg.done_path, role_folder, sub_path, "done", cfg.input_path)
-        fail_path = _role_destination(cfg.failed_path, role_folder, sub_path, "failed", cfg.input_path)
-        proc_file = _role_destination(cfg.proc_path, role_folder, sub_path, ".processing", cfg.input_path)
-    else:
-        sub_path = _normalize_sub_parts(parts, rel_path.name)
-        out_path = _compute_output_path(cfg, sub_path)
-        done_path = cfg.done_path / sub_path
-        fail_path = cfg.failed_path / sub_path
-        proc_file = cfg.proc_path / sub_path
-
-    return out_path, done_path, fail_path, proc_file
 
 
 def should_process_file(f: Path, base_src: Path) -> bool:

@@ -5,6 +5,7 @@ Stateless functions consumed by Agent orchestrator and StatusFileWriter.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from modules.shared.src.taxonomy_core_constant import (
@@ -43,7 +44,7 @@ def build_app_config(
     retry_failed: bool = False,
 ) -> AppConfig:
     """Build a complete AppConfig while preserving every runtime override."""
-    dummy_path = Path("/dev/null")
+    dummy_path = Path(os.devnull)
     return AppConfig(
         mode=mode,
         input_path=input_path or dummy_path,
