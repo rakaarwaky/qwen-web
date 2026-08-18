@@ -195,6 +195,14 @@ from .utility_core_prompt import (
     strip_input_from_output,
 )
 
+# ─── Utility: response ────────────────────────────────────────
+from .utility_core_response import (
+    detect_processing_failure,
+    error_response,
+    safe_handle,
+    success_response,
+)
+
 # ─── Utility: text ────────────────────────────────────────────
 from .utility_core_text import build_metadata_header, strip_ui_noise
 
@@ -357,6 +365,10 @@ __all__ = [
     "ISessionAggregate",
     "ISetupAggregate",
     # Utilities
+    "detect_processing_failure",
+    "error_response",
+    "safe_handle",
+    "success_response",
     "extract_prompt_text",
     "strip_input_from_output",
     "should_process_file",

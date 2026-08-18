@@ -25,6 +25,20 @@ from modules.shared.src.taxonomy_core_vo import (
     PromptText,
     TimeoutSec,
 )
+from modules.shared.src.utility_core_response import detect_processing_failure
+
+
+def _check_execution_result(res_str: str) -> str | None:
+    fail_msg = detect_processing_failure(res_str)
+    if fail_msg:
+        code = "AUTH_REQUIRED" if "AUTH_REQUIRED" in fail_msg else "EXECUTION_ERROR"
+        hint = (
+            "Session expired or not authenticated. Call setup_session tool to log in."
+            if code == "AUTH_REQUIRED"
+            else "Execution failed on core pipeline."
+        )
+        return _format_error_payload(code=code, message=fail_msg, hint=hint, retryable=True)
+    return None
 
 
 def _format_success_payload(
@@ -34,6 +48,10 @@ def _format_success_payload(
     extra: dict[str, Any] | None = None,
 ) -> str:
     """Format successful MCP tool response into structured JSON string."""
+    err = _check_execution_result(result_text)
+    if err:
+        return err
+
     payload: dict[str, Any] = {
         "success": True,
         "status": "SUCCESS",

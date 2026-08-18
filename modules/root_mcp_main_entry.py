@@ -24,7 +24,6 @@ from modules.mcp.src.surface_mcp_tool_command import McpToolCommand
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
 from modules.shared.src.utility_core_version import get_package_version
 
-
 # ─── Logging setup ──────────────────────────────────────────────────────────
 
 logging.basicConfig(
@@ -96,19 +95,37 @@ TOOLS: list[Tool] = [
         input_schema={
             "type": "object",
             "properties": {
-                "target_dir": {"type": "string", "default": "."},
+                "target_dir": {
+                    "type": "string",
+                    "description": "Target directory to initialize (default: current working directory).",
+                    "default": ".",
+                    "examples": ["/home/user/my-workspace"],
+                },
             },
         },
     ),
     Tool(
         name="process_direct_prompt",
-        description="Process a direct text prompt string to chat.qwen.ai and return the AI answer.",
+        description="Process a direct text prompt string to chat.qwen.ai and return the AI answer. Requires a valid login session; call setup_session if not authenticated.",
         input_schema={
             "type": "object",
             "properties": {
-                "prompt": {"type": "string"},
-                "timeout_sec": {"type": "integer", "default": 120},
-                "headless": {"type": "boolean", "default": True},
+                "prompt": {
+                    "type": "string",
+                    "description": "The prompt text to send to Qwen.",
+                    "examples": ["Summarize the key differences between SQL and NoSQL databases."],
+                },
+                "timeout_sec": {
+                    "type": "integer",
+                    "description": "Maximum seconds to wait for the assistant response.",
+                    "default": 120,
+                    "minimum": 1,
+                },
+                "headless": {
+                    "type": "boolean",
+                    "description": "Run the browser headlessly (True) or with visible UI (False).",
+                    "default": True,
+                },
             },
             "required": ["prompt"],
         },
@@ -119,45 +136,79 @@ TOOLS: list[Tool] = [
         input_schema={
             "type": "object",
             "properties": {
-                "input_file": {"type": "string"},
-                "output_file": {"type": "string", "default": None},
-                "headless": {"type": "boolean", "default": True},
+                "input_file": {
+                    "type": "string",
+                    "description": "Absolute or relative path to the Markdown prompt file.",
+                    "examples": ["/home/user/prompts/analysis.md"],
+                },
+                "output_file": {
+                    "type": "string",
+                    "description": "Destination path for the AI response output (optional).",
+                    "default": None,
+                    "examples": ["/home/user/output/analysis_output.md"],
+                },
+                "headless": {
+                    "type": "boolean",
+                    "description": "Run the browser headlessly (True) or with visible UI (False).",
+                    "default": True,
+                },
             },
             "required": ["input_file"],
         },
     ),
     Tool(
         name="process_prompt_with_attachment",
-        description="Process a Markdown prompt file with a document attachment on chat.qwen.ai.",
+        description="Process a Markdown prompt file with a document attachment on chat.qwen.ai. Attachment must be a supported text/document format (.txt, .md, .pdf, code files) and at most 100 MB. Archives and binaries (.zip, .tar, .gz, .tgz, .7z, .rar, .bz2, .xz, .exe, .bin, .iso, .dmg, .so, .dll, .dylib) are rejected.",
         input_schema={
             "type": "object",
             "properties": {
-                "prompt_file": {"type": "string"},
-                "attachment_file": {"type": "string"},
-                "output_file": {"type": "string", "default": None},
-                "headless": {"type": "boolean", "default": True},
+                "prompt_file": {
+                    "type": "string",
+                    "description": "Absolute or relative path to the Markdown prompt file.",
+                    "examples": ["/home/user/prompts/analyze_doc.md"],
+                },
+                "attachment_file": {
+                    "type": "string",
+                    "description": "Path to the document to attach. Must exist, be readable, not exceed 100 MB, and not be an archive/binary format.",
+                    "examples": ["/home/user/docs/report.pdf"],
+                },
+                "output_file": {
+                    "type": "string",
+                    "description": "Destination path for the AI response output (optional).",
+                    "default": None,
+                    "examples": ["/home/user/output/analysis_output.md"],
+                },
+                "headless": {
+                    "type": "boolean",
+                    "description": "Run the browser headlessly (True) or with visible UI (False).",
+                    "default": True,
+                },
             },
             "required": ["prompt_file", "attachment_file"],
         },
     ),
     Tool(
         name="check_session",
-        description="Check status and validity of saved browser session tokens.",
+        description="Check status and validity of saved browser session tokens. Returns session_valid flag and the recommended next action.",
         input_schema={"type": "object", "properties": {}},
     ),
     Tool(
         name="delete_session",
-        description="Delete saved browser session tokens. Requires confirm=True parameter.",
+        description="Delete saved browser session tokens. Requires confirm=True parameter to proceed.",
         input_schema={
             "type": "object",
             "properties": {
-                "confirm": {"type": "boolean", "default": False},
+                "confirm": {
+                    "type": "boolean",
+                    "description": "Must be True to confirm deletion of saved session tokens.",
+                    "default": False,
+                },
             },
         },
     ),
     Tool(
         name="setup_session",
-        description="Launch visible browser on chat.qwen.ai for manual login / session setup.",
+        description="Launch a visible browser on chat.qwen.ai for manual login / session setup. Call this first when check_session reports an invalid or missing session.",
         input_schema={"type": "object", "properties": {}},
     ),
 ]

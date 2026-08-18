@@ -6,26 +6,23 @@ orchestrator based on AppConfig.mode, then delegates with zero business logic.
 
 from __future__ import annotations
 
-import re
-
 from modules.shared.src.contract_core_aggregate import (
     IAttachmentPromptAggregate,
     IDirectPromptAggregate,
     IPromptFileAggregate,
 )
 from modules.shared.src.taxonomy_core_vo import AppConfig, HeadlessFlag
-from modules.shared.src.utility_core_response import error_response, safe_handle, success_response
+from modules.shared.src.utility_core_response import (
+    detect_processing_failure,
+    error_response,
+    safe_handle,
+    success_response,
+)
 
 
 def _processing_failure_message(result: object) -> str | None:
     """Return a failure reason when a normal core response reports failed work."""
-    message = str(result)
-    if message.startswith("ERROR ["):
-        return message
-    match = re.search(r"\bFailed:\s*(\d+)\b", message, flags=re.IGNORECASE)
-    if match and int(match.group(1)) > 0:
-        return message
-    return None
+    return detect_processing_failure(result)
 
 
 @safe_handle

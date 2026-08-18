@@ -5,8 +5,8 @@ lifecycle guards, and dispatch to the CLI surface commands via DI container.
 
 Usage:
   qwen-web-arwaky init                              [--dir TARGET_DIR]
-  qwen-web-arwaky login                             [--headless]
-  qwen-web-arwaky prompt-direct  --text "..."       [--output-path FILE] [--headless]
+  qwen-web-arwaky login
+  qwen-web-arwaky prompt-direct  --text "..."       [--output-path FILE] [--headless] [--json]
   qwen-web-arwaky prompt-only    --prompt-path FILE [--output-path FILE] [--headless]
   qwen-web-arwaky prompt-with-attachment \\
                                  --prompt-path FILE --attachment-path FILE \\
@@ -17,6 +17,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from functools import lru_cache
@@ -27,7 +28,6 @@ import modules.cli.src.surface_cli_interactive_controller as surface_cli_interac
 import modules.cli.src.surface_cli_login_command as surface_cli_login_command
 import modules.cli.src.surface_cli_run_command as surface_cli_run_command
 import modules.cli.src.surface_cli_update_command as surface_cli_update_command
-
 from modules.core.src.root_core_container import SharedContainer
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_LOG,
@@ -56,8 +56,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p_init.add_argument("--dir", dest="target_dir", default=None, help="Target directory (default: cwd)")
 
     # ── login ─────────────────────────────────────────────────────────────────
-    p_login = sub.add_parser("login", help="Open browser for manual login and save session")
-    p_login.add_argument("--headless", action="store_true", help="Run browser headlessly")
+    sub.add_parser("login", help="Open browser for manual login and save session")
 
     # ── update ────────────────────────────────────────────────────────────────
     p_update = sub.add_parser(
@@ -174,12 +173,25 @@ def _default_container() -> SharedContainer:
     return SharedContainer()
 
 
-def _result_exit_code(result: dict[str, object]) -> int:
+def _result_exit_code(result: dict[str, object], json_output: bool = False) -> int:
     """Convert a surface response envelope to a CLI exit code."""
     if result.get("success"):
-        print(result.get("message", ""))
+        if json_output:
+            print(json.dumps(result, indent=2, default=str))
+        else:
+            print(result.get("message", ""))
         return 0
+    if json_output:
+        print(json.dumps(result, indent=2, default=str))
     print(f"{_ERROR_PREFIX} {result.get('error') or 'Unknown error'}", file=sys.stderr)
+    return _exit_code_for_result(result)
+
+
+def _exit_code_for_result(result: dict[str, object]) -> int:
+    """Map a failed response envelope to a process exit code."""
+    error = str(result.get("error") or "")
+    if "AUTH_REQUIRED" in error or "not authenticated" in error.lower() or "session expired" in error.lower():
+        return 2
     return 1
 
 
@@ -190,6 +202,7 @@ def _dispatch(
     cfg: AppConfig | None,
 ) -> int:
     """Dispatch one already-parsed CLI invocation inside the Linux lifecycle."""
+    json_output = bool(getattr(args, "json", False)) if args is not None else False
     if args is None:
         if not sys.stdin.isatty():
             print(
@@ -209,8 +222,9 @@ def _dispatch(
             container.agent_prompt_file_orchestrator,
             container.agent_attachment_prompt_orchestrator,
             container.agent_setup_orchestrator,
+            container.agent_session_orchestrator,
         ).run()
-        return _result_exit_code(result)
+        return _result_exit_code(result, json_output=json_output)
 
     action = getattr(args, "action", None)
 
@@ -223,15 +237,15 @@ def _dispatch(
         if cfg is None:
             print(f"{_ERROR_PREFIX} Missing login configuration.", file=sys.stderr)
             return 1
-        return _run_manual_login(cfg, container)
+        return _run_manual_login(cfg, container, json_output=json_output)
 
     if action == "init":
         result = surface_cli_init_command.handle(args, container.workspace)
-        return _result_exit_code(result)
+        return _result_exit_code(result, json_output=json_output)
 
     if action == "update":
         result = surface_cli_update_command.handle(args, container.updater)
-        return _result_exit_code(result)
+        return _result_exit_code(result, json_output=json_output)
 
 
     if cfg is None:
@@ -246,7 +260,7 @@ def _dispatch(
         container.agent_prompt_file_orchestrator,
         container.agent_attachment_prompt_orchestrator,
     )
-    return _result_exit_code(result)
+    return _result_exit_code(result, json_output=json_output)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -274,11 +288,15 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return _dispatch(_default_container(), raw_argv, args, cfg)
     except Exception as exc:
+        from modules.shared.src.utility_core_exit import exit_code_for
+
         print(f"{_ERROR_PREFIX} {exc}", file=sys.stderr)
-        return 1
+        return exit_code_for(exc)
 
 
-def _run_manual_login(cfg: AppConfig, container: SharedContainer | None = None) -> int:
+def _run_manual_login(
+    cfg: AppConfig, container: SharedContainer | None = None, json_output: bool = False
+) -> int:
     """Launch visible browser for interactive login."""
     if container is None:
         container = _default_container()
@@ -288,7 +306,7 @@ def _run_manual_login(cfg: AppConfig, container: SharedContainer | None = None) 
         container.agent_setup_orchestrator,
         cfg,
     )
-    return _result_exit_code(result)
+    return _result_exit_code(result, json_output=json_output)
 
 
 if __name__ == "__main__":
