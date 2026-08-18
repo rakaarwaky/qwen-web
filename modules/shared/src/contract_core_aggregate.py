@@ -29,6 +29,7 @@ class IDirectPromptAggregate(ABC):
         self,
         prompt: PromptText | str,
         timeout_sec: TimeoutSec = TimeoutSec(120),
+        output_file: Path | OutputPath | str | None = None,
         headless: HeadlessFlag = HeadlessFlag(True),
     ) -> ResponseText:
         """Process a direct text prompt string."""

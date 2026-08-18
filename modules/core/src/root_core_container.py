@@ -74,6 +74,7 @@ class SharedContainer:
             injector=self.injector,
             sender=self.sender,
             streamer=self.streamer,
+            saver=self.saver,
             observability=self.observability,
         )
         self.agent_prompt_file_orchestrator: IPromptFileAggregate = PromptFileOrchestrator(

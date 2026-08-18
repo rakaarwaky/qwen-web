@@ -105,11 +105,11 @@ class Saver(ISaverProtocol):
             try:
                 meta_dict = {
                     "run_id": run_id,
-                    "source_file": src,
+                    "source_file": str(src),
                     "processed_at": iso_timestamp,
                     "duration_sec": round(dur, 2),
-                    "input_chars": input_chars,
-                    "output_chars": output_chars,
+                    "input_chars": int(input_chars),
+                    "output_chars": int(output_chars),
                 }
                 write_json_file(sidecar_path, meta_dict, atomic=bool(atomic_write))
             except (OSError, TypeError, ValueError) as e:

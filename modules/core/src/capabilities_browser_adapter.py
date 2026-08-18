@@ -189,52 +189,107 @@ class BrowserAdapter(IBrowserProtocol):
         emitter.emit(EVENT_LOGIN_VERIFIED, {"url": page.url})
 
         # Step 5: Force the hardcoded default model so the user never picks it manually.
-        self.ensure_default_model(page)
+        switched = self.ensure_default_model(page)
 
         # Step 6: Verify the switch actually happened; abort before prompt if not.
-        self._verify_default_model(page)
+        self._verify_default_model(page, require_switch=switched)
         emitter.emit(EVENT_MODEL_VERIFIED, {"model": DEFAULT_MODEL})
 
-    def _verify_default_model(self, page: Page) -> None:
+    def _verify_default_model(self, page: Page, require_switch: bool = True) -> None:
         """Assert the active model equals the hardcoded default.
 
         Runs after ``ensure_default_model`` so a silent picker failure cannot let
         the pipeline dispatch the prompt to the wrong model. Raises
-        ``ModelSwitchError`` when the switch cannot be confirmed.
+        ``ModelSwitchError`` when the switch cannot be confirmed. When the
+        best-effort switch reported failure (``require_switch=False``), the
+        verification is retried once before aborting so a slow picker cannot
+        hard-fail the pipeline.
         """
-        try:
-            picker = page.get_by_role("button", name=MODEL_SELECTOR_BUTTON)
-            picker.wait_for(state="visible", timeout=5000)
-            current = (picker.inner_text() or "").replace("\n", " ").strip()
-        except Error as exc:
-            raise ModelSwitchError(
-                f"Cannot read active model from '{MODEL_SELECTOR_BUTTON}' button: {exc}"
-            ) from exc
-        if DEFAULT_MODEL not in current:
-            raise ModelSwitchError(
-                f"Default model not active: expected '{DEFAULT_MODEL}', found '{current}'"
-            )
-        log.debug("verify_default_model_ok", model=DEFAULT_MODEL)
+    def _get_model_trigger(self, page: Page) -> Any:
+        """Return locator for active model selector trigger button/div."""
+        with contextlib.suppress(Error):
+            trigger = page.locator(".wms-trigger, [aria-label='Select Model']").first
+            if trigger.is_visible(timeout=1000) is True:
+                return trigger
+        return page.get_by_role("button", name=MODEL_SELECTOR_BUTTON)
 
-    def ensure_default_model(self, page: Page) -> None:
+    def _verify_default_model(self, page: Page, require_switch: bool = True) -> None:
+        """Assert the active model equals the hardcoded default."""
+        attempts = 1 if require_switch else 2
+        for attempt in range(attempts):
+            try:
+                picker = self._get_model_trigger(page)
+                picker.wait_for(state="visible", timeout=5000)
+                current = (picker.inner_text() or "").replace("\n", " ").strip()
+            except Error as exc:
+                raise ModelSwitchError(
+                    f"Cannot read active model from '{MODEL_SELECTOR_BUTTON}' button: {exc}"
+                ) from exc
+            if DEFAULT_MODEL in current.split():
+                log.debug("verify_default_model_ok", model=DEFAULT_MODEL)
+                return
+            if attempt + 1 < attempts:
+                log.debug("verify_default_model_retry", model=DEFAULT_MODEL, found=current)
+                self.ensure_default_model(page)
+                continue
+            raise ModelSwitchError(f"Default model not active: expected '{DEFAULT_MODEL}', found '{current}'")
+        raise ModelSwitchError(f"Default model not active: expected '{DEFAULT_MODEL}'")
+
+    def ensure_default_model(self, page: Page) -> bool:
         """Best-effort: ensure the active Qwen model is the hardcoded default.
 
         Opens the model picker only long enough to click the default option. The
         call is defensive — any failure is logged and swallowed so it can never
-        block the prompt pipeline (matches the best-effort style of
-        ``_start_new_chat``). Runs on every session, including the first run.
+        block the prompt pipeline.
         """
         try:
-            picker = page.get_by_role("button", name=MODEL_SELECTOR_BUTTON)
+            picker = self._get_model_trigger(page)
             picker.wait_for(state="visible", timeout=5000)
             picker.click(timeout=5000)
+
+            # Option item (.wms-list__item or role=option)
             option = page.get_by_role("option", name=DEFAULT_MODEL)
+            with contextlib.suppress(Error):
+                loc = page.locator(".wms-list__item", has_text=DEFAULT_MODEL).first
+                if loc.is_visible(timeout=1000) is True:
+                    option = loc
+
             option.wait_for(state="visible", timeout=5000)
             option.click(timeout=5000)
             page.wait_for_timeout(300)
+
+            self._try_set_as_default(page)
             log.debug("ensure_default_model_applied", model=DEFAULT_MODEL)
+            return True
         except Error as exc:
             log.debug("ensure_default_model_skipped", model=DEFAULT_MODEL, error=str(exc))
+            return False
+
+    def _try_set_as_default(self, page: Page) -> None:
+        """Best-effort attempt to click 'Set default' or 'Set as default' in Qwen UI picker."""
+        try:
+            picker = self._get_model_trigger(page)
+            picker.click(timeout=3000)
+            page.wait_for_timeout(300)
+
+            with contextlib.suppress(Error):
+                item = page.locator(".wms-list__item", has_text=DEFAULT_MODEL).first
+                if item.is_visible(timeout=1500) is True:
+                    pin = item.locator(".wms-list__pin-action, :has-text('Set as default')").first
+                    if "Set as default" in (pin.inner_text() or ""):
+                        pin.evaluate("e => e.click()")
+                        log.debug("set_default_model_ui_applied", model=DEFAULT_MODEL)
+                        page.wait_for_timeout(300)
+
+            with contextlib.suppress(Error):
+                page.keyboard.press("Escape")
+        except Error as exc:
+            log.debug("set_default_model_ui_skipped", error=str(exc))
+            with contextlib.suppress(Error):
+                page.keyboard.press("Escape")
+
+
+
 
     def _start_new_chat(self, page: Page, opt_in: bool = True) -> None:
         """Start a clean Qwen conversation so stale cards cannot affect monitoring."""

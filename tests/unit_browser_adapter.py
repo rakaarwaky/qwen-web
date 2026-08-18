@@ -117,20 +117,53 @@ def test_ensure_default_model_clicks_default_option():
     mock_page = MagicMock()
     picker = MagicMock()
     option = MagicMock()
-    locators = {MODEL_SELECTOR_BUTTON_NAME: picker, DEFAULT_MODEL: option}
+    set_btn = MagicMock()
+    set_btn.is_visible.return_value = False
+    locators = {MODEL_SELECTOR_BUTTON_NAME: picker, DEFAULT_MODEL: option, "Set default": set_btn}
 
-    def _fake_get_by_role(role, name=None):
+    def _fake_get_by_role(role, name=None, exact=False):
         return locators.get(name or "", MagicMock())
 
     mock_page.get_by_role.side_effect = _fake_get_by_role
 
-    BrowserAdapter().ensure_default_model(mock_page)
+    switched = BrowserAdapter().ensure_default_model(mock_page)
 
+    assert switched is True
     picker.wait_for.assert_called_once()
-    picker.click.assert_called_once()
+    assert picker.click.call_count >= 1
     option.wait_for.assert_called_once()
     option.click.assert_called_once()
-    mock_page.wait_for_timeout.assert_called_once()
+    assert mock_page.wait_for_timeout.call_count >= 1
+
+
+def test_try_set_as_default_clicks_button():
+    mock_page = MagicMock()
+    trigger = MagicMock()
+    trigger.is_visible.return_value = True
+    item = MagicMock()
+    item.is_visible.return_value = True
+    pin = MagicMock()
+    pin.inner_text.return_value = "Set as default"
+
+    item.locator.return_value.first = pin
+
+    def _fake_locator(selector, has_text=None):
+        mock = MagicMock()
+        if ".wms-trigger" in selector:
+            mock.first = trigger
+        elif ".wms-list__item" in selector:
+            mock.first = item
+        return mock
+
+    mock_page.locator.side_effect = _fake_locator
+
+    BrowserAdapter()._try_set_as_default(mock_page)
+
+    trigger.click.assert_called_once_with(timeout=3000)
+    pin.evaluate.assert_called_once_with("e => e.click()")
+    mock_page.keyboard.press.assert_called_once_with("Escape")
+
+
 
 
 def test_ensure_default_model_swallows_error():
@@ -139,8 +172,10 @@ def test_ensure_default_model_swallows_error():
     mock_page = MagicMock()
     mock_page.get_by_role.return_value.wait_for.side_effect = PwError("picker missing")
 
-    # Best-effort: must never raise, so the prompt pipeline is not blocked.
-    BrowserAdapter().ensure_default_model(mock_page)
+    # Best-effort: must never raise and must report failure, so the prompt
+    # pipeline can fall back to a single verification pass.
+    assert BrowserAdapter().ensure_default_model(mock_page) is False
+
 
 
 def test_verify_default_model_ok():
@@ -161,6 +196,34 @@ def test_verify_default_model_raises_on_mismatch():
 
     with pytest.raises(ModelSwitchError, match="Default model not active"):
         BrowserAdapter()._verify_default_model(mock_page)
+
+
+def test_verify_default_model_rejects_superstring_model():
+    """A similarly-named model (e.g. Qwen3.8-Max-X) must NOT pass the gate."""
+    from modules.shared.src.taxonomy_core_error import ModelSwitchError
+
+    mock_page = MagicMock()
+    mock_page.get_by_role.return_value.inner_text.return_value = "Select Model Qwen3.8-Max-Plus"
+
+    with pytest.raises(ModelSwitchError, match="Default model not active"):
+        BrowserAdapter()._verify_default_model(mock_page)
+
+
+def test_verify_default_model_retries_when_switch_reported_failure():
+    from modules.shared.src.taxonomy_core_constant import DEFAULT_MODEL
+
+    mock_page = MagicMock()
+    # First read shows the old model; the retry re-runs ensure_default_model,
+    # after which the picker reports the default model.
+    inner_texts = iter(["Select Model Qwen3.7-Plus", f"Select Model {DEFAULT_MODEL}"])
+
+    def _fake_inner_text():
+        return next(inner_texts)
+
+    mock_page.get_by_role.return_value.inner_text.side_effect = _fake_inner_text
+
+    # Must not raise: the retry path fixes the mismatch.
+    BrowserAdapter()._verify_default_model(mock_page, require_switch=False)
 
 
 def test_verify_default_model_raises_when_unreadable():
