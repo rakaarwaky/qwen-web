@@ -10,9 +10,9 @@ from pathlib import Path
 
 from playwright.sync_api import Page
 
-from modules.core.src.agent_shared_flow_orchestrator import SharedFlowOrchestrator
 from modules.core.src.utility_core_config_factory import build_app_config
 from modules.core.src.utility_core_dom_helper import setup_lifecycle_state
+from modules.core.src.utility_core_dom_query import latest_message_text
 from modules.core.src.utility_core_error_mapping import to_error_response
 from modules.shared.src.contract_core_aggregate import IAttachmentPromptAggregate
 from modules.shared.src.contract_core_protocol import (
@@ -24,20 +24,32 @@ from modules.shared.src.contract_core_protocol import (
     IStreamProtocol,
     IUploadProtocol,
 )
-from modules.shared.src.taxonomy_core_constant import DEFAULT_OUTPUT
-from modules.shared.src.taxonomy_core_error import UploadFailureError
-from modules.shared.src.taxonomy_core_event import PIPELINE_EVENT_SEQUENCE
+from modules.shared.src.taxonomy_core_constant import (
+    DEFAULT_OUTPUT,
+)
+from modules.shared.src.taxonomy_core_error import (
+    ResponseDetectionTimeoutError,
+    UploadFailureError,
+)
+from modules.shared.src.taxonomy_core_event import (
+    EVENT_PROMPT_INJECTED,
+    PIPELINE_EVENT_SEQUENCE,
+)
 from modules.shared.src.taxonomy_core_vo import (
     AppConfig,
     AttachmentPath,
     FilePath,
     HeadlessFlag,
+    MessageCount,
     OutputChars,
     OutputPath,
+    PollIntervalSec,
     PromptPath,
+    PromptText,
     ResponseText,
     RunContext,
     SenderConfig,
+    TimeoutSec,
 )
 
 
@@ -132,27 +144,40 @@ class AttachmentPromptOrchestrator(IAttachmentPromptAggregate):
             logger.error("File upload or parsing could not be positively verified: %s%s", att_path.name, detail)
             raise UploadFailureError(f"Attachment upload/parsing failed for {att_path.name}{detail}")
 
+        try:
+            baseline_response = latest_message_text(page)
+        except Exception:
+            baseline_response = None
+
+        self._injector.inject_text(page, PromptText(prompt))
+        emitter.emit(EVENT_PROMPT_INJECTED, {"file": str(filepath), "char_count": len(prompt)})
+
         # Use a generous timeout so _wait_for_send_enabled can hold for
         # long document parsing (up to 120s) before the first click attempt.
         send_cfg = SenderConfig(
             click_timeout_ms=120_000,
             try_enter_key_fallback=True,
         )
-        return SharedFlowOrchestrator.dispatch_and_wait_for_response(
-            page=page,
-            injector=self._injector,
-            sender=self._sender,
-            streamer=self._streamer,
-            emitter=emitter,
-            state=state,
-            logger=logger,
-            filepath=filepath,
-            prompt=prompt,
-            msg_count_before=msg_count_before,
-            timeout_sec=timeout_sec,
-            active_cfg=active_cfg,
-            sender_config=send_cfg,
-            document_parsed=state.document_parsed,
+        self._sender.click_send(page, emitter, config=send_cfg, document_parsed=HeadlessFlag(state.document_parsed))
+        if not state.dispatch_acknowledged:
+            raise RuntimeError("Cannot wait for response: prompt dispatch is incomplete")
+
+        stream_timeout_sec = min(timeout_sec, active_cfg.streaming_timeout)
+        response = self._streamer.wait_for_response(
+            page,
+            TimeoutSec(stream_timeout_sec),
+            MessageCount(msg_count_before),
+            emitter,
+            polling_interval_sec=PollIntervalSec(active_cfg.poll_interval),
+            dispatch_acknowledged=HeadlessFlag(state.dispatch_acknowledged),
+            baseline_text=baseline_response,
+        )
+
+        if response and len(response.strip()) > 0:
+            logger.info("Received response (%d chars)", len(response))
+            return response.strip()
+        raise ResponseDetectionTimeoutError(
+            f"Response detection timeout after {stream_timeout_sec}s: no response detected"
         )
 
 
