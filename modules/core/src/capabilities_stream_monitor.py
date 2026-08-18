@@ -63,11 +63,10 @@ class StreamMonitor(IStreamProtocol):
         try:
             if is_any_visible(page, STOP_BUTTON_SELECTORS):
                 return False
-            if is_any_visible(page, SEND_DISABLED_SELECTORS):
-                return False
             return not self.is_thinking_active(page)
         except Exception:
             return False
+
 
     def is_thinking_active(self, page: Page) -> bool:
         """Check whether Qwen's live thinking/status indicator is visible.
@@ -188,14 +187,6 @@ class StreamMonitor(IStreamProtocol):
                         stable_count = 0
                         last_text = text
 
-                # Immediate exit if Qwen DOM reports generation complete and text is stable
-                if is_complete and last_text is not None and len(last_text.strip()) > 0 and stable_count >= 2:
-                    log.info(
-                        "Generation complete confirmed by DOM (elapsed=%ds, length=%d)", int(elapsed), len(last_text)
-                    )
-                    validate_response_content(last_text)
-                    emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(last_text)})
-                    return ResponseText(last_text)
 
                 # Periodic 30s cloud reload sync trigger — ONLY when Qwen is still actively generating!
                 if (now - last_reload_time) >= 30.0 and elapsed < max_duration and is_active_generating:
