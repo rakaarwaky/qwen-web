@@ -43,6 +43,13 @@ DEFAULT_TODO = XDG_DATA_HOME / "todo"
 XDG_SKILL_MD = XDG_DATA_HOME / "SKILL.md"
 CHAT_URL = "https://chat.qwen.ai/"
 
+# Hardcoded default model. Pipeline forces this on every chat session so the
+# user never has to pick a model manually (idempotent per-session).
+DEFAULT_MODEL = "Qwen3.8-Max"
+
+# Accessible-name locators for the chat model picker.
+MODEL_SELECTOR_BUTTON = "Select Model"
+
 MAX_ATTEMPTS = 3
 
 SERVICE_NAME = "qwen-web"

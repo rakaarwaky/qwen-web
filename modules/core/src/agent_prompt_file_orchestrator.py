@@ -33,6 +33,7 @@ from modules.shared.src.taxonomy_core_event import (
     EVENT_DISPATCH_ACKNOWLEDGED,
     EVENT_GENERATION_FINISHED,
     EVENT_LOGIN_VERIFIED,
+    EVENT_MODEL_VERIFIED,
     EVENT_OUTPUT_COPIED,
     EVENT_PROMPT_INJECTED,
     EVENT_SEND_CLICKED,
@@ -105,6 +106,7 @@ class PromptFileOrchestrator(IPromptFileAggregate):
         file_prompt_events: tuple[QwenEventType, ...] = (
             EVENT_WEB_LOADED,
             EVENT_LOGIN_VERIFIED,
+            EVENT_MODEL_VERIFIED,
             EVENT_PROMPT_INJECTED,
             EVENT_SEND_CLICKED,
             EVENT_DISPATCH_ACKNOWLEDGED,

@@ -10,6 +10,7 @@ from modules.shared.src.taxonomy_core_event import (
     EVENT_DISPATCH_ACKNOWLEDGED,
     EVENT_GENERATION_FINISHED,
     EVENT_LOGIN_VERIFIED,
+    EVENT_MODEL_VERIFIED,
     EVENT_OUTPUT_COPIED,
     EVENT_SEND_CLICKED,
     EVENT_STREAMING_GENERATION,
@@ -59,6 +60,8 @@ def test_process_direct_prompt_happy_path() -> None:
         emitter.emit(EVENT_WEB_LOADED, {"url": "test"})
         emitted_events.append(str(EVENT_LOGIN_VERIFIED))
         emitter.emit(EVENT_LOGIN_VERIFIED, {"url": "test"})
+        emitted_events.append(str(EVENT_MODEL_VERIFIED))
+        emitter.emit(EVENT_MODEL_VERIFIED, {"model": "Qwen3.8-Max"})
 
     mocks["browser"].navigate_to_chat.side_effect = navigate_stub
 
@@ -94,6 +97,7 @@ def test_process_direct_prompt_happy_path() -> None:
     assert emitted_events == [
         "EVENT_WEB_LOADED",
         "EVENT_LOGIN_VERIFIED",
+        "EVENT_MODEL_VERIFIED",
         "EVENT_SEND_CLICKED",
         "EVENT_DISPATCH_ACKNOWLEDGED",
         "EVENT_THINKING_STARTED",
@@ -114,6 +118,7 @@ def test_process_direct_prompt_timeout_error() -> None:
     def navigate_stub(_p, emitter):
         emitter.emit(EVENT_WEB_LOADED, {"url": "test"})
         emitter.emit(EVENT_LOGIN_VERIFIED, {"url": "test"})
+        emitter.emit(EVENT_MODEL_VERIFIED, {"model": "Qwen3.8-Max"})
 
     mocks["browser"].navigate_to_chat.side_effect = navigate_stub
 
