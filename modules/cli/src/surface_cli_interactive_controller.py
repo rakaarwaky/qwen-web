@@ -72,7 +72,11 @@ class InteractiveController:
                 return error_response(
                     RuntimeError("Missing inline prompt text for direct mode."), "validation_error", "cli-400"
                 )
-            result = self._direct.process_direct_prompt(prompt=prompt_text, headless=HeadlessFlag(cfg.headless))
+            result = self._direct.process_direct_prompt(
+                prompt=prompt_text,
+                output_file=cfg.output_path,
+                headless=HeadlessFlag(cfg.headless),
+            )
         elif mode == "single":
             prompt_file = cfg.prompt_path or cfg.input_path
             if cfg.file_path:

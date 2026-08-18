@@ -10,14 +10,13 @@ import time
 
 from playwright.sync_api import Error, Page
 
-from modules.core.src.utility_core_dom_helper import is_any_visible, is_selector_visible
+from modules.core.src.utility_core_dom_helper import is_any_visible
 from modules.core.src.utility_core_dom_query import latest_message_text as _dom_latest
 from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src.contract_core_protocol import IStreamProtocol
 from modules.shared.src.taxonomy_core_constant import (
     SEND_DISABLED_SELECTORS,
     STOP_BUTTON_SELECTORS,
-    TYPING_INDICATOR_SELECTORS,
 )
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_error import AuthRequiredError, NetworkTimeoutError, OutputValidationError
@@ -66,23 +65,33 @@ class StreamMonitor(IStreamProtocol):
                 return False
             if is_any_visible(page, SEND_DISABLED_SELECTORS):
                 return False
-            return not is_any_visible(page, TYPING_INDICATOR_SELECTORS)
+            return not self.is_thinking_active(page)
         except Exception:
             return False
 
     def is_thinking_active(self, page: Page) -> bool:
-        """Check whether Qwen's live thinking/status indicator is visible."""
+        """Check whether Qwen's live thinking/status indicator is visible.
+
+        Scans every thinking/status-card element (not just the first) and only
+        reports active when at least one visible element's text says "thinking"
+        without a completed/complete marker. A finished card that stays in the
+        DOM (e.g. "Thinking completed") must NOT count as active.
+        """
         try:
-            if is_selector_visible(page, TYPING_INDICATOR_SELECTORS):
-                return True
-            js_check = (
-                "() => {"
-                '  const el = document.querySelector(\'[class*="thinking"], [class*="status-card"]\');'
-                "  if (!el) return false;"
-                "  const txt = (el.innerText || '').toLowerCase();"
-                "  return txt.includes('thinking') && !txt.includes('completed') && !txt.includes('complete');"
-                "}"
-            )
+            js_check = """
+                () => {
+                  const els = document.querySelectorAll('[class*="thinking"], [class*="status-card"],
+                    [class*="typing"], [class*="streaming"]');
+                  for (const el of els) {
+                    const r = el.getBoundingClientRect();
+                    if (r.width === 0 && r.height === 0) continue;
+                    const txt = (el.innerText || '').toLowerCase();
+                    if (txt.includes('thinking') && !txt.includes('completed') && !txt.includes('complete'))
+                      return true;
+                  }
+                  return false;
+                }
+            """
             return bool(page.evaluate(js_check))
         except Exception:
             return False

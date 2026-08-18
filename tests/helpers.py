@@ -137,6 +137,7 @@ def make_test_orchestrator(**overrides) -> DirectPromptOrchestrator:
         injector=MagicMock(),
         sender=MagicMock(),
         streamer=MagicMock(),
+        saver=MagicMock(),
         observability=MagicMock(get_logger=MagicMock(return_value=MagicMock())),
     )
     defaults.update(overrides)

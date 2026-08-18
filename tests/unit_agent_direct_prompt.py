@@ -24,6 +24,7 @@ def _make_direct_orchestrator() -> tuple[DirectPromptOrchestrator, dict[str, Mag
     injector = MagicMock()
     sender = MagicMock()
     streamer = MagicMock()
+    saver = MagicMock()
     observability = MagicMock()
     observability.get_logger.return_value = MagicMock()
 
@@ -32,6 +33,7 @@ def _make_direct_orchestrator() -> tuple[DirectPromptOrchestrator, dict[str, Mag
         injector=injector,
         sender=sender,
         streamer=streamer,
+        saver=saver,
         observability=observability,
     )
     mocks = {
@@ -39,6 +41,7 @@ def _make_direct_orchestrator() -> tuple[DirectPromptOrchestrator, dict[str, Mag
         "injector": injector,
         "sender": sender,
         "streamer": streamer,
+        "saver": saver,
         "observability": observability,
     }
     return orchestrator, mocks

@@ -97,16 +97,13 @@ class TestIsGenerationComplete:
         stop_btn.count.return_value = 0
         send_disabled = MagicMock()
         send_disabled.count.return_value = 0
-        typing = MagicMock()
-        typing.count.return_value = 0
+        page.evaluate.return_value = False  # no active thinking indicator
 
         def locator_factory(sel):
             if "Stop" in sel:
                 return stop_btn
             if "disabled" in sel:
                 return send_disabled
-            if "thinking" in sel or "typing" in sel:
-                return typing
             return MagicMock(count=0)
 
         page.locator.side_effect = locator_factory
@@ -154,17 +151,13 @@ class TestIsGenerationComplete:
         stop_btn.count.return_value = 0
         send_disabled = MagicMock()
         send_disabled.count.return_value = 0
-        typing = MagicMock()
-        typing.count.return_value = 1
-        typing.first.is_visible.return_value = True
+        page.evaluate.return_value = True  # active thinking indicator detected
 
         def locator_factory(sel):
             if "Stop" in sel:
                 return stop_btn
             if "disabled" in sel:
                 return send_disabled
-            if "thinking" in sel or "typing" in sel:
-                return typing
             return MagicMock(count=0)
 
         page.locator.side_effect = locator_factory
