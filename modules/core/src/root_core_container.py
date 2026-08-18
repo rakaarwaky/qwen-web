@@ -21,6 +21,7 @@ from modules.core.src.agent_session_orchestrator import SessionOrchestrator
 
 # agent_setup_orchestrator
 from modules.core.src.agent_setup_orchestrator import SetupOrchestrator
+from modules.core.src.agent_shared_flow_orchestrator import SharedFlowOrchestrator
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
 from modules.core.src.capabilities_file_uploader import FileUploader
 from modules.core.src.capabilities_observability_setup import ObservabilitySetup
@@ -34,6 +35,7 @@ from modules.shared.src.contract_core_aggregate import (
     IAttachmentPromptAggregate,
     IDirectPromptAggregate,
     IPromptFileAggregate,
+    IPromptFlowAggregate,
     ISessionAggregate,
     ISetupAggregate,
 )
@@ -71,6 +73,9 @@ class SharedContainer:
         self.workspace = WorkspaceProvisioner()
         self.updater: IUpdateProtocol = UpdateManager()
 
+        # Shared prompt-flow agent (injected into the three prompt orchestrators)
+        self.agent_shared_flow_orchestrator: IPromptFlowAggregate = SharedFlowOrchestrator()
+
         # The 5 specialized agent orchestrators
         self.agent_direct_prompt_orchestrator: IDirectPromptAggregate = DirectPromptOrchestrator(
             browser=self.browser,
@@ -79,6 +84,7 @@ class SharedContainer:
             streamer=self.streamer,
             saver=self.saver,
             observability=self.observability,
+            flow=self.agent_shared_flow_orchestrator,
         )
         self.agent_prompt_file_orchestrator: IPromptFileAggregate = PromptFileOrchestrator(
             browser=self.browser,
@@ -87,6 +93,7 @@ class SharedContainer:
             streamer=self.streamer,
             saver=self.saver,
             observability=self.observability,
+            flow=self.agent_shared_flow_orchestrator,
         )
         self.agent_attachment_prompt_orchestrator: IAttachmentPromptAggregate = AttachmentPromptOrchestrator(
             browser=self.browser,
@@ -96,6 +103,7 @@ class SharedContainer:
             uploader=self.uploader,
             saver=self.saver,
             observability=self.observability,
+            flow=self.agent_shared_flow_orchestrator,
         )
         self.agent_session_orchestrator: ISessionAggregate = SessionOrchestrator(
             browser=self.browser,

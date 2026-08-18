@@ -14,10 +14,9 @@ from modules.core.src.utility_core_config_factory import (
     build_app_config,
     resolve_pipeline_output_path,
 )
-from modules.core.src.utility_core_dom_query import dispatch_and_wait_for_response
 from modules.core.src.utility_core_error_mapping import to_error_response
 from modules.core.src.utility_core_io_writer import save_orchestrator_output
-from modules.shared.src.contract_core_aggregate import IPromptFileAggregate
+from modules.shared.src.contract_core_aggregate import IPromptFileAggregate, IPromptFlowAggregate
 from modules.shared.src.contract_core_protocol import (
     IBrowserProtocol,
     IInjectionProtocol,
@@ -48,6 +47,7 @@ class PromptFileOrchestrator(IPromptFileAggregate):
         streamer: IStreamProtocol,
         saver: ISaverProtocol,
         observability: IObservabilityProtocol,
+        flow: IPromptFlowAggregate,
     ) -> None:
         self._browser = browser
         self._injector = injector
@@ -55,6 +55,7 @@ class PromptFileOrchestrator(IPromptFileAggregate):
         self._streamer = streamer
         self._saver = saver
         self._observability = observability
+        self._flow = flow
 
     def process_prompt_file_only(
         self,
@@ -83,10 +84,9 @@ class PromptFileOrchestrator(IPromptFileAggregate):
             return to_error_response(exc)
 
     def _execute_file_on_page(self, page: Page, filepath: Path, timeout_sec: int, active_cfg: AppConfig) -> str:
-        logger = self._observability.get_logger()
         from modules.core.src.utility_core_dom_helper import setup_lifecycle_state
 
-        emitter, state = setup_lifecycle_state(logger, STANDARD_PROMPT_EVENTS)
+        emitter, state = setup_lifecycle_state(self._observability.get_logger(), STANDARD_PROMPT_EVENTS)
 
         prompt = filepath.read_text(encoding="utf-8").strip()
 
@@ -96,14 +96,14 @@ class PromptFileOrchestrator(IPromptFileAggregate):
 
         self._injector.find_input(page)
 
-        return dispatch_and_wait_for_response(
+        return self._flow.dispatch_and_wait_for_response(
             page=page,
             injector=self._injector,
             sender=self._sender,
             streamer=self._streamer,
             emitter=emitter,
             state=state,
-            logger=logger,
+            observability=self._observability,
             filepath=filepath,
             prompt=prompt,
             msg_count_before=msg_count_before,

@@ -14,10 +14,9 @@ from playwright.sync_api import Page
 
 from modules.core.src.utility_core_config_factory import build_app_config, resolve_pipeline_output_path
 from modules.core.src.utility_core_dom_helper import setup_lifecycle_state
-from modules.core.src.utility_core_dom_query import dispatch_and_wait_for_response
 from modules.core.src.utility_core_error_mapping import to_error_response
 from modules.core.src.utility_core_io_writer import save_orchestrator_output
-from modules.shared.src.contract_core_aggregate import IDirectPromptAggregate
+from modules.shared.src.contract_core_aggregate import IDirectPromptAggregate, IPromptFlowAggregate
 from modules.shared.src.contract_core_protocol import (
     IBrowserProtocol,
     IInjectionProtocol,
@@ -31,6 +30,7 @@ from modules.shared.src.taxonomy_core_vo import (
     AppConfig,
     HeadlessFlag,
     OutputPath,
+    PromptText,
     ResponseText,
     RunContext,
     TimeoutSec,
@@ -48,6 +48,7 @@ class DirectPromptOrchestrator(IDirectPromptAggregate):
         streamer: IStreamProtocol,
         saver: ISaverProtocol,
         observability: IObservabilityProtocol,
+        flow: IPromptFlowAggregate,
     ) -> None:
         self._browser = browser
         self._injector = injector
@@ -55,6 +56,7 @@ class DirectPromptOrchestrator(IDirectPromptAggregate):
         self._streamer = streamer
         self._saver = saver
         self._observability = observability
+        self._flow = flow
 
     def process_direct_prompt(
         self,
@@ -95,21 +97,20 @@ class DirectPromptOrchestrator(IDirectPromptAggregate):
     def _execute_direct_on_page(
         self, page: Page, filepath: Path, prompt: str, timeout_sec: int, active_cfg: AppConfig
     ) -> str:
-        logger = self._observability.get_logger()
-        emitter, state = setup_lifecycle_state(logger, STANDARD_PROMPT_EVENTS)
+        emitter, state = setup_lifecycle_state(self._observability.get_logger(), STANDARD_PROMPT_EVENTS)
 
         self._browser.navigate_to_chat(page, emitter)
         self._browser.check_auth(page)
         msg_count_before = self._sender.count_messages(page)
 
-        return dispatch_and_wait_for_response(
+        return self._flow.dispatch_and_wait_for_response(
             page=page,
             injector=self._injector,
             sender=self._sender,
             streamer=self._streamer,
             emitter=emitter,
             state=state,
-            logger=logger,
+            observability=self._observability,
             filepath=filepath,
             prompt=prompt,
             msg_count_before=msg_count_before,

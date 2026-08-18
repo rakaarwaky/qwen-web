@@ -12,13 +12,11 @@ from modules.shared.src import (
     EVENT_DISPATCH_ACKNOWLEDGED,
     EVENT_DOCUMENT_PARSED,
     EVENT_FILE_UPLOADED,
-    EVENT_GENERATION_FINISHED,
     EVENT_LOGIN_VERIFIED,
     EVENT_MODEL_VERIFIED,
     EVENT_SEND_CLICKED,
-    EVENT_STREAMING_GENERATION,
-    EVENT_THINKING_STARTED,
     EVENT_WEB_LOADED,
+    ResponseDetectionTimeoutError,
 )
 
 
@@ -32,6 +30,7 @@ def _make_attachment_orchestrator() -> AttachmentPromptOrchestrator:
         uploader=MagicMock(),
         saver=MagicMock(),
         observability=MagicMock(get_logger=MagicMock(return_value=MagicMock())),
+        flow=MagicMock(),
     )
 
 
@@ -75,12 +74,9 @@ class TestSendFile:
         _configure_lifecycle_mocks(orch)
         orch._sender.count_messages.return_value = 0
         orch._uploader.upload_attachment.return_value = True
-
-        def timeout_stream(_page, _timeout, _before, emitter, **_kwargs):
-            emitter.emit(EVENT_THINKING_STARTED)
-            return None
-
-        orch._streamer.wait_for_response.side_effect = timeout_stream
+        orch._flow.dispatch_and_wait_for_response.side_effect = ResponseDetectionTimeoutError(
+            "Response detection timeout"
+        )
 
         f = tmp_path / "task.md"
         f.write_text("hello")
@@ -100,14 +96,7 @@ class TestSendFile:
         _configure_lifecycle_mocks(orch)
         orch._sender.count_messages.return_value = 2
         orch._uploader.upload_attachment.return_value = True
-
-        def successful_stream(_page, _timeout, _before, emitter, **_kwargs):
-            emitter.emit(EVENT_THINKING_STARTED)
-            emitter.emit(EVENT_STREAMING_GENERATION, {"text_length": 12})
-            emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": 12})
-            return "the response"
-
-        orch._streamer.wait_for_response.side_effect = successful_stream
+        orch._flow.dispatch_and_wait_for_response.return_value = "the response"
 
         f = tmp_path / "task.md"
         f.write_text("hello")
@@ -121,8 +110,8 @@ class TestSendFile:
             headless=True,
         )
         assert "Successfully processed" in str(result)
-        orch._streamer.wait_for_response.assert_called_once()
-        assert orch._streamer.wait_for_response.call_args[0][2] == 2
+        orch._flow.dispatch_and_wait_for_response.assert_called_once()
+        assert orch._flow.dispatch_and_wait_for_response.call_args.kwargs["msg_count_before"] == 2
 
     def test_inject_text_types_with_delay_fallback(self):
         """Slow typing is delegated to inject_text's type() fallback."""

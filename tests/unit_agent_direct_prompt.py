@@ -8,13 +8,9 @@ from modules.core.src.agent_direct_prompt_orchestrator import DirectPromptOrches
 from modules.shared.src.taxonomy_core_error import ResponseDetectionTimeoutError
 from modules.shared.src.taxonomy_core_event import (
     EVENT_DISPATCH_ACKNOWLEDGED,
-    EVENT_GENERATION_FINISHED,
     EVENT_LOGIN_VERIFIED,
     EVENT_MODEL_VERIFIED,
-    EVENT_OUTPUT_COPIED,
     EVENT_SEND_CLICKED,
-    EVENT_STREAMING_GENERATION,
-    EVENT_THINKING_STARTED,
     EVENT_WEB_LOADED,
 )
 
@@ -35,6 +31,7 @@ def _make_direct_orchestrator() -> tuple[DirectPromptOrchestrator, dict[str, Mag
         streamer=streamer,
         saver=saver,
         observability=observability,
+        flow=MagicMock(),
     )
     mocks = {
         "browser": browser,
@@ -43,6 +40,7 @@ def _make_direct_orchestrator() -> tuple[DirectPromptOrchestrator, dict[str, Mag
         "streamer": streamer,
         "saver": saver,
         "observability": observability,
+        "flow": orchestrator._flow,
     }
     return orchestrator, mocks
 
@@ -56,58 +54,13 @@ def test_process_direct_prompt_happy_path() -> None:
     bctx.pages = [page]
     mocks["browser"].browser_session.return_value.__enter__.return_value = bctx
 
-    emitted_events: list[str] = []
-
-    def navigate_stub(_p, emitter):
-        emitted_events.append(str(EVENT_WEB_LOADED))
-        emitter.emit(EVENT_WEB_LOADED, {"url": "test"})
-        emitted_events.append(str(EVENT_LOGIN_VERIFIED))
-        emitter.emit(EVENT_LOGIN_VERIFIED, {"url": "test"})
-        emitted_events.append(str(EVENT_MODEL_VERIFIED))
-        emitter.emit(EVENT_MODEL_VERIFIED, {"model": "Qwen3.8-Max"})
-
-    mocks["browser"].navigate_to_chat.side_effect = navigate_stub
-
-    def inject_stub(_p, _prompt):
-        pass
-
-    mocks["injector"].inject_text.side_effect = inject_stub
-
-    def send_stub(_p, emitter, **_kwargs):
-        emitted_events.append(str(EVENT_SEND_CLICKED))
-        emitter.emit(EVENT_SEND_CLICKED)
-        emitted_events.append(str(EVENT_DISPATCH_ACKNOWLEDGED))
-        emitter.emit(EVENT_DISPATCH_ACKNOWLEDGED)
-
-    mocks["sender"].click_send.side_effect = send_stub
-
-    def stream_stub(_p, _timeout, _count, emitter, **_kwargs):
-        emitted_events.append(str(EVENT_THINKING_STARTED))
-        emitter.emit(EVENT_THINKING_STARTED)
-        emitted_events.append(str(EVENT_STREAMING_GENERATION))
-        emitter.emit(EVENT_STREAMING_GENERATION)
-        emitted_events.append(str(EVENT_GENERATION_FINISHED))
-        emitter.emit(EVENT_GENERATION_FINISHED)
-        emitted_events.append(str(EVENT_OUTPUT_COPIED))
-        emitter.emit(EVENT_OUTPUT_COPIED)
-        return "Hello from Qwen AI!"
-
-    mocks["streamer"].wait_for_response.side_effect = stream_stub
+    mocks["flow"].dispatch_and_wait_for_response.return_value = "Hello from Qwen AI!"
 
     response = orch.process_direct_prompt("What is Python?", timeout_sec=30, headless=True)
 
     assert str(response) == "Hello from Qwen AI!"
-    assert emitted_events == [
-        "EVENT_WEB_LOADED",
-        "EVENT_LOGIN_VERIFIED",
-        "EVENT_MODEL_VERIFIED",
-        "EVENT_SEND_CLICKED",
-        "EVENT_DISPATCH_ACKNOWLEDGED",
-        "EVENT_THINKING_STARTED",
-        "EVENT_STREAMING_GENERATION",
-        "EVENT_GENERATION_FINISHED",
-        "EVENT_OUTPUT_COPIED",
-    ]
+    mocks["flow"].dispatch_and_wait_for_response.assert_called_once()
+    assert mocks["flow"].dispatch_and_wait_for_response.call_args.kwargs["prompt"] == "What is Python?"
 
 
 def test_process_direct_prompt_timeout_error() -> None:
@@ -131,6 +84,9 @@ def test_process_direct_prompt_timeout_error() -> None:
 
     mocks["sender"].click_send.side_effect = send_stub
     mocks["streamer"].wait_for_response.side_effect = ResponseDetectionTimeoutError("Timeout waiting for response")
+    mocks["flow"].dispatch_and_wait_for_response.side_effect = ResponseDetectionTimeoutError(
+        "Timeout waiting for response"
+    )
 
     response = orch.process_direct_prompt("Test prompt", timeout_sec=10)
 

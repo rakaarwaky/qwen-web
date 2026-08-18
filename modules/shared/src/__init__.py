@@ -11,6 +11,7 @@ from .contract_core_aggregate import (
     IAttachmentPromptAggregate,
     IDirectPromptAggregate,
     IPromptFileAggregate,
+    IPromptFlowAggregate,
     ISessionAggregate,
     ISetupAggregate,
 )
@@ -366,6 +367,7 @@ __all__ = [
     "IAttachmentPromptAggregate",
     "IDirectPromptAggregate",
     "IPromptFileAggregate",
+    "IPromptFlowAggregate",
     "ISessionAggregate",
     "ISetupAggregate",
     # Utilities
