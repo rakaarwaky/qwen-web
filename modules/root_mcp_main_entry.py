@@ -21,7 +21,7 @@ from mcp_types._types import ServerCapabilities, ToolsCapability
 from modules.core.src.capabilities_observability_setup import ObservabilitySetup
 from modules.core.src.root_core_container import SharedContainer
 from modules.mcp.src.surface_mcp_tool_command import McpToolCommand
-from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
+from modules.shared.src.utility_core_paths import DEFAULT_LOG
 from modules.shared.src.utility_core_version import get_package_version
 
 # ─── Logging setup ──────────────────────────────────────────────────────────

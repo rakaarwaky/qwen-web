@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from modules.shared.src.taxonomy_core_constant import DEFAULT_OUTPUT, DEFAULT_SESSION
+from modules.shared.src.utility_core_paths import DEFAULT_OUTPUT, DEFAULT_SESSION
 
 
 def run_doctor(json_output: bool = False) -> int:

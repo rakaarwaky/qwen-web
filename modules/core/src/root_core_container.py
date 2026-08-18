@@ -38,7 +38,7 @@ from modules.shared.src.contract_core_aggregate import (
     ISetupAggregate,
 )
 from modules.shared.src.contract_core_protocol import IUpdateProtocol
-from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
+from modules.shared.src.utility_core_paths import DEFAULT_LOG
 from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
 from modules.shared.src.taxonomy_core_vo import FailureThreshold, MaxPerMinute, WindowSec
 

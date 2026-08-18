@@ -484,7 +484,7 @@ class AppConfig:
     def __post_init__(self) -> None:
         """Validate config on construction."""
         if self.log_path is None:
-            from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
+            from modules.shared.src.utility_core_paths import DEFAULT_LOG
 
             object.__setattr__(self, "log_path", DEFAULT_LOG)
         self.validate()
