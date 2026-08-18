@@ -28,6 +28,7 @@ from modules.core.src.capabilities_output_saver import Saver
 from modules.core.src.capabilities_prompt_injector import PromptInjector
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.core.src.capabilities_stream_monitor import StreamMonitor
+from modules.core.src.capabilities_update_manager import UpdateManager
 from modules.core.src.capabilities_workspace_provisioner import WorkspaceProvisioner
 from modules.shared.src.contract_core_aggregate import (
     IAttachmentPromptAggregate,
@@ -36,6 +37,7 @@ from modules.shared.src.contract_core_aggregate import (
     ISessionAggregate,
     ISetupAggregate,
 )
+from modules.shared.src.contract_core_protocol import IUpdateProtocol
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
 from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
 from modules.shared.src.taxonomy_core_vo import FailureThreshold, MaxPerMinute, WindowSec
@@ -67,6 +69,8 @@ class SharedContainer:
         self.saver = Saver()
         self.observability = ObservabilitySetup(log)
         self.workspace = WorkspaceProvisioner()
+        self.updater: IUpdateProtocol = UpdateManager()
+
 
         # The 5 specialized agent orchestrators
         self.agent_direct_prompt_orchestrator: IDirectPromptAggregate = DirectPromptOrchestrator(

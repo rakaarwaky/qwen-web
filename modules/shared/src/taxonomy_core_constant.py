@@ -116,21 +116,46 @@ JS_GET_RESPONSE_TEXT: str = r"""
     var responseNodes = document.querySelectorAll(
         '.qwen-markdown, .chat-response-message, .response-message-content, .qwen-markdown-text'
     );
+    var blockTags = new Set(['P', 'DIV', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'TABLE', 'TR', 'PRE', 'BLOCKQUOTE']);
+    var ignoreSelectors = '.margin, .line-numbers, .monaco-editor-margin, [class*="line-numbers"], [class*="margin-view"], [class*="thinking"], [class*="status-card"], button, svg';
+
     for (var ri = responseNodes.length - 1; ri >= 0; ri--) {
         var responseNode = responseNodes[ri];
         if (responseNode.closest('.qwen-chat-message-user') || responseNode.closest('.user-message-content')) continue;
 
         var outerContainer = responseNode.closest('.qwen-markdown, .chat-response-message');
         var targetNode = outerContainer || responseNode;
-        var clone = targetNode.cloneNode(true);
-        var removeNodes = clone.querySelectorAll(
-            '.margin, .line-numbers, .monaco-editor-margin, [class*="line-numbers"], ' +
-            '[class*="margin-view"], [class*="thinking"], [class*="status-card"], button, svg'
-        );
-        for (var m = 0; m < removeNodes.length; m++) {
-            removeNodes[m].remove();
+
+        var textChunks = [];
+
+        function walk(node, isPre) {
+            if (node.nodeType === 3) {
+                var text = node.nodeValue || '';
+                if (!isPre) {
+                    text = text.replace(/\u00a0/g, ' ');
+                }
+                textChunks.push(text);
+                return;
+            }
+            if (node.nodeType === 1) {
+                if (node.matches && node.matches(ignoreSelectors)) return;
+
+                var tagName = node.tagName ? node.tagName.toUpperCase() : '';
+                var inPre = isPre || tagName === 'PRE' || (node.className && typeof node.className === 'string' && node.className.includes('code'));
+
+                for (var i = 0; i < node.childNodes.length; i++) {
+                    walk(node.childNodes[i], inPre);
+                }
+
+                if (blockTags.has(tagName) && !inPre) {
+                    textChunks.push('\n');
+                }
+            }
         }
-        var responseText = (clone.innerText || '').replace(/\u00a0/g, ' ').trim();
+
+        walk(targetNode, false);
+        var responseText = textChunks.join('').replace(/\n\s*\n\s*\n/g, '\n\n').trim();
+
         if (responseText.startsWith("Thinking completed")) {
             responseText = responseText.replace(/^Thinking completed\s*/, '');
         }
@@ -145,6 +170,7 @@ JS_GET_RESPONSE_TEXT: str = r"""
     return null;
 }
 """
+
 
 JS_COUNT_TURNS: str = """
 () => {

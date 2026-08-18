@@ -314,19 +314,17 @@ def _default_file_value() -> str:
     return ""
 
 
-try:
-    from importlib.metadata import version
+from modules.shared.src.utility_core_version import get_package_version
 
-    _APP_VERSION = version("qwen-web-cli")
-except Exception:
-    _APP_VERSION = "4.1.0"
+_APP_VERSION = get_package_version()
+
 
 
 class QwenTuiApp(App[None]):
     """Obsidian Nebula Terminal User Interface for Qwen Web Automation."""
 
     CSS = TUI_CSS
-    TITLE = f"QWEN-CLI {_APP_VERSION} • OBSIDIAN NEBULA"
+    TITLE = f"QWEN-CLI {_APP_VERSION} "
     SUB_TITLE = "chat.qwen.ai automation engine"
 
     BINDINGS = [

@@ -22,6 +22,8 @@ from modules.core.src.capabilities_observability_setup import ObservabilitySetup
 from modules.core.src.root_core_container import SharedContainer
 from modules.mcp.src.surface_mcp_tool_command import McpToolCommand
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
+from modules.shared.src.utility_core_version import get_package_version
+
 
 # ─── Logging setup ──────────────────────────────────────────────────────────
 
@@ -221,7 +223,7 @@ def run_mcp_server() -> None:
             capabilities = ServerCapabilities(tools=ToolsCapability())
             init_opts = InitializationOptions(
                 server_name="Qwen-Web",
-                server_version="4.1.0",
+                server_version=get_package_version(),
                 capabilities=capabilities,
             )
             server = Server("Qwen-Web")

@@ -25,6 +25,8 @@ import modules.cli.src.surface_cli_init_command as surface_cli_init_command
 import modules.cli.src.surface_cli_interactive_controller as surface_cli_interactive_controller
 import modules.cli.src.surface_cli_login_command as surface_cli_login_command
 import modules.cli.src.surface_cli_run_command as surface_cli_run_command
+import modules.cli.src.surface_cli_update_command as surface_cli_update_command
+
 from modules.core.src.root_core_container import SharedContainer
 from modules.shared.src.taxonomy_core_constant import (
     DEFAULT_LOG,
@@ -55,6 +57,23 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     # ── login ─────────────────────────────────────────────────────────────────
     p_login = sub.add_parser("login", help="Open browser for manual login and save session")
     p_login.add_argument("--headless", action="store_true", help="Run browser headlessly")
+
+    # ── update ────────────────────────────────────────────────────────────────
+    p_update = sub.add_parser(
+        "update",
+        help="Self-update qwen-web-cli and synchronize Playwright Chromium binaries",
+    )
+    p_update.add_argument(
+        "--check",
+        action="store_true",
+        help="Only compare current vs latest version; make no system changes",
+    )
+    p_update.add_argument(
+        "--force",
+        action="store_true",
+        help="Reinstall package and browser binaries even when already up to date",
+    )
+
 
     # ── prompt-direct ─────────────────────────────────────────────────────────
     p_direct = sub.add_parser("prompt-direct", help="Send an inline text prompt to Qwen")
@@ -208,6 +227,11 @@ def _dispatch(
     if action == "init":
         result = surface_cli_init_command.handle(args, container.workspace)
         return _result_exit_code(result)
+
+    if action == "update":
+        result = surface_cli_update_command.handle(args, container.updater)
+        return _result_exit_code(result)
+
 
     if cfg is None:
         print(f"{_ERROR_PREFIX} Missing CLI configuration.", file=sys.stderr)
