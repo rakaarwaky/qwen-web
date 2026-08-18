@@ -121,8 +121,9 @@ class SendDispatcher(ISendProtocol):
         self,
         page: Page,
         emitter: LifecycleEmitter,
-        _config: SenderConfig | None = None,
+        config: SenderConfig | None = None,
         document_parsed: bool = True,
+        _config: SenderConfig | None = None,
     ) -> None:
         """Click prompt send button in 4 sequential steps:
 
@@ -137,7 +138,7 @@ class SendDispatcher(ISendProtocol):
                 "Cannot send prompt: document attachment parsing (EVENT_DOCUMENT_PARSED) is incomplete"
             )
 
-        effective_config = _config or SenderConfig(
+        effective_config = config or _config or SenderConfig(
             click_timeout_ms=int(self.click_timeout_ms),
             try_enter_key_fallback=bool(self.try_enter_key_fallback),
         )
