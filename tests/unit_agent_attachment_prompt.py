@@ -14,6 +14,7 @@ from modules.shared.src import (
     EVENT_FILE_UPLOADED,
     EVENT_GENERATION_FINISHED,
     EVENT_LOGIN_VERIFIED,
+    EVENT_MODEL_VERIFIED,
     EVENT_SEND_CLICKED,
     EVENT_STREAMING_GENERATION,
     EVENT_THINKING_STARTED,
@@ -38,6 +39,7 @@ def _configure_lifecycle_mocks(orch) -> None:
     def navigate(_page, emitter):
         emitter.emit(EVENT_WEB_LOADED, {"url": "test"})
         emitter.emit(EVENT_LOGIN_VERIFIED, {"url": "test"})
+        emitter.emit(EVENT_MODEL_VERIFIED, {"model": "Qwen3.8-Max"})
 
     def upload(_page, _filepath, emitter=None, **_kwargs):
         assert emitter is not None

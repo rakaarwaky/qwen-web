@@ -37,6 +37,7 @@ def test_pipeline_event_sequence_is_canonical_and_ordered() -> None:
     assert PIPELINE_EVENT_SEQUENCE == (
         QwenEventType.WEB_LOADED,
         QwenEventType.LOGIN_VERIFIED,
+        QwenEventType.MODEL_VERIFIED,
         QwenEventType.FILE_UPLOADED,
         QwenEventType.DOCUMENT_PARSED,
         QwenEventType.PROMPT_INJECTED,
@@ -48,7 +49,8 @@ def test_pipeline_event_sequence_is_canonical_and_ordered() -> None:
         QwenEventType.OUTPUT_COPIED,
     )
     assert EVENT_ORDER[QwenEventType.WEB_LOADED] < EVENT_ORDER[QwenEventType.LOGIN_VERIFIED]
-    assert EVENT_ORDER[QwenEventType.LOGIN_VERIFIED] < EVENT_ORDER[QwenEventType.FILE_UPLOADED]
+    assert EVENT_ORDER[QwenEventType.LOGIN_VERIFIED] < EVENT_ORDER[QwenEventType.MODEL_VERIFIED]
+    assert EVENT_ORDER[QwenEventType.MODEL_VERIFIED] < EVENT_ORDER[QwenEventType.FILE_UPLOADED]
     assert EVENT_ORDER[QwenEventType.FILE_UPLOADED] < EVENT_ORDER[QwenEventType.DOCUMENT_PARSED]
     assert EVENT_ORDER[QwenEventType.DOCUMENT_PARSED] < EVENT_ORDER[QwenEventType.PROMPT_INJECTED]
     assert EVENT_ORDER[QwenEventType.DOCUMENT_PARSED] < EVENT_ORDER[QwenEventType.SEND_CLICKED]
@@ -101,6 +103,7 @@ def test_lifecycle_gate_rejects_skipped_predecessors_and_records_reason() -> Non
     assert "EVENT_DOCUMENT_PARSED" in gate.rejections[0]["reason"]
 
     gate.validate(QwenEventType.LOGIN_VERIFIED)
+    gate.validate(QwenEventType.MODEL_VERIFIED)
     gate.validate(QwenEventType.FILE_UPLOADED)
     with pytest.raises(RuntimeError, match="EVENT_DOCUMENT_PARSED"):
         gate.validate(QwenEventType.PROMPT_INJECTED)
