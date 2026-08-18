@@ -116,45 +116,66 @@ JS_GET_RESPONSE_TEXT: str = r"""
     var responseNodes = document.querySelectorAll(
         '.qwen-markdown, .chat-response-message, .response-message-content, .qwen-markdown-text'
     );
-    var blockTags = new Set(['P', 'DIV', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'TABLE', 'TR', 'PRE', 'BLOCKQUOTE']);
-    var ignoreSelectors = '.margin, .line-numbers, .monaco-editor-margin, [class*="line-numbers"], [class*="margin-view"], [class*="thinking"], [class*="status-card"], button, svg';
-
     for (var ri = responseNodes.length - 1; ri >= 0; ri--) {
-        var responseNode = responseNodes[ri];
-        if (responseNode.closest('.qwen-chat-message-user') || responseNode.closest('.user-message-content')) continue;
+        var node = responseNodes[ri];
+        if (node.closest('.qwen-chat-message-user') || node.closest('.user-message-content')) continue;
 
-        var outerContainer = responseNode.closest('.qwen-markdown, .chat-response-message');
-        var targetNode = outerContainer || responseNode;
-
-        var textChunks = [];
-
-        function walk(node, isPre) {
-            if (node.nodeType === 3) {
-                var text = node.nodeValue || '';
-                if (!isPre) {
-                    text = text.replace(/\u00a0/g, ' ');
+        // Tier 1: React Fiber extraction (preserves 100% of raw markdown & code without virtualization truncation)
+        var fiberKey = Object.keys(node).find(k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'));
+        if (fiberKey) {
+            var curr = node[fiberKey];
+            for (var depth = 0; depth < 30 && curr; depth++) {
+                if (curr.memoizedProps && typeof curr.memoizedProps === 'object') {
+                    var content = curr.memoizedProps.content;
+                    if (typeof content === 'string' && content.length > 0) {
+                        return content.trim();
+                    }
                 }
-                textChunks.push(text);
-                return;
+                curr = curr.return;
             }
-            if (node.nodeType === 1) {
-                if (node.matches && node.matches(ignoreSelectors)) return;
+        }
 
-                var tagName = node.tagName ? node.tagName.toUpperCase() : '';
-                var inPre = isPre || tagName === 'PRE' || (node.className && typeof node.className === 'string' && node.className.includes('code'));
+        // Tier 2: Live DOM Tree Walker fallback
+        var outerContainer = node.closest('.qwen-markdown, .chat-response-message');
+        var targetNode = outerContainer || node;
 
-                for (var i = 0; i < node.childNodes.length; i++) {
-                    walk(node.childNodes[i], inPre);
+        var text = '';
+        var blockTags = new Set(['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'TR', 'TD', 'TH', 'PRE', 'BLOCKQUOTE', 'BR', 'TABLE', 'UL', 'OL', 'SECTION', 'ARTICLE']);
+        var ignoreSelectors = '.margin, .line-numbers, .monaco-editor-margin, [class*="line-numbers"], [class*="margin-view"], [class*="thinking"], [class*="status-card"], [class*="status"], [class*="thinking-tool"], button, svg, [class*="copy"], .copy-code-btn, [class*="code-header"]';
+
+        function walk(n, isPre) {
+            if (n.nodeType === Node.ELEMENT_NODE) {
+                if (n.matches && n.matches(ignoreSelectors)) return;
+
+                var tag = n.tagName;
+                var classStr = (n.className && typeof n.className === 'string') ? n.className : '';
+                var isCodeBlock = tag === 'PRE' || classStr.includes('code-block') || classStr.includes('highlight') || classStr.includes('markdown-code');
+                var nextIsPre = isPre || isCodeBlock;
+
+                if (tag === 'BR') {
+                    text += '\n';
+                    return;
                 }
 
-                if (blockTags.has(tagName) && !inPre) {
-                    textChunks.push('\n');
+                for (var i = 0; i < n.childNodes.length; i++) {
+                    walk(n.childNodes[i], nextIsPre);
                 }
+
+                if (blockTags.has(tag) && text.length > 0 && text[text.length - 1] !== '\n') {
+                    text += '\n';
+                }
+            } else if (n.nodeType === Node.TEXT_NODE) {
+                var val = n.nodeValue;
+                if (!isPre) {
+                    val = val.replace(/[\r\n\t ]+/g, ' ');
+                }
+                text += val;
             }
         }
 
         walk(targetNode, false);
-        var responseText = textChunks.join('').replace(/\n\s*\n\s*\n/g, '\n\n').trim();
+
+        var responseText = text.replace(/\u00a0/g, ' ').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 
         if (responseText.startsWith("Thinking completed")) {
             responseText = responseText.replace(/^Thinking completed\s*/, '');
@@ -162,7 +183,7 @@ JS_GET_RESPONSE_TEXT: str = r"""
         if (responseText.endsWith("Skip")) {
             responseText = responseText.replace(/\s*Skip$/, '').trim();
         }
-        if (responseText.includes("Evaluating design trade-offs") || responseText === "Skip") {
+        if (responseText === "Skip") {
             continue;
         }
         if (responseText.length > 0) return responseText;

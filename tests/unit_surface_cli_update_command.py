@@ -125,7 +125,7 @@ class TestUpdateManagerRealFlow(unittest.TestCase):
     @patch.object(UpdateManager, "sync_browser")
     @patch.object(UpdateManager, "_postflight_health_checks")
     @patch("modules.core.src.capabilities_update_manager.UpdateManager.check_update")
-    @patch("modules.core.src.capabilities_update_manager.UpdateManager.current_version")
+    @patch.object(UpdateManager, "_resolve_installed_version")
     def test_perform_update_executes_pipeline(
         self,
         mock_curr_ver: MagicMock,
