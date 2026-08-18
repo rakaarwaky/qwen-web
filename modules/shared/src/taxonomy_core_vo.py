@@ -154,7 +154,6 @@ class UpdateReport:
     message: str = ""
 
 
-
 @dataclass
 class RunContext:
     """Run-scoped context with auto-generated run ID.

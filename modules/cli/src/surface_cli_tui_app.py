@@ -629,6 +629,9 @@ class QwenTuiApp(App[None]):
     @work(thread=True)
     def _session_check_worker(self) -> None:
         """Validate session in a worker thread so the UI never blocks."""
+        if self._session is None:
+            self.call_from_thread(self._apply_session_badge, False)
+            return
         try:
             valid, _msg = self._session.validate_session()
         except Exception:

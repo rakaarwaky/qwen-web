@@ -84,6 +84,19 @@ PIPELINE_EVENT_SEQUENCE: tuple[QwenEventType, ...] = (
     QwenEventType.OUTPUT_COPIED,
 )
 
+STANDARD_PROMPT_EVENTS: tuple[QwenEventType, ...] = (
+    QwenEventType.WEB_LOADED,
+    QwenEventType.LOGIN_VERIFIED,
+    QwenEventType.MODEL_VERIFIED,
+    QwenEventType.PROMPT_INJECTED,
+    QwenEventType.SEND_CLICKED,
+    QwenEventType.DISPATCH_ACKNOWLEDGED,
+    QwenEventType.THINKING_STARTED,
+    QwenEventType.STREAMING_GENERATION,
+    QwenEventType.GENERATION_FINISHED,
+    QwenEventType.OUTPUT_COPIED,
+)
+
 EVENT_ORDER: EventOrderMapValue = EventOrderMapValue(
     {event: index for index, event in enumerate(PIPELINE_EVENT_SEQUENCE)}
 )
@@ -134,6 +147,7 @@ __all__ = [
     "CallbackRegistry",
     "EVENT_DESCRIPTIONS",
     "PIPELINE_EVENT_SEQUENCE",
+    "STANDARD_PROMPT_EVENTS",
     "EVENT_ORDER",
     "EVENT_NETWORK_RECONNECTING",
     "EVENT_WEB_LOADED",

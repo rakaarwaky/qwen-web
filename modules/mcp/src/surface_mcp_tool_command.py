@@ -126,7 +126,7 @@ class McpToolCommand:
 
         try:
             res = self._direct.process_direct_prompt(
-                PromptText(prompt), TimeoutSec(timeout_sec), HeadlessFlag(headless)
+                PromptText(prompt), TimeoutSec(timeout_sec), headless=HeadlessFlag(headless)
             )
             return _format_success_payload(str(res))
         except Exception as exc:

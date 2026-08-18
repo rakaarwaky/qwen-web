@@ -71,7 +71,6 @@ class SharedContainer:
         self.workspace = WorkspaceProvisioner()
         self.updater: IUpdateProtocol = UpdateManager()
 
-
         # The 5 specialized agent orchestrators
         self.agent_direct_prompt_orchestrator: IDirectPromptAggregate = DirectPromptOrchestrator(
             browser=self.browser,

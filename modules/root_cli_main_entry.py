@@ -70,7 +70,6 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Reinstall package and browser binaries even when already up to date",
     )
 
-
     # ── prompt-direct ─────────────────────────────────────────────────────────
     p_direct = sub.add_parser("prompt-direct", help="Send an inline text prompt to Qwen")
     p_direct.add_argument("-t", "--text", required=True, help="Prompt text to send directly")
@@ -243,7 +242,6 @@ def _dispatch(
         result = surface_cli_update_command.handle(args, container.updater)
         return _result_exit_code(result, json_output=json_output)
 
-
     if cfg is None:
         print(f"{_ERROR_PREFIX} Missing CLI configuration.", file=sys.stderr)
         return 1
@@ -290,9 +288,7 @@ def main(argv: list[str] | None = None) -> int:
         return exit_code_for(exc)
 
 
-def _run_manual_login(
-    cfg: AppConfig, container: SharedContainer | None = None, json_output: bool = False
-) -> int:
+def _run_manual_login(cfg: AppConfig, container: SharedContainer | None = None, json_output: bool = False) -> int:
     """Launch visible browser for interactive login."""
     if container is None:
         container = _default_container()

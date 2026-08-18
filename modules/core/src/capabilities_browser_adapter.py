@@ -205,16 +205,6 @@ class BrowserAdapter(IBrowserProtocol):
         verification is retried once before aborting so a slow picker cannot
         hard-fail the pipeline.
         """
-    def _get_model_trigger(self, page: Page) -> Any:
-        """Return locator for active model selector trigger button/div."""
-        with contextlib.suppress(Error):
-            trigger = page.locator(".wms-trigger, [aria-label='Select Model']").first
-            if trigger.is_visible(timeout=1000) is True:
-                return trigger
-        return page.get_by_role("button", name=MODEL_SELECTOR_BUTTON)
-
-    def _verify_default_model(self, page: Page, require_switch: bool = True) -> None:
-        """Assert the active model equals the hardcoded default."""
         attempts = 1 if require_switch else 2
         for attempt in range(attempts):
             try:
@@ -234,6 +224,14 @@ class BrowserAdapter(IBrowserProtocol):
                 continue
             raise ModelSwitchError(f"Default model not active: expected '{DEFAULT_MODEL}', found '{current}'")
         raise ModelSwitchError(f"Default model not active: expected '{DEFAULT_MODEL}'")
+
+    def _get_model_trigger(self, page: Page) -> Any:
+        """Return locator for active model selector trigger button/div."""
+        with contextlib.suppress(Error):
+            trigger = page.locator(".wms-trigger, [aria-label='Select Model']").first
+            if trigger.is_visible(timeout=1000) is True:
+                return trigger
+        return page.get_by_role("button", name=MODEL_SELECTOR_BUTTON)
 
     def ensure_default_model(self, page: Page) -> bool:
         """Best-effort: ensure the active Qwen model is the hardcoded default.
@@ -287,9 +285,6 @@ class BrowserAdapter(IBrowserProtocol):
             log.debug("set_default_model_ui_skipped", error=str(exc))
             with contextlib.suppress(Error):
                 page.keyboard.press("Escape")
-
-
-
 
     def _start_new_chat(self, page: Page, opt_in: bool = True) -> None:
         """Start a clean Qwen conversation so stale cards cannot affect monitoring."""

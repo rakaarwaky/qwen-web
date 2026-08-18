@@ -27,9 +27,6 @@ def _compute_output_path(cfg: AppConfig, sub_path: Path) -> Path:
     return cfg.output_path / sub_path.name
 
 
-
-
-
 def should_process_file(f: Path, base_src: Path) -> bool:
     """Check if file qualifies for queue processing."""
     if not f.is_file() or f.name.startswith(".") or f.name.upper() == "PROMPT.MD":

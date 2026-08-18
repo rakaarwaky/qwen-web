@@ -6,9 +6,8 @@ a Chromium-based browser binary on the host.
 
 from __future__ import annotations
 
-import shutil
-
 import os
+import shutil
 
 CHROME_CANDIDATES = (
     "google-chrome",

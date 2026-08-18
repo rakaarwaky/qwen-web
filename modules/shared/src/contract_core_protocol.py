@@ -41,7 +41,6 @@ from modules.shared.src.taxonomy_core_vo import (
 )
 
 
-
 class IUploadProtocol(ABC):
     """File upload capability contract (external Qwen Web UI adaptation)."""
 
@@ -205,7 +204,6 @@ class IUpdateProtocol(ABC):
     health checks.
     """
 
-
     @abstractmethod
     def current_version(self) -> VersionString:
         """Return the installed package version ('unknown' when unresolvable)."""
@@ -237,7 +235,6 @@ class IUpdateProtocol(ABC):
 
 
 class IWorkspaceProtocol(ABC):
-
     """Workspace directory provisioning capability contract."""
 
     @abstractmethod

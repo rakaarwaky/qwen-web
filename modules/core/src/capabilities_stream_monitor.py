@@ -66,7 +66,6 @@ class StreamMonitor(IStreamProtocol):
         except Exception:
             return False
 
-
     def is_thinking_active(self, page: Page) -> bool:
         """Check whether Qwen's live thinking/status indicator is visible.
 
@@ -185,7 +184,6 @@ class StreamMonitor(IStreamProtocol):
                             emitter.emit(EVENT_STREAMING_GENERATION, {"text_length": len(text)})
                         stable_count = 0
                         last_text = text
-
 
                 # Periodic 30s cloud reload sync trigger — ONLY when Qwen is still actively generating!
                 if (now - last_reload_time) >= 30.0 and elapsed < max_duration and is_active_generating:

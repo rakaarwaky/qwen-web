@@ -31,7 +31,7 @@ def get_package_version(package_name: str = PACKAGE_NAME) -> str:
                 return match.group(1).strip()
 
     with contextlib.suppress(Exception):
-        importlib.metadata.invalidate_caches()
+        importlib.invalidate_caches()
         return importlib.metadata.version(package_name)
 
     return "0.0.0-dev"

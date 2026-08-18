@@ -89,9 +89,7 @@ class TestSurfaceCliUpdateCommand(unittest.TestCase):
                 UpdateStepResult("package_upgrade", True, True, "git pull & editable reinstall"),
                 UpdateStepResult("browser_sync", True, True, "playwright install chromium"),
             ),
-            health_checks=(
-                UpdateStepResult("health:python_runtime", True, True, "Python 3.10+"),
-            ),
+            health_checks=(UpdateStepResult("health:python_runtime", True, True, "Python 3.10+"),),
             post_update_version="4.5.2",
             healthy=True,
             message="Successfully updated qwen-web-cli 4.5.1 -> 4.5.2",

@@ -9,7 +9,6 @@ Orchestrates the full self-update pipeline in chronological steps:
   Step 4: Post-flight installation-integrity health checks.
 """
 
-
 from __future__ import annotations
 
 import contextlib
@@ -37,7 +36,6 @@ from modules.shared.src.taxonomy_core_vo import (
 )
 from modules.shared.src.utility_core_version import get_package_version
 
-
 log = get_logger("capabilities_update_manager")
 
 DEFAULT_PACKAGE_NAME = "qwen-web-cli"
@@ -45,8 +43,6 @@ DEFAULT_GITHUB_REPO = "rakaarwaky/qwen-web-arwaky"
 GITHUB_RELEASE_URL = "https://api.github.com/repos/{repo}/releases/latest"
 GITHUB_REPO_ENV = "QWEN_WEB_GITHUB_REPO"
 USER_AGENT = "qwen-web-cli-updater/1.0"
-
-
 
 
 # ─── Module-level pure helpers ──────────────────────────────────────────────
@@ -134,17 +130,27 @@ class UpdateManager(IUpdateProtocol):
             if git_dir.exists():
                 self._run_subprocess(["git", "-C", str(editable_dir), "pull"], timeout_sec=60.0)
             cmd = [
-                sys.executable, "-m", "pip", "install",
-                "--no-input", "--disable-pip-version-check",
-                "-e", str(editable_dir),
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--no-input",
+                "--disable-pip-version-check",
+                "-e",
+                str(editable_dir),
             ]
             mode_desc = f"git pull & editable reinstall from {editable_dir}"
         else:
             repo_url = f"git+https://github.com/{DEFAULT_GITHUB_REPO}.git"
             cmd = [
-                sys.executable, "-m", "pip", "install",
-                "--no-input", "--disable-pip-version-check",
-                "--upgrade", repo_url,
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--no-input",
+                "--disable-pip-version-check",
+                "--upgrade",
+                repo_url,
             ]
             if bool(force):
                 cmd.extend(["--force-reinstall", "--no-deps"])
@@ -162,7 +168,6 @@ class UpdateManager(IUpdateProtocol):
             success=False,
             detail=f"{mode_desc} failed (rc={rc}): {detail}",
         )
-
 
     def sync_browser(self, force: ForceFlag = ForceFlag(False)) -> UpdateStepResult:
         """Synchronize Playwright Chromium binaries."""
@@ -193,11 +198,7 @@ class UpdateManager(IUpdateProtocol):
         forced = bool(force)
         previous = self.current_version()
         check = self.check_update()
-        up_to_date = (
-            check.latest_version is not None
-            and str(previous) != "unknown"
-            and not check.update_available
-        )
+        up_to_date = check.latest_version is not None and str(previous) != "unknown" and not check.update_available
         if up_to_date and not forced and self._chromium_present():
             message = (
                 f"{self.package_name} {previous} is already up to date "
@@ -267,15 +268,12 @@ class UpdateManager(IUpdateProtocol):
         v = get_package_version(self.package_name)
         if v and v != "0.0.0-dev":
             return VersionString(v)
-        rc, out, _err = self._run_subprocess(
-            [sys.executable, "-m", "pip", "show", self.package_name], timeout_sec=60.0
-        )
+        rc, out, _err = self._run_subprocess([sys.executable, "-m", "pip", "show", self.package_name], timeout_sec=60.0)
         if rc == 0:
             for line in out.splitlines():
                 if line.lower().startswith("version:"):
                     return VersionString(line.split(":", 1)[1].strip())
         return VersionString(v)
-
 
     def _discover_latest(self) -> tuple[str | None, str, str | None]:
         """Return (latest_version, source, error) via GitHub releases exclusively."""
@@ -310,8 +308,6 @@ class UpdateManager(IUpdateProtocol):
         if not tag:
             return None, "GitHub release payload missing tag_name"
         return str(tag).strip().lstrip("vV"), None
-
-
 
     def _editable_source_dir(self) -> Path | None:
         """Detect a PEP 610 editable install or fallback to cwd source checkout."""
@@ -364,6 +360,7 @@ class UpdateManager(IUpdateProtocol):
     def _playwright_browsers_path(self) -> Path:
         """Resolve the Playwright browser cache honoring PLAYWRIGHT_BROWSERS_PATH and OS conventions."""
         from modules.shared.src.utility_core_paths import get_playwright_browsers_path
+
         return get_playwright_browsers_path()
 
     def _chromium_present(self) -> bool:

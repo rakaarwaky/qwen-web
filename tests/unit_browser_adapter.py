@@ -164,8 +164,6 @@ def test_try_set_as_default_clicks_button():
     mock_page.keyboard.press.assert_called_once_with("Escape")
 
 
-
-
 def test_ensure_default_model_swallows_error():
     from playwright.sync_api import Error as PwError
 
@@ -175,7 +173,6 @@ def test_ensure_default_model_swallows_error():
     # Best-effort: must never raise and must report failure, so the prompt
     # pipeline can fall back to a single verification pass.
     assert BrowserAdapter().ensure_default_model(mock_page) is False
-
 
 
 def test_verify_default_model_ok():

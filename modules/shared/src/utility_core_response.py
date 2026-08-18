@@ -80,4 +80,3 @@ def detect_processing_failure(result: object) -> str | None:
     if match and int(match.group(1)) > 0:
         return message
     return None
-
