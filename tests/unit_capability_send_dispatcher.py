@@ -43,6 +43,20 @@ class TestClickSendExtended:
         page.keyboard.press.assert_called_once_with("Enter")
         assert emitter.emit.call_count == 2
 
+    def test_click_send_with_config_keyword_arg(self):
+        page = MagicMock()
+        emitter = MagicMock(spec=LifecycleEmitter)
+        loc = MagicMock()
+        loc.count.return_value = 1
+        loc.first.count.return_value = 0
+        loc.first.is_visible.return_value = False
+        page.locator.return_value = loc
+        page.keyboard.press = MagicMock()
+
+        cfg = SenderConfig(click_timeout_ms=100, try_enter_key_fallback=True)
+        _sender().click_send(page, emitter, config=cfg)
+        page.keyboard.press.assert_called_once_with("Enter")
+
     def test_selector_exception_continues(self):
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)
