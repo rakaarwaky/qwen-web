@@ -142,6 +142,14 @@ class UpdateManager(IUpdateProtocol):
             mode_desc = f"git pull & editable reinstall from {editable_dir}"
         else:
             repo_url = f"git+https://github.com/{DEFAULT_GITHUB_REPO}.git"
+            if not re.fullmatch(r"git\+https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\.git", repo_url):
+                log.error("package_upgrade_rejected_insecure_repo url=%s", repo_url)
+                return UpdateStepResult(
+                    name="package_upgrade",
+                    executed=True,
+                    success=False,
+                    detail=f"Refusing insecure upgrade source: {repo_url}",
+                )
             cmd = [
                 sys.executable,
                 "-m",
@@ -289,6 +297,8 @@ class UpdateManager(IUpdateProtocol):
                 url,
                 headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
             )
+            if not req.full_url.startswith("https://"):
+                raise ValueError(f"Forbidden URL scheme: {req.full_url}")
             with urllib.request.urlopen(req, timeout=self.http_timeout_sec) as resp:
                 payload = json.loads(resp.read().decode("utf-8"))
             return payload if isinstance(payload, dict) else None

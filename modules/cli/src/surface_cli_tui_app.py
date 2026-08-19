@@ -611,14 +611,14 @@ class QwenTuiApp(App[None]):
         try:
             badge = self.query_one("#status-badge", Label)
             badge.update(text)
-        except Exception:
+        except (LookupError, AttributeError):
             pass
 
     def _refresh_session_badge(self) -> None:
         """Check saved session validity asynchronously and update the badge."""
         try:
             badge = self.query_one("#session-badge", Label)
-        except Exception:
+        except (LookupError, AttributeError):
             return
         if self._session is None:
             badge.update("SESSION: N/A")
@@ -641,7 +641,7 @@ class QwenTuiApp(App[None]):
     def _apply_session_badge(self, valid: bool) -> None:
         try:
             badge = self.query_one("#session-badge", Label)
-        except Exception:
+        except (LookupError, AttributeError):
             return
         badge.update("SESSION: VALID" if valid else "SESSION: EXPIRED")
         badge.set_classes("invalid" if not valid else "")

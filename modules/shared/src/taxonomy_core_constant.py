@@ -129,16 +129,6 @@ SEND_DISABLED_SELECTORS: str = (
     "button[aria-label*='Send' i][disabled], button[class*='send' i][disabled], "
     ".message-input-right-button-send button[disabled]"
 )
-TYPING_INDICATOR_SELECTORS: str = (
-    ".thinking:not([style*='display: none']):not([class*='completed']):not([class*='complete']), "
-    "[class*='qwen-chat-thinking-status-card']:not([class*='completed']):not([class*='complete'])"
-    ":not(:has-text('completed')), "
-    "[class*='thinking-status-card']:not([class*='completed']):not([class*='complete'])"
-    ":not(:has-text('completed')), "
-    "[class*='thinking-process'], [class*='thinking']:not([class*='completed']):not([class*='complete'])"
-    ":not(:has-text('completed')), "
-    "[class*='typing'], [class*='streaming']"
-)
 
 JS_GET_RESPONSE_TEXT: str = r"""
 () => {

@@ -123,7 +123,6 @@ class SendDispatcher(ISendProtocol):
         emitter: LifecycleEmitter,
         config: SenderConfig | None = None,
         document_parsed: bool = True,
-        _config: SenderConfig | None = None,
     ) -> None:
         """Click prompt send button in 4 sequential steps:
 
@@ -140,7 +139,6 @@ class SendDispatcher(ISendProtocol):
 
         effective_config = (
             config
-            or _config
             or SenderConfig(
                 click_timeout_ms=int(self.click_timeout_ms),
                 try_enter_key_fallback=bool(self.try_enter_key_fallback),
