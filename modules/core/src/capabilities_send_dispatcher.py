@@ -137,12 +137,9 @@ class SendDispatcher(ISendProtocol):
                 "Cannot send prompt: document attachment parsing (EVENT_DOCUMENT_PARSED) is incomplete"
             )
 
-        effective_config = (
-            config
-            or SenderConfig(
-                click_timeout_ms=int(self.click_timeout_ms),
-                try_enter_key_fallback=bool(self.try_enter_key_fallback),
-            )
+        effective_config = config or SenderConfig(
+            click_timeout_ms=int(self.click_timeout_ms),
+            try_enter_key_fallback=bool(self.try_enter_key_fallback),
         )
 
         deadline = time.monotonic() + (effective_config.click_timeout_ms / 1000)

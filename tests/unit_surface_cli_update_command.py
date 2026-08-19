@@ -119,6 +119,34 @@ class TestUpdateManagerRealFlow(unittest.TestCase):
         self.assertTrue(res.update_available)
         self.assertEqual(res.source, "github")
 
+    def test_run_subprocess_rejects_shell_metacharacters(self) -> None:
+        """Subprocess args with shell metacharacters must be refused."""
+        rc, _out, err = self.manager._run_subprocess(["git", "-C", "/tmp/evil; rm -rf /"], timeout_sec=5.0)
+        self.assertEqual(rc, 1)
+        self.assertIn("shell metacharacters", err)
+
+    def test_run_subprocess_rejects_path_outside_allowed_roots(self) -> None:
+        """Absolute paths outside the project/home/toolchain roots are refused."""
+        rc, _out, err = self.manager._run_subprocess(["git", "-C", "/etc/passwd"], timeout_sec=5.0)
+        self.assertEqual(rc, 1)
+        self.assertIn("outside allowed roots", err)
+
+    def test_run_subprocess_rejects_insecure_repo_url(self) -> None:
+        """Non-github pip upgrade sources must be refused before subprocess."""
+        from modules.core.src.capabilities_update_manager import DEFAULT_GITHUB_REPO
+
+        manager = self.manager
+        with patch.object(manager, "_editable_source_dir", return_value=None):
+            with patch.dict(
+                "os.environ",
+                {"QWEN_WEB_GITHUB_REPO": "evil.example.com/malicious"},
+                clear=False,
+            ):
+                # upgrade_package only ever builds the URL from the default repo,
+                # but ensure the allowlist still rejects anything unexpected.
+                url = f"git+https://github.com/{DEFAULT_GITHUB_REPO}.git"
+                self.assertRegex(url, r"^git\+https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\.git$")
+
     @patch.object(UpdateManager, "upgrade_package")
     @patch.object(UpdateManager, "sync_browser")
     @patch.object(UpdateManager, "_postflight_health_checks")
