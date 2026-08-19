@@ -44,6 +44,21 @@ class TestClickSendExtended:
         page.keyboard.press.assert_called_once_with("Enter")
         assert emitter.emit.call_count == 2
 
+    def test_changed_message_text_acknowledges_when_count_is_unchanged(self):
+        page = MagicMock()
+        emitter = MagicMock(spec=LifecycleEmitter)
+        loc = MagicMock()
+        loc.count.return_value = 1
+        loc.first.count.return_value = 1
+        loc.first.is_visible.return_value = True
+        loc.first.is_enabled.return_value = True
+        page.locator.return_value = loc
+        page.evaluate.side_effect = [1, "before", 1, "after"]
+
+        _sender().click_send(page, emitter)
+
+        assert emitter.emit.call_count == 2
+
     def test_click_send_with_config_keyword_arg(self):
         page = MagicMock()
         emitter = MagicMock(spec=LifecycleEmitter)

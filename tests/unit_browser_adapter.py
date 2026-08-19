@@ -187,6 +187,24 @@ def test_ensure_default_model_swallows_error():
     assert BrowserAdapter().ensure_default_model(mock_page) is False
 
 
+def test_verify_default_model_retries_transient_picker_read_failure():
+    from playwright.sync_api import Error as PwError
+
+    from modules.shared.src.taxonomy_core_constant import DEFAULT_MODEL
+
+    mock_page = MagicMock()
+    picker = mock_page.get_by_role.return_value
+    picker.inner_text.side_effect = [PwError("picker not hydrated"), f"Select Model {DEFAULT_MODEL}"]
+    adapter = BrowserAdapter()
+    adapter.ensure_default_model = MagicMock(return_value=False)
+
+    adapter._verify_default_model(mock_page)
+
+    assert picker.inner_text.call_count == 2
+    mock_page.keyboard.press.assert_called_once_with("Escape")
+    adapter.ensure_default_model.assert_called_once_with(mock_page)
+
+
 def test_verify_default_model_ok():
     from modules.shared.src.taxonomy_core_constant import DEFAULT_MODEL
 

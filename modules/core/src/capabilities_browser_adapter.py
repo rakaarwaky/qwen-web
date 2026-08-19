@@ -227,6 +227,18 @@ class BrowserAdapter(IBrowserProtocol):
                 picker.wait_for(state="visible", timeout=5000)
                 current = (picker.inner_text() or "").replace("\n", " ").strip()
             except Error as exc:
+                if attempt + 1 < attempts:
+                    log.debug(
+                        "verify_default_model_read_retry",
+                        model=DEFAULT_MODEL,
+                        error=str(exc),
+                        attempt=attempt + 1,
+                    )
+                    with contextlib.suppress(Error):
+                        page.keyboard.press("Escape")
+                        page.wait_for_timeout(2000)
+                    self.ensure_default_model(page)
+                    continue
                 raise ModelSwitchError(
                     f"Cannot read active model from '{MODEL_SELECTOR_BUTTON}' button: {exc}"
                 ) from exc
@@ -317,7 +329,7 @@ class BrowserAdapter(IBrowserProtocol):
         try:
             if "/c/" in page.url.lower():
                 log.info("Active chat thread detected (%s). Navigating to root chat URL...", page.url)
-                page.goto(CHAT_URL, wait_until="domcontentloaded", timeout=15_000)
+                self._goto_chat(page, 15_000, 15_000)
                 page.wait_for_timeout(1000)
 
             if click_first_visible_enabled(page, NEW_CHAT_SELECTORS, timeout_ms=3000):
