@@ -15,7 +15,7 @@ description: >
   analyze documents (PDF/MD/TXT attachments); run long deep-reasoning software
   engineering tasks (up to 15 minutes); or manage Qwen login sessions — via the
   qwen-web-arwaky CLI or MCP tools.
-version: 5.0.0
+version: 5.1.0
 trigger_keywords:
   - qwen
   - chat.qwen.ai
