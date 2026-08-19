@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [5.2.0] - 2026-08-20
+
+### Added
+
+- test(core): add regression coverage for prompt-file dispatch acknowledgement, slow model-picker hydration, changed-message ACKs, and commit-based navigation
+
+### Fixed
+
+- fix(core): require a real user-turn signal instead of treating composer reset or a disabled send control as dispatch acknowledgement
+- fix(core): capture the pre-click message baseline so changed-message ACK detection cannot self-baseline after dispatch
+- fix(core): use commit-based chat navigation and readiness-based model-picker selection with retry handling for slow Qwen hydration
+- fix(ci): repair the release tag workflow so the release build dispatch command is not duplicated
+
+### Changed
+
+- chore(release): bump version to `5.2.0` across root and module manifests, lock metadata, and embedded skill metadata
+
+---
+
 ## [5.1.0] - 2026-08-19
 
 ### Added
