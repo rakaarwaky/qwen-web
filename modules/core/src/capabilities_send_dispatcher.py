@@ -214,7 +214,7 @@ class SendDispatcher(ISendProtocol):
                 if int(count_messages(page)) > baseline_count:
                     return True
                 current_text = _latest_message_text(page)
-                if current_text != baseline_text and current_text is not None:
+                if current_text is not None and str(current_text).strip() and current_text != baseline_text:
                     return True
             except (Error, TimeoutError):
                 pass
