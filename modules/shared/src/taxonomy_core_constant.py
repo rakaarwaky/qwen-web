@@ -143,7 +143,9 @@ TYPING_INDICATOR_SELECTORS: str = (
 JS_GET_RESPONSE_TEXT: str = r"""
 () => {
     var responseNodes = document.querySelectorAll(
-        '.qwen-markdown, .chat-response-message, .response-message-content, .qwen-markdown-text'
+        '.qwen-markdown, .qwen-chat-message-assistant, .chat-response-message, .chat-message-assistant, '
+        + '[data-role="assistant"], .response-message-content, .qwen-markdown-text, [class*="message-content"], '
+        + '[class*="message-body"], [class*="response"]'
     );
     for (var ri = responseNodes.length - 1; ri >= 0; ri--) {
         var node = responseNodes[ri];
@@ -165,7 +167,10 @@ JS_GET_RESPONSE_TEXT: str = r"""
         }
 
         // Tier 2: Live DOM Tree Walker fallback
-        var outerContainer = node.closest('.qwen-markdown, .chat-response-message');
+        var outerContainer = node.closest(
+            '.qwen-markdown, .qwen-chat-message-assistant, .chat-response-message, .chat-message-assistant, '
+            + '[data-role="assistant"], [class*="message-content"], [class*="message-body"], [class*="response"]'
+        );
         var targetNode = outerContainer || node;
 
         var text = '';
