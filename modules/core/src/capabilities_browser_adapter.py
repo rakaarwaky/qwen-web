@@ -137,25 +137,34 @@ class BrowserAdapter(IBrowserProtocol):
         navigation_timeout_ms: int,
         load_timeout_ms: int,
     ) -> None:
-        """Navigate to chat.qwen.ai and wait for the DOM to load."""
-        try:
-            page.goto(
-                CHAT_URL,
-                wait_until="domcontentloaded",
-                timeout=navigation_timeout_ms,
-            )
-        except Error as err:
-            log.warning("Initial page.goto failed (%s), retrying navigation...", err)
-            page.wait_for_timeout(1500)
-            page.goto(
-                CHAT_URL,
-                wait_until="domcontentloaded",
-                timeout=navigation_timeout_ms,
-            )
-        try:
-            page.wait_for_load_state("domcontentloaded", timeout=load_timeout_ms)
-        except Error as e:
-            log.warning("Load state wait failed, proceeding: %s", e)
+        """Navigate to chat.qwen.ai without waiting on third-party page assets.
+
+        ``domcontentloaded`` can remain pending when Qwen or an analytics asset
+        stalls. The application only needs the committed chat document before
+        its own DOM readiness checks, so navigation uses ``commit`` and treats
+        the later DOMContentLoaded wait as best-effort. A second commit attempt
+        remains available for transient connection failures.
+        """
+        last_error: Error | None = None
+        for attempt in range(2):
+            try:
+                page.goto(
+                    CHAT_URL,
+                    wait_until="commit",
+                    timeout=navigation_timeout_ms,
+                )
+                try:
+                    page.wait_for_load_state("domcontentloaded", timeout=load_timeout_ms)
+                except Error as err:
+                    log.warning("Load state wait failed, proceeding: %s", err)
+                return
+            except Error as err:
+                last_error = err
+                if attempt == 0:
+                    log.warning("Initial page.goto failed (%s), retrying commit navigation...", err)
+                    page.wait_for_timeout(1500)
+        if last_error is not None:
+            raise last_error
 
     def reset_page(self, page: Page, emitter: LifecycleEmitter) -> None:
         """Reset the page to a clean state by navigating back to chat.qwen.ai."""
@@ -181,8 +190,10 @@ class BrowserAdapter(IBrowserProtocol):
         # Step 2: Verify user authentication
         _assert_on_chat_page(page)
 
-        # Step 3: Start clean conversation state
+        # Step 3: Start clean conversation state. Qwen hydrates the model picker
+        # asynchronously after this reset; wait for that UI state before selecting.
         self._start_new_chat(page)
+        page.wait_for_timeout(10_000)
 
         # Step 4: Emit lifecycle events
         emitter.emit(EVENT_WEB_LOADED, {"url": page.url})
@@ -202,10 +213,14 @@ class BrowserAdapter(IBrowserProtocol):
         the pipeline dispatch the prompt to the wrong model. Raises
         ``ModelSwitchError`` when the switch cannot be confirmed. When the
         best-effort switch reported failure (``require_switch=False``), the
-        verification is retried once before aborting so a slow picker cannot
-        hard-fail the pipeline.
+        verification is retried while the model picker hydrates so a slow picker
+        cannot hard-fail the pipeline prematurely.
         """
-        attempts = 1 if require_switch else 2
+        # Model picker options can arrive after the committed page document,
+        # especially when Qwen's static assets are slow. Keep this readiness gate
+        # bounded and retry selection instead of failing the whole pipeline on the
+        # first stale model label.
+        attempts = 5
         for attempt in range(attempts):
             try:
                 picker = self._get_model_trigger(page)
@@ -219,7 +234,16 @@ class BrowserAdapter(IBrowserProtocol):
                 log.debug("verify_default_model_ok", model=DEFAULT_MODEL)
                 return
             if attempt + 1 < attempts:
-                log.debug("verify_default_model_retry", model=DEFAULT_MODEL, found=current)
+                log.debug(
+                    "verify_default_model_retry",
+                    model=DEFAULT_MODEL,
+                    found=current,
+                    require_switch=require_switch,
+                    attempt=attempt + 1,
+                )
+                with contextlib.suppress(Error):
+                    page.keyboard.press("Escape")
+                    page.wait_for_timeout(2000)
                 self.ensure_default_model(page)
                 continue
             raise ModelSwitchError(f"Default model not active: expected '{DEFAULT_MODEL}', found '{current}'")

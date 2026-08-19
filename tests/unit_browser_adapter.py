@@ -81,6 +81,18 @@ def test_reset_page_emits_reconnecting():
     mock_page.goto.assert_called_once()
 
 
+def test_goto_chat_uses_commit_when_domcontentloaded_is_slow():
+    from playwright.sync_api import Error as PwError
+
+    mock_page = MagicMock()
+    mock_page.wait_for_load_state.side_effect = PwError("third-party asset stalled")
+
+    BrowserAdapter()._goto_chat(mock_page, navigation_timeout_ms=1000, load_timeout_ms=100)
+
+    assert mock_page.goto.call_args.kwargs["wait_until"] == "commit"
+    assert mock_page.goto.call_args.kwargs["timeout"] == 1000
+
+
 def test_navigate_to_chat_emits_web_loaded():
     mock_page = MagicMock()
     mock_page.url = "https://chat.qwen.ai/"
