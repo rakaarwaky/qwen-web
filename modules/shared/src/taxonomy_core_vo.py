@@ -438,6 +438,7 @@ class AppConfig:
     interval: int = 3
     timeout: int = 300
     headless: bool = False
+    verbose: bool = False
     prompt_file: Path | None = None
     prompt_path: Path | None = None
     file_path: Path | None = None
