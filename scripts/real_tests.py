@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Standalone real-world pipeline execution test runner for qwen-web-arwaky.
+"""Standalone real-world pipeline execution test runner for qwen-web-arwaky v5.0.0.
 
 Invokes the real CLI binary/entry point (`modules/root_cli_main_entry.py` or `qwen-web-cli`)
-to execute 3 end-to-end pipelines using test fixtures from `tests/fixtures/`:
+to execute 3 end-to-end pipelines using v5.0.0 release fixtures from `tests/fixtures/`:
 
 1. Pipeline 1: prompt-direct (direct inline string prompt)
-2. Pipeline 2: prompt-only (prompt file: tests/fixtures/sample_prompt.md)
-3. Pipeline 3: prompt-with-attachment (prompt file + attachment: tests/fixtures/sample_attachment.md)
+2. Pipeline 2: prompt-only (prompt file: tests/fixtures/sample_prompt_v5.md)
+3. Pipeline 3: prompt-with-attachment (prompt file + attachment: tests/fixtures/sample_attachment_v5.md)
 
 Outputs are saved in the default qwen-web output directory (~/.local/share/qwen-web/output).
 
@@ -30,8 +30,9 @@ from pathlib import Path
 # Repository root path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT_DIR = Path.home() / ".local" / "share" / "qwen-web" / "output"
-PROMPT_FIXTURE = ROOT_DIR / "tests" / "fixtures" / "sample_prompt.md"
-ATTACHMENT_FIXTURE = ROOT_DIR / "tests" / "fixtures" / "sample_attachment.md"
+PROMPT_FIXTURE = ROOT_DIR / "tests" / "fixtures" / "sample_prompt_v5.md"
+ATTACHMENT_FIXTURE = ROOT_DIR / "tests" / "fixtures" / "sample_attachment_v5.md"
+SIMPLE_PROMPT_FIXTURE = ROOT_DIR / "tests" / "fixtures" / "sample_simple_prompt.md"
 
 
 def parse_args() -> argparse.Namespace:
