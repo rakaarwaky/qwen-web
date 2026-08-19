@@ -147,7 +147,7 @@ Response completion is **event-driven**, not duration-driven. The historical `ti
 - **Terminal event as source of truth**: The monitor waits for stable response text plus an explicit generation-complete state.
 - **Long-running recovery**: Every 30 seconds the browser can reload to resynchronize cloud state. Browser operation timeouts trigger recovery and continue waiting instead of reporting success or truncating the response.
 - **Output-written success gate**: The pipeline emits `EVENT_OUTPUT_COPIED` only after the saver returns and the target output file is verified as readable and non-empty. CLI success/exit code `0` is downstream of that event.
-- **24-hour operation target**: A persistent host can keep the process alive for 24 hours or longer. No response-duration limit is imposed by the monitor; explicit user cancellation and unrecoverable authentication errors remain the only normal stop paths.
+- **24-hour operation target**: A persistent host can keep the process alive for 24 hours or longer. Normal completion remains event-driven; a separate **4-hour safety circuit breaker** only stops a run that has produced no terminal event at all, preventing infinite hangs and resource exhaustion.
 - **Parse-Gated Dispatch**: Document parsing is held automatically until backend `/files/parse` 200 OK is confirmed before sending.
 - **Maximum Attachment Size**: **100 MB** (pre-flight validated).
 

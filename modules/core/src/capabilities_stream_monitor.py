@@ -18,7 +18,11 @@ from modules.shared.src.taxonomy_core_constant import (
     STOP_BUTTON_SELECTORS,
 )
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
-from modules.shared.src.taxonomy_core_error import AuthRequiredError, OutputValidationError
+from modules.shared.src.taxonomy_core_error import (
+    AuthRequiredError,
+    OutputValidationError,
+    ResponseDetectionTimeoutError,
+)
 from modules.shared.src.taxonomy_core_event import (
     EVENT_GENERATION_FINISHED,
     EVENT_STREAMING_GENERATION,
@@ -35,6 +39,7 @@ from modules.shared.src.utility_core_events import is_stability_satisfied, shoul
 from modules.shared.src.utility_core_validation import validate_response_content
 
 log = get_logger("capabilities_stream_monitor")
+DEFAULT_SAFETY_TIMEOUT_SEC = 4 * 60 * 60
 
 
 # Block 1: Class Definition & Constructor
@@ -46,7 +51,12 @@ class StreamMonitor(IStreamProtocol):
     def __init__(
         self,
         config: StreamerConfig | None = None,
+        *,
+        safety_timeout_sec: int = DEFAULT_SAFETY_TIMEOUT_SEC,
     ) -> None:
+        if safety_timeout_sec <= 0:
+            raise ValueError("safety_timeout_sec must be greater than zero")
+        self.safety_timeout_sec = int(safety_timeout_sec)
         if config is not None:
             self.polling_interval_sec = PollIntervalSec(config.polling_interval_sec)
             self.stability_checks = StabilityChecks(config.stability_checks)
@@ -126,8 +136,9 @@ class StreamMonitor(IStreamProtocol):
 
         # Step 2: Capture baseline message state
         log.info(
-            "Waiting for AI response until terminal event (timeout hint: %ss; no response cutoff)",
+            "Waiting for AI response until terminal event (timeout hint: %ss; safety circuit breaker: %ss)",
             timeout_sec,
+            self.safety_timeout_sec,
         )
         previous_text: str | None = str(baseline_text) if baseline_text is not None else _dom_latest(page)
 
@@ -140,6 +151,11 @@ class StreamMonitor(IStreamProtocol):
         while True:
             now = time.time()
             elapsed = now - start
+            if elapsed >= self.safety_timeout_sec:
+                raise ResponseDetectionTimeoutError(
+                    "Response safety circuit breaker tripped after "
+                    f"{self.safety_timeout_sec}s without a terminal generation event"
+                )
 
             is_thinking = self.is_thinking_active(page)
             is_complete = self.is_generation_complete(page)
