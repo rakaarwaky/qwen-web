@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [5.1.0] - 2026-08-19
+
+### Added
+
+- feat(core): make response completion event-driven, with `EVENT_OUTPUT_COPIED` as the verified output-success gate
+- feat(core): add a 4-hour safety circuit breaker that raises `ResponseDetectionTimeoutError` only when no terminal generation event arrives
+- test(core): add regression coverage for delayed responses, transient browser-timeout recovery, output verification, and safety circuit breaking
+
+### Changed
+
+- refactor(core): preserve long-running Qwen generations while using periodic browser reloads for recovery rather than normal response cutoffs
+- chore(release): bump version to `5.1.0` across root and module `pyproject.toml` manifests and embedded skill metadata
+
+---
+
 ## [5.0.0] - 2026-08-19
 
 ### Added
