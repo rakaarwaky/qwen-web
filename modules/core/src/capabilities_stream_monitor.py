@@ -10,14 +10,12 @@ import time
 
 from playwright.sync_api import Error, Page
 
-from modules.core.src.utility_core_dom_helper import is_any_visible, is_selector_visible
+from modules.core.src.utility_core_dom_helper import is_any_visible
 from modules.core.src.utility_core_dom_query import latest_message_text as _dom_latest
 from modules.core.src.utility_core_logger_factory import get_logger
 from modules.shared.src.contract_core_protocol import IStreamProtocol
 from modules.shared.src.taxonomy_core_constant import (
-    SEND_DISABLED_SELECTORS,
     STOP_BUTTON_SELECTORS,
-    TYPING_INDICATOR_SELECTORS,
 )
 from modules.shared.src.taxonomy_core_entity import LifecycleEmitter
 from modules.shared.src.taxonomy_core_error import AuthRequiredError, NetworkTimeoutError, OutputValidationError
@@ -64,25 +62,33 @@ class StreamMonitor(IStreamProtocol):
         try:
             if is_any_visible(page, STOP_BUTTON_SELECTORS):
                 return False
-            if is_any_visible(page, SEND_DISABLED_SELECTORS):
-                return False
-            return not is_any_visible(page, TYPING_INDICATOR_SELECTORS)
+            return not self.is_thinking_active(page)
         except Exception:
             return False
 
     def is_thinking_active(self, page: Page) -> bool:
-        """Check whether Qwen's live thinking/status indicator is visible."""
+        """Check whether Qwen's live thinking/status indicator is visible.
+
+        Scans every thinking/status-card element (not just the first) and only
+        reports active when at least one visible element's text says "thinking"
+        without a completed/complete marker. A finished card that stays in the
+        DOM (e.g. "Thinking completed") must NOT count as active.
+        """
         try:
-            if is_selector_visible(page, TYPING_INDICATOR_SELECTORS):
-                return True
-            js_check = (
-                "() => {"
-                '  const el = document.querySelector(\'[class*="thinking"], [class*="status-card"]\');'
-                "  if (!el) return false;"
-                "  const txt = (el.innerText || '').toLowerCase();"
-                "  return txt.includes('thinking') && !txt.includes('completed') && !txt.includes('complete');"
-                "}"
-            )
+            js_check = """
+                () => {
+                  const els = document.querySelectorAll('[class*="thinking"], [class*="status-card"],
+                    [class*="typing"], [class*="streaming"]');
+                  for (const el of els) {
+                    const r = el.getBoundingClientRect();
+                    if (r.width === 0 && r.height === 0) continue;
+                    const txt = (el.innerText || '').toLowerCase();
+                    if (txt.includes('thinking') && !txt.includes('completed') && !txt.includes('complete'))
+                      return true;
+                  }
+                  return false;
+                }
+            """
             return bool(page.evaluate(js_check))
         except Exception:
             return False
@@ -178,15 +184,6 @@ class StreamMonitor(IStreamProtocol):
                             emitter.emit(EVENT_STREAMING_GENERATION, {"text_length": len(text)})
                         stable_count = 0
                         last_text = text
-
-                # Immediate exit if Qwen DOM reports generation complete and text is stable
-                if is_complete and last_text is not None and len(last_text.strip()) > 0 and stable_count >= 2:
-                    log.info(
-                        "Generation complete confirmed by DOM (elapsed=%ds, length=%d)", int(elapsed), len(last_text)
-                    )
-                    validate_response_content(last_text)
-                    emitter.emit(EVENT_GENERATION_FINISHED, {"text_length": len(last_text)})
-                    return ResponseText(last_text)
 
                 # Periodic 30s cloud reload sync trigger — ONLY when Qwen is still actively generating!
                 if (now - last_reload_time) >= 30.0 and elapsed < max_duration and is_active_generating:

@@ -34,11 +34,14 @@ from modules.shared.src.contract_core_aggregate import (
     IAttachmentPromptAggregate,
     IDirectPromptAggregate,
     IPromptFileAggregate,
+    ISessionAggregate,
     ISetupAggregate,
 )
 from modules.shared.src.contract_core_protocol import IWorkspaceProtocol
 from modules.shared.src.taxonomy_core_constant import DEFAULT_OUTPUT
 from modules.shared.src.taxonomy_core_vo import AppConfig, FilePath, HeadlessFlag
+from modules.shared.src.utility_core_response import detect_processing_failure
+from modules.shared.src.utility_core_version import get_package_version
 
 TUI_CSS = """
 /* ─── Obsidian Nebula Theme Colors ────────────────────────── */
@@ -193,6 +196,32 @@ Switch.-on {
     text-style: bold;
 }
 
+#session-badge {
+    color: #10B981;
+    text-style: bold;
+    background: #122031;
+    padding: 0 1;
+}
+
+#session-badge.invalid {
+    color: #F59E0B;
+}
+
+#btn-cancel {
+    width: 100%;
+    height: 3;
+    background: #EF4444;
+    color: #ffffff;
+    border: solid #EF4444;
+    text-style: bold;
+    margin-top: 1;
+}
+
+#btn-cancel:hover {
+    background: #051424;
+    color: #EF4444;
+}
+
 /* ─── Modal File Picker ───────────────────────────────────── */
 FilePickerModal {
     align: center middle;
@@ -314,28 +343,23 @@ def _default_file_value() -> str:
     return ""
 
 
-try:
-    from importlib.metadata import version
-
-    _APP_VERSION = version("qwen-web-cli")
-except Exception:
-    _APP_VERSION = "4.1.0"
+_APP_VERSION = get_package_version()
 
 
 class QwenTuiApp(App[None]):
     """Obsidian Nebula Terminal User Interface for Qwen Web Automation."""
 
     CSS = TUI_CSS
-    TITLE = f"QWEN-CLI {_APP_VERSION} • OBSIDIAN NEBULA"
+    TITLE = f"QWEN-CLI {_APP_VERSION} "
     SUB_TITLE = "chat.qwen.ai automation engine"
 
     BINDINGS = [
-        Binding("enter", "run_action", "Run", priority=True),
+        Binding("enter", "run_action", "Run"),
         Binding("ctrl+l", "login_action", "Login"),
         Binding("ctrl+i", "init_action", "Init"),
         Binding("ctrl+r", "reset_action", "Reset"),
-        Binding("ctrl+q", "quit", "Quit"),
-        Binding("escape", "quit", "Exit"),
+        Binding("ctrl+q", "request_quit", "Quit"),
+        Binding("escape", "request_quit", "Exit"),
     ]
 
     def __init__(
@@ -345,6 +369,7 @@ class QwenTuiApp(App[None]):
         file_only: IPromptFileAggregate,
         attachment: IAttachmentPromptAggregate,
         setup: ISetupAggregate | None = None,
+        session: ISessionAggregate | None = None,
     ) -> None:
         super().__init__()
         self._workspace = workspace
@@ -352,7 +377,9 @@ class QwenTuiApp(App[None]):
         self._file_only = file_only
         self._attachment = attachment
         self._setup = setup
+        self._session = session
         self._target_field_for_picker: str | None = None
+        self._run_worker: Any | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -405,11 +432,13 @@ class QwenTuiApp(App[None]):
                     yield Switch(value=True, id="switch-headless")
 
                 yield Button("⚡ RUN AUTOMATION [Enter]", variant="primary", id="btn-run")
+                yield Button("✕ Cancel Run", id="btn-cancel")
 
             # ─── Right Pane: Log Monitor ────────────────────────
             with Vertical(id="right-pane"):
                 with Horizontal(classes="pane-title"):
                     yield Label("[ PREVIEW & LIVE LOG ]", classes="field-label")
+                    yield Label("SESSION: CHECKING", id="session-badge")
                     yield Label("STATUS: READY", id="status-badge")
                 yield RichLog(id="log-view", highlight=True, markup=True)
 
@@ -425,6 +454,8 @@ class QwenTuiApp(App[None]):
         root = logging.getLogger()
         root.addHandler(self._log_handler)
 
+        self._refresh_session_badge()
+
     def on_unmount(self) -> None:
         if hasattr(self, "_log_handler"):
             logging.getLogger().removeHandler(self._log_handler)
@@ -433,12 +464,24 @@ class QwenTuiApp(App[None]):
         button_id = event.button.id
         if button_id == "btn-run":
             self.action_run_action()
+        elif button_id == "btn-cancel":
+            self.action_cancel_run()
         elif button_id == "btn-browse-prompt":
             self._open_picker("input-prompt")
         elif button_id == "btn-browse-file":
             self._open_picker("input-file")
         elif button_id == "btn-browse-output":
             self._open_picker("input-output")
+
+    def action_cancel_run(self) -> None:
+        worker = getattr(self, "_run_worker", None)
+        if worker is None:
+            self._log_msg("[#908fa0]No automation run in progress.[/]")
+            return
+        worker.cancel()
+        self._run_worker = None
+        self._log_msg("[bold #F59E0B]CANCELLED:[/] Automation run stopped by user.")
+        self._update_status("STATUS: READY")
 
     def _open_picker(self, target_input_id: str) -> None:
         self._target_field_for_picker = target_input_id
@@ -451,6 +494,10 @@ class QwenTuiApp(App[None]):
         self.push_screen(FilePickerModal(), _on_picked)
 
     def action_run_action(self) -> None:
+        if getattr(self, "_run_worker", None) is not None:
+            self._log_msg("[bold #F59E0B]WARNING:[/] Automation already running. Cancel it first.")
+            return
+
         prompt_val = self.query_one("#input-prompt", Input).value.strip()
         if not prompt_val:
             self._log_msg("[bold #EF4444]ERROR:[/] Prompt file is required.")
@@ -483,7 +530,7 @@ class QwenTuiApp(App[None]):
             request_timeout=120,
         )
 
-        self._execute_worker(cfg)
+        self._run_worker = self._execute_worker(cfg)
 
     @work(thread=True)
     def _execute_worker(self, cfg: AppConfig) -> None:
@@ -516,13 +563,15 @@ class QwenTuiApp(App[None]):
                 "failure",
                 "failed",
             }
-            if is_dict_err or ("fail" in res_str.lower() and "success" not in res_str.lower()):
+            fail_reason = detect_processing_failure(res_str)
+            if is_dict_err or fail_reason:
                 self.call_from_thread(self._log_msg, f"[bold #EF4444]FAILED:[/] {res_str}")
             else:
                 self.call_from_thread(self._log_msg, f"[bold #10B981]SUCCESS:[/] {res_str}")
         except Exception as exc:
             self.call_from_thread(self._log_msg, f"[bold #EF4444]FAILED:[/] {exc}")
         finally:
+            self._run_worker = None
             self.call_from_thread(self._update_status, "STATUS: READY")
 
     def action_login_action(self) -> None:
@@ -564,6 +613,49 @@ class QwenTuiApp(App[None]):
             badge.update(text)
         except Exception:
             pass
+
+    def _refresh_session_badge(self) -> None:
+        """Check saved session validity asynchronously and update the badge."""
+        try:
+            badge = self.query_one("#session-badge", Label)
+        except Exception:
+            return
+        if self._session is None:
+            badge.update("SESSION: N/A")
+            return
+        badge.update("SESSION: CHECKING...")
+        self._session_check_worker()
+
+    @work(thread=True)
+    def _session_check_worker(self) -> None:
+        """Validate session in a worker thread so the UI never blocks."""
+        if self._session is None:
+            self.call_from_thread(self._apply_session_badge, False)
+            return
+        try:
+            valid, _msg = self._session.validate_session()
+        except Exception:
+            valid = False
+        self.call_from_thread(self._apply_session_badge, valid)
+
+    def _apply_session_badge(self, valid: bool) -> None:
+        try:
+            badge = self.query_one("#session-badge", Label)
+        except Exception:
+            return
+        badge.update("SESSION: VALID" if valid else "SESSION: EXPIRED")
+        badge.set_classes("invalid" if not valid else "")
+
+    def _request_quit(self) -> None:
+        """Prompt for confirmation before quitting when a run is in progress."""
+        if getattr(self, "_run_worker", None) is None:
+            self.exit()
+            return
+        self._log_msg("[bold #F59E0B]WARNING:[/] Automation run in progress. Quit? (y/N)")
+        self._log_msg("[#908fa0]Press Ctrl+Q again to force quit, Esc to cancel, or Cancel Run first.[/]")
+
+    def action_request_quit(self) -> None:
+        self._request_quit()
 
     def _log_msg(self, msg: str) -> None:
         try:

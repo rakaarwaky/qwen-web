@@ -11,6 +11,7 @@ from .contract_core_aggregate import (
     IAttachmentPromptAggregate,
     IDirectPromptAggregate,
     IPromptFileAggregate,
+    IPromptFlowAggregate,
     ISessionAggregate,
     ISetupAggregate,
 )
@@ -94,6 +95,7 @@ from .taxonomy_core_event import (
     EVENT_FILE_UPLOADED,
     EVENT_GENERATION_FINISHED,
     EVENT_LOGIN_VERIFIED,
+    EVENT_MODEL_VERIFIED,
     EVENT_NETWORK_RECONNECTING,
     EVENT_ORDER,
     EVENT_OUTPUT_COPIED,
@@ -185,14 +187,24 @@ from .utility_core_exit import exit_code_for
 from .utility_core_path import (
     cleanup_empty_dirs,
     list_input_files,
-    resolve_role_paths,
     should_process_file,
 )
+
+# ─── Utility: paths (Playwright browser path resolution) ──────
+from .utility_core_paths import get_playwright_browsers_path
 
 # ─── Utility: prompt ──────────────────────────────────────────
 from .utility_core_prompt import (
     extract_prompt_text,
     strip_input_from_output,
+)
+
+# ─── Utility: response ────────────────────────────────────────
+from .utility_core_response import (
+    detect_processing_failure,
+    error_response,
+    safe_handle,
+    success_response,
 )
 
 # ─── Utility: text ────────────────────────────────────────────
@@ -262,6 +274,7 @@ __all__ = [
     "EVENT_STREAMING_GENERATION",
     "EVENT_GENERATION_FINISHED",
     "EVENT_LOGIN_VERIFIED",
+    "EVENT_MODEL_VERIFIED",
     "EVENT_OUTPUT_COPIED",
     "PIPELINE_EVENT_SEQUENCE",
     "EVENT_ORDER",
@@ -317,6 +330,7 @@ __all__ = [
     "DEFAULT_LOG",
     "DEFAULT_SESSION",
     "XDG_SKILL_MD",
+    "get_playwright_browsers_path",
     "MAX_ATTEMPTS",
     "SD_NOTIFY_READY",
     "SD_NOTIFY_STOPPING",
@@ -353,12 +367,16 @@ __all__ = [
     "IAttachmentPromptAggregate",
     "IDirectPromptAggregate",
     "IPromptFileAggregate",
+    "IPromptFlowAggregate",
     "ISessionAggregate",
     "ISetupAggregate",
     # Utilities
+    "detect_processing_failure",
+    "error_response",
+    "safe_handle",
+    "success_response",
     "extract_prompt_text",
     "strip_input_from_output",
-    "resolve_role_paths",
     "should_process_file",
     "list_input_files",
     "cleanup_empty_dirs",

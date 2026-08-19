@@ -1,4 +1,4 @@
-"""Core domain + cross-cutting constants for qwen-web: XDG paths, chat URL,
+"""Core domain + cross-cutting constants for qwen-web: chat URL,
 service name, DOM selectors, and auth/challenge keywords.
 
 Taxonomy layer (taxonomy(constant)): pure literals and constant values only.
@@ -7,41 +7,77 @@ Taxonomy layer (taxonomy(constant)): pure literals and constant values only.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[3]
 
 STATUS_FILENAME: str = "status.json"
 
-# ─── Application paths ────────────────────────────────────────
-
-XDG_DATA_HOME = (
+# ─── Application paths (computed inline — pure constants, no functions) ──────
+_XDG_DATA_HOME = (
     Path(os.environ["XDG_DATA_HOME"]) / "qwen-web"
     if os.environ.get("XDG_DATA_HOME")
-    else Path.home() / ".local/share/qwen-web"
+    else (
+        Path(os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")) / "qwen-web"
+        if sys.platform == "win32"
+        else Path.home() / "Library" / "Application Support" / "qwen-web"
+        if sys.platform == "darwin"
+        else Path.home() / ".local/share/qwen-web"
+    )
 )
-XDG_STATE_HOME = (
+_XDG_STATE_HOME = (
     Path(os.environ["XDG_STATE_HOME"]) / "qwen-web"
     if os.environ.get("XDG_STATE_HOME")
-    else Path.home() / ".local/state/qwen-web"
+    else (
+        Path(os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")) / "qwen-web" / "state"
+        if sys.platform == "win32"
+        else Path.home() / "Library" / "Logs" / "qwen-web"
+        if sys.platform == "darwin"
+        else Path.home() / ".local/state/qwen-web"
+    )
 )
-XDG_CACHE_HOME = (
+_XDG_CACHE_HOME = (
     Path(os.environ["XDG_CACHE_HOME"]) / "qwen-web"
     if os.environ.get("XDG_CACHE_HOME")
-    else Path.home() / ".cache/qwen-web"
+    else (
+        Path(os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")) / "qwen-web" / "cache"
+        if sys.platform == "win32"
+        else Path.home() / "Library" / "Caches" / "qwen-web"
+        if sys.platform == "darwin"
+        else Path.home() / ".cache/qwen-web"
+    )
 )
-XDG_CONFIG_HOME = (
+_XDG_CONFIG_HOME = (
     Path(os.environ["XDG_CONFIG_HOME"]) / "qwen-web"
     if os.environ.get("XDG_CONFIG_HOME")
-    else Path.home() / ".config/qwen-web"
+    else (
+        Path(os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")) / "qwen-web"
+        if sys.platform == "win32"
+        else Path.home() / "Library" / "Application Support" / "qwen-web"
+        if sys.platform == "darwin"
+        else Path.home() / ".config/qwen-web"
+    )
 )
+
+XDG_DATA_HOME = _XDG_DATA_HOME
+XDG_STATE_HOME = _XDG_STATE_HOME
+XDG_CACHE_HOME = _XDG_CACHE_HOME
+XDG_CONFIG_HOME = _XDG_CONFIG_HOME
 
 DEFAULT_OUTPUT = XDG_DATA_HOME / "output"
 DEFAULT_LOG = XDG_STATE_HOME / "log"
 DEFAULT_SESSION = XDG_DATA_HOME / "qwen_session"
-DEFAULT_TODO = XDG_DATA_HOME / "todo"
 XDG_SKILL_MD = XDG_DATA_HOME / "SKILL.md"
+
 CHAT_URL = "https://chat.qwen.ai/"
+
+# Hardcoded default model. Pipeline forces this on every chat session so the
+# user never has to pick a model manually (idempotent per-session).
+DEFAULT_MODEL = "Qwen3.8-Max"
+
+# Accessible-name locators for the chat model picker.
+MODEL_SELECTOR_BUTTON = "Select Model"
 
 MAX_ATTEMPTS = 3
 
@@ -87,7 +123,7 @@ RESPONSE_CONTENT_SELECTOR: str = ".qwen-markdown, .markdown-body, .response-mess
 
 STOP_BUTTON_SELECTORS: str = (
     "button[aria-label*='Stop' i], .message-input-right-button-send button:has(svg rect), "
-    "button:has(svg rect), [class*='stop-btn'], [class*='icon-stop'], [class*='stopButton']"
+    "[class*='stop-btn'], [class*='icon-stop'], [class*='stopButton']"
 )
 SEND_DISABLED_SELECTORS: str = (
     "button[aria-label*='Send' i][disabled], button[class*='send' i][disabled], "
@@ -95,9 +131,12 @@ SEND_DISABLED_SELECTORS: str = (
 )
 TYPING_INDICATOR_SELECTORS: str = (
     ".thinking:not([style*='display: none']):not([class*='completed']):not([class*='complete']), "
-    "[class*='qwen-chat-thinking-status-card']:not([class*='completed']):not([class*='complete']), "
-    "[class*='thinking-status-card']:not([class*='completed']):not([class*='complete']), "
-    "[class*='thinking-process'], [class*='thinking']:not([class*='completed']):not([class*='complete']), "
+    "[class*='qwen-chat-thinking-status-card']:not([class*='completed']):not([class*='complete'])"
+    ":not(:has-text('completed')), "
+    "[class*='thinking-status-card']:not([class*='completed']):not([class*='complete'])"
+    ":not(:has-text('completed')), "
+    "[class*='thinking-process'], [class*='thinking']:not([class*='completed']):not([class*='complete'])"
+    ":not(:has-text('completed')), "
     "[class*='typing'], [class*='streaming']"
 )
 
@@ -107,27 +146,73 @@ JS_GET_RESPONSE_TEXT: str = r"""
         '.qwen-markdown, .chat-response-message, .response-message-content, .qwen-markdown-text'
     );
     for (var ri = responseNodes.length - 1; ri >= 0; ri--) {
-        var responseNode = responseNodes[ri];
-        if (responseNode.closest('.qwen-chat-message-user') || responseNode.closest('.user-message-content')) continue;
+        var node = responseNodes[ri];
+        if (node.closest('.qwen-chat-message-user') || node.closest('.user-message-content')) continue;
 
-        var outerContainer = responseNode.closest('.qwen-markdown, .chat-response-message');
-        var targetNode = outerContainer || responseNode;
-        var clone = targetNode.cloneNode(true);
-        var removeNodes = clone.querySelectorAll(
-            '.margin, .line-numbers, .monaco-editor-margin, [class*="line-numbers"], ' +
-            '[class*="margin-view"], [class*="thinking"], [class*="status-card"], button, svg'
-        );
-        for (var m = 0; m < removeNodes.length; m++) {
-            removeNodes[m].remove();
+        // Tier 1: React Fiber extraction (preserves 100% of raw markdown & code without virtualization truncation)
+        var fiberKey = Object.keys(node).find(k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'));
+        if (fiberKey) {
+            var curr = node[fiberKey];
+            for (var depth = 0; depth < 30 && curr; depth++) {
+                if (curr.memoizedProps && typeof curr.memoizedProps === 'object') {
+                    var content = curr.memoizedProps.content;
+                    if (typeof content === 'string' && content.length > 0) {
+                        return content.trim();
+                    }
+                }
+                curr = curr.return;
+            }
         }
-        var responseText = (clone.innerText || '').replace(/\u00a0/g, ' ').trim();
+
+        // Tier 2: Live DOM Tree Walker fallback
+        var outerContainer = node.closest('.qwen-markdown, .chat-response-message');
+        var targetNode = outerContainer || node;
+
+        var text = '';
+        var blockTags = new Set(['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'TR', 'TD', 'TH', 'PRE', 'BLOCKQUOTE', 'BR', 'TABLE', 'UL', 'OL', 'SECTION', 'ARTICLE']);
+        var ignoreSelectors = '.margin, .line-numbers, .monaco-editor-margin, [class*="line-numbers"], [class*="margin-view"], [class*="thinking"], [class*="status-card"], [class*="status"], [class*="thinking-tool"], button, svg, [class*="copy"], .copy-code-btn, [class*="code-header"]';
+
+        function walk(n, isPre) {
+            if (n.nodeType === Node.ELEMENT_NODE) {
+                if (n.matches && n.matches(ignoreSelectors)) return;
+
+                var tag = n.tagName;
+                var classStr = (n.className && typeof n.className === 'string') ? n.className : '';
+                var isCodeBlock = tag === 'PRE' || classStr.includes('code-block') || classStr.includes('highlight') || classStr.includes('markdown-code');
+                var nextIsPre = isPre || isCodeBlock;
+
+                if (tag === 'BR') {
+                    text += '\n';
+                    return;
+                }
+
+                for (var i = 0; i < n.childNodes.length; i++) {
+                    walk(n.childNodes[i], nextIsPre);
+                }
+
+                if (blockTags.has(tag) && text.length > 0 && text[text.length - 1] !== '\n') {
+                    text += '\n';
+                }
+            } else if (n.nodeType === Node.TEXT_NODE) {
+                var val = n.nodeValue;
+                if (!isPre) {
+                    val = val.replace(/[\r\n\t ]+/g, ' ');
+                }
+                text += val;
+            }
+        }
+
+        walk(targetNode, false);
+
+        var responseText = text.replace(/\u00a0/g, ' ').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+
         if (responseText.startsWith("Thinking completed")) {
             responseText = responseText.replace(/^Thinking completed\s*/, '');
         }
         if (responseText.endsWith("Skip")) {
             responseText = responseText.replace(/\s*Skip$/, '').trim();
         }
-        if (responseText.includes("Evaluating design trade-offs") || responseText === "Skip") {
+        if (responseText === "Skip") {
             continue;
         }
         if (responseText.length > 0) return responseText;
@@ -135,6 +220,7 @@ JS_GET_RESPONSE_TEXT: str = r"""
     return null;
 }
 """
+
 
 JS_COUNT_TURNS: str = """
 () => {

@@ -98,6 +98,7 @@ log/
 *.log
 scratch/
 output/
+output.md
 .archive/
 .worktree/
 .worktrees

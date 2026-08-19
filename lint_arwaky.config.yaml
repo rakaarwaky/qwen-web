@@ -167,7 +167,7 @@ architecture:
           allowed:
             ["taxonomy", "contract(aggregate)", "contract(protocol)", "utility"]
           mandatory: ["taxonomy", "contract(aggregate)"]
-          forbidden: ["surface", "capabilities", "root"]
+          forbidden: ["surface", "capabilities", "root", "agent"]
 
         - scope: "root"
           allowed: ["taxonomy", "contract", "capabilities", "agent", "surface"]

@@ -18,6 +18,7 @@ from modules.shared.src.taxonomy_core_vo import (
     ExitCode,
     FilePath,
     FileSizeBytes,
+    ForceFlag,
     HeadlessFlag,
     InjectorConfig,
     LoggerName,
@@ -33,6 +34,10 @@ from modules.shared.src.taxonomy_core_vo import (
     StabilityChecks,
     StatusRecordVO,
     TimeoutSec,
+    UpdateCheckResult,
+    UpdateReport,
+    UpdateStepResult,
+    VersionString,
 )
 
 
@@ -162,7 +167,7 @@ class IObservabilityProtocol(ABC):
     """Observability capability contract (logging, tracing, hooks)."""
 
     @abstractmethod
-    def setup_observability(self, log_path: Path | None = None, verbose: bool = False) -> None:
+    def setup_observability(self, log_path: Path) -> None:
         """Bootstrap Sentry/OTel/structlog + global hooks."""
 
     @abstractmethod
@@ -188,6 +193,45 @@ class IObservabilityProtocol(ABC):
     @abstractmethod
     def install_excepthooks(self) -> None:
         """Install global exception handlers."""
+
+
+class IUpdateProtocol(ABC):
+    """Self-update & environment synchronization capability contract.
+
+    Owns the full update pipeline: remote version discovery via GitHub Releases API,
+    package upgrade via git pull / pip (with PEP 610 editable dev-repo detection),
+    Playwright Chromium binary synchronization, and post-update installation-integrity
+    health checks.
+    """
+
+    @abstractmethod
+    def current_version(self) -> VersionString:
+        """Return the installed package version ('unknown' when unresolvable)."""
+
+    @abstractmethod
+    def check_update(self) -> UpdateCheckResult:
+        """Compare the installed version against the latest published release.
+
+        Read-only: must never mutate the environment.
+        """
+
+    @abstractmethod
+    def upgrade_package(self, force: ForceFlag = ForceFlag(False)) -> UpdateStepResult:
+        """Upgrade (or reinstall, when forced) the package via pip."""
+
+    @abstractmethod
+    def sync_browser(self, force: ForceFlag = ForceFlag(False)) -> UpdateStepResult:
+        """Synchronize Playwright Chromium browser binaries.
+
+        When forced, cached Chromium builds are purged before re-downloading.
+        """
+
+    @abstractmethod
+    def perform_update(self, force: ForceFlag = ForceFlag(False)) -> UpdateReport:
+        """Run the full update pipeline and return the aggregated report.
+
+        Sequence: version check → package upgrade → browser sync → health checks.
+        """
 
 
 class IWorkspaceProtocol(ABC):
@@ -238,6 +282,7 @@ __all__ = [
     "IBrowserProtocol",
     "ISaverProtocol",
     "IObservabilityProtocol",
+    "IUpdateProtocol",
     "IWorkspaceProtocol",
     "IStatusProtocol",
     "IMetricsProtocol",

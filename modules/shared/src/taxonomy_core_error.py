@@ -11,6 +11,10 @@ class AuthRequiredError(QwenCliError):
     """Raised when authentication challenge/login is required in headless mode."""
 
 
+class ModelSwitchError(QwenCliError):
+    """Raised when the hardcoded default model cannot be selected/verified."""
+
+
 class PromptInjectionError(QwenCliError):
     """Raised when prompt text injection into Qwen input fails across all strategies."""
 
@@ -81,6 +85,7 @@ class OutputWriteError(QwenCliError):
 
 _ERROR_CATEGORY_RULES: tuple[tuple[tuple[str, ...], str], ...] = (
     (("auth", "login", "captcha", "signin"), "auth"),
+    (("model", "switch", "default model"), "model"),
     (("response detection", "response timeout", "stream timeout"), "response_timeout"),
     (("network", "connection", "timeout", "dns", "socket"), "network"),
     (("rate", "limit", "throttl", "429"), "rate_limit"),
@@ -110,6 +115,7 @@ class ErrorCategory:
 __all__ = [
     "QwenCliError",
     "AuthRequiredError",
+    "ModelSwitchError",
     "PromptInjectionError",
     "RateLimitError",
     "CircuitBreakerOpenError",

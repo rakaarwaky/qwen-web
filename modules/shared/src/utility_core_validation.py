@@ -29,8 +29,27 @@ def validate_response_content(text: str) -> None:
             raise OutputValidationError(f"Server error or challenge page detected in output: '{kw}'")
 
 
+UNSUPPORTED_EXTENSIONS: tuple[str, ...] = (
+    ".zip",
+    ".tar",
+    ".gz",
+    ".tgz",
+    ".7z",
+    ".rar",
+    ".bz2",
+    ".xz",
+    ".exe",
+    ".bin",
+    ".iso",
+    ".dmg",
+    ".so",
+    ".dll",
+    ".dylib",
+)
+
+
 def validate_file(filepath: object, max_size_mb: float = 100.0) -> int:
-    """Perform pre-flight sanity and security validation on file.
+    """Perform pre-flight sanity, extension gatekeeping, and security validation on file.
 
     Args:
         filepath: Path to the target file.
@@ -40,7 +59,7 @@ def validate_file(filepath: object, max_size_mb: float = 100.0) -> int:
         File size in bytes.
 
     Raises:
-        FileValidationError: If the file is invalid or exceeds size limits.
+        FileValidationError: If the file is invalid, unsupported, or exceeds size limits.
 
     """
     if not isinstance(filepath, (str, Path)):
@@ -53,6 +72,14 @@ def validate_file(filepath: object, max_size_mb: float = 100.0) -> int:
         raise FileValidationError(f"Path is not a regular file: {path}")
     if not os.access(path, os.R_OK):
         raise FileValidationError(f"File is not readable: {path}")
+
+    ext = path.suffix.lower()
+    if ext in UNSUPPORTED_EXTENSIONS:
+        raise FileValidationError(
+            f"Extension '{ext}' is not supported as an attachment by Qwen Web UI ({path.name}). "
+            f"Archive and binary formats like {ext} are rejected by Qwen. "
+            f"Please convert or bundle your content into a text document (.txt, .md, .py, .pdf)."
+        )
 
     size_bytes = path.stat().st_size
     max_bytes = int(max_size_mb * 1024 * 1024)

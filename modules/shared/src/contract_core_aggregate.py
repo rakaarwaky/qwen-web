@@ -10,15 +10,56 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
 
+from playwright.sync_api import Page
+
+from modules.shared.src.contract_core_protocol import (
+    IInjectionProtocol,
+    IObservabilityProtocol,
+    ISendProtocol,
+    IStreamProtocol,
+)
+from modules.shared.src.taxonomy_core_entity import LifecycleEmitter, LifecycleState
 from modules.shared.src.taxonomy_core_vo import (
+    AppConfig,
     AttachmentPath,
     HeadlessFlag,
+    MessageCount,
     OutputPath,
     PromptPath,
     PromptText,
     ResponseText,
+    SenderConfig,
     TimeoutSec,
 )
+
+
+class IPromptFlowAggregate(ABC):
+    """Shared prompt dispatch/response-wait flow aggregate contract.
+
+    Implemented by a shared agent flow orchestrator and consumed by the
+    direct / file / attachment prompt orchestrators via dependency injection
+    (agent-to-agent communication through a contract aggregate).
+    """
+
+    @abstractmethod
+    def dispatch_and_wait_for_response(
+        self,
+        page: Page,
+        injector: IInjectionProtocol,
+        sender: ISendProtocol,
+        streamer: IStreamProtocol,
+        emitter: LifecycleEmitter,
+        state: LifecycleState,
+        observability: IObservabilityProtocol,
+        filepath: Path,
+        prompt: str,
+        msg_count_before: MessageCount,
+        timeout_sec: int,
+        active_cfg: AppConfig,
+        sender_config: SenderConfig | None = None,
+        document_parsed: bool = True,
+    ) -> str:
+        """Inject prompt, click send, and wait for the AI response."""
 
 
 class IDirectPromptAggregate(ABC):
@@ -29,6 +70,7 @@ class IDirectPromptAggregate(ABC):
         self,
         prompt: PromptText | str,
         timeout_sec: TimeoutSec = TimeoutSec(120),
+        output_file: Path | OutputPath | str | None = None,
         headless: HeadlessFlag = HeadlessFlag(True),
     ) -> ResponseText:
         """Process a direct text prompt string."""
@@ -89,6 +131,7 @@ __all__ = [
     "IAttachmentPromptAggregate",
     "IDirectPromptAggregate",
     "IPromptFileAggregate",
+    "IPromptFlowAggregate",
     "ISessionAggregate",
     "ISetupAggregate",
 ]

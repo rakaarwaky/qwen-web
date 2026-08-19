@@ -4,16 +4,55 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [4.3.0] - 2026-08-18
+## [5.0.0] - 2026-08-19
 
 ### Added
 
-- feat(cli): hide debug event logs by default for quiet terminal UI/UX experience while keeping full Qwen AI output response
-- feat(cli): add `-v` / `--verbose` flag to enable detailed internal event debug logging when needed
+- feat(core): implement **Tier-1 React Fiber Extraction** in `JS_GET_RESPONSE_TEXT` (`taxonomy_core_constant.py`) to bypass Monaco Editor virtual scrolling and extract 100% complete, un-truncated code blocks and Markdown text
+- feat(core): enforce default model **`Qwen3.8-Max`** across all chat sessions with automated verification guards
+- feat(taxonomy): add dedicated `taxonomy_skill_constant.py` module storing the complete embedded `EMBEDDED_SKILL_MD` template string
+- feat(core): update `capabilities_workspace_provisioner.py` to write `EMBEDDED_SKILL_MD` directly into `.agents/skills/qwen-web/SKILL.md` during `qwc init`, removing external file path dependencies
+- feat(core): add pre-flight internal extension gatekeeping (`UNSUPPORTED_EXTENSIONS`) to `validate_file()` in `utility_core_validation.py` for 0ms fast-fail rejection of unsupported archive/binary formats (`.zip`, `.tar`, `.gz`, `.exe`)
+- feat(cli): add `qwen-web-cli update` self-update and environment synchronization CLI command and service protocol
+- feat(installer): add unified cross-platform Python installation script (`install.py`)
+- feat(docs): restore demo WebP (`docs/qwen_web_demo.webp`) and GIF (`docs/qwen_web_demo.gif`) animations in README header from git history
+- feat(docs): add real sanitized vector SVG screenshot (`design/tui_dashboard.svg`) of `QwenTuiApp` to README
+- feat(cli): implement working `--json` output on all prompt subcommands (`prompt-direct`, `prompt-only`, `prompt-with-attachment`, `init`, `update`, `login`) — response envelope to stdout, logs stay on stderr
+- feat(cli): map `AuthRequiredError` to **exit code `2`** (previously unreachable — all errors flattened to `1`)
+- feat(mcp): add property descriptions, value constraints (100 MB attachment limit, blocked extension list), and examples to all 7 MCP tool schemas for better LLM function-calling accuracy
+- feat(tui): add `SESSION: VALID / EXPIRED / N/A` validity badge on mount (checked asynchronously — no UI freeze)
+- feat(tui): add **Cancel Run** button, run-in-progress guard, and quit confirmation (Ctrl+Q/Esc warns while a run is active)
+- feat(shared): add `detect_processing_failure()` utility (`utility_core_response.py`) unifying `ERROR [...]`/`Failed: N` detection across MCP and TUI surfaces
+- feat(shared): extract XDG/OS path resolution into pure constants in `taxonomy_core_constant.py` and move `get_playwright_browsers_path()` to `utility_core_paths.py`
+- feat(agent): extract shared prompt-dispatch/response-wait flow into `agent_shared_flow_orchestrator.SharedFlowOrchestrator`, de-duplicating the three prompt orchestrators
+- feat(skill): document workspace rule (all files under `.qwen-web/`), orphan-process hazards & safe cleanup, and a hard warning against wrapping runs in external timeouts
+- chore(quality): resolve **all 9 `lint-arwaky` AES violations** — `lint-arwaky-cli scan modules/` now reports **0 violations** (2× AES305, 5× AES401, 2× AES203)
 
 ### Fixed
 
-- fix(docs): replace webp with animated GIF in `README.md` for GitHub compatibility
+- fix(multiplatform): implement OS-native path resolution in `taxonomy_core_constant.py` (`%LOCALAPPDATA%` / `%APPDATA%` on Windows, `~/Library/...` on macOS, XDG on Linux)
+- fix(multiplatform): align installer directory name in `scripts/install.py` (`qwen-web` instead of `qwen-web-automation`)
+- fix(multiplatform): add cross-platform Playwright browser cache resolution via `get_playwright_browsers_path()` across `surface_cli_doctor_command.py` and `capabilities_update_manager.py`
+- fix(multiplatform): add Windows (`chrome.exe`, `msedge.exe`) and macOS (`/Applications/...`) browser binary discovery to `utility_core_browser_binary.py`
+- fix(multiplatform): replace Unix-only `Path("/dev/null")` with `Path(os.devnull)` in `root_cli_main_entry.py` and `utility_core_config_factory.py`
+- fix(multiplatform): add directory fallback in `capabilities_workspace_provisioner.py` when `os.symlink()` fails on unprivileged Windows environments
+- fix(core): upgrade Live DOM Tree Walker fallback with thinking status card pruning (`[class*="thinking"]`, `[class*="status-card"]`) to prevent false-positive skips during response extraction
+- fix(cli): resolve `doctor` command unit tests for headless CI environments without active persistent sessions
+- fix(security): sanitize `/home/<username>` environment path occurrences in visual SVG documentation to `/home/user`
+- fix(ci): enforce strict Ruff and MyPy compliance across shared taxonomy and core modules
+- fix(mcp): stop wrapping `ERROR [AUTH_REQUIRED]` result strings in `success: true` envelopes — failures now return `success: false` with a typed error envelope (`AUTH_REQUIRED` / `EXECUTION_ERROR`) and `retryable` hint
+- fix(tui): render failed runs as red `FAILED` instead of green `SUCCESS` when the core reports `ERROR [...]` / `Failed: N`
+- fix(tui): remove `priority=True` from the Enter binding so pressing Enter inside file-input fields can no longer accidentally launch automation
+- fix(cli): remove the misleading `--headless` flag from the `login` parser (login always opens a visible browser)
+- fix(tui): run session badge check in a worker thread so `validate_session()` (which opens a browser) no longer freezes the TUI on mount
+- fix(core): remove legacy `DEFAULT_TODO` constant and unused imports (`sys` in `utility_core_browser_binary.py`, `SEND_DISABLED_SELECTORS` in `capabilities_stream_monitor.py`)
+
+### Changed
+
+- chore(release): bump version to `5.0.0` across root and module `pyproject.toml` manifests
+- refactor(core): `taxonomy_core_constant.py` is now pure constants only (path resolution computed inline, no functions) — fixes AES401 taxonomy-role violations
+- refactor(agent): three prompt orchestrators (direct / file / attachment) now share `SharedFlowOrchestrator.dispatch_and_wait_for_response`, removing ~35 duplicated lines per file — fixes AES305
+- docs(skill): SKILL.md guidance updated for `.qwen-web/` workspace layout, orphan-process cleanup, and no-external-timeout policy
 
 ---
 
@@ -142,6 +181,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [4.0.0] - 2026-08-10
 
 ### Added
+
 - MCP server mode (`--mcp`) for AI agent integration
 - File attachment upload support
 - Role-based directory structure for prompt organization
@@ -159,6 +199,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - GitHub Actions CI pipeline (lint + test matrix)
 
 ### Changed
+
 - Migrated to modular architecture: `prompt_injector`, `sender`, `streamer`, `saver`
 - Response extraction now uses JS-based text detection (robust against CSS class changes)
 - Default file paths reorganized under `~/.qwen-web/`
@@ -166,18 +207,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Python 3.10+ required
 
 ### Fixed
+
 - AuthRequiredError handling in MCP tools and CLI
 - Role-based done/failed paths for nested role folders
 - Hardcoded user home path replaced with generic `qwc` command
 - License metadata string format in pyproject.toml
 
 ### Removed
+
 - Legacy role prompts
 - Stale task fixtures
 
 ## [3.x] - 2026-07-01
 
 ### Added
+
 - Initial CLI automation for Qwen AI Web
 - Playwright-based browser session management
 - Markdown prompt file processing

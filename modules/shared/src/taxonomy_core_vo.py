@@ -107,6 +107,52 @@ FileSizeBytes = NewType("FileSizeBytes", int)
 LoggerName = NewType("LoggerName", str)
 ExitCode = NewType("ExitCode", int)
 
+# ─── Brand types: self-update & versioning ───────────────────
+VersionString = NewType("VersionString", str)
+ForceFlag = NewType("ForceFlag", bool)
+
+
+@dataclass(frozen=True)
+class UpdateCheckResult:
+    """Read-only outcome of comparing the installed version to the latest release."""
+
+    package_name: str
+    current_version: str
+    latest_version: str | None
+    update_available: bool
+    source: str  # "github" | "unavailable"
+
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class UpdateStepResult:
+    """Outcome of one update pipeline step (package upgrade, browser sync, health check)."""
+
+    name: str
+    executed: bool
+    success: bool
+    detail: str = ""
+    skipped_reason: str | None = None
+
+
+@dataclass(frozen=True)
+class UpdateReport:
+    """Aggregated immutable outcome of a full update run."""
+
+    package_name: str
+    previous_version: str
+    latest_version: str | None
+    source: str
+    update_available: bool
+    forced: bool
+    changed: bool
+    steps: tuple[UpdateStepResult, ...] = ()
+    health_checks: tuple[UpdateStepResult, ...] = ()
+    post_update_version: str | None = None
+    healthy: bool = False
+    message: str = ""
+
 
 @dataclass
 class RunContext:
@@ -392,6 +438,7 @@ class AppConfig:
     interval: int = 3
     timeout: int = 300
     headless: bool = False
+    verbose: bool = False
     prompt_file: Path | None = None
     prompt_path: Path | None = None
     file_path: Path | None = None
@@ -411,7 +458,6 @@ class AppConfig:
     circuit_breaker_window: int = 30
 
     retry_failed: bool = False
-    verbose: bool = False
 
     @property
     def status_path(self) -> Path:
@@ -499,6 +545,11 @@ __all__ = [
     "FileSizeBytes",
     "LoggerName",
     "ExitCode",
+    "VersionString",
+    "ForceFlag",
+    "UpdateCheckResult",
+    "UpdateStepResult",
+    "UpdateReport",
     "RunContext",
     "StatusRecordVO",
     "UploadConfig",

@@ -1,4 +1,11 @@
----
+"""Taxonomy: skill constants (AES401).
+
+Domain taxonomy constant layer for embedded SKILL.md template content.
+"""
+
+from __future__ import annotations
+
+EMBEDDED_SKILL_MD: str = r"""---
 name: qwen-web
 description: >
   Automate Qwen AI Web (chat.qwen.ai) with the Qwen3.8-Max intelligence model —
@@ -110,20 +117,26 @@ All tools speak stdio MCP and return structured JSON envelopes:
 
 ### 2.2 Exact invocation payloads
 
+> **📁 Workspace rule: put ALL prompt/attachment/output files under `.qwen-web/`**
+> (`qwen-web-cli init` creates it in the cwd — already `.gitignore`d). Use
+> `.qwen-web/input/...` and `.qwen-web/output/...`; NEVER create a bare `input/`
+> or `output/` folder in the repo root. `output/` inside `.qwen-web/` is a symlink
+> to the XDG output dir, so results persist outside the repo.
+
 ```json
 // Fast factual query (30–60s band)
 { "prompt": "List the 5 SOLID principles in one line each.",
   "timeout_sec": 60, "headless": true }
 
 // Standard engineering task (120s default band)
-{ "input_file": "input/role-fullstack-developer/todo/task_042.md",
-  "output_file": "output/role-fullstack-developer/task_042.md",
+{ "input_file": ".qwen-web/input/role-fullstack-developer/todo/task_042.md",
+  "output_file": ".qwen-web/output/role-fullstack-developer/task_042.md",
   "headless": true }
 
 // Deep reasoning with document context (600–900s band)
-{ "prompt_file": "input/role-architect/todo/review_spec.md",
-  "attachment_file": "input/role-architect/docs/system_spec.pdf",
-  "output_file": "output/role-architect/review_spec.md",
+{ "prompt_file": ".qwen-web/input/role-architect/todo/review_spec.md",
+  "attachment_file": ".qwen-web/input/role-architect/docs/system_spec.pdf",
+  "output_file": ".qwen-web/output/role-architect/review_spec.md",
   "headless": true }
 ```
 
@@ -137,18 +150,23 @@ Timeout management is **hardcoded and handled internally** by `qwen-web-arwaky`.
 - **Parse-Gated Dispatch**: Document parsing is held automatically for up to **120s** until backend `/files/parse` 200 OK is confirmed before sending.
 - **Maximum Attachment Size**: **100 MB** (pre-flight validated).
 
+> **⚠️ NEVER wrap runs in an external timeout** (`timeout N`, shell alarm, CI job timeout, agent-loop kill). The engine owns its own timing: killing a run from outside with `timeout`/`pkill` leaves the Chromium process and page orphaned, corrupts the shared browser profile, and causes the NEXT run to fail with `TargetClosedError` or silent hang. If a run looks stuck, verify it is actually still generating (see §5.6) before considering any intervention — and the only safe interventions are letting it finish or cleanly cancelling via the TUI **Cancel Run** button.
+
 ### 2.4 CLI reference (equivalent surface for scripting & CI)
 
 ```bash
 qwen-web-cli doctor [--json]                        # environment health checks
-qwen-web-cli init [--dir TARGET]                    # workspace provisioning
+qwen-web-cli init [--dir TARGET]                    # workspace provisioning (.qwen-web/ in cwd)
 qwen-web-cli login                                  # headed manual login / CAPTCHA
 qwen-web-cli update [--check] [--force]             # self-update + Chromium sync
 qwen-web-cli prompt-direct -t "..." [-o OUT] [--headless] [--json]
-qwen-web-cli prompt-only   -i PROMPT.md [-o OUT] [--headless] [--json]
-qwen-web-cli prompt-with-attachment -i PROMPT.md -a FILE [-o OUT] [--headless] [--json]
+qwen-web-cli prompt-only   -i .qwen-web/input/PROMPT.md [-o OUT] [--headless] [--json]
+qwen-web-cli prompt-with-attachment -i .qwen-web/input/PROMPT.md -a FILE [-o OUT] [--headless] [--json]
 qwen-web-cli mcp                                    # run MCP server over stdio
 ```
+
+Paths: always use `.qwen-web/input/...` for prompts/attachments and
+`.qwen-web/output/...` for results — never bare `input/`/`output/` in the repo root.
 
 Exit codes: `0` success · `1` generic error · `2` `AuthRequiredError` · `130` interrupted.
 Use `--json` in pipelines for machine-readable envelopes.
@@ -454,7 +472,29 @@ MCP client registration (Claude Desktop / Cursor style):
 7. **Headless discipline:** keep `headless: true` for all production tasks; headed
    browsers are exclusively for `login` / `setup_session` / CAPTCHA resolution.
 
-### 5.5 Quick troubleshooting table
+### 5.5 Orphan processes & safe cleanup (read before killing anything)
+
+- **Never `pkill -9`/`kill -9` a qwen run as a first resort.** Hard-killing the CLI
+  does **not** close the Playwright Chromium it spawned — the browser keeps running
+  as an orphan, holds the shared `qwen_session` profile lock, and breaks every
+  subsequent run (`TargetClosedError`, hung dispatch, silent no-op). This is the
+  single most common cause of "it worked before, now it hangs".
+- **Symptoms of an orphan:** a new run starts but the page never acts; `EVENT_*`
+  stops right after `DISPATCH_ACKNOWLEDGED`; a second Chromium process lingers after
+  the CLI already exited; `TargetClosedError: Page.wait_for_timeout`.
+- **Safe cleanup order:**
+  1. Prefer letting the run finish (watchdog gives it 900s+).
+  2. Prefer in-app cancellation (TUI **Cancel Run**; MCP has no cancel — wait).
+  3. Only as a last resort, kill the **exact PID** of the CLI process
+     (`kill <pid>`, not `pkill -9 -f`), then verify with
+     `ps aux | grep -E "chrome.*qwen_session"` that no orphan Chromium remains;
+     kill remaining orphan Chromium PIDs individually.
+  4. After any hard kill, **wait 2–3s** and confirm zero lingering
+     `chrome.*qwen_session` processes before starting the next run.
+- **Always run one pipeline at a time** on the shared profile; concurrent launches
+  collide and look identical to orphan-related hangs.
+
+### 5.6 Quick troubleshooting table
 
 | Symptom | Likely cause | Fix |
 | :--- | :--- | :--- |
@@ -469,4 +509,4 @@ MCP client registration (Claude Desktop / Cursor style):
 
 *End of skill guide. Emit complete requests, verify every envelope, and let the
 900-second watchdog do the heavy thinking.*
-
+"""

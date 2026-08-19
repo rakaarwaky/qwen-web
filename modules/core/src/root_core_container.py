@@ -21,6 +21,7 @@ from modules.core.src.agent_session_orchestrator import SessionOrchestrator
 
 # agent_setup_orchestrator
 from modules.core.src.agent_setup_orchestrator import SetupOrchestrator
+from modules.core.src.agent_shared_flow_orchestrator import SharedFlowOrchestrator
 from modules.core.src.capabilities_browser_adapter import BrowserAdapter
 from modules.core.src.capabilities_file_uploader import FileUploader
 from modules.core.src.capabilities_observability_setup import ObservabilitySetup
@@ -28,14 +29,17 @@ from modules.core.src.capabilities_output_saver import Saver
 from modules.core.src.capabilities_prompt_injector import PromptInjector
 from modules.core.src.capabilities_send_dispatcher import SendDispatcher
 from modules.core.src.capabilities_stream_monitor import StreamMonitor
+from modules.core.src.capabilities_update_manager import UpdateManager
 from modules.core.src.capabilities_workspace_provisioner import WorkspaceProvisioner
 from modules.shared.src.contract_core_aggregate import (
     IAttachmentPromptAggregate,
     IDirectPromptAggregate,
     IPromptFileAggregate,
+    IPromptFlowAggregate,
     ISessionAggregate,
     ISetupAggregate,
 )
+from modules.shared.src.contract_core_protocol import IUpdateProtocol
 from modules.shared.src.taxonomy_core_constant import DEFAULT_LOG
 from modules.shared.src.taxonomy_core_entity import CircuitBreaker, RateLimiter
 from modules.shared.src.taxonomy_core_vo import FailureThreshold, MaxPerMinute, WindowSec
@@ -67,6 +71,10 @@ class SharedContainer:
         self.saver = Saver()
         self.observability = ObservabilitySetup(log)
         self.workspace = WorkspaceProvisioner()
+        self.updater: IUpdateProtocol = UpdateManager()
+
+        # Shared prompt-flow agent (injected into the three prompt orchestrators)
+        self.agent_shared_flow_orchestrator: IPromptFlowAggregate = SharedFlowOrchestrator()
 
         # The 5 specialized agent orchestrators
         self.agent_direct_prompt_orchestrator: IDirectPromptAggregate = DirectPromptOrchestrator(
@@ -74,7 +82,9 @@ class SharedContainer:
             injector=self.injector,
             sender=self.sender,
             streamer=self.streamer,
+            saver=self.saver,
             observability=self.observability,
+            flow=self.agent_shared_flow_orchestrator,
         )
         self.agent_prompt_file_orchestrator: IPromptFileAggregate = PromptFileOrchestrator(
             browser=self.browser,
@@ -83,6 +93,7 @@ class SharedContainer:
             streamer=self.streamer,
             saver=self.saver,
             observability=self.observability,
+            flow=self.agent_shared_flow_orchestrator,
         )
         self.agent_attachment_prompt_orchestrator: IAttachmentPromptAggregate = AttachmentPromptOrchestrator(
             browser=self.browser,
@@ -92,6 +103,7 @@ class SharedContainer:
             uploader=self.uploader,
             saver=self.saver,
             observability=self.observability,
+            flow=self.agent_shared_flow_orchestrator,
         )
         self.agent_session_orchestrator: ISessionAggregate = SessionOrchestrator(
             browser=self.browser,

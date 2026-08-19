@@ -28,6 +28,12 @@ class TestValidateFile:
         with pytest.raises(FileValidationError, match="does not exist"):
             FileUploader().validate_file(tmp_path / "nope.md")
 
+    def test_unsupported_zip_extension(self, tmp_path):
+        archive = tmp_path / "code.zip"
+        archive.write_bytes(b"PK\x03\x04")
+        with pytest.raises(FileValidationError, match="not supported as an attachment"):
+            FileUploader().validate_file(archive)
+
     def test_directory_not_file(self, tmp_path):
         with pytest.raises(FileValidationError, match="not a regular file"):
             FileUploader().validate_file(tmp_path)

@@ -83,19 +83,19 @@ def setup_xdg_directories(python_bin: Path) -> None:
 
     xdg_data = (
         Path(os.environ.get("XDG_DATA_HOME", Path.home() / ("AppData/Local" if is_win else ".local/share")))
-        / "qwen-web-automation"
+        / "qwen-web"
     )
     xdg_state = (
         Path(os.environ.get("XDG_STATE_HOME", Path.home() / ("AppData/Local" if is_win else ".local/state")))
-        / "qwen-web-automation"
+        / "qwen-web"
     )
     xdg_cache = (
         Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ("AppData/Local/Temp" if is_win else ".cache")))
-        / "qwen-web-automation"
+        / "qwen-web"
     )
     xdg_config = (
         Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ("AppData/Roaming" if is_win else ".config")))
-        / "qwen-web-automation"
+        / "qwen-web"
     )
 
     roles = ["role-architect", "role-business-analyst", "role-tech-lead"]

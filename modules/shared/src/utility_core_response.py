@@ -6,6 +6,7 @@ standardized success/error response dicts used by CLI/MCP surfaces.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from functools import wraps
 
@@ -68,3 +69,14 @@ def error_response(exc: BaseException, category: str = "unexpected", ref: str = 
         {"success": False, "error": str(exc), "category": category, "ref": ref}
     """
     return {"success": False, "error": str(exc), "category": category, "ref": ref}
+
+
+def detect_processing_failure(result: object) -> str | None:
+    """Return a failure reason string when a core response contains an error message."""
+    message = str(result)
+    if message.startswith("ERROR ["):
+        return message
+    match = re.search(r"\bFailed:\s*(\d+)\b", message, flags=re.IGNORECASE)
+    if match and int(match.group(1)) > 0:
+        return message
+    return None

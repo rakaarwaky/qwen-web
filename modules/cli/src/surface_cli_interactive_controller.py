@@ -14,6 +14,7 @@ from modules.shared.src.contract_core_aggregate import (
     IAttachmentPromptAggregate,
     IDirectPromptAggregate,
     IPromptFileAggregate,
+    ISessionAggregate,
     ISetupAggregate,
 )
 from modules.shared.src.contract_core_protocol import IWorkspaceProtocol
@@ -31,6 +32,7 @@ class InteractiveController:
         file_only: IPromptFileAggregate,
         attachment: IAttachmentPromptAggregate,
         setup: ISetupAggregate | None = None,
+        session: ISessionAggregate | None = None,
     ) -> None:
         """Inject the specialized pipeline orchestrators, workspace, and setup."""
         self._workspace = workspace
@@ -38,6 +40,7 @@ class InteractiveController:
         self._file_only = file_only
         self._attachment = attachment
         self._setup = setup
+        self._session = session
 
     @safe_handle
     def run(self, cfg: AppConfig | None = None, *, prompt: bool = True) -> dict[str, object]:
@@ -58,6 +61,7 @@ class InteractiveController:
                 self._file_only,
                 self._attachment,
                 self._setup,
+                self._session,
             )
             app.run()
             return success_response("TUI Session Closed.")
@@ -72,7 +76,11 @@ class InteractiveController:
                 return error_response(
                     RuntimeError("Missing inline prompt text for direct mode."), "validation_error", "cli-400"
                 )
-            result = self._direct.process_direct_prompt(prompt=prompt_text, headless=HeadlessFlag(cfg.headless))
+            result = self._direct.process_direct_prompt(
+                prompt=prompt_text,
+                output_file=cfg.output_path,
+                headless=HeadlessFlag(cfg.headless),
+            )
         elif mode == "single":
             prompt_file = cfg.prompt_path or cfg.input_path
             if cfg.file_path:

@@ -238,12 +238,10 @@ class ObservabilitySetup(IObservabilityProtocol):
             root.removeHandler(handler)
         stderr_handler = logging.StreamHandler(sys.stderr)
         stderr_handler.setFormatter(formatter)
-        stderr_handler.setLevel(log_level)
         root.addHandler(stderr_handler)
         try:
             file_handler = logging.FileHandler(log_path / "app.jsonl", encoding="utf-8")
             file_handler.setFormatter(formatter)
-            file_handler.setLevel(logging.DEBUG)
             root.addHandler(file_handler)
         except OSError:
             pass

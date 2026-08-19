@@ -51,6 +51,7 @@ class QwenEventType(str, Enum):
     GENERATION_FINISHED = "EVENT_GENERATION_FINISHED"
     OUTPUT_COPIED = "EVENT_OUTPUT_COPIED"
     LOGIN_VERIFIED = "EVENT_LOGIN_VERIFIED"
+    MODEL_VERIFIED = "EVENT_MODEL_VERIFIED"
 
 
 EVENT_NETWORK_RECONNECTING = QwenEventType.NETWORK_RECONNECTING
@@ -65,13 +66,28 @@ EVENT_STREAMING_GENERATION = QwenEventType.STREAMING_GENERATION
 EVENT_GENERATION_FINISHED = QwenEventType.GENERATION_FINISHED
 EVENT_OUTPUT_COPIED = QwenEventType.OUTPUT_COPIED
 EVENT_LOGIN_VERIFIED = QwenEventType.LOGIN_VERIFIED
+EVENT_MODEL_VERIFIED = QwenEventType.MODEL_VERIFIED
 
 
 PIPELINE_EVENT_SEQUENCE: tuple[QwenEventType, ...] = (
     QwenEventType.WEB_LOADED,
     QwenEventType.LOGIN_VERIFIED,
+    QwenEventType.MODEL_VERIFIED,
     QwenEventType.FILE_UPLOADED,
     QwenEventType.DOCUMENT_PARSED,
+    QwenEventType.PROMPT_INJECTED,
+    QwenEventType.SEND_CLICKED,
+    QwenEventType.DISPATCH_ACKNOWLEDGED,
+    QwenEventType.THINKING_STARTED,
+    QwenEventType.STREAMING_GENERATION,
+    QwenEventType.GENERATION_FINISHED,
+    QwenEventType.OUTPUT_COPIED,
+)
+
+STANDARD_PROMPT_EVENTS: tuple[QwenEventType, ...] = (
+    QwenEventType.WEB_LOADED,
+    QwenEventType.LOGIN_VERIFIED,
+    QwenEventType.MODEL_VERIFIED,
     QwenEventType.PROMPT_INJECTED,
     QwenEventType.SEND_CLICKED,
     QwenEventType.DISPATCH_ACKNOWLEDGED,
@@ -119,6 +135,7 @@ EVENT_DESCRIPTIONS: dict[QwenEventType, str] = {
     QwenEventType.GENERATION_FINISHED: "Generation finished",
     QwenEventType.OUTPUT_COPIED: "Output saved",
     QwenEventType.LOGIN_VERIFIED: "Login session verified",
+    QwenEventType.MODEL_VERIFIED: "Default model verified",
 }
 
 __all__ = [
@@ -130,6 +147,7 @@ __all__ = [
     "CallbackRegistry",
     "EVENT_DESCRIPTIONS",
     "PIPELINE_EVENT_SEQUENCE",
+    "STANDARD_PROMPT_EVENTS",
     "EVENT_ORDER",
     "EVENT_NETWORK_RECONNECTING",
     "EVENT_WEB_LOADED",
@@ -143,4 +161,5 @@ __all__ = [
     "EVENT_GENERATION_FINISHED",
     "EVENT_OUTPUT_COPIED",
     "EVENT_LOGIN_VERIFIED",
+    "EVENT_MODEL_VERIFIED",
 ]

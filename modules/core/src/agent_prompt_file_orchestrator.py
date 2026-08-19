@@ -14,10 +14,9 @@ from modules.core.src.utility_core_config_factory import (
     build_app_config,
     resolve_pipeline_output_path,
 )
-from modules.core.src.utility_core_dom_query import latest_message_text
 from modules.core.src.utility_core_error_mapping import to_error_response
 from modules.core.src.utility_core_io_writer import save_orchestrator_output
-from modules.shared.src.contract_core_aggregate import IPromptFileAggregate
+from modules.shared.src.contract_core_aggregate import IPromptFileAggregate, IPromptFlowAggregate
 from modules.shared.src.contract_core_protocol import (
     IBrowserProtocol,
     IInjectionProtocol,
@@ -26,32 +25,14 @@ from modules.shared.src.contract_core_protocol import (
     ISendProtocol,
     IStreamProtocol,
 )
-from modules.shared.src.taxonomy_core_error import (
-    ResponseDetectionTimeoutError,
-)
-from modules.shared.src.taxonomy_core_event import (
-    EVENT_DISPATCH_ACKNOWLEDGED,
-    EVENT_GENERATION_FINISHED,
-    EVENT_LOGIN_VERIFIED,
-    EVENT_OUTPUT_COPIED,
-    EVENT_PROMPT_INJECTED,
-    EVENT_SEND_CLICKED,
-    EVENT_STREAMING_GENERATION,
-    EVENT_THINKING_STARTED,
-    EVENT_WEB_LOADED,
-    QwenEventType,
-)
+from modules.shared.src.taxonomy_core_event import STANDARD_PROMPT_EVENTS
 from modules.shared.src.taxonomy_core_vo import (
     AppConfig,
     HeadlessFlag,
-    MessageCount,
     OutputPath,
-    PollIntervalSec,
     PromptPath,
-    PromptText,
     ResponseText,
     RunContext,
-    TimeoutSec,
 )
 
 
@@ -66,6 +47,7 @@ class PromptFileOrchestrator(IPromptFileAggregate):
         streamer: IStreamProtocol,
         saver: ISaverProtocol,
         observability: IObservabilityProtocol,
+        flow: IPromptFlowAggregate,
     ) -> None:
         self._browser = browser
         self._injector = injector
@@ -73,6 +55,7 @@ class PromptFileOrchestrator(IPromptFileAggregate):
         self._streamer = streamer
         self._saver = saver
         self._observability = observability
+        self._flow = flow
 
     def process_prompt_file_only(
         self,
@@ -101,21 +84,9 @@ class PromptFileOrchestrator(IPromptFileAggregate):
             return to_error_response(exc)
 
     def _execute_file_on_page(self, page: Page, filepath: Path, timeout_sec: int, active_cfg: AppConfig) -> str:
-        logger = self._observability.get_logger()
-        file_prompt_events: tuple[QwenEventType, ...] = (
-            EVENT_WEB_LOADED,
-            EVENT_LOGIN_VERIFIED,
-            EVENT_PROMPT_INJECTED,
-            EVENT_SEND_CLICKED,
-            EVENT_DISPATCH_ACKNOWLEDGED,
-            EVENT_THINKING_STARTED,
-            EVENT_STREAMING_GENERATION,
-            EVENT_GENERATION_FINISHED,
-            EVENT_OUTPUT_COPIED,
-        )
         from modules.core.src.utility_core_dom_helper import setup_lifecycle_state
 
-        emitter, state = setup_lifecycle_state(logger, file_prompt_events)
+        emitter, state = setup_lifecycle_state(self._observability.get_logger(), STANDARD_PROMPT_EVENTS)
 
         prompt = filepath.read_text(encoding="utf-8").strip()
 
@@ -125,34 +96,19 @@ class PromptFileOrchestrator(IPromptFileAggregate):
 
         self._injector.find_input(page)
 
-        try:
-            baseline_response = latest_message_text(page)
-        except Exception:
-            baseline_response = None
-
-        self._injector.inject_text(page, PromptText(prompt))
-        emitter.emit(EVENT_PROMPT_INJECTED, {"file": str(filepath), "char_count": len(prompt)})
-
-        self._sender.click_send(page, emitter, document_parsed=HeadlessFlag(True))
-        if not state.dispatch_acknowledged:
-            raise RuntimeError("Cannot wait for response: prompt dispatch is incomplete")
-
-        stream_timeout_sec = min(timeout_sec, active_cfg.streaming_timeout)
-        response = self._streamer.wait_for_response(
-            page,
-            TimeoutSec(stream_timeout_sec),
-            MessageCount(msg_count_before),
-            emitter,
-            polling_interval_sec=PollIntervalSec(active_cfg.poll_interval),
-            dispatch_acknowledged=HeadlessFlag(state.dispatch_acknowledged),
-            baseline_text=baseline_response,
-        )
-
-        if response and len(response.strip()) > 0:
-            logger.info("Received response (%d chars)", len(response))
-            return response.strip()
-        raise ResponseDetectionTimeoutError(
-            f"Response detection timeout after {stream_timeout_sec}s: no response detected"
+        return self._flow.dispatch_and_wait_for_response(
+            page=page,
+            injector=self._injector,
+            sender=self._sender,
+            streamer=self._streamer,
+            emitter=emitter,
+            state=state,
+            observability=self._observability,
+            filepath=filepath,
+            prompt=prompt,
+            msg_count_before=msg_count_before,
+            timeout_sec=timeout_sec,
+            active_cfg=active_cfg,
         )
 
 

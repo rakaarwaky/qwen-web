@@ -16,7 +16,7 @@
 ---
 
 <p align="center">
-  <img src="docs/qwen_web_demo.gif" alt="Qwen Web Automation Demo" width="100%">
+  <img src="docs/qwen_web_demo.webp" alt="Qwen Web Automation Demo" width="100%">
 </p>
 
 ---
@@ -43,20 +43,21 @@
 #### Automated Setup (Recommended)
 
 - **Linux / macOS**:
+
   ```bash
   git clone https://github.com/rakaarwaky/qwen-web.git
   cd qwen-web
   ./scripts/install.sh
   ```
-
 - **Windows (PowerShell)**:
+
   ```powershell
   git clone https://github.com/rakaarwaky/qwen-web.git
   cd qwen-web
   .\scripts\install.ps1
   ```
-
 - **Universal Python Installer**:
+
   ```bash
   python3 scripts/install.py  # (or `python scripts/install.py` on Windows)
   ```
@@ -96,20 +97,7 @@ Run `qwen-web-cli` without arguments to launch the Textual TUI dashboard:
 qwen-web-cli
 ```
 
-```text
-+--------------------------------------------------------------------------------+
-| Qwen AI Web Automation -- Obsidian Nebula Dashboard                            |
-| [ Direct Prompt ]  [ File Prompt ]  [ Attachment ]  [ Login ]  [ Init ]        |
-+--------------------------------------------------------------------------------+
-| Workspace Explorer               | Live Execution Logs                         |
-| |- input/                        | 23:45:00 [info] Initializing Playwright...   |
-| |  |- prompt.md                  | 23:45:02 [info] Session authenticated       |
-| |  `- document.pdf               | 23:45:05 [info] Injecting multi-line prompt  |
-| `- output/                       | 23:45:27 [info] Generation finished (38KB)   |
-+----------------------------------+---------------------------------------------+
-| Headless Mode: [ON]   Output File: ~/.local/share/qwen-web/output/result.md    |
-+--------------------------------------------------------------------------------+
-```
+![Qwen Web TUI Dashboard](design/tui_dashboard.svg)
 
 ---
 
@@ -196,8 +184,6 @@ Layer 7: Root         (DI composition container & main entry points)
 
 Enforced automatically by `lint-arwaky-cli` with **0 architectural layer violations**.
 
-
-
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#ffffff', 'primaryTextColor': '#000000', 'primaryBorderColor': '#000000', 'lineColor': '#000000', 'secondaryColor': '#f4f4f4', 'tertiaryColor': '#ffffff', 'clusterBkg': '#ffffff', 'clusterBorder': '#000000', 'titleColor': '#000000', 'edgeLabelBackground': '#ffffff'}}}%%
 flowchart TD
@@ -226,7 +212,6 @@ flowchart TD
     Capabilities --> Chromium
     Chromium <--> Web
 ```
-
 
 ---
 
