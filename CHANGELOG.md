@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [5.2.2] - 2026-08-20
+
+### Fixed
+
+- Merge pull request #152 from rakaarwaky/fix/mcp-local-json-entrypoint
+- fix: align local MCP config with current qwen-web-mcp entrypoint
+- fix: align local MCP config with current qwen-web-mcp entrypoint
+
 ## [5.2.1] - 2026-08-19
 
 ### Fixed
